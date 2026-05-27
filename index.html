@@ -6,13 +6,13 @@
 <title>EmonCMS Live</title>
 <style>
   :root{--bg:#09090b;--card:#121214;--muted:#71717a;--amber:#f59e0b}
-  body{margin:0;background:var(--bg);color:#fff;font-family:system-ui,-apple-system,sans-serif;display:flex;flex-direction:column;min-height:100vh}
+  body{margin:0;background:var(--bg);color:#fff;font-family:system-ui;display:flex;flex-direction:column;min-height:100vh}
   header{padding:14px 18px;background:var(--card);border-bottom:1px solid #27272a;font-weight:700}
-  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;padding:16px;flex:1}
-  .card{background:var(--card);border:1px solid #27272a;border-radius:14px;padding:18px}
-  .label{color:var(--muted);font-size:13px;margin-bottom:6px}
-  .value{font-size:42px;font-weight:800;color:var(--amber);font-variant-numeric:tabular-nums}
-  .unit{font-size:16px;color:var(--muted);margin-left:4px}
+ .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;padding:16px;flex:1}
+ .card{background:var(--card);border:1px solid #27272a;border-radius:14px;padding:18px}
+ .label{color:var(--muted);font-size:13px;margin-bottom:6px}
+ .value{font-size:42px;font-weight:800;color:var(--amber);font-variant-numeric:tabular-nums}
+ .unit{font-size:16px;color:var(--muted);margin-left:4px}
   footer{padding:10px 18px;color:var(--muted);font-size:12px;border-top:1px solid #27272a;display:flex;justify-content:space-between}
 </style>
 </head>
@@ -27,42 +27,35 @@
 
 <script>
 const API_KEY = "c28cb22a6877c80b1c6a2611b72c25f4";
-const FEEDS = { breaker: "499374", pc: "499422", solar: "499380" };
+const FEEDS = { breaker:"499374", pc:"499422", solar:"499380" };
 const REFRESH = 30;
 
 async function get(id){
-  const url = `https://emoncms.org/feed/value.json?id=${id}&apikey=${API_KEY}&_=${Date.now()}`;
+  const target = `https://emoncms.org/feed/value.json?id=${id}&apikey=${API_KEY}`;
+  const url = `https://api.allorigins.win/raw?url=${encodeURIComponent(target)}&t=${Date.now()}`;
   try {
     const r = await fetch(url, {cache:"no-store"});
-    if(!r.ok) throw new Error(r.status);
     const txt = await r.text();
     const v = parseFloat(txt);
-    return isNaN(v) ? null : Math.round(v);
-  } catch(e){ return null; }
+    return isNaN(v)? null : Math.round(v);
+  } catch(e){ console.error(e); return null; }
 }
 
 async function poll(){
   document.getElementById('status').textContent = 'Updating...';
-  const [b,p,s] = await Promise.all([ get(FEEDS.breaker), get(FEEDS.pc), get(FEEDS.solar) ]);
-  document.getElementById('breaker').textContent = b ?? '---';
-  document.getElementById('pc').textContent = p ?? '---';
-  document.getElementById('solar').textContent = s ?? '---';
-  document.getElementById('status').textContent = 'Updated ' + new Date().toLocaleTimeString();
+  const [b,p,s] = await Promise.all([get(FEEDS.breaker),get(FEEDS.pc),get(FEEDS.solar)]);
+  document.getElementById('breaker').textContent = b?? '---';
+  document.getElementById('pc').textContent = p?? '---';
+  document.getElementById('solar').textContent = s?? '---';
+  document.getElementById('status').textContent = 'Updated '+new Date().toLocaleTimeString();
   startCountdown();
 }
-
-let cd = REFRESH, t;
+let cd=REFRESH,t;
 function startCountdown(){
-  clearInterval(t);
-  cd = REFRESH;
-  document.getElementById('timer').textContent = `Next in ${cd}s`;
-  t = setInterval(()=>{
-    cd--; 
-    document.getElementById('timer').textContent = cd>0 ? `Next in ${cd}s` : '';
-    if(cd<=0){ clearInterval(t); poll(); }
-  },1000);
+  clearInterval(t); cd=REFRESH;
+  document.getElementById('timer').textContent=`Next in ${cd}s`;
+  t=setInterval(()=>{cd--;document.getElementById('timer').textContent=cd>0?`Next in ${cd}s`:'';if(cd<=0){clearInterval(t);poll()}},1000);
 }
-
 poll();
 </script>
 </body>

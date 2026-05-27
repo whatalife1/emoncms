@@ -53,7 +53,7 @@ async function render(){
  document.getElementById('u').textContent='Updated '+new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
  document.getElementById('r').textContent='Refresh';
 }
-let s=30,t;function cd(){clearInterval(t);s=30;document.getElementById('c').textContent=`Next in ${s}s`;t=setInterval(()=>{s--;document.getElementById('c').textContent=s>0?`Next in ${s}s`:'';if(s<=0){clearInterval(t);loop()}},1000)}
+let s=10,t;function cd(){clearInterval(t);s=30;document.getElementById('c').textContent=`Next in ${s}s`;t=setInterval(()=>{s--;document.getElementById('c').textContent=s>0?`Next in ${s}s`:'';if(s<=0){clearInterval(t);loop()}},1000)}
 async function loop(){await render();cd()}
 document.getElementById('r').onclick=loop;loop();
 </script>

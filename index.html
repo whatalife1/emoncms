@@ -2,70 +2,123 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>EmonCMS Live</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#09090b">
+<title>EmonCMS Monitor</title>
 <style>
-  :root{--bg:#09090b;--card:#121214;--muted:#71717a;--amber:#f59e0b}
-  body{margin:0;background:var(--bg);color:#fff;font-family:system-ui,-apple-system,sans-serif;display:flex;flex-direction:column;min-height:100vh}
-  header{padding:14px 18px;background:var(--card);border-bottom:1px solid #27272a;font-weight:700}
-  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;padding:16px;flex:1}
-  .card{background:var(--card);border:1px solid #27272a;border-radius:14px;padding:18px}
-  .label{color:var(--muted);font-size:13px;margin-bottom:6px}
-  .value{font-size:42px;font-weight:800;color:var(--amber);font-variant-numeric:tabular-nums}
-  .unit{font-size:16px;color:var(--muted);margin-left:4px}
-  footer{padding:10px 18px;color:var(--muted);font-size:12px;border-top:1px solid #27272a;display:flex;justify-content:space-between}
+  :root{--bg-base:#09090b;--bg-panel:#121214;--bg-card:#1c1c1f;--border:#27272a;--text-main:#f4f4f5;--text-muted:#71717a;--accent-w:#f59e0b;--accent-kwh:#38bdf8;--accent-env:#10b981}
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{background:var(--bg-base);color:var(--text-main);font-family:system-ui,-apple-system,sans-serif;font-size:14px;width:100%;min-height:100vh}
+ .header{background:#121214;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);position:sticky;top:0;z-index:10}
+ .header-title{font-size:14px;font-weight:700}
+  button{background:var(--bg-card);color:var(--text-main);border:1px solid var(--border);border-radius:8px;padding:5px 10px;font-size:11px;font-weight:600;cursor:pointer}
+ .btn-primary{background:var(--text-main);color:var(--bg-base);border-color:var(--text-main)}
+ .container{padding:10px;display:flex;flex-direction:column;gap:6px;padding-bottom:60px;max-width:480px;margin:0 auto}
+ .card{background:var(--bg-panel);border:1px solid var(--border);border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:4px}
+ .card-header{display:flex;justify-content:space-between;align-items:center}
+ .card-name{font-weight:600;color:#fff;font-size:13px}
+ .card-value{font-size:17px;font-weight:800;font-variant-numeric:tabular-nums}
+ .hero-header{display:flex;justify-content:space-between;align-items:center;padding-bottom:4px;border-bottom:1px solid #1c1c1f}
+ .hero-val{color:var(--accent-w);font-size:17px;font-weight:800;margin-left:4px}
+ .val-watts{color:var(--accent-w)}.val-units{color:var(--accent-kwh)}.val-env{color:var(--accent-env)}
+ .linked-values{display:grid;gap:4px 12px;margin-top:4px}.linked-values-pair{grid-template-columns:1fr 1fr}
+ .linked-value{display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--text-muted)}
+ .linked-reading{font-weight:700;color:var(--accent-kwh);font-size:12px}
+ .footer{position:fixed;bottom:0;left:0;right:0;background:#121214;padding:8px 16px;font-size:10px;color:var(--text-muted);border-top:1px solid var(--border);display:flex;justify-content:space-between;z-index:5}
+  @keyframes spin{to{transform:rotate(360deg)}}.spin{display:inline-block;animation:spin.7s linear infinite}
 </style>
 </head>
 <body>
-  <header>⚡ EmonCMS Live — Lahore</header>
-  <div class="grid">
-    <div class="card"><div class="label">Breaker</div><div><span class="value" id="breaker">---</span><span class="unit">W</span></div></div>
-    <div class="card"><div class="label">PC</div><div><span class="value" id="pc">---</span><span class="unit">W</span></div></div>
-    <div class="card"><div class="label">Solar</div><div><span class="value" id="solar">---</span><span class="unit">W</span></div></div>
+  <div class="header">
+    <div class="header-title">⚡ EmonCMS Monitor</div>
+    <div><button class="btn-primary" id="btn-refresh">Refresh</button></div>
   </div>
-  <footer><span id="status">Connecting...</span><span id="timer"></span></footer>
+  <div class="container" id="list"></div>
+  <div class="footer"><span id="footer">Connecting...</span><span id="countdown"></span></div>
 
 <script>
-const WORKER = "https://emon-proxy.new-life-786-786-786.workers.dev";
-const FEEDS = { breaker: "499374", pc: "499422", solar: "499380" };
-const REFRESH = 30;
+const WORKER = "https://emon-proxy.new-life-786.workers.dev";
+const FEEDS_BASE = [
+  {id:"499431",name:"Water Tank",unit:"%",type:"env"},
+  {id:"499374",name:"Breaker",unit:"W",type:"watts"},
+  {id:"499383",name:"AC Volts",unit:"V",type:"env"},
+  {id:"499413",name:"Breaker Today",unit:"kWh",type:"units"},
+  {id:"499412",name:"Breaker Total",unit:"kWh",type:"units"},
+  {id:"499380",name:"Solar",unit:"W",type:"watts"},
+  {id:"499381",name:"Solar V",unit:"",type:"env"},
+  {id:"499388",name:"Tot Load",unit:"W",type:"watts"},
+  {id:"499415",name:"Solar Today",unit:"kWh",type:"units"},
+  {id:"499414",name:"Solar Total",unit:"kWh",type:"units"},
+  {id:"499403",name:"Utility",unit:"W",type:"watts"},
+  {id:"499421",name:"Utility Today",unit:"kWh",type:"units"},
+  {id:"499420",name:"Utility Total",unit:"kWh",type:"units"},
+  {id:"499373",name:"Fridge",unit:"W",type:"watts"},
+  {id:"541348",name:"Fridge2",unit:"W",type:"watts"},
+  {id:"499411",name:"Fridge Today",unit:"kWh",type:"units"},
+  {id:"541350",name:"Fridge2 Today",unit:"kWh",type:"units"},
+  {id:"499362",name:"Kenwood 1.5Ton",unit:"W",type:"watts"},
+  {id:"499405",name:"Kenwood 1.5Ton Today",unit:"kWh",type:"units"},
+  {id:"499404",name:"Kenwood 1.5Ton Total",unit:"kWh",type:"units"},
+  {id:"499364",name:"Kenwood 1Ton",unit:"W",type:"watts"},
+  {id:"499407",name:"Kenwood 1Ton Today",unit:"kWh",type:"units"},
+  {id:"499406",name:"Kenwood 1Ton Total",unit:"kWh",type:"units"},
+  {id:"499367",name:"Hair 1Ton",unit:"W",type:"watts"},
+  {id:"499409",name:"Hair 1Ton Today",unit:"kWh",type:"units"},
+  {id:"499408",name:"Hair 1Ton Total",unit:"kWh",type:"units"},
+  {id:"499422",name:"PC",unit:"W",type:"watts"},
+  {id:"499424",name:"PC Today",unit:"kWh",type:"units"},
+  {id:"499428",name:"Temperature",unit:"°C",type:"env"},
+  {id:"499429",name:"Humidity",unit:"%",type:"env"}
+];
+const COLORS={watts:"val-watts",units:"val-units",env:"val-env"};
+const LINKED_GROUPS=[["Solar","Solar V","Tot Load","Solar Today","Solar Total"],["Breaker","AC Volts","Breaker Today","Breaker Total"],["Utility","Utility Today","Utility Total"],["PC","PC Today"],["Kenwood 1Ton","Kenwood 1Ton Today","Kenwood 1Ton Total"],["Kenwood 1.5Ton","Kenwood 1.5Ton Today","Kenwood 1.5Ton Total"],["Hair 1Ton","Hair 1Ton Today","Hair 1Ton Total"],["Fridge","Fridge2","Fridge Today","Fridge2 Today"],["Temperature","Humidity"]];
 
-async function get(id){
-  const url = `${WORKER}?id=${id}&t=${Date.now()}`;
-  try {
-    const r = await fetch(url, {cache:"no-store"});
-    const txt = await r.text();
-    const v = parseFloat(txt);
-    return isNaN(v) ? null : Math.round(v);
-  } catch(e){ return null; }
+async function fetchEmon(id){
+  try{
+    const r=await fetch(`${WORKER}?id=${id}&t=${Date.now()}`,{cache:"no-store"});
+    const t=await r.text();
+    const v=parseFloat(t.replace(/['"]/g,''));
+    return isNaN(v)?null:v;
+  }catch(e){return null}
 }
-
+function renderResults(results){
+  const byName=new Map(results.map(r=>[r.name,r]));const used=new Set();
+  const html=results.map(f=>{
+    if(used.has(f.name))return"";const gn=LINKED_GROUPS.find(g=>g.includes(f.name));if(gn)gn.forEach(n=>used.add(n));else used.add(f.name);
+    if(gn&&gn.includes("Solar")){
+      const s=byName.get("Solar"),l=byName.get("Tot Load"),sv=byName.get("Solar V"),t=byName.get("Solar Today"),tt=byName.get("Solar Total");
+      return `<div class="card"><div class="hero-header"><div style="flex:1"><span class="card-name">Solar</span><span class="hero-val">${s?.value!=null?Math.round(s.value):"---"}</span></div><div style="flex:1;text-align:center"><span class="card-name">Solar V</span><span class="hero-val" style="color:var(--accent-env)">${sv?.value!=null?Math.round(sv.value):"---"}</span></div><div style="flex:1;text-align:right"><span class="card-name">Tot Load</span><span class="hero-val">${l?.value!=null?Math.round(l.value):"---"}</span></div></div><div class="linked-values linked-values-pair"><div class="linked-value"><span>Today</span><span class="linked-reading">${t?.value?.toFixed(1)??"0.0"}</span></div><div class="linked-value"><span>Total</span><span class="linked-reading">${tt?.value?.toFixed(1)??"0.0"}</span></div></div></div>`;
+    }
+    if(gn&&gn.includes("Breaker")){
+      const b=byName.get("Breaker"),ac=byName.get("AC Volts"),t=byName.get("Breaker Today"),tt=byName.get("Breaker Total");
+      return `<div class="card"><div class="hero-header"><div style="flex:1"><span class="card-name">Breaker</span><span class="hero-val">${b?.value!=null?Math.round(b.value):"---"}</span></div><div style="flex:1;text-align:right"><span class="card-name">AC Input</span><span class="hero-val" style="color:var(--accent-env)">${ac?.value!=null?Math.round(ac.value):"---"}<span style="font-size:11px;opacity:.7;margin-left:2px">V</span></span></div><div class="linked-values linked-values-pair"><div class="linked-value"><span>Today</span><span class="linked-reading">${t?.value?.toFixed(1)??"0.0"}</span></div><div class="linked-value"><span>Total</span><span class="linked-reading">${tt?.value?.toFixed(1)??"0.0"}</span></div></div>`;
+    }
+    if(gn&&gn.includes("Fridge")){
+      const f1=byName.get("Fridge"),f2=byName.get("Fridge2"),t1=byName.get("Fridge Today"),t2=byName.get("Fridge2 Today");
+      return `<div class="card"><div class="hero-header"><div style="flex:1"><span class="card-name">Fridge</span><span class="hero-val">${f1?.value!=null?Math.round(f1.value):"---"}</span></div><div style="flex:1;text-align:right"><span class="card-name">Fridge2</span><span class="hero-val">${f2?.value!=null?Math.round(f2.value):"---"}</span></div></div><div class="linked-values linked-values-pair"><div class="linked-value"><span>Today</span><span class="linked-reading">${t1?.value?.toFixed(1)??"0.0"}</span></div><div class="linked-value"><span>Today</span><span class="linked-reading">${t2?.value?.toFixed(1)??"0.0"}</span></div></div></div>`;
+    }
+    const group=gn?gn.map(n=>byName.get(n)).filter(Boolean):[f];const primary=group[0];if(!primary)return"";
+    if(primary.name==="Temperature"){
+      const t=byName.get("Temperature"),h=byName.get("Humidity");used.add("Temperature");used.add("Humidity");
+      return `<div class="card"><div class="linked-values linked-values-pair"><div class="linked-value"><span>Temperature</span><span class="val-env" style="font-weight:700">${t?.value?.toFixed(1)??"--"} °C</span></div><div class="linked-value"><span>Humidity</span><span class="val-env" style="font-weight:700">${h?.value?.toFixed(1)??"--"} %</span></div>`;
+    }
+    return `<div class="card"><div class="card-header"><span class="card-name">${primary.name}</span><span class="card-value ${COLORS[primary.type]}">${primary.value!=null?(primary.unit==="W"?Math.round(primary.value):primary.value.toFixed(1)):"--"} <span style="font-size:11px;opacity:.6">${primary.unit}</span></span></div>${group.length>1?`<div class="linked-values linked-values-pair">${group.slice(1).map(r=>`<div class="linked-value"><span>${r.name.includes("Today")?"Today":"Total"}</span><span class="linked-reading">${r.value!=null?r.value.toFixed(1):"0.0"}</span></div>`).join("")}</div>`:""}</div>`;
+  }).join("");
+  document.getElementById("list").innerHTML=html;
+}
+let autoRefreshSec=30;
 async function poll(){
-  document.getElementById('status').textContent = 'Updating...';
-  const [b,p,s] = await Promise.all([
-    get(FEEDS.breaker),
-    get(FEEDS.pc),
-    get(FEEDS.solar)
-  ]);
-  document.getElementById('breaker').textContent = b ?? '---';
-  document.getElementById('pc').textContent = p ?? '---';
-  document.getElementById('solar').textContent = s ?? '---';
-  document.getElementById('status').textContent = 'Updated ' + new Date().toLocaleTimeString();
-  startCountdown();
+  const btn=document.getElementById("btn-refresh");btn.disabled=true;btn.innerHTML='<span class="spin">↻</span>';
+  try{
+    const results=await Promise.all(FEEDS_BASE.map(async f=>({...f,value:await fetchEmon(f.id)})));
+    renderResults(results);
+    document.getElementById("footer").textContent="Updated "+new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});
+  }finally{btn.disabled=false;btn.textContent="Refresh";resetCountdown()}
 }
-
-let cd = REFRESH, t;
-function startCountdown(){
-  clearInterval(t);
-  cd = REFRESH;
-  document.getElementById('timer').textContent = `Next in ${cd}s`;
-  t = setInterval(()=>{
-    cd--;
-    document.getElementById('timer').textContent = cd>0 ? `Next in ${cd}s` : '';
-    if(cd<=0){ clearInterval(t); poll(); }
-  },1000);
-}
-
+let countdownVal=autoRefreshSec,cdTimer,rfTimer;
+function resetCountdown(){clearInterval(cdTimer);clearTimeout(rfTimer);countdownVal=autoRefreshSec;updateCountdown();cdTimer=setInterval(()=>{countdownVal--;updateCountdown();if(countdownVal<=0)clearInterval(cdTimer)},1000);rfTimer=setTimeout(poll,autoRefreshSec*1000)}
+function updateCountdown(){document.getElementById("countdown").textContent=countdownVal>0?`Next in ${countdownVal}s`:""}
+document.getElementById("btn-refresh").addEventListener("click",poll);
 poll();
 </script>
 </body>

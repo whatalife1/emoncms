@@ -27,12 +27,8 @@
 
 <script>
 const API_KEY = "c28cb22a6877c80b1c6a2611b72c25f4";
-const FEEDS = {
-  breaker: "499374",
-  pc: "499422",
-  solar: "499380"
-};
-const REFRESH = 30; // seconds
+const FEEDS = { breaker: "499374", pc: "499422", solar: "499380" };
+const REFRESH = 30;
 
 async function get(id){
   const url = `https://emoncms.org/feed/value.json?id=${id}&apikey=${API_KEY}&_=${Date.now()}`;
@@ -47,11 +43,7 @@ async function get(id){
 
 async function poll(){
   document.getElementById('status').textContent = 'Updating...';
-  const [b,p,s] = await Promise.all([
-    get(FEEDS.breaker),
-    get(FEEDS.pc),
-    get(FEEDS.solar)
-  ]);
+  const [b,p,s] = await Promise.all([ get(FEEDS.breaker), get(FEEDS.pc), get(FEEDS.solar) ]);
   document.getElementById('breaker').textContent = b ?? '---';
   document.getElementById('pc').textContent = p ?? '---';
   document.getElementById('solar').textContent = s ?? '---';
@@ -65,7 +57,8 @@ function startCountdown(){
   cd = REFRESH;
   document.getElementById('timer').textContent = `Next in ${cd}s`;
   t = setInterval(()=>{
-    cd--; document.getElementById('timer').textContent = cd>0 ? `Next in ${cd}s` : '';
+    cd--; 
+    document.getElementById('timer').textContent = cd>0 ? `Next in ${cd}s` : '';
     if(cd<=0){ clearInterval(t); poll(); }
   },1000);
 }

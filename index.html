@@ -2,33 +2,41 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <meta name="theme-color" content="#09090b">
 <title>EmonCMS Monitor</title>
 <style>
 :root{--bg:#09090b;--card:#121214;--border:#27272a;--muted:#71717a;--w:#f59e0b;--kwh:#38bdf8;--env:#10b981;--txt:#f4f4f5}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 body{background:var(--bg);color:var(--txt);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
-.header{position:sticky;top:0;background:#0b0b0d;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);z-index:10}
-.header-title{font-size:17px;font-weight:700;display:flex;align-items:center;gap:6px}
-.btn{background:#1c1c1f;border:1px solid var(--border);color:var(--txt);padding:6px 14px;border-radius:20px;font-size:13px;font-weight:600}
-.wrap{padding:10px 10px 70px;max-width:500px;margin:0 auto}
-.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:8px}
+.header{position:sticky;top:0;background:#0b0b0d;padding:8px 12px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);z-index:10}
+.header-title{font-size:15px;font-weight:700;display:flex;align-items:center;gap:6px}
+.btn{background:#1c1c1f;border:1px solid var(--border);color:var(--txt);padding:5px 12px;border-radius:16px;font-size:12px;font-weight:600}
+.wrap{padding:6px 8px 60px;max-width:500px;margin:0 auto}
+.card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:9px 11px;margin-bottom:6px}
 .row{display:flex;justify-content:space-between;align-items:baseline}
-.row.top{margin-bottom:6px}
-.label{font-size:16px;color:var(--txt)}
+.row.top{margin-bottom:3px}
+.label{font-size:14px;color:var(--txt)}
 .val{font-weight:700;font-variant-numeric:tabular-nums}
-.val-w{color:var(--w);font-size:22px}
-.val-env{color:var(--env);font-size:22px}
-.val-kwh{color:var(--kwh);font-size:16px;font-weight:600}
-.unit{font-size:13px;opacity:.7;margin-left:2px;font-weight:500}
-.muted{color:var(--muted);font-size:14px}
-.bottom{display:grid;grid-template-columns:auto 1fr auto 1fr;gap:0 8px;align-items:center;margin-top:4px}
+.val-w{color:var(--w);font-size:19px}
+.val-env{color:var(--env);font-size:19px}
+.val-kwh{color:var(--kwh);font-size:14px;font-weight:600}
+.unit{font-size:11px;opacity:.7;margin-left:2px;font-weight:500}
+.muted{color:var(--muted);font-size:12px}
+.bottom{display:grid;grid-template-columns:auto 1fr auto 1fr;gap:0 6px;align-items:center;margin-top:2px}
 .triple{display:flex;justify-content:space-between}
 .triple>div{text-align:center;flex:1}
 .triple>div:first-child{text-align:left}
 .triple>div:last-child{text-align:right}
-.footer{position:fixed;bottom:0;left:0;right:0;background:#0b0b0d;border-top:1px solid var(--border);padding:8px 14px;font-size:12px;color:var(--muted);display:flex;justify-content:space-between}
+.footer{position:fixed;bottom:0;left:0;right:0;background:#0b0b0d;border-top:1px solid var(--border);padding:6px 12px;font-size:11px;color:var(--muted);display:flex;justify-content:space-between}
+
+/* Extra-compact for small phones */
+@media (max-width:380px){
+ .val-w,.val-env{font-size:17px}
+ .label{font-size:13px}
+ .val-kwh{font-size:13px}
+ .card{padding:8px 10px}
+}
 </style>
 </head>
 <body>
@@ -38,74 +46,30 @@ body{background:var(--bg);color:var(--txt);font-family:system-ui,-apple-system,S
 
 <script>
 const WORKER="https://emon-proxy.new-life-786-786-786.workers.dev";
-const FEEDS=[
- {id:"499431",n:"Water Tank",u:"%",t:"env"},
- {id:"499374",n:"Breaker",u:"W",t:"w"},
- {id:"499383",n:"AC Volts",u:"V",t:"env"},
- {id:"499413",n:"Breaker Today",u:"",t:"kwh"},
- {id:"499412",n:"Breaker Total",u:"",t:"kwh"},
- {id:"499380",n:"Solar",u:"W",t:"w"},
- {id:"499381",n:"Solar V",u:"",t:"env"},
- {id:"499388",n:"Tot Load",u:"W",t:"w"},
- {id:"499415",n:"Solar Today",u:"",t:"kwh"},
- {id:"499414",n:"Solar Total",u:"",t:"kwh"},
- {id:"499373",n:"Fridge",u:"W",t:"w"},
- {id:"541348",n:"Fridge2",u:"W",t:"w"},
- {id:"499411",n:"Fridge Today",u:"",t:"kwh"},
- {id:"541350",n:"Fridge2 Today",u:"",t:"kwh"},
- {id:"499367",n:"Hair 1Ton",u:"W",t:"w"},
- {id:"499409",n:"Hair 1Ton Today",u:"",t:"kwh"},
- {id:"499408",n:"Hair 1Ton Total",u:"",t:"kwh"},
- {id:"499364",n:"Kenwood 1Ton",u:"W",t:"w"},
- {id:"499407",n:"Kenwood 1Ton Today",u:"",t:"kwh"},
- {id:"499406",n:"Kenwood 1Ton Total",u:"",t:"kwh"},
- {id:"499362",n:"Kenwood 1.5Ton",u:"W",t:"w"},
- {id:"499405",n:"Kenwood 1.5Ton Today",u:"",t:"kwh"},
- {id:"499404",n:"Kenwood 1.5Ton Total",u:"",t:"kwh"},
- {id:"499403",n:"Utility",u:"W",t:"w"},
- {id:"499421",n:"Utility Today",u:"",t:"kwh"},
- {id:"499420",n:"Utility Total",u:"",t:"kwh"},
- {id:"499422",n:"PC",u:"W",t:"w"},
- {id:"499424",n:"PC Today",u:"",t:"kwh"},
- {id:"499428",n:"Temperature",u:"°C",t:"env"},
- {id:"499429",n:"Humidity",u:"%",t:"env"}
-];
-async function get(id){try{const r=await fetch(`${WORKER}?id=${id}&_=${Date.now()}`);const v=parseFloat(await r.text());return isNaN(v)?null:v}catch{return null}}
-function fmt(v,d=1){return v==null?"---":v.toFixed(d)}
-function card(html){return `<div class="card">${html}</div>`}
+const FEEDS=[{id:"499431",n:"Water Tank"},{id:"499374",n:"Breaker"},{id:"499383",n:"AC Volts"},{id:"499413",n:"Breaker Today"},{id:"499412",n:"Breaker Total"},{id:"499380",n:"Solar"},{id:"499381",n:"Solar V"},{id:"499388",n:"Tot Load"},{id:"499415",n:"Solar Today"},{id:"499414",n:"Solar Total"},{id:"499373",n:"Fridge"},{id:"541348",n:"Fridge2"},{id:"499411",n:"Fridge Today"},{id:"541350",n:"Fridge2 Today"},{id:"499367",n:"Hair 1Ton"},{id:"499409",n:"Hair 1Ton Today"},{id:"499408",n:"Hair 1Ton Total"},{id:"499364",n:"Kenwood 1Ton"},{id:"499407",n:"Kenwood 1Ton Today"},{id:"499406",n:"Kenwood 1Ton Total"},{id:"499362",n:"Kenwood 1.5Ton"},{id:"499405",n:"Kenwood 1.5Ton Today"},{id:"499404",n:"Kenwood 1.5Ton Total"},{id:"499403",n:"Utility"},{id:"499421",n:"Utility Today"},{id:"499420",n:"Utility Total"},{id:"499422",n:"PC"},{id:"499424",n:"PC Today"},{id:"499428",n:"Temperature"},{id:"499429",n:"Humidity"}];
+async function get(id){try{const r=await fetch(`${WORKER}?id=${id}&_=${Date.now()}`);return parseFloat(await r.text())}catch{return null}}
+const fmt=(v,d=1)=>v==null?"---":v.toFixed(d),card=h=>`<div class="card">${h}</div>`;
 async function render(){
  document.getElementById('refresh').textContent='↻';
- const data={}; await Promise.all(FEEDS.map(async f=>data[f.n]=await get(f.id)));
+ const d={};await Promise.all(FEEDS.map(async f=>d[f.n]=await get(f.id)));
  let h='';
- // 1 Water Tank
- h+=card(`<div class="row"><span class="label">Water Tank</span><span><span class="val val-env">${fmt(data["Water Tank"],1)}</span><span class="unit">%</span></span></div>`);
- // 2 Breaker
- h+=card(`<div class="row top"><div><span class="label">Breaker</span> <span class="val val-w">${Math.round(data["Breaker"]??0)}</span></div><div><span class="label">AC Input</span> <span class="val val-env">${Math.round(data["AC Volts"]??0)}</span><span class="unit">v</span></div></div><div class="bottom"><span class="muted">Today</span><span class="val-kwh">${fmt(data["Breaker Today"],1)}</span><span class="muted">Total</span><span class="val-kwh">${fmt(data["Breaker Total"],1)}</span></div>`);
- // 3 Solar
- h+=card(`<div class="triple"><div><span class="label">Solar</span> <span class="val val-w">${Math.round(data["Solar"]??0)}</span></div><div><span class="label">Solar V</span> <span class="val val-env">${Math.round(data["Solar V"]??0)}</span></div><div><span class="label">Tot Load</span> <span class="val val-w">${Math.round(data["Tot Load"]??0)}</span></div></div><div class="bottom"><span class="muted">Today</span><span class="val-kwh">${fmt(data["Solar Today"],1)}</span><span class="muted">Total</span><span class="val-kwh">${fmt(data["Solar Total"],1)}</span></div>`);
- // 4 Fridge
- h+=card(`<div class="row top"><div><span class="label">Fridge</span> <span class="val val-w">${Math.round(data["Fridge"]??0)}</span></div><div><span class="label">Fridge2</span> <span class="val val-w">${Math.round(data["Fridge2"]??0)}</span></div></div><div class="bottom"><span class="muted">Today</span><span class="val-kwh">${fmt(data["Fridge Today"],1)}</span><span class="muted">Today</span><span class="val-kwh">${fmt(data["Fridge2 Today"],1)}</span></div>`);
- // 5 Hair
- h+=card(`<div class="row top"><span class="label">Hair 1Ton</span><span><span class="val val-w">${Math.round(data["Hair 1Ton"]??0)}</span><span class="unit">W</span></span></div><div class="bottom"><span class="muted">Today</span><span class="val-kwh">${fmt(data["Hair 1Ton Today"],1)}</span><span class="muted">Total</span><span class="val-kwh">${fmt(data["Hair 1Ton Total"],1)}</span></div>`);
- // 6 Kenwood 1Ton
- h+=card(`<div class="row top"><span class="label">Kenwood 1Ton</span><span><span class="val val-w">${Math.round(data["Kenwood 1Ton"]??0)}</span><span class="unit">W</span></span></div><div class="bottom"><span class="muted">Today</span><span class="val-kwh">${fmt(data["Kenwood 1Ton Today"],1)}</span><span class="muted">Total</span><span class="val-kwh">${fmt(data["Kenwood 1Ton Total"],1)}</span></div>`);
- // 7 Kenwood 1.5Ton
- h+=card(`<div class="row top"><span class="label">Kenwood 1.5Ton</span><span><span class="val val-w">${Math.round(data["Kenwood 1.5Ton"]??0)}</span><span class="unit">W</span></span></div><div class="bottom"><span class="muted">Today</span><span class="val-kwh">${fmt(data["Kenwood 1.5Ton Today"],1)}</span><span class="muted">Total</span><span class="val-kwh">${fmt(data["Kenwood 1.5Ton Total"],1)}</span></div>`);
- // 8 Utility
- h+=card(`<div class="row top"><span class="label">Utility</span><span><span class="val val-w">${Math.round(data["Utility"]??0)}</span><span class="unit">W</span></span></div><div class="bottom"><span class="muted">Today</span><span class="val-kwh">${fmt(data["Utility Today"],1)}</span><span class="muted">Total</span><span class="val-kwh">${fmt(data["Utility Total"],1)}</span></div>`);
- // 9 PC
- h+=card(`<div class="row top"><span class="label">PC</span><span><span class="val val-w">${Math.round(data["PC"]??0)}</span><span class="unit">W</span></span></div><div class="bottom"><span class="muted">Today</span><span class="val-kwh">${fmt(data["PC Today"],1)}</span><span></span><span></span></div>`);
- // 10 Temp/Humidity
- h+=card(`<div class="row"><span class="muted">Temperature</span><span><span class="val val-env">${fmt(data["Temperature"],1)}</span><span class="unit">°C</span></span><span class="muted" style="margin-left:20px">Humidity</span><span><span class="val val-env">${fmt(data["Humidity"],1)}</span><span class="unit">%</span></span></div>`);
+ h+=card(`<div class="row"><span class="label">Water Tank</span><span><span class="val val-env">${fmt(d["Water Tank"],1)}</span><span class="unit">%</span></span></div>`);
+ h+=card(`<div class="row top"><div><span class="label">Breaker</span> <span class="val val-w">${Math.round(d["Breaker"]??0)}</span></div><div><span class="label">AC Input</span> <span class="val val-env">${Math.round(d["AC Volts"]??0)}</span><span class="unit">v</span></div></div><div class="bottom"><span class="muted">Today</span><span class="val-kwh">${fmt(d["Breaker Today"],1)}</span><span class="muted">Total</span><span class="val-kwh">${fmt(d["Breaker Total"],1)}</span></div>`);
+ h+=card(`<div class="triple"><div><span class="label">Solar</span> <span class="val val-w">${Math.round(d["Solar"]??0)}</span></div><div><span class="label">Solar V</span> <span class="val val-env">${Math.round(d["Solar V"]??0)}</span></div><div><span class="label">Tot Load</span> <span class="val val-w">${Math.round(d["Tot Load"]??0)}</span></div></div><div class="bottom"><span class="muted">Today</span><span class="val-kwh">${fmt(d["Solar Today"],1)}</span><span class="muted">Total</span><span class="val-kwh">${fmt(d["Solar Total"],1)}</span></div>`);
+ h+=card(`<div class="row top"><div><span class="label">Fridge</span> <span class="val val-w">${Math.round(d["Fridge"]??0)}</span></div><div><span class="label">Fridge2</span> <span class="val val-w">${Math.round(d["Fridge2"]??0)}</span></div><div class="bottom"><span class="muted">Today</span><span class="val-kwh">${fmt(d["Fridge Today"],1)}</span><span class="muted">Today</span><span class="val-kwh">${fmt(d["Fridge2 Today"],1)}</span></div>`);
+ h+=card(`<div class="row top"><span class="label">Hair 1Ton</span><span><span class="val val-w">${Math.round(d["Hair 1Ton"]??0)}</span><span class="unit">W</span></span></div><div class="bottom"><span class="muted">Today</span><span class="val-kwh">${fmt(d["Hair 1Ton Today"],1)}</span><span class="muted">Total</span><span class="val-kwh">${fmt(d["Hair 1Ton Total"],1)}</span></div>`);
+ h+=card(`<div class="row top"><span class="label">Kenwood 1Ton</span><span><span class="val val-w">${Math.round(d["Kenwood 1Ton"]??0)}</span><span class="unit">W</span></span></div><div class="bottom"><span class="muted">Today</span><span class="val-kwh">${fmt(d["Kenwood 1Ton Today"],1)}</span><span class="muted">Total</span><span class="val-kwh">${fmt(d["Kenwood 1Ton Total"],1)}</span></div>`);
+ h+=card(`<div class="row top"><span class="label">Kenwood 1.5Ton</span><span><span class="val val-w">${Math.round(d["Kenwood 1.5Ton"]??0)}</span><span class="unit">W</span></span></div><div class="bottom"><span class="muted">Today</span><span class="val-kwh">${fmt(d["Kenwood 1.5Ton Today"],1)}</span><span class="muted">Total</span><span class="val-kwh">${fmt(d["Kenwood 1.5Ton Total"],1)}</span></div>`);
+ h+=card(`<div class="row top"><span class="label">Utility</span><span><span class="val val-w">${Math.round(d["Utility"]??0)}</span><span class="unit">W</span></span></div><div class="bottom"><span class="muted">Today</span><span class="val-kwh">${fmt(d["Utility Today"],1)}</span><span class="muted">Total</span><span class="val-kwh">${fmt(d["Utility Total"],1)}</span></div>`);
+ h+=card(`<div class="row top"><span class="label">PC</span><span><span class="val val-w">${Math.round(d["PC"]??0)}</span><span class="unit">W</span></span></div><div class="bottom"><span class="muted">Today</span><span class="val-kwh">${fmt(d["PC Today"],1)}</span><span></span><span></span></div>`);
+ h+=card(`<div class="row"><span class="muted">Temperature</span><span><span class="val val-env">${fmt(d["Temperature"],1)}</span><span class="unit">°C</span></span><span class="muted" style="margin-left:16px">Humidity</span><span><span class="val val-env">${fmt(d["Humidity"],1)}</span><span class="unit">%</span></span></div>`);
  document.getElementById('list').innerHTML=h;
  document.getElementById('updated').textContent='Updated '+new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
  document.getElementById('refresh').textContent='Refresh';
 }
-let sec=30,t;
-function countdown(){clearInterval(t);sec=30;document.getElementById('countdown').textContent=`Next in ${sec}s`;t=setInterval(()=>{sec--;document.getElementById('countdown').textContent=sec>0?`Next in ${sec}s`:'';if(sec<=0){clearInterval(t);loop()}},1000)}
+let sec=30,t;function countdown(){clearInterval(t);sec=30;document.getElementById('countdown').textContent=`Next in ${sec}s`;t=setInterval(()=>{sec--;document.getElementById('countdown').textContent=sec>0?`Next in ${sec}s`:'';if(sec<=0){clearInterval(t);loop()}},1000)}
 async function loop(){await render();countdown()}
-document.getElementById('refresh').onclick=loop;
-loop();
+document.getElementById('refresh').onclick=loop;loop();
 </script>
 </body>
 </html>

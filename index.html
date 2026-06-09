@@ -492,7 +492,6 @@
 
   <!-- Feed cards list -->
   <div class="container" id="list">
-    <!-- Skeletons render immediately before script execution -->
     <div class="skel-card" style="border-left:3px solid var(--accent-solar)">
       <div class="skel-row" style="gap:8px">
         <div style="flex:1;display:flex;flex-direction:column;gap:6px;align-items:flex-start">
@@ -708,7 +707,9 @@
   </div>
 
   <script>
-    // ─── Configurations & Base Feeds ──────────────────────────────────────────
+    // Proxy worker endpoint
+    const PROXY_BASE = 'https://emon-proxy.new-life-786-786-786.workers.dev';
+
     let autoRefreshSec = 30;
 
     const FEEDS_BASE = [
@@ -1208,8 +1209,7 @@
     }
 
     async function fetchEmon(id) {
-      const apiKey  = 'c28cb22a6877c80b1c6a2611b72c25f4';
-      const url     = `https://emoncms.org/feed/value.json?id=${id}&apikey=${apiKey}`;
+      const url = `${PROXY_BASE}/?id=${id}`;
       const debugEnabled = document.getElementById('debug-toggle').checked;
       const debugEl = debugEnabled ? document.getElementById('debug-info') : null;
       try {
@@ -1816,8 +1816,7 @@
 
       const startOfDay = new Date(y, mo-1, d, 0, 0, 0).getTime();
       const endOfDay   = new Date(y, mo-1, d, 23, 59, 59).getTime();
-      const apiKey     = 'c28cb22a6877c80b1c6a2611b72c25f4';
-      const url        = `https://emoncms.org/feed/data.json?ids=${solarId}&start=${startOfDay}&end=${endOfDay}&skipmissing=0&average=1&delta=0&interval=3600&apikey=${apiKey}`;
+      const url        = `${PROXY_BASE}/feed/data.json?ids=${solarId}&start=${startOfDay}&end=${endOfDay}&skipmissing=0&average=1&delta=0&interval=3600`;
       try {
         const text = await nativeFetch(url);
         if (!text || text.startsWith('ERROR')) return null;
@@ -1840,8 +1839,7 @@
       
       const startOfDay = new Date(y, mo-1, d, 0, 0, 0).getTime();
       const endOfDay   = new Date(y, mo-1, d, 23, 59, 59).getTime();
-      const apiKey     = 'c28cb22a6877c80b1c6a2611b72c25f4';
-      const url        = `https://emoncms.org/feed/data.json?ids=${feedId}&start=${startOfDay}&end=${endOfDay}&skipmissing=0&average=1&delta=0&interval=3600&apikey=${apiKey}`;
+      const url        = `${PROXY_BASE}/feed/data.json?ids=${feedId}&start=${startOfDay}&end=${endOfDay}&skipmissing=0&average=1&delta=0&interval=3600`;
       try {
         const text = await nativeFetch(url);
         if (!text || text.startsWith('ERROR')) return null;
@@ -2085,10 +2083,9 @@
 
       const { start, end }    = _billingRange();
       const effectiveEnd       = new Date(Math.min(end.getTime(), Date.now()));
-      const apiKey             = 'c28cb22a6877c80b1c6a2611b72c25f4';
       const solarId            = (userOrderedFeeds.find(f => f.name === 'Solar') ?? { id: '499380' }).id;
 
-      const url = `https://emoncms.org/feed/data.json?ids=${solarId}&start=${start.getTime()}&end=${effectiveEnd.getTime()}&skipmissing=0&average=1&delta=0&interval=3600&apikey=${apiKey}`;
+      const url = `${PROXY_BASE}/feed/data.json?ids=${solarId}&start=${start.getTime()}&end=${effectiveEnd.getTime()}&skipmissing=0&average=1&delta=0&interval=3600`;
 
       try {
         const text = await nativeFetch(url);
@@ -2397,9 +2394,7 @@
     }
 
     async function fetchHourly(feedId, startMs, endMs) {
-      const apiKey = 'c28cb22a6877c80b1c6a2611b72c25f4';
-      const url = `https://emoncms.org/feed/data.json?ids=${feedId}&start=${startMs}&end=${endMs}` +
-                  `&skipmissing=0&average=1&delta=0&interval=3600&apikey=${apiKey}`;
+      const url = `${PROXY_BASE}/feed/data.json?ids=${feedId}&start=${startMs}&end=${endMs}&skipmissing=0&average=1&delta=0&interval=3600`;
       try {
         const text = await nativeFetch(url);
         if (!text || text.startsWith('ERROR')) return {};

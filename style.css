@@ -46,6 +46,40 @@ body { background: var(--bg-base); color: var(--text-main); font-family: system-
 
 /* ── Override desktop constraints for the Detailed Usage Report ── */
 @media (min-width: 480px) {
+  body {
+    background: #040406; /* Slightly darker surrounding margin on desktop */
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+  }
+  .main-shell {
+    max-width: 450px;
+    box-shadow: 0 0 24px rgba(0,0,0,0.7);
+    border-left: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+  }
+  .header {
+    max-width: 448px; /* Keeps header contained within center app layout */
+  }
+  .footer {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    max-width: 448px;
+  }
+  /* Applies to standard slide-panels like settings, alerts, etc. */
+  .slide-panel {
+    max-width: 450px;
+    left: 50% !important;
+    right: auto !important;
+    transform: translateX(-50%);
+    border-left: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+    box-shadow: 0 -4px 20px rgba(0,0,0,0.5);
+  }
+
+  /* Specific override ONLY for the detailed usage report panel */
   #usage-report-panel {
     max-width: 100% !important;
     left: 0 !important;
@@ -55,15 +89,13 @@ body { background: var(--bg-base); color: var(--text-main); font-family: system-
     border-right: none;
     box-shadow: none;
   }
-  
-  /* Optional: Limit the report wrapper content width slightly on ultra-wide screens 
-     so it stays readable, while still allowing the table to scroll if needed. */
   #usage-report-panel .panel-body {
     max-width: 1400px;
     margin: 0 auto;
     width: 100%;
   }
 }
+
 
 
 /* ── Header ───────────────────────────────────────────────────────────── */

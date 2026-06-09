@@ -44,39 +44,27 @@ body { background: var(--bg-base); color: var(--text-main); font-family: system-
   background: var(--bg-base);
 }
 
+/* ── Override desktop constraints for the Detailed Usage Report ── */
 @media (min-width: 480px) {
-  body {
-    background: #040406; /* Slightly darker surrounding margin on desktop */
-    display: flex;
-    justify-content: center;
-    align-items: flex-start;
+  #usage-report-panel {
+    max-width: 100% !important;
+    left: 0 !important;
+    right: 0 !important;
+    transform: none !important;
+    border-left: none;
+    border-right: none;
+    box-shadow: none;
   }
-  .main-shell {
-    max-width: 450px;
-    box-shadow: 0 0 24px rgba(0,0,0,0.7);
-    border-left: 1px solid var(--border);
-    border-right: 1px solid var(--border);
-  }
-  .header {
-    max-width: 448px; /* Keeps header contained within center app layout */
-  }
-  .footer {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    max-width: 448px;
-  }
-  .slide-panel {
-    max-width: 450px;
-    left: 50% !important;
-    right: auto !important;
-    transform: translateX(-50%);
-    border-left: 1px solid var(--border);
-    border-right: 1px solid var(--border);
-    box-shadow: 0 -4px 20px rgba(0,0,0,0.5);
+  
+  /* Optional: Limit the report wrapper content width slightly on ultra-wide screens 
+     so it stays readable, while still allowing the table to scroll if needed. */
+  #usage-report-panel .panel-body {
+    max-width: 1400px;
+    margin: 0 auto;
+    width: 100%;
   }
 }
+
 
 /* ── Header ───────────────────────────────────────────────────────────── */
 .header { background: var(--bg-panel); padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 10; box-shadow: var(--shadow); }

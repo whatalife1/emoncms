@@ -26,7 +26,7 @@
     --bg-base:    #f4f4f5;
     --bg-panel:   #ffffff;
     --bg-card:    #f0f0f3;
-    --border:     #d4d4d8;
+    --border:     --d4d4d8;
     --text-main:  #18181b;
     --text-muted: #71717a;
     --accent-w:      #d97706;
@@ -40,6 +40,50 @@
 
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   body { background: var(--bg-base); color: var(--text-main); font-family: system-ui, -apple-system, sans-serif; font-size: 14px; width: 100%; min-height: 100vh; overflow-x: hidden; transition: background 0.25s, color 0.25s; }
+
+  /* ── App Shell Desktop Constraint ─────────────────────────────────────── */
+  .main-shell {
+    width: 100%;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    background: var(--bg-base);
+  }
+
+  @media (min-width: 480px) {
+    body {
+      background: #040406; /* Slightly darker surrounding margin on desktop */
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+    }
+    .main-shell {
+      max-width: 450px;
+      box-shadow: 0 0 24px rgba(0,0,0,0.7);
+      border-left: 1px solid var(--border);
+      border-right: 1px solid var(--border);
+    }
+    .header {
+      max-width: 448px; /* Keeps header contained within center app layout */
+    }
+    .footer {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      max-width: 448px;
+    }
+    .slide-panel {
+      max-width: 450px;
+      left: 50% !important;
+      right: auto !important;
+      transform: translateX(-50%);
+      border-left: 1px solid var(--border);
+      border-right: 1px solid var(--border);
+      box-shadow: 0 -4px 20px rgba(0,0,0,0.5);
+    }
+  }
 
   /* ── Header ─────────────────────────────────────────────────────────────── */
   .header { background: var(--bg-panel); padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 10; box-shadow: var(--shadow); }
@@ -438,106 +482,111 @@
 </head>
 <body>
 
-  <div class="header">
-    <div class="header-title">⚡ EmonCMS Monitor</div>
-    <div class="header-btns">
-      <span id="stale-indicator">⚠ Stale</span>
-      <button id="btn-theme" title="Toggle light/dark">☀</button>
-      <button id="btn-compact" title="Toggle compact">◧</button>
-      <button id="btn-alerts" title="Alerts">🔔</button>
-      <button id="btn-solar" title="Solar Prediction">🔆</button>
-      <button id="btn-widgets" title="Widget list">📦</button>
-      <button id="btn-settings">⚙</button>
-      <button class="btn-primary" id="btn-refresh">Refresh</button>
-    </div>
-  </div>
+  <!-- Floating app boundary container -->
+  <div class="main-shell">
 
-  <!-- Predicted Solar card -->
-  <div class="container" id="pred-wrap" style="display:none; padding-bottom:0;">
-    <div id="pred-card" style="background:var(--bg-panel);border:1px solid var(--border);border-left:3px solid var(--accent-solar);border-radius:10px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;box-shadow:var(--shadow)">
-      <div>
-        <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;font-weight:700">Predicted Solar Now</div>
-        <div style="font-size:24px;font-weight:800;color:var(--accent-solar);line-height:1.1"><span id="pred-watt">---</span> <span style="font-size:13px;font-weight:600">W</span></div>
-      </div>
-      <div style="text-align:right;font-size:11px;color:var(--text-muted);line-height:1.6">
-        <div id="pred-vs">vs actual -- W</div>
-        <div id="pred-cloud">☁ --%</div>
+    <div class="header">
+      <div class="header-title">⚡ EmonCMS Monitor</div>
+      <div class="header-btns">
+        <span id="stale-indicator">⚠ Stale</span>
+        <button id="btn-theme" title="Toggle light/dark">☀</button>
+        <button id="btn-compact" title="Toggle compact">◧</button>
+        <button id="btn-alerts" title="Alerts">🔔</button>
+        <button id="btn-solar" title="Solar Prediction">🔆</button>
+        <button id="btn-widgets" title="Widget list">📦</button>
+        <button id="btn-settings">⚙</button>
+        <button class="btn-primary" id="btn-refresh">Refresh</button>
       </div>
     </div>
-  </div>
 
-  <!-- Daily cost card -->
-  <div class="container" id="cost-wrap" style="display:none; padding-bottom:0;">
-    <div id="cost-card">
-      <div class="cost-main">
-        <span class="cost-label">Today's grid cost estimate</span>
-        <span class="cost-big" id="cost-pkr">PKR --</span>
-        <span class="cost-label" id="cost-units">-- kWh utility used</span>
-      </div>
-      <div class="cost-right" id="cost-right">
-        Solar saved<br><b id="cost-solar-save">--</b>
-      </div>
-    </div>
-  </div>
-
-  <!-- Power flow diagram -->
-  <div class="container" id="flow-wrap" style="padding-bottom:0;">
-    <div id="flow-card">
-      <div class="flow-title">⚡ Live power flow</div>
-      <div id="flow-svg-wrap">
-        <svg id="flow-svg" viewBox="0 0 340 130" xmlns="http://www.w3.org/2000/svg" width="100%"></svg>
-      </div>
-    </div>
-  </div>
-
-  <!-- Feed cards list -->
-  <div class="container" id="list">
-    <div class="skel-card" style="border-left:3px solid var(--accent-solar)">
-      <div class="skel-row" style="gap:8px">
-        <div style="flex:1;display:flex;flex-direction:column;gap:6px;align-items:flex-start">
-          <div class="skel-line" style="width:44px;height:11px"></div>
-          <div class="skel-line" style="width:52px;height:20px"></div>
+    <!-- Predicted Solar card -->
+    <div class="container" id="pred-wrap" style="display:none; padding-bottom:0;">
+      <div id="pred-card" style="background:var(--bg-panel);border:1px solid var(--border);border-left:3px solid var(--accent-solar);border-radius:10px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;box-shadow:var(--shadow)">
+        <div>
+          <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;font-weight:700">Predicted Solar Now</div>
+          <div style="font-size:24px;font-weight:800;color:var(--accent-solar);line-height:1.1"><span id="pred-watt">---</span> <span style="font-size:13px;font-weight:600">W</span></div>
         </div>
-        <div style="flex:1;display:flex;flex-direction:column;gap:6px;align-items:center">
-          <div class="skel-line" style="width:44px;height:11px"></div>
-          <div class="skel-line" style="width:52px;height:20px"></div>
-        </div>
-        <div style="flex:1;display:flex;flex-direction:column;gap:6px;align-items:flex-end">
-          <div class="skel-line" style="width:52px;height:11px"></div>
-          <div class="skel-line" style="width:52px;height:20px"></div>
+        <div style="text-align:right;font-size:11px;color:var(--text-muted);line-height:1.6">
+          <div id="pred-vs">vs actual -- W</div>
+          <div id="pred-cloud">☁ --%</div>
         </div>
       </div>
-      <div class="skel-row" style="gap:12px;margin-top:2px">
-        <div class="skel-line" style="flex:1;height:10px"></div>
-        <div class="skel-line" style="flex:1;height:10px"></div>
+    </div>
+
+    <!-- Daily cost card -->
+    <div class="container" id="cost-wrap" style="display:none; padding-bottom:0;">
+      <div id="cost-card">
+        <div class="cost-main">
+          <span class="cost-label">Today's grid cost estimate</span>
+          <span class="cost-big" id="cost-pkr">PKR --</span>
+          <span class="cost-label" id="cost-units">-- kWh utility used</span>
+        </div>
+        <div class="cost-right" id="cost-right">
+          Solar saved<br><b id="cost-solar-save">--</b>
+        </div>
       </div>
     </div>
 
-    <div class="skel-card" style="border-left:3px solid var(--accent-w)">
-      <div class="skel-row" style="gap:8px">
-        <div style="flex:1;display:flex;flex-direction:column;gap:6px;align-items:flex-start">
-          <div class="skel-line" style="width:56px;height:11px"></div>
-          <div class="skel-line" style="width:64px;height:20px"></div>
+    <!-- Power flow diagram -->
+    <div class="container" id="flow-wrap" style="padding-bottom:0;">
+      <div id="flow-card">
+        <div class="flow-title">⚡ Live power flow</div>
+        <div id="flow-svg-wrap">
+          <svg id="flow-svg" viewBox="0 0 340 130" xmlns="http://www.w3.org/2000/svg" width="100%"></svg>
         </div>
-        <div style="flex:1;display:flex;flex-direction:column;gap:6px;align-items:flex-end">
-          <div class="skel-line" style="width:60px;height:11px"></div>
-          <div class="skel-line" style="width:52px;height:20px"></div>
-        </div>
-      </div>
-      <div class="skel-row" style="gap:12px;margin-top:2px">
-        <div class="skel-line" style="flex:1;height:10px"></div>
-        <div class="skel-line" style="flex:1;height:10px"></div>
       </div>
     </div>
-  </div>
 
-  <div class="footer">
-    <div class="progress-track"><div class="progress-bar" id="progress-bar" style="width:100%"></div></div>
-    <div class="footer-inner">
-      <span id="footer">Connecting...</span>
-      <span id="countdown"></span>
+    <!-- Feed cards list -->
+    <div class="container" id="list">
+      <div class="skel-card" style="border-left:3px solid var(--accent-solar)">
+        <div class="skel-row" style="gap:8px">
+          <div style="flex:1;display:flex;flex-direction:column;gap:6px;align-items:flex-start">
+            <div class="skel-line" style="width:44px;height:11px"></div>
+            <div class="skel-line" style="width:52px;height:20px"></div>
+          </div>
+          <div style="flex:1;display:flex;flex-direction:column;gap:6px;align-items:center">
+            <div class="skel-line" style="width:44px;height:11px"></div>
+            <div class="skel-line" style="width:52px;height:20px"></div>
+          </div>
+          <div style="flex:1;display:flex;flex-direction:column;gap:6px;align-items:flex-end">
+            <div class="skel-line" style="width:52px;height:11px"></div>
+            <div class="skel-line" style="width:52px;height:20px"></div>
+          </div>
+        </div>
+        <div class="skel-row" style="gap:12px;margin-top:2px">
+          <div class="skel-line" style="flex:1;height:10px"></div>
+          <div class="skel-line" style="flex:1;height:10px"></div>
+        </div>
+      </div>
+
+      <div class="skel-card" style="border-left:3px solid var(--accent-w)">
+        <div class="skel-row" style="gap:8px">
+          <div style="flex:1;display:flex;flex-direction:column;gap:6px;align-items:flex-start">
+            <div class="skel-line" style="width:56px;height:11px"></div>
+            <div class="skel-line" style="width:64px;height:20px"></div>
+          </div>
+          <div style="flex:1;display:flex;flex-direction:column;gap:6px;align-items:flex-end">
+            <div class="skel-line" style="width:60px;height:11px"></div>
+            <div class="skel-line" style="width:52px;height:20px"></div>
+          </div>
+        </div>
+        <div class="skel-row" style="gap:12px;margin-top:2px">
+          <div class="skel-line" style="flex:1;height:10px"></div>
+          <div class="skel-line" style="flex:1;height:10px"></div>
+        </div>
+      </div>
     </div>
-  </div>
+
+    <div class="footer">
+      <div class="progress-track"><div class="progress-bar" id="progress-bar" style="width:100%"></div></div>
+      <div class="footer-inner">
+        <span id="footer">Connecting...</span>
+        <span id="countdown"></span>
+      </div>
+    </div>
+
+  </div> <!-- End main-shell -->
 
   <!-- Settings panel -->
   <div id="settings">
@@ -614,9 +663,11 @@
             <div class="sol-cloud-label"><span>☁ Cloud Cover</span><span id="sp-cloud-val">☀ Clear (0%)</span></div>
             <input type="range" id="sp-cloud" class="sol-cloud-slider" min="0" max="100" value="0" step="5">
           </div>
-          <div class="sol-extras-grid">
-            <div class="sol-extra-item"><label>🔋 Battery (kWh)</label><input type="number" id="sp-battery" min="0" max="200" value="0" step="0.5"></div>
-            <div class="sol-extra-item"><label>💰 PKR / kWh</label><input type="number" id="sp-pkr" min="0" max="500" value="60"></div>
+          <div class="sol-config-wrap" style="border:none; margin-top:8px;">
+            <div class="sol-extras-grid">
+              <div class="sol-extra-item"><label>🔋 Battery (kWh)</label><input type="number" id="sp-battery" min="0" max="200" value="0" step="0.5"></div>
+              <div class="sol-extra-item"><label>💰 PKR / kWh</label><input type="number" id="sp-pkr" min="0" max="500" value="60"></div>
+            </div>
           </div>
           <div class="sol-hint">
             Azimuth: 0°/360°=North · 90°=East · 180°=South · 270°=West<br>
@@ -2202,7 +2253,7 @@
         }
 
         if (actuals) {
-          _renderHourlyBars(hourly, document.getElementById('sol-day-bars'), actuals);
+          _renderHourlyBars(hourly, document.getElementById('sol-today-bars'), actuals);
           const legendEl = out.querySelector('.sol-legend');
           if (legendEl) legendEl.outerHTML = _legendHtml(true);
 

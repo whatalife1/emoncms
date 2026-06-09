@@ -2154,26 +2154,62 @@ document.getElementById('btn-view-report').addEventListener('click', () => {
 });
 
 document.getElementById('btn-report-close').addEventListener('click', () => {
-  document.getElementById('usage-report-panel').classList.remove('open');
-});
+      document.getElementById('usage-report-panel').classList.remove('open');
+    });
 
-document.getElementById('btn-report-calculate').addEventListener('click', calculateDetailedReport);
+    document.getElementById('btn-report-calculate').addEventListener('click', calculateDetailedReport);
 
-document.getElementById('btn-widgets').addEventListener('click', () => document.getElementById('widgets-panel').classList.add('open'));
-document.getElementById('btn-widgets-close').addEventListener('click', () => document.getElementById('widgets-panel').classList.remove('open'));
-document.getElementById('btn-theme').addEventListener('click', toggleTheme);
-document.getElementById('btn-compact').addEventListener('click', toggleCompact);
-document.getElementById('btn-alerts').addEventListener('click', openAlerts);
-document.getElementById('btn-alerts-close').addEventListener('click', () => document.getElementById('alerts-panel').classList.remove('open'));
-document.getElementById('btn-alert-add').addEventListener('click', addAlert);
+    // --- PASTE THE NEW PNG CODE HERE ---
+    document.getElementById('btn-report-png').addEventListener('click', () => {
+      const btn = document.getElementById('btn-report-png');
+      const content = document.querySelector('#usage-report-content .report-wrapper');
+      
+      if (!content) {
+        alert('Please calculate the report first before saving.');
+        return;
+      }
+      
+      btn.disabled = true;
+      btn.textContent = 'Saving...';
+      
+      html2canvas(content, {
+        backgroundColor: '#121214', 
+        scale: 2,                  
+        logging: false,
+        useCORS: true
+      }).then(canvas => {
+        const link = document.createElement('a');
+        link.download = `EmonCMS_Detailed_Report_${new Date().toISOString().split('T')[0]}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+        
+        btn.disabled = false;
+        btn.textContent = 'Save PNG';
+      }).catch(err => {
+        console.error(err);
+        alert('Failed to generate PNG image.');
+        btn.disabled = false;
+        btn.textContent = 'Save PNG';
+      });
+    });
+    // --- END OF NEW PNG CODE ---
 
-// Bootstrap app
-buildWidgetPanel();
-loadSolarConfig();
-loadAlerts();
-initTheme();
-initCompact();
-loadSettings().then(poll);
+    document.getElementById('btn-widgets').addEventListener('click', () => document.getElementById('widgets-panel').classList.add('open'));
+    document.getElementById('btn-widgets-close').addEventListener('click', () => document.getElementById('widgets-panel').classList.remove('open'));
+    document.getElementById('btn-theme').addEventListener('click', toggleTheme);
+    document.getElementById('btn-compact').addEventListener('click', toggleCompact);
+    document.getElementById('btn-alerts').addEventListener('click', openAlerts);
+    document.getElementById('btn-alerts-close').addEventListener('click', () => document.getElementById('alerts-panel').classList.remove('open'));
+    document.getElementById('btn-alert-add').addEventListener('click', addAlert);
 
-setInterval(updateMainPredicted, 120000);
-setTimeout(updateMainPredicted, 3000);
+    // Bootstrap app
+    buildWidgetPanel();
+    loadSolarConfig();
+    loadAlerts();
+    initTheme();
+    initCompact();
+    loadSettings().then(poll);
+
+    setInterval(updateMainPredicted, 120000);
+    setTimeout(updateMainPredicted, 3000);
+

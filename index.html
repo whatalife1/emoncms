@@ -258,13 +258,17 @@
     </div>
   </div>
 
-  <!-- Detailed Usage Report Panel -->
+<!-- Detailed Usage Report Panel -->
   <div id="usage-report-panel" class="slide-panel">
     <div class="panel-header">
       <span style="font-weight:700">📊 Detailed Usage Report</span>
-      <button id="btn-report-close" class="btn-primary">Close</button>
+      <div style="display:flex; gap:6px;">
+        <button id="btn-report-png" class="btn-primary" style="background:#10b981; border-color:#10b981; color:#fff;">Save PNG</button>
+        <button id="btn-report-close" class="btn-primary">Close</button>
+      </div>
     </div>
     <div class="panel-body">
+
       <!-- Controls -->
       <div class="sol-picker" style="margin-bottom:15px; display:flex; gap:6px;">
         <select id="report-month-m">
@@ -284,6 +288,9 @@
     </div>
   </div>
 
+
+  <!-- Link to html2canvas for saving DOM as PNG -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <!-- Link to external JavaScript logic -->
   <script src="app.js" defer></script>
 </body>

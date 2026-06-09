@@ -68,8 +68,9 @@ body { background: var(--bg-base); color: var(--text-main); font-family: system-
     right: 0;
     max-width: 448px;
   }
-  /* Applies to standard slide-panels like settings, alerts, etc. */
-  .slide-panel {
+  
+  /* Constrain pop-ups (Solar, Settings, Widgets, Alerts) to the centered mobile layout on desktop */
+  .slide-panel, #solar-panel, #settings, #widgets-panel, #alerts-panel {
     max-width: 450px;
     left: 50% !important;
     right: auto !important;
@@ -79,7 +80,7 @@ body { background: var(--bg-base); color: var(--text-main); font-family: system-
     box-shadow: 0 -4px 20px rgba(0,0,0,0.5);
   }
 
-  /* Specific override ONLY for the detailed usage report panel */
+  /* Specific override ONLY for the detailed usage report panel so it stays full screen */
   #usage-report-panel {
     max-width: 100% !important;
     left: 0 !important;
@@ -95,7 +96,6 @@ body { background: var(--bg-base); color: var(--text-main); font-family: system-
     width: 100%;
   }
 }
-
 
 
 /* ── Header ───────────────────────────────────────────────────────────── */

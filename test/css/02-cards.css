@@ -1,0 +1,45 @@
+/* ── Container & cards ────────────────────────────────────────────────── */
+.container { padding: 10px; display: flex; flex-direction: column; gap: 6px; padding-bottom: 60px; }
+.card { background: var(--bg-panel); border: 1px solid var(--border); border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 4px; box-shadow: var(--shadow); }
+.card-header { display: flex; justify-content: space-between; align-items: center; }
+.card-name { font-weight: 600; color: var(--text-main); font-size: 13px; }
+.card-value { font-size: 17px; font-weight: 800; font-variant-numeric: tabular-nums; }
+
+.hero-header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
+.hero-val { color: var(--accent-w); font-size: 17px; font-weight: 800; margin-left: 4px; }
+
+.val-watts { color: var(--accent-w); }
+.val-units { color: var(--accent-kwh); }
+.val-env   { color: var(--accent-env); }
+
+.linked-values { display: grid; gap: 4px 12px; margin-top: 4px; }
+.linked-values-pair { grid-template-columns: 1fr 1fr; }
+.linked-value { display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--text-muted); }
+.linked-reading { font-weight: 700; color: var(--accent-kwh); font-size: 12px; }
+
+/* ── Card accent borders ──────────────────────────────────────────────── */
+.card-watts  { border-left: 3px solid var(--accent-w); }
+.card-units  { border-left: 3px solid var(--accent-kwh); }
+.card-env    { border-left: 3px solid var(--accent-env); }
+.card-solar  { border-left: 3px solid var(--accent-solar); }
+
+/* ── Trend arrows ─────────────────────────────────────────────────────── */
+.trend { font-size: 10px; margin-left: 4px; font-weight: 700; }
+.trend-up   { color: #4ade80; }
+.trend-down { color: #f87171; }
+.trend-flat { color: var(--text-muted); }
+
+/* ── Sparklines ───────────────────────────────────────────────────────── */
+.sparkline-wrap { margin-top: 4px; height: 28px; position: relative; overflow: hidden; }
+.sparkline-wrap svg { width: 100%; height: 28px; display: block; }
+
+/* ── Power Flow Diagram ───────────────────────────────────────────────── */
+#flow-card { background: var(--bg-panel); border: 1px solid var(--border); border-radius: 10px; padding: 10px; margin-bottom: 2px; box-shadow: var(--shadow); }
+#flow-card .flow-title { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 8px; }
+#flow-svg-wrap { overflow: hidden; }
+#flow-svg-wrap svg { width: 100%; height: auto; display: block; }
+
+/* ── FORCE BIG FLOW ─────────────────────────────────────────────────── */
+#flow-card { min-height: 420px !important; }
+#flow-svg-wrap { height: 400px !important; overflow: visible !important; }
+#flow-svg-wrap svg { width: 100% !important; height: 100% !important; }

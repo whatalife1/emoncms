@@ -1,0 +1,12 @@
+/* ── Header ───────────────────────────────────────────────────────────── */
+.header { background: var(--bg-panel); padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 10; box-shadow: var(--shadow); }
+.header-title { font-size: 14px; font-weight: 700; }
+.header-btns { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+
+/* ── Buttons ──────────────────────────────────────────────────────────── */
+button { background: var(--bg-card); color: var(--text-main); border: 1px solid var(--border); border-radius: 8px; padding: 5px 10px; font-size: 11px; font-weight: 600; cursor: pointer; transition: opacity 0.15s; }
+button:active { opacity: 0.7; }
+.btn-primary { background: var(--text-main); color: var(--bg-base); border-color: var(--text-main); }
+
+/* ── Stale data indicator ─────────────────────────────────────────────── */
+#stale-indicator { display: none; background: #ef4444; color: #fff; border-radius: 4px; padding: 2px 6px; font-size: 10px; font-weight: 700; margin-right: 4px; }

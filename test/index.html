@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>EmonCMS Monitor</title>
+  <!-- Link to external CSS stylesheets -->
+  <link rel="stylesheet" href="css/00-variables.css">
+  <link rel="stylesheet" href="css/01-layout.css">
+  <link rel="stylesheet" href="css/02-cards.css">
+  <link rel="stylesheet" href="css/03-panels.css">
+  <link rel="stylesheet" href="css/04-solar.css">
+  <link rel="stylesheet" href="css/05-reports.css">
+</head>
+<body>
+
+  <!-- Floating app boundary container -->
+  <div class="main-shell">
+
+    <div class="header">
+      <div class="header-title">⚡ EmonCMS Monitor</div>
+      <div class="header-btns">
+        <span id="stale-indicator">⚠ Stale</span>
+        <button id="btn-theme" title="Toggle light/dark">☀</button>
+        <button id="btn-compact" title="Toggle compact">◩</button>
+        <button id="btn-alerts" title="Alerts">🔔</button>
+        <button id="btn-solar" title="Solar Prediction">☼</button>
+        <button id="btn-widgets" title="Widget list">📦</button>
+        <button id="btn-settings">⚙</button>
+        <button class="btn-primary" id="btn-refresh">Refresh</button>
+      </div>
+    </div>
+
+    <!-- 
+      Note: Prediction and Cost containers are hidden. 
+      The logic remains in JS to calculate values, but they are 
+      now displayed inside the Flow Chart.
+    -->
+    <div id="pred-wrap" style="display:none;"></div>
+    <div id="cost-wrap" style="display:none;"></div>
+
+    <!-- Power flow diagram - Now the primary visual focus -->
+    <div class="container" id="flow-wrap" style="padding-bottom:0;">
+      <div id="flow-card">
+        <div class="flow-title">⚡ Live power flow</div>
+        <div id="flow-svg-wrap">
+          <svg id="flow-svg" viewBox="0 0 730 730" xmlns="http://www.w3.org/2000/svg" width="100%"></svg>
+        </div>
+      </div>
+    </div>
+
+    <!-- Feed cards list -->
+    <div class="container" id="list">
+      <!-- Skeleton Loading State -->
+      <div class="skel-card" style="border-left:3px solid var(--accent-solar)">
+        <div class="skel-row" style="gap:8px">
+          <div style="flex:1;display:flex;flex-direction:column;gap:6px;align-items:flex-start">
+            <div class="skel-line" style="width:44px;height:11px"></div>
+            <div class="skel-line" style="width:52px;height:20px"></div>
+          </div>
+          <div style="flex:1;display:flex;flex-direction:column;gap:6px;align-items:center">
+            <div class="skel-line" style="width:44px;height:11px"></div>
+            <div class="skel-line" style="width:52px;height:20px"></div>
+          </div>
+          <div style="flex:1;display:flex;flex-direction:column;gap:6px;align-items:flex-end">
+            <div class="skel-line" style="width:52px;height:11px"></div>
+            <div class="skel-line" style="width:52px;height:20px"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <div class="progress-track"><div class="progress-bar" id="progress-bar" style="width:100%"></div></div>
+      <div class="footer-inner">
+        <span id="footer">Connecting...</span>
+        <span id="countdown"></span>
+      </div>
+    </div>
+
+  </div> <!-- End main-shell -->
+
+  <!-- Settings panel -->
+  <div id="settings">
+    <div class="settings-header">
+      <span style="font-weight:700">Display Settings</span>
+      <button id="btn-save" class="btn-primary">Save &amp; Close</button>
+    </div>
+    <div class="settings-body" id="settings-list"></div>
+    <div style="padding:20px; border-top:1px solid var(--border); background:var(--bg-panel);">
+      <div style="font-size:12px; color:var(--text-muted); margin-bottom:8px">Refresh Interval (seconds)</div>
+      <input type="number" id="refresh-interval" style="margin-bottom:20px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px">
+        <div style="font-size:12px; color:var(--text-muted)">Debug Info</div>
+        <label class="switch"><input type="checkbox" id="debug-toggle"><span class="slider"></span></label>
+      </div>
+      <div id="debug-info" style="display:none; background:var(--bg-card); border:1px solid var(--border); padding:10px; border-radius:8px; font-family:monospace; font-size:11px; word-break:break-all; min-height:100px; margin-bottom:20px;">Waiting for refresh...</div>
+      <div style="border-top:1px solid var(--border); padding-top:18px;">
+        <div style="font-size:12px; font-weight:700; color:var(--text-main); margin-bottom:4px;">📊 Billing Usage Report</div>
+        <button id="btn-view-report" class="btn-export"><span>📊</span> View Detailed Report</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Widgets panel -->
+  <div id="widgets-panel">
+    <div class="widgets-header">
+      <span style="font-weight:700">📦 Available Widgets</span>
+      <button id="btn-widgets-close" class="btn-primary">Close</button>
+    </div>
+    <div id="widgets-body"></div>
+  </div>
+
+  <!-- Alerts panel -->
+  <div id="alerts-panel">
+    <div class="alerts-header">
+      <span style="font-weight:700">🔔 Alert Thresholds</span>
+      <button id="btn-alerts-close" class="btn-primary">Done</button>
+    </div>
+    <div id="alerts-list"></div>
+    <button class="btn-add-alert" id="btn-alert-add">+ Add Alert</button>
+  </div>
+
+  <!-- Solar Prediction Panel -->
+  <div id="solar-panel">
+    <div class="solar-header">
+      <span style="font-weight:700">☼ Solar Prediction</span>
+      <button id="btn-solar-close" class="btn-primary">Close</button>
+    </div>
+    <div class="solar-body">
+
+      <div class="sol-config-wrap">
+        <div class="sol-config-toggle" id="sol-cfg-toggle">
+          <span class="sol-cfg-title">⚙ Panel Config</span>
+          <span id="sol-cfg-summary">Loading config...</span>
+          <span class="sol-cfg-arrow" id="sol-cfg-arrow">▼</span>
+        </div>
+        <div id="sol-cfg-body">
+          <div class="sol-config-grid">
+            <div class="sol-config-item"><label>Panels</label><input type="number" id="sp-count" min="1" max="100"></div>
+            <div class="sol-config-item"><label>Watts / Panel</label><input type="number" id="sp-watts" min="1" max="2000"></div>
+            <div class="sol-config-item"><label>Tilt (°)</label><input type="number" id="sp-tilt" min="0" max="90"></div>
+            <div class="sol-config-item"><label>Azimuth (°)</label><input type="number" id="sp-azimuth" min="0" max="360"></div>
+            <div class="sol-config-item" style="grid-column:1/-1">
+              <label>System Efficiency %</label>
+              <input type="number" id="sp-syseff" min="30" max="100" step="1">
+            </div>
+          </div>
+          <div class="sol-cloud-row">
+            <div class="sol-cloud-label"><span>☁ Cloud Cover</span><span id="sp-cloud-val">0%</span></div>
+            <input type="range" id="sp-cloud" class="sol-cloud-slider" min="0" max="100" step="5">
+          </div>
+          <div class="sol-config-wrap" style="border:none; margin-top:8px;">
+            <div class="sol-extras-grid">
+              <div class="sol-extra-item"><label>🔋 Battery (kWh)</label><input type="number" id="sp-battery" min="0" max="200" step="0.5"></div>
+              <div class="sol-extra-item"><label> PKR / kWh</label><input type="number" id="sp-pkr" min="0" max="500"></div>
+            </div>
+          </div>
+          <button id="sp-apply" class="btn-primary" style="width:100%;padding:10px;font-size:13px">✓ Apply &amp; Recalculate</button>
+        </div>
+      </div>
+
+      <div class="sol-tabs">
+        <button class="sol-tab active" data-tab="today">☀ Today</button>
+        <button class="sol-tab" data-tab="day">Any Day</button>
+        <button class="sol-tab" data-tab="month">Any Month</button>
+        <button class="sol-tab" data-tab="billing">⚡ Cycle</button>
+      </div>
+
+      <div id="sol-tab-today" class="sol-tab-content active">
+        <div class="sol-day-nav" id="sol-today-nav">
+          <button class="sol-day-nav-btn" id="sol-prev-day">‹</button>
+          <div>
+            <div class="sol-day-nav-label" id="sol-nav-label">Today</div>
+            <div class="sol-day-nav-sub" id="sol-nav-sub"></div>
+          </div>
+          <button class="sol-day-nav-btn" id="sol-next-day">›</button>
+        </div>
+        <div class="sol-sun-arc-wrap" id="sol-arc-today"></div>
+        <div id="sol-today-out"><div class="sol-loading">Calculating…</div></div>
+        <div id="sol-battery-card" class="sol-battery-card"></div>
+      </div>
+
+      <div id="sol-tab-day" class="sol-tab-content">
+        <div class="sol-picker">
+          <input type="date" id="sp-day-date">
+          <button id="sp-day-calc">Predict</button>
+        </div>
+        <div class="sol-sun-arc-wrap" id="sol-arc-day"></div>
+        <div id="sol-day-out"></div>
+      </div>
+
+      <div id="sol-tab-month" class="sol-tab-content">
+        <div class="sol-picker">
+          <select id="sp-month-m">
+            <option value="1">Jan</option><option value="2">Feb</option><option value="3">Mar</option>
+            <option value="4">Apr</option><option value="5">May</option><option value="6">Jun</option>
+            <option value="7">Jul</option><option value="8">Aug</option><option value="9">Sep</option>
+            <option value="10">Oct</option><option value="11">Nov</option><option value="12">Dec</option>
+          </select>
+          <input type="number" id="sp-month-y" min="2020" max="2040">
+          <button id="sp-month-calc">Predict</button>
+        </div>
+        <div id="sol-month-out"></div>
+      </div>
+
+      <div id="sol-tab-billing" class="sol-tab-content">
+        <div id="sol-billing-out"><div class="sol-loading">Tap to load billing cycle…</div></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Detailed Usage Report Panel -->
+  <div id="usage-report-panel" class="slide-panel">
+    <div class="panel-header">
+      <span style="font-weight:700">📊 Detailed Usage Report</span>
+      <div style="display:flex; gap:6px;">
+        <button id="btn-report-png" class="btn-primary" style="background:#10b981; border-color:#10b981; color:#fff;">Save PNG</button>
+        <button id="btn-report-close" class="btn-primary" onclick="document.getElementById('usage-report-panel').classList.remove('open')">Close</button>
+      </div>
+    </div>
+    <div class="panel-body">
+      <div class="sol-picker" style="margin-bottom:15px; display:flex; gap:6px;">
+        <select id="report-month-m">
+            <option value="1">Jan</option><option value="2">Feb</option><option value="3">Mar</option>
+            <option value="4">Apr</option><option value="5">May</option><option value="6">Jun</option>
+            <option value="7">Jul</option><option value="8">Aug</option><option value="9">Sep</option>
+            <option value="10">Oct</option><option value="11">Nov</option><option value="12">Dec</option>
+        </select>
+        <input type="number" id="report-month-y" min="2020" max="2040">
+        <button id="btn-report-calculate">Calculate</button>
+      </div>
+      <div id="usage-report-content"></div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="js/00-config.js" defer></script>
+  <script src="js/01-sparkline.js" defer></script>
+  <script src="js/02-flow.js" defer></script>
+  <script src="js/03-visuals.js" defer></script>
+  <script src="js/04-ui.js" defer></script>
+  <script src="js/05-settings.js" defer></script>
+  <script src="js/06-alerts.js" defer></script>
+  <script src="js/07-fetch.js" defer></script>
+  <script src="js/08-render-a.js" defer></script>
+  <script src="js/08b-render-b.js" defer></script>
+  <script src="js/09-poll.js" defer></script>
+  <script src="js/10-solar-base-a.js" defer></script>
+  <script src="js/10b-solar-base-b.js" defer></script>
+  <script src="js/11-solar-calc.js" defer></script>
+  <script src="js/12-solar-render-a.js" defer></script>
+  <script src="js/13-solar-render-b.js" defer></script>
+  <script src="js/14-solar-today.js" defer></script>
+  <script src="js/15-solar-others-a.js" defer></script>
+  <script src="js/15b-solar-others-b.js" defer></script>
+  <script src="js/16-reports-core.js" defer></script>
+  <script src="js/17-reports-ui.js" defer></script>
+  <script src="js/18-main-a.js" defer></script>
+  <script src="js/18b-main-b.js" defer></script>
+</body>
+</html>

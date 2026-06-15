@@ -1,0 +1,98 @@
+/* ── Theme variables: dark (default) ────────────────────────────────── */
+:root, [data-theme="dark"] {
+  --bg-base:    #09090b;
+  --bg-panel:   #121214;
+  --bg-card:    #1c1c1f;
+  --border:     #27272a;
+  --text-main:  #f4f4f5;
+  --text-muted: #71717a;
+  --accent-w:      #f59e0b;
+  --accent-kwh:    #38bdf8;
+  --accent-env:    #10b981;
+  --accent-solar:  #facc15;
+  --card-bg:    #121214;
+  --input-bg:   #09090b;
+  --shadow:     none;
+}
+/* ── Light theme ────────────────────────────────────────────────────── */
+[data-theme="light"] {
+  --bg-base:    #f4f4f5;
+  --bg-panel:   #ffffff;
+  --bg-card:    #f0f0f3;
+  --border:     #d4d4d8;
+  --text-main:  #18181b;
+  --text-muted: #71717a;
+  --accent-w:      #d97706;
+  --accent-kwh:    #0284c7;
+  --accent-env:    #059669;
+  --accent-solar:  #ca8a04;
+  --card-bg:    #ffffff;
+  --input-bg:   #f4f4f5;
+  --shadow:     0 1px 4px rgba(0,0,0,0.08);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+body { background: var(--bg-base); color: var(--text-main); font-family: system-ui, -apple-system, sans-serif; font-size: 14px; width: 100%; min-height: 100vh; overflow-x: hidden; transition: background 0.25s, color 0.25s; }
+
+/* ── App Shell Desktop Constraint ─────────────────────────────────────── */
+.main-shell {
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  background: var(--bg-base);
+}
+
+/* ── Override desktop constraints for the Detailed Usage Report ── */
+@media (min-width: 480px) {
+  body {
+    background: #040406; /* Slightly darker surrounding margin on desktop */
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+  }
+  .main-shell {
+    max-width: 450px;
+    box-shadow: 0 0 24px rgba(0,0,0,0.7);
+    border-left: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+  }
+  .header {
+    max-width: 448px; /* Keeps header contained within center app layout */
+  }
+  .footer {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    max-width: 448px;
+  }
+  
+  /* Constrain pop-ups (Solar, Settings, Widgets, Alerts) to the centered mobile layout on desktop */
+  .slide-panel, #solar-panel, #settings, #widgets-panel, #alerts-panel {
+    max-width: 450px;
+    left: 50% !important;
+    right: auto !important;
+    transform: translateX(-50%);
+    border-left: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+    box-shadow: 0 -4px 20px rgba(0,0,0,0.5);
+  }
+
+  /* Specific override ONLY for the detailed usage report panel so it stays full screen */
+  #usage-report-panel {
+    max-width: 100% !important;
+    left: 0 !important;
+    right: 0 !important;
+    transform: none !important;
+    border-left: none;
+    border-right: none;
+    box-shadow: none;
+  }
+  #usage-report-panel .panel-body {
+    max-width: 1400px;
+    margin: 0 auto;
+    width: 100%;
+  }
+}

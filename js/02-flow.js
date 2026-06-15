@@ -49,13 +49,13 @@ function renderFlowDiagram(byName) {
   svg += `<text x="${cx(o)}" y="${o.y+o.ly5}" ${tpProps} font-size="${o.fs5}" fill="${o.c5}">Today: ${solar_t.toFixed(1)} kWh | PKR ${nF(solar_t*rate)}</text>`;
   svg += `<text x="${cx(o)}" y="${o.y+o.ly6}" ${tpProps} font-size="${o.fs6}" fill="${o.c6}">Month: ${nF(mU.solar||0)} kWh | PKR ${nF((mU.solar||0)*rate)}</text>`;
 
-  // 2. GRID (Mapped to your 4 Lines)
+  // 2. GRID (Mapped to your 4 Lines) - UPDATED TODAY/MONTH TO T/M
   o = L.grid; const grdAct = b > 200;
   svg += `<rect x="${o.x}" y="${o.y}" width="${o.w}" height="${o.h}" rx="10" fill="${grdAct?'#2a0a0a':'#1f1f23'}" stroke="${grdAct?o.color:'#666'}" stroke-width="2"/>`;
   svg += `<text x="${cx(o)}" y="${o.y+o.ly1}" ${tpProps} font-size="${o.fs}" fill="${grdAct?o.c1:'#777'}">${o.label}: ${pF(b)}</text>`;
   svg += `<text x="${cx(o)}" y="${o.y+o.ly2}" ${tpProps} font-size="${o.fs2}" fill="${o.c2}">AC Input: ${Math.round(v)}V</text>`;
-  svg += `<text x="${cx(o)}" y="${o.y+o.ly3}" ${tpProps} font-size="${o.fs3}" fill="${o.c3}">Today: ${grid_t.toFixed(1)} kWh | PKR ${nF(grid_t*rate)}</text>`;
-  svg += `<text x="${cx(o)}" y="${o.y+o.ly4}" ${tpProps} font-size="${o.fs4}" fill="${o.c4}">Month: ${nF(mU.grid||0)} kWh | PKR ${nF((mU.grid||0)*rate)}</text>`;
+  svg += `<text x="${cx(o)}" y="${o.y+o.ly3}" ${tpProps} font-size="${o.fs3}" fill="${o.c3}">T: ${grid_t.toFixed(1)} kWh | PKR ${nF(grid_t*rate)}</text>`;
+  svg += `<text x="${cx(o)}" y="${o.y+o.ly4}" ${tpProps} font-size="${o.fs4}" fill="${o.c4}">M: ${nF(mU.grid||0)} kWh | PKR ${nF((mU.grid||0)*rate)}</text>`;
 
   // 3. WATER (Auto-Colors Logic)
   o = L.water;

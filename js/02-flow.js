@@ -1,15 +1,16 @@
 // ─── Power Flow Diagram — YOUR CALIBRATED COORDINATES ─────────────────────────────────
 const LAYOUT = {
- solar: { x:5, y:9, w:315, h:352, color:'#f59e0b', label:'Solar', ly1:49, fs:46, c1:'#ffff00', ly2:109, fs2:47, c2:'#2c8758', ly3:166, fs3:38, c3:'#b4b635', ly4:219, fs4:29, c4:'#21c442', ly5:264, fs5:23, c5:'#e31c7c', ly6:314, fs6:21, c6:'#38bdf8',  },
- grid: { x:330, y:6, w:245, h:353, color:'#ef4444', label:'Grid', ly1:55, fs:41, c1:'#ef4444', ly2:141, fs2:26, c2:'#35c0b7', ly3:275, fs3:21, c3:'#ea1a9e', ly4:317, fs4:18, c4:'#888888',  },
- water: { x:585, y:2, w:143, h:348, color:'#0ea5e9', label:'Water', ly1:40, fs:46, c1:'#0ea5e9', ly2:158, fs2:60, c2:'#25f447', ly3:251, fs3:23, c3:'#9ca3af', ly4:80, fs4:12, c4:'#9ca3af',  },
+ solar: { x:5, y:9, w:315, h:352, color:'#f59e0b', label:'Solar', ly1:42, fs:47, c1:'#ffff00', ly2:106, fs2:47, c2:'#2c8758', ly3:166, fs3:38, c3:'#b4b635', ly4:219, fs4:29, c4:'#21c442', ly5:264, fs5:23, c5:'#3de31c', ly6:314, fs6:21, c6:'#38bdf8',  },
+ grid: { x:330, y:6, w:245, h:353, color:'#ef4444', label:'Grid', ly1:48, fs:41, c1:'#ef4444', ly2:172, fs2:26, c2:'#35c0b7', ly3:275, fs3:20, c3:'#3de3e4', ly4:317, fs4:18, c4:'#38bdf8',  },
+ water: { x:585, y:2, w:143, h:348, color:'#0ea5e9', label:'Water', ly1:51, fs:46, c1:'#0ea5e9', ly2:158, fs2:60, c2:'#25f447', ly3:251, fs3:23, c3:'#9ca3af', ly4:80, fs4:12, c4:'#9ca3af',  },
  haier: { x:4, y:365, w:269, h:183, color:'#38bdf8', label:'Haier 1T', ly1:25, fs:34, c1:'#38bdf8', ly2:75, fs2:63, c2:'#25f447', ly3:128, fs3:27, c3:'#9ca3af', ly4:164, fs4:25, c4:'#71717a',  },
  k1: { x:524, y:357, w:215, h:187, color:'#38bdf8', label:'Kenwood 1T', ly1:27, fs:34, c1:'#38bdf8', ly2:75, fs2:63, c2:'#25f447', ly3:131, fs3:24, c3:'#9ca3af', ly4:162, fs4:23, c4:'#71717a',  },
- k15: { x:277, y:361, w:246, h:183, color:'#38bdf8', label:'Kenwood 1.5T', ly1:21, fs:34, c1:'#38bdf8', ly2:74, fs2:63, c2:'#25f447', ly3:128, fs3:26, c3:'#9ca3af', ly4:163, fs4:25, c4:'#71717a',  },
- fridge: { x:6, y:550, w:270, h:176, color:'#c084fc', label:'Fridges', ly1:19, fs:34, c1:'#c084fc', ly2:74, fs2:63, c2:'#25f447', ly3:122, fs3:22, c3:'#9ca3af', ly4:153, fs4:20, c4:'#71717a',  },
- pc: { x:280, y:544, w:245, h:182, color:'#10b981', label:'PC', ly1:16, fs:34, c1:'#10b981', ly2:63, fs2:63, c2:'#25f447', ly3:123, fs3:27, c3:'#9ca3af', ly4:157, fs4:20, c4:'#71717a',  },
+ k15: { x:277, y:361, w:246, h:183, color:'#38bdf8', label:'Kenwood 1.5T', ly1:21, fs:34, c1:'#38bdf8', ly2:74, fs2:64, c2:'#25f447', ly3:128, fs3:26, c3:'#9ca3af', ly4:163, fs4:25, c4:'#71717a',  },
+ fridge: { x:6, y:550, w:270, h:176, color:'#c084fc', label:'Fridges', ly1:19, fs:34, c1:'#38bdf8', ly2:74, fs2:63, c2:'#25f447', ly3:122, fs3:22, c3:'#9ca3af', ly4:153, fs4:20, c4:'#71717a',  },
+ pc: { x:280, y:544, w:245, h:182, color:'#10b9f8', label:'PC', ly1:22, fs:47, c1:'#10bd81', ly2:72, fs2:63, c2:'#38f447', ly3:123, fs3:27, c3:'#9ca3af', ly4:157, fs4:20, c4:'#71717a',  },
  temp: { x:534, y:554, w:194, h:66, color:'#22c55e', label:'temp', ly1:26, fs:27, c1:'#25f447',  },
 };
+
 function renderFlowDiagram(byName) {
   if (!byName) return;
 

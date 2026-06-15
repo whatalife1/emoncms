@@ -8,7 +8,10 @@ async function _fetchTodayActuals(y, mo, d) {
   try {
     const text = await nativeFetch(url);
     if (!text || text.startsWith('ERROR')) return null;
-    const arr  = JSON.parse(text);
+    
+    let arr;
+    try { arr = JSON.parse(text); } catch(e) { return null; }
+    
     if (!arr || arr.length === 0) return null;
     const data   = arr[0]?.data || [];
     const result = {};
@@ -31,7 +34,10 @@ async function _fetchDayBreakerKwh(y, mo, d) {
   try {
     const text = await nativeFetch(url);
     if (!text || text.startsWith('ERROR')) return null;
-    const arr  = JSON.parse(text);
+    
+    let arr;
+    try { arr = JSON.parse(text); } catch(e) { return null; }
+    
     if (!arr || arr.length === 0) return null;
     const data = arr[0]?.data || [];
     const values = data.map(pt => pt[1]).filter(v => v !== null && v !== undefined);
@@ -41,13 +47,15 @@ async function _fetchDayBreakerKwh(y, mo, d) {
 }
 
 async function _getBreakerKwh(y, mo, d, isToday) {
-  const breakerTodayFeed = userOrderedFeeds.find(f => f.name === 'Breaker Today');
-  const feedId = breakerTodayFeed ? breakerTodayFeed.id : '499413';
-  if (isToday) {
-    return await fetchEmon(feedId);
-  } else {
-    return await _fetchDayBreakerKwh(y, mo, d);
-  }
+  try {
+    const breakerTodayFeed = userOrderedFeeds.find(f => f.name === 'Breaker Today');
+    const feedId = breakerTodayFeed ? breakerTodayFeed.id : '499413';
+    if (isToday) {
+      return await fetchEmon(feedId);
+    } else {
+      return await _fetchDayBreakerKwh(y, mo, d);
+    }
+  } catch(e) { return null; }
 }
 
 let _navOffset = 0;

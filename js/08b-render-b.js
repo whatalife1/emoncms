@@ -7,6 +7,9 @@ function renderResults(results) {
   updateCostCard(byName);
 
   const html = results.map(f => {
+    // Skip Solar Amps card in the list (data is still used in the Flow Diagram)
+    if (f.name === 'Solar Amps') return '';
+
     if (used.has(f.name)) return '';
     const gn = LINKED_GROUPS.find(g => g.includes(f.name));
     if (gn) gn.forEach(n => used.add(n)); else used.add(f.name);

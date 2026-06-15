@@ -27,15 +27,11 @@ const FEEDS_BASE = [
   { id: "499364", name: "Kenwood 1Ton",         unit: "W",   type: "watts" },
   { id: "499407", name: "Kenwood 1Ton Today",   unit: "kWh", type: "units" },
   { id: "499406", name: "Kenwood 1Ton Total",   unit: "kWh", type: "units" },
-  // Inside FEEDS_BASE array in js/00-config.js
-  { id: "499367", name: "Haier 1Ton",       unit: "W",   type: "watts" },
-  { id: "499409", name: "Haier 1Ton Today", unit: "kWh", type: "units" },
-  { id: "499408", name: "Haier 1Ton Total", unit: "kWh", type: "units" },
-
+  { id: "499367", name: "Haier 1Ton",           unit: "W",   type: "watts" },
   { id: "499422", name: "PC",                   unit: "W",   type: "watts" },
   { id: "499424", name: "PC Today",             unit: "kWh", type: "units" },
   { id: "499428", name: "Temperature",          unit: "°C",  type: "env"   },
-  { id: "499382", name: "Solar Amps", unit: "A", type: "env" },
+  { id: "499382", name: "Solar Amps",           unit: "A",   type: "env"   },
   { id: "499429", name: "Humidity",             unit: "%",   type: "env"   }
 ];
 
@@ -48,7 +44,7 @@ const LINKED_GROUPS = [
   ["PC", "PC Today"],
   ["Kenwood 1Ton", "Kenwood 1Ton Today", "Kenwood 1Ton Total"],
   ["Kenwood 1.5Ton", "Kenwood 1.5Ton Today", "Kenwood 1.5Ton Total"],
-  ["Hair 1Ton", "Hair 1Ton Today", "Hair 1Ton Total"],
+  ["Haier 1Ton"],
   ["Fridge", "Fridge2", "Fridge Today", "Fridge2 Today"],
   ["Temperature", "Humidity"]
 ];
@@ -69,7 +65,7 @@ const WIDGET_CATALOG = [
     { name: "Emon PC",             desc: "PC W" },
     { name: "Emon Kenwood 1.5Ton", desc: "Kenwood 1.5Ton W" },
     { name: "Emon Kenwood 1Ton",   desc: "Kenwood 1Ton W" },
-    { name: "Emon Hair 1Ton",      desc: "Hair 1Ton W" }
+    { name: "Emon Haier 1Ton",     desc: "Haier 1Ton W" }
   ]},
   { category: "📅 Today / Total kWh", items: [
     { name: "Emon Solar Today",           desc: "Solar kWh today" },
@@ -79,10 +75,8 @@ const WIDGET_CATALOG = [
     { name: "Emon PC Today",              desc: "PC kWh today" },
     { name: "Emon Kenwood 1.5Ton Today",  desc: "Kenwood 1.5Ton kWh today" },
     { name: "Emon Kenwood 1Ton Today",    desc: "Kenwood 1Ton kWh today" },
-    { name: "Emon Hair 1Ton Today",       desc: "Hair 1Ton kWh today" },
     { name: "Emon Kenwood 1.5Ton Total",  desc: "Kenwood 1.5Ton lifetime kWh" },
-    { name: "Emon Kenwood 1Ton Total",    desc: "Kenwood 1Ton lifetime kWh" },
-    { name: "Emon Hair 1Ton Total",       desc: "Hair 1Ton lifetime kWh" }
+    { name: "Emon Kenwood 1Ton Total",    desc: "Kenwood 1Ton lifetime kWh" }
   ]},
   { category: "🌡 Environment", items: [
     { name: "Emon Temperature", desc: "Temperature °C" },

@@ -63,94 +63,46 @@ document.getElementById('btn-view-report').addEventListener('click', () => {
   calculateDetailedReport();
 });
 
-// Event listener to save report as a PNG image (captures full table width)
-    document.getElementById('btn-report-png').addEventListener('click', () => {
-      const btn = document.getElementById('btn-report-png');
-      const content = document.querySelector('#usage-report-content .report-wrapper');
-      
-      if (!content) {
-        alert('Please calculate the report first before saving.');
-        return;
-      }
-      
-      btn.disabled = true;
-      btn.textContent = 'Saving...';
-      
-      // 1. Create a temporary off-screen clone to bypass browser width limits and scrollbars
-      const clone = content.cloneNode(true);
-      clone.style.position = 'fixed';
-      clone.style.top = '0';
-      clone.style.left = '0';
-      clone.style.width = 'max-content';
-      clone.style.maxWidth = 'none';
-      clone.style.height = 'auto';
-      clone.style.zIndex = '-9999';
-      clone.style.opacity = '1';       // Keep visible behind the screen layer for rendering
-      clone.style.pointerEvents = 'none';
-      
-      // 2. Force the scroll wrapper inside the clone to be fully visible (no scrollbar)
-      const cloneScroll = clone.querySelector('.table-scroll');
-      if (cloneScroll) {
-        cloneScroll.style.overflow = 'visible';
-        cloneScroll.style.overflowX = 'visible';
-        cloneScroll.style.width = 'max-content';
-      }
-      
-      // 3. Let the table take up its natural maximum horizontal width
-      const cloneTable = clone.querySelector('table');
-      if (cloneTable) {
-        cloneTable.style.width = 'max-content';
-        cloneTable.style.minWidth = '900px';
-      }
-      
-      document.body.appendChild(clone);
-      
-      // 4. Capture the fully expanded off-screen clone
-      html2canvas(clone, {
-        backgroundColor: '#121214', 
-        scale: 2,                  // High resolution clarity
-        logging: false,
-        useCORS: true,
-        width: clone.scrollWidth,  // Ensure full canvas width matching the table width
-        height: clone.scrollHeight
-      }).then(canvas => {
-        const link = document.createElement('a');
-        link.download = `EmonCMS_Detailed_Report_${new Date().toISOString().split('T')[0]}.png`;
-        link.href = canvas.toDataURL('image/png');
-        link.click();
-        
-        // Cleanup the off-screen clone
-        document.body.removeChild(clone);
-        
-        btn.disabled = false;
-        btn.textContent = 'Save PNG';
-      }).catch(err => {
-        console.error(err);
-        if (clone.parentNode) {
-          document.body.removeChild(clone);
-        }
-        alert('Failed to generate PNG image.');
-        btn.disabled = false;
-        btn.textContent = 'Save PNG';
-      });
-    });
+document.getElementById('btn-report-png').addEventListener('click', () => {
+  const btn = document.getElementById('btn-report-png');
+  const content = document.querySelector('#usage-report-content .report-wrapper');
+  if (!content) { alert('Calculate report first'); return; }
+  btn.disabled = true; btn.textContent = 'Saving...';
+  const clone = content.cloneNode(true);
+  clone.style.position = 'fixed'; clone.style.top = '0'; clone.style.left = '0';
+  clone.style.width = 'max-content'; clone.style.maxWidth = 'none';
+  clone.style.zIndex = '-9999'; clone.style.opacity = '1';
+  document.body.appendChild(clone);
+  html2canvas(clone, {
+    backgroundColor: '#121214', scale: 2, useCORS: true,
+    width: clone.scrollWidth, height: clone.scrollHeight
+  }).then(canvas => {
+    const link = document.createElement('a');
+    link.download = `Report_${new Date().toISOString().split('T')[0]}.png`;
+    link.href = canvas.toDataURL('image/png'); link.click();
+    document.body.removeChild(clone); btn.disabled = false; btn.textContent = 'Save PNG';
+  });
+});
 
+document.getElementById('btn-widgets').addEventListener('click', () => document.getElementById('widgets-panel').classList.add('open'));
+document.getElementById('btn-widgets-close').addEventListener('click', () => document.getElementById('widgets-panel').classList.remove('open'));
+document.getElementById('btn-theme').addEventListener('click', toggleTheme);
+document.getElementById('btn-compact').addEventListener('click', toggleCompact);
+document.getElementById('btn-alerts').addEventListener('click', openAlerts);
+document.getElementById('btn-alerts-close').addEventListener('click', () => document.getElementById('alerts-panel').classList.remove('open'));
+document.getElementById('btn-alert-add').addEventListener('click', addAlert);
 
-    document.getElementById('btn-widgets').addEventListener('click', () => document.getElementById('widgets-panel').classList.add('open'));
-    document.getElementById('btn-widgets-close').addEventListener('click', () => document.getElementById('widgets-panel').classList.remove('open'));
-    document.getElementById('btn-theme').addEventListener('click', toggleTheme);
-    document.getElementById('btn-compact').addEventListener('click', toggleCompact);
-    document.getElementById('btn-alerts').addEventListener('click', openAlerts);
-    document.getElementById('btn-alerts-close').addEventListener('click', () => document.getElementById('alerts-panel').classList.remove('open'));
-    document.getElementById('btn-alert-add').addEventListener('click', addAlert);
+buildWidgetPanel();
+loadSolarConfig();
+loadAlerts();
+initTheme();
+initCompact();
 
-    // Bootstrap app
-    buildWidgetPanel();
-    loadSolarConfig();
-    loadAlerts();
-    initTheme();
-    initCompact();
-    loadSettings().then(poll);
+if (typeof window.backgroundFetchMonthly === 'function') {
+  window.backgroundFetchMonthly();
+}
 
-    setInterval(updateMainPredicted, 120000);
-    setTimeout(updateMainPredicted, 3000);
+loadSettings().then(poll);
+
+setInterval(updateMainPredicted, 120000);
+setTimeout(updateMainPredicted, 3000);

@@ -1,4 +1,3 @@
---- START OF FILE js/08b-render-b.js ---
 function renderResults(results) {
   const byName = new Map(results.map(r => [r.name, r]));
   const used   = new Set();
@@ -8,7 +7,6 @@ function renderResults(results) {
   updateCostCard(byName);
 
   const html = results.map(f => {
-    // Skip Solar Amps card in the list (data is still used in the Flow Diagram)
     if (f.name === 'Solar Amps') return '';
 
     if (used.has(f.name)) return '';

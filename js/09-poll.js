@@ -8,13 +8,18 @@ async function poll() {
   btn.disabled = true;
   btn.innerHTML = '<span class="spin">↻</span>';
 
-  try {
-    // 1. Fetch Monthly data ONLY on first load to save data/time
-    if (!window.monthlyUnits) {
-       await fetchMonthlyUnits();
-    }
+  // 1. Kick off monthly units in the background. Do NOT "await" it.
+  if (!window.monthlyUnits) {
+     fetchMonthlyUnits().then(() => {
+        // Force a redraw once background data arrives
+        if (window.lastResultsMap) renderFlowDiagram(window.lastResultsMap);
+     });
+  }
 
+  try {
     const active = userOrderedFeeds.filter(f => f.enabled);
+    
+    // 2. Fetch live data immediately (This won't wait for Monthly)
     const results = await Promise.all(active.map(async f => ({ 
       ...f, 
       value: await fetchEmon(f.id) 
@@ -34,6 +39,7 @@ async function poll() {
     document.getElementById('footer').textContent = 'Updated ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   } catch (e) {
     document.getElementById('footer').textContent = 'Update Failed';
+    console.error("Poll error:", e);
   } finally {
     btn.disabled = false;
     btn.textContent = 'Refresh';

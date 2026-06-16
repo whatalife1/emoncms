@@ -1,3 +1,4 @@
+--- START OF FILE js/00-config.js ---
 // Proxy worker endpoint
 const PROXY_BASE = 'https://emon-proxy.new-life-786-786-786.workers.dev';
 
@@ -28,6 +29,8 @@ const FEEDS_BASE = [
   { id: "499407", name: "Kenwood 1Ton Today",   unit: "kWh", type: "units" },
   { id: "499406", name: "Kenwood 1Ton Total",   unit: "kWh", type: "units" },
   { id: "499367", name: "Haier 1Ton",           unit: "W",   type: "watts" },
+  { id: "499409", name: "Haier 1Ton Today",     unit: "kWh", type: "units" }, // Added
+  { id: "499408", name: "Haier 1Ton Total",     unit: "kWh", type: "units" }, // Added
   { id: "499422", name: "PC",                   unit: "W",   type: "watts" },
   { id: "499424", name: "PC Today",             unit: "kWh", type: "units" },
   { id: "499428", name: "Temperature",          unit: "°C",  type: "env"   },
@@ -44,7 +47,7 @@ const LINKED_GROUPS = [
   ["PC", "PC Today"],
   ["Kenwood 1Ton", "Kenwood 1Ton Today", "Kenwood 1Ton Total"],
   ["Kenwood 1.5Ton", "Kenwood 1.5Ton Today", "Kenwood 1.5Ton Total"],
-  ["Haier 1Ton"],
+  ["Haier 1Ton", "Haier 1Ton Today", "Haier 1Ton Total"], // Updated
   ["Fridge", "Fridge2", "Fridge Today", "Fridge2 Today"],
   ["Temperature", "Humidity"]
 ];

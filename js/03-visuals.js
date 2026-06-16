@@ -26,7 +26,6 @@ async function fetchMonthlyUnits() {
   let startMonth = now.getMonth();
   let startYear = now.getFullYear();
 
-  // If today is before 25th, cycle started on 25th of PREVIOUS month
   if (day < 25) {
     startMonth -= 1;
     if (startMonth < 0) { startMonth = 11; startYear -= 1; }
@@ -52,10 +51,9 @@ async function fetchMonthlyUnits() {
 
     responses.forEach(res => {
       try {
-        if (res.text && !res.text.startsWith('ERROR')) {
+        if (res.text && typeof res.text === 'string' && !res.text.startsWith('ERROR')) {
           const data = JSON.parse(res.text);
           if (Array.isArray(data)) {
-            // Sum up the daily recorded usage for the billing cycle
             results[res.key] = data.reduce((acc, curr) => acc + (parseFloat(curr[1]) || 0), 0);
           }
         }
@@ -74,8 +72,7 @@ async function fetchMonthlyUnits() {
   };
 }
 
-// ─── Financial Sharing ──────────────────────────────────────────────────────
 function updateCostCard(byName) {
   const pkrRate = solarCfg?.pkrPerUnit ?? 60;
-  window.pkrRate = pkrRate; // Share with 02-flow.js
+  window.pkrRate = pkrRate;
 }

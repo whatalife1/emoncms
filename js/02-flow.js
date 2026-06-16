@@ -27,8 +27,7 @@ function renderFlowDiagram(byName) {
   const solar_t = getV('Solar Today');
   const grid_t = getV('Grid Today') || getV('Breaker Today');
   
-  // Fallback if background data hasn't loaded yet
-  const mU = window.monthlyUnits || {}; 
+  const mU = window.monthlyUnits || {};
   const rate = window.pkrRate || 60;
   const L = LAYOUT;
   const cx = o => o.x + o.w / 2;
@@ -38,7 +37,7 @@ function renderFlowDiagram(byName) {
   const tpProps = 'font-family="system-ui, -apple-system, sans-serif" dominant-baseline="central" text-anchor="middle" font-weight="700"';
   let svg = `<svg viewBox="0 0 730 730" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%" preserveAspectRatio="xMidYMid meet">`;
 
-  // 1. SOLAR
+  // 1. SOLAR (Mapped to your 6 Lines)
   let o = L.solar;
   const predW = window.currentPredW || 0; const cloud = window.currentCloud || 0;
   svg += `<rect x="${o.x}" y="${o.y}" width="${o.w}" height="${o.h}" rx="10" fill="#1a1508" stroke="${o.color}" stroke-width="2"/>`;
@@ -49,7 +48,7 @@ function renderFlowDiagram(byName) {
   svg += `<text x="${cx(o)}" y="${o.y+o.ly5}" ${tpProps} font-size="${o.fs5}" fill="${o.c5}">Today: ${solar_t.toFixed(1)} kWh | PKR ${nF(solar_t*rate)}</text>`;
   svg += `<text x="${cx(o)}" y="${o.y+o.ly6}" ${tpProps} font-size="${o.fs6}" fill="${o.c6}">Month: ${nF(mU.solar||0)} kWh | PKR ${nF((mU.solar||0)*rate)}</text>`;
 
-  // 2. GRID
+  // 2. GRID (Mapped to your 4 Lines) - UPDATED TODAY/MONTH TO T/M
   o = L.grid; const grdAct = b > 200;
   svg += `<rect x="${o.x}" y="${o.y}" width="${o.w}" height="${o.h}" rx="10" fill="${grdAct?'#2a0a0a':'#1f1f23'}" stroke="${grdAct?o.color:'#666'}" stroke-width="2"/>`;
   svg += `<text x="${cx(o)}" y="${o.y+o.ly1}" ${tpProps} font-size="${o.fs}" fill="${grdAct?o.c1:'#777'}">${o.label}: ${pF(b)}</text>`;
@@ -57,7 +56,7 @@ function renderFlowDiagram(byName) {
   svg += `<text x="${cx(o)}" y="${o.y+o.ly3}" ${tpProps} font-size="${o.fs3}" fill="${o.c3}">T: ${grid_t.toFixed(1)} kWh | PKR ${nF(grid_t*rate)}</text>`;
   svg += `<text x="${cx(o)}" y="${o.y+o.ly4}" ${tpProps} font-size="${o.fs4}" fill="${o.c4}">M: ${nF(mU.grid||0)} kWh | PKR ${nF((mU.grid||0)*rate)}</text>`;
 
-  // 3. WATER
+  // 3. WATER (Auto-Colors Logic)
   o = L.water;
   let wS = "CRITICAL", wC = "#f87171";
   if (tk > 95) { wS = "FULL"; wC = "#38bdf8"; }

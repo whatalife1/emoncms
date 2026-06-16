@@ -1,6 +1,10 @@
 const nativeCallbacks = {};
+
 window.onNativeResponse = (id, res) => {
-  if (nativeCallbacks[id]) { nativeCallbacks[id](res); delete nativeCallbacks[id]; }
+  if (nativeCallbacks[id]) { 
+    nativeCallbacks[id](res); 
+    delete nativeCallbacks[id]; 
+  }
 };
 
 function nativeFetch(url) {
@@ -10,7 +14,6 @@ function nativeFetch(url) {
     if (window.Android && window.Android.fetchData) { 
       window.Android.fetchData(url, id); 
     } else {
-      // Standard web fallback for GitHub hosting / local CORS-enabled requests
       fetch(url)
         .then(res => res.text())
         .then(text => resolve(text))
@@ -19,21 +22,38 @@ function nativeFetch(url) {
   });
 }
 
+// Optimized: Gets ALL feeds and their current values in one request
+async function fetchEmonBulk() {
+  const url = `${PROXY_BASE}/feed/list.json`;
+  try {
+    const text = await nativeFetch(url);
+    if (text.startsWith('ERROR:')) throw new Error(text);
+    
+    const data = JSON.parse(text);
+    if (!Array.isArray(data)) return null;
+    
+    // Create a fast lookup Map (ID -> Value)
+    const lookup = new Map();
+    data.forEach(f => {
+      // We store the ID as a string to ensure matching works perfectly
+      lookup.set(String(f.id), parseFloat(f.value));
+    });
+    return lookup;
+  } catch (e) {
+    console.error("Bulk fetch failed:", e);
+    return null;
+  }
+}
+
+// Kept for specific single-feed logic if needed elsewhere
 async function fetchEmon(id) {
   const url = `${PROXY_BASE}/?id=${id}`;
-  const debugEnabled = document.getElementById('debug-toggle').checked;
-  const debugEl = debugEnabled ? document.getElementById('debug-info') : null;
   try {
-    if (debugEl) debugEl.innerHTML = `<b>URL:</b><br><small>${url}</small><br><b>Response:</b><br><span id="debug-res">Fetching...</span>`;
     const text = await nativeFetch(url);
-    if (debugEl) { const el = document.getElementById('debug-res'); if (el) el.textContent = text || '(Empty)'; }
     if (text.startsWith('ERROR:')) throw new Error(text);
-    if (text.includes('authentication failed') || text === 'false') throw new Error('Auth Failed');
     const val = parseFloat(text.replace(/['"]/g, ''));
     return isNaN(val) ? null : val;
   } catch (e) {
-    document.getElementById('footer').textContent = 'Err: ' + e.message;
-    if (debugEl) { const el = document.getElementById('debug-res'); if (el) el.textContent = 'ERROR: ' + e.message; }
     return null;
   }
 }

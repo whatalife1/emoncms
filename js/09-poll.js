@@ -30,29 +30,39 @@ async function poll() {
     btn.innerHTML = '<span class="spin">↻</span>';
   }
   
-  // Instant feedback: Let the user know we are working
+  // Instant visual feedback
   if (footer) footer.textContent = 'Fetching data...';
 
   try {
+    // Start background month fetch if needed
     if (!window.monthlyUnits) {
        window.backgroundFetchMonthly(); 
     }
-    const active = userOrderedFeeds.filter(f => f.enabled);
-    const results = await Promise.all(active.map(async f => ({ 
-      ...f, 
-      value: await fetchEmon(f.id) 
-    })));
+
+    // Single network request for all data points
+    const bulkData = await fetchEmonBulk();
     
+    if (!bulkData) throw new Error("Bulk data null");
+
+    // Match the server results to our UI order
+    const results = userOrderedFeeds.filter(f => f.enabled).map(f => ({
+      ...f,
+      value: bulkData.get(String(f.id)) ?? null
+    }));
+
     const bm = new Map(results.map(r => [r.name, r]));
     window.lastResultsMap = bm; 
     window.lastSolarActual = bm.get('Solar')?.value || 0;
     
+    // Draw everything
     renderResults(results);
     
     if (typeof checkAlerts === 'function') checkAlerts(bm);
     if (typeof updateMainPredicted === 'function') updateMainPredicted();
     
-    if (footer) footer.textContent = 'Updated ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    if (footer) {
+      footer.textContent = 'Updated ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
   } catch (e) {
     console.error("Poll error:", e);
     if (footer) footer.textContent = 'Update Failed';

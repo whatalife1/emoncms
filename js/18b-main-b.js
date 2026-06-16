@@ -93,20 +93,28 @@ document.getElementById('btn-alerts-close').addEventListener('click', () => docu
 document.getElementById('btn-alert-add').addEventListener('click', addAlert);
 
 // ─── APP BOOT SEQUENCE ───
-
-// 1. Setup UI Static Elements
 buildWidgetPanel();
 loadSolarConfig();
 loadAlerts();
 initTheme();
 initCompact();
 
-// 2. INSTANT UI RENDER (Zero Data)
-// Draw the flow chart boxes immediately so the user sees the layout
-if (typeof renderFlowDiagram === 'function') {
+// 2. INSTANT UI RENDER (Cache Loading)
+const cached = localStorage.getItem('last_known_results');
+if (cached) {
+  try {
+    const parsed = JSON.parse(cached);
+    // Draw the list and flow diagram immediately using old data
+    renderResults(parsed); 
+    document.getElementById('footer').textContent = 'Loading fresh data...';
+  } catch(e) {
+    renderFlowDiagram(new Map()); 
+    document.getElementById('footer').textContent = 'Initializing...';
+  }
+} else {
   renderFlowDiagram(new Map()); 
+  document.getElementById('footer').textContent = 'Initializing...';
 }
-document.getElementById('footer').textContent = 'Initializing...';
 
 // 3. START BACKGROUND PROCESSES
 if (typeof window.backgroundFetchMonthly === 'function') {
@@ -115,7 +123,7 @@ if (typeof window.backgroundFetchMonthly === 'function') {
 
 // 4. LOAD SETTINGS AND FETCH LIVE DATA
 loadSettings().then(() => {
-    poll(); // Trigger live fetch
+    poll(); 
 });
 
 setInterval(updateMainPredicted, 120000);

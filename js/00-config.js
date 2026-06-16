@@ -1,4 +1,3 @@
-// Proxy worker endpoint
 const PROXY_BASE = 'https://emon-proxy.new-life-786-786-786.workers.dev';
 
 let autoRefreshSec = 30;

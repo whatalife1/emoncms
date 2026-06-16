@@ -92,17 +92,31 @@ document.getElementById('btn-alerts').addEventListener('click', openAlerts);
 document.getElementById('btn-alerts-close').addEventListener('click', () => document.getElementById('alerts-panel').classList.remove('open'));
 document.getElementById('btn-alert-add').addEventListener('click', addAlert);
 
+// ─── APP BOOT SEQUENCE ───
+
+// 1. Setup UI Static Elements
 buildWidgetPanel();
 loadSolarConfig();
 loadAlerts();
 initTheme();
 initCompact();
 
+// 2. INSTANT UI RENDER (Zero Data)
+// Draw the flow chart boxes immediately so the user sees the layout
+if (typeof renderFlowDiagram === 'function') {
+  renderFlowDiagram(new Map()); 
+}
+document.getElementById('footer').textContent = 'Initializing...';
+
+// 3. START BACKGROUND PROCESSES
 if (typeof window.backgroundFetchMonthly === 'function') {
   window.backgroundFetchMonthly();
 }
 
-loadSettings().then(poll);
+// 4. LOAD SETTINGS AND FETCH LIVE DATA
+loadSettings().then(() => {
+    poll(); // Trigger live fetch
+});
 
 setInterval(updateMainPredicted, 120000);
 setTimeout(updateMainPredicted, 3000);

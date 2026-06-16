@@ -1,14 +1,14 @@
-// ─── Scoped Detailed Billing Report Processor ──────────────────────────────
+// Map feeds from Config so IDs are always in sync
 const EXPORT_FEEDS = [
-  { id: "499380", name: "Solar",        isSolar:   true },
-  { id: "499374", name: "Breaker",      isBreaker: true },
-  { id: "499364", name: "Kenwood 1Ton" },
-  { id: "499362", name: "Kenwood 1.5T" },
-  { id: "499367", name: "Haier 1Ton" },
-  { id: "499373", name: "Fridge 1" },
-  { id: "541348", name: "Fridge 2" },
-  { id: "499422", name: "PC",           isPc: true }
-];
+  { id: FEEDS_BASE.find(f => f.name === "Solar")?.id,       name: "Solar",        isSolar:   true },
+  { id: FEEDS_BASE.find(f => f.name === "Breaker")?.id,     name: "Breaker",      isBreaker: true },
+  { id: FEEDS_BASE.find(f => f.name === "Kenwood 1Ton")?.id, name: "Kenwood 1Ton" },
+  { id: FEEDS_BASE.find(f => f.name === "Kenwood 1.5Ton")?.id, name: "Kenwood 1.5T" },
+  { id: FEEDS_BASE.find(f => f.name === "Haier 1Ton")?.id,   name: "Haier 1Ton" },
+  { id: FEEDS_BASE.find(f => f.name === "Fridge")?.id,      name: "Fridge 1" },
+  { id: FEEDS_BASE.find(f => f.name === "Fridge2")?.id,     name: "Fridge 2" },
+  { id: FEEDS_BASE.find(f => f.name === "PC")?.id,          name: "PC",           isPc: true }
+].filter(f => f.id); 
 
 const EXPORT_DAY_START   = 7;
 const EXPORT_DAY_END     = 16;
@@ -17,19 +17,14 @@ const EXPORT_NIGHT_END   = 7;
 const EXPORT_PC_DAY_START = 6;
 const EXPORT_PC_DAY_END   = 17;
 
-// Pakistan Standard Time (UTC+5) Date helper
 function getKarachiDate(ms) {
   const date = new Date(ms);
   const formatter = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'Asia/Karachi',
-    year: 'numeric', month: 'numeric', day: 'numeric',
-    hour: 'numeric', hour12: false
+    timeZone: 'Asia/Karachi', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', hour12: false
   });
   const parts = formatter.formatToParts(date);
   const map = {};
-  for (const part of parts) {
-    map[part.type] = part.value;
-  }
+  for (const part of parts) map[part.type] = part.value;
   return {
     year: parseInt(map.year) || date.getUTCFullYear(),
     month: parseInt(map.month) || (date.getUTCMonth() + 1),
@@ -41,10 +36,8 @@ function getKarachiDate(ms) {
 function billingRangeFor(year, month) {
   const endLocal = new Date(Date.UTC(year, month - 1, 25, 0, 0, 0));
   const endMs = endLocal.getTime() - 5 * 3600 * 1000;
-  
   const startLocal = new Date(Date.UTC(year, month - 2, 25, 0, 0, 0));
   const startMs = startLocal.getTime() - 5 * 3600 * 1000;
-  
   return { startMs, endMs };
 }
 
@@ -61,49 +54,30 @@ function loadReportCache() {
   try {
     const json = localStorage.getItem('report_cache');
     reportCache = json ? JSON.parse(json) : {};
-  } catch (e) {
-    reportCache = {};
-  }
+  } catch (e) { reportCache = {}; }
 }
 
 function saveReportCache() {
-  try {
-    localStorage.setItem('report_cache', JSON.stringify(reportCache));
-  } catch (e) {}
+  try { localStorage.setItem('report_cache', JSON.stringify(reportCache)); } catch (e) {}
 }
 
 async function fetchWithCache(feedId, startMs, endMs) {
   const safeThresholdMs = endMs - (3 * 3600 * 1000);
   let fetchStartMs = startMs;
-  
-  if (!reportCache[feedId]) {
-    reportCache[feedId] = {};
-  }
+  if (!reportCache[feedId]) reportCache[feedId] = {};
   const feedCache = reportCache[feedId];
-  
   let maxSafe = -1;
   for (const tsStr of Object.keys(feedCache)) {
     const ts = parseInt(tsStr);
-    if (ts >= startMs && ts < safeThresholdMs && ts > maxSafe) {
-      maxSafe = ts;
-    }
+    if (ts >= startMs && ts < safeThresholdMs && ts > maxSafe) maxSafe = ts;
   }
-  if (maxSafe !== -1) {
-    fetchStartMs = maxSafe;
-  }
-  
+  if (maxSafe !== -1) fetchStartMs = maxSafe;
   const freshData = await fetchHourly(feedId, fetchStartMs, endMs);
-  
-  for (const [ts, val] of Object.entries(freshData)) {
-    feedCache[ts] = val;
-  }
-  
+  for (const [ts, val] of Object.entries(freshData)) feedCache[ts] = val;
   const result = {};
   for (const [tsStr, val] of Object.entries(feedCache)) {
     const ts = parseInt(tsStr);
-    if (ts >= startMs && ts <= endMs) {
-      result[ts] = val;
-    }
+    if (ts >= startMs && ts <= endMs) result[ts] = val;
   }
   return result;
 }
@@ -114,9 +88,7 @@ async function fetchHourly(feedId, startMs, endMs) {
     const text = await nativeFetch(url);
     if (!text || text.startsWith('ERROR')) return {};
     return parseHourlyData(text);
-  } catch (e) {
-    return {};
-  }
+  } catch (e) { return {}; }
 }
 
 function parseHourlyData(json) {
@@ -125,7 +97,6 @@ function parseHourlyData(json) {
   try {
     const root = JSON.parse(json);
     if (!Array.isArray(root) || root.length === 0) return result;
-    
     let data = (typeof root[0] === 'object' && root[0] !== null && root[0].data) ? root[0].data : root;
     for (const point of data) {
       if (!Array.isArray(point) || point.length < 2 || point[1] === null) continue;
@@ -139,31 +110,19 @@ function sumByDay(data, startHour, endHour) {
   const result = {};
   const allDay = startHour === 0 && endHour === 24;
   const wrapsMidnight = startHour > endHour;
-
   for (const [timestampStr, watts] of Object.entries(data)) {
     const timestamp = parseInt(timestampStr);
     const local = getKarachiDate(timestamp);
     const hour = local.hour;
-    
-    const inPeriod = allDay || (wrapsMidnight 
-      ? (hour >= startHour || hour < endHour) 
-      : (hour >= startHour && hour < endHour));
-      
+    const inPeriod = allDay || (wrapsMidnight ? (hour >= startHour || hour < endHour) : (hour >= startHour && hour < endHour));
     if (!inPeriod) continue;
-
-    let effectiveYear = local.year;
-    let effectiveMonth = local.month;
-    let effectiveDay = local.day;
-
+    let effectiveYear = local.year, effectiveMonth = local.month, effectiveDay = local.day;
     if (wrapsMidnight && hour < endHour) {
       const d = new Date(timestamp);
       const prev = new Date(d.getTime() - 24 * 3600 * 1000);
       const prevLocal = getKarachiDate(prev.getTime());
-      effectiveYear = prevLocal.year;
-      effectiveMonth = prevLocal.month;
-      effectiveDay = prevLocal.day;
+      effectiveYear = prevLocal.year; effectiveMonth = prevLocal.month; effectiveDay = prevLocal.day;
     }
-
     const key = `${effectiveYear}-${String(effectiveMonth).padStart(2, '0')}-${String(effectiveDay).padStart(2, '0')}`;
     result[key] = (result[key] || 0) + watts;
   }

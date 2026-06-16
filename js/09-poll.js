@@ -29,32 +29,28 @@ async function poll() {
     btn.disabled = true;
     btn.innerHTML = '<span class="spin">↻</span>';
   }
-  
-  // Instant visual feedback
   if (footer) footer.textContent = 'Fetching data...';
 
   try {
-    // Start background month fetch if needed
     if (!window.monthlyUnits) {
        window.backgroundFetchMonthly(); 
     }
 
-    // Single network request for all data points
     const bulkData = await fetchEmonBulk();
-    
     if (!bulkData) throw new Error("Bulk data null");
 
-    // Match the server results to our UI order
     const results = userOrderedFeeds.filter(f => f.enabled).map(f => ({
       ...f,
       value: bulkData.get(String(f.id)) ?? null
     }));
 
+    // Save current results to cache for Instant-On next time
+    localStorage.setItem('last_known_results', JSON.stringify(results));
+
     const bm = new Map(results.map(r => [r.name, r]));
     window.lastResultsMap = bm; 
     window.lastSolarActual = bm.get('Solar')?.value || 0;
     
-    // Draw everything
     renderResults(results);
     
     if (typeof checkAlerts === 'function') checkAlerts(bm);

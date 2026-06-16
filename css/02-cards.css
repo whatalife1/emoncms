@@ -43,3 +43,13 @@
 #flow-card { min-height: 420px !important; }
 #flow-svg-wrap { height: 400px !important; overflow: visible !important; }
 #flow-svg-wrap svg { width: 100% !important; height: 100% !important; }
+
+/* ── GLOW PULSE ANIMATION ── */
+@keyframes glow-pulse {
+  0% { stroke-width: 2; filter: drop-shadow(0 0 1px var(--pulse-clr)); }
+  50% { stroke-width: 3; filter: drop-shadow(0 0 6px var(--pulse-clr)); }
+  100% { stroke-width: 2; filter: drop-shadow(0 0 1px var(--pulse-clr)); }
+}
+.pulse-animation {
+  animation: glow-pulse 2s infinite ease-in-out;
+}

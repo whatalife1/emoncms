@@ -93,7 +93,7 @@ function renderFlowDiagram(byName) {
   svg += `<text x="${cx(o)}" y="${o.y+o.ly3}" ${tpProps} font-size="${o.fs3}" fill="${o.c3}">Today: ${fT.toFixed(1)} kWh</text>`;
   svg += `<text x="${cx(o)}" y="${o.y+o.ly4}" ${tpProps} font-size="${o.fs4}" fill="${o.c4}">Month: ${(mU.fridge||0).toFixed(1)} kWh</text>`;
 
-  // 5. TEMp
+  // 5. TEMP
   const oT = L.temp;
   svg += `<rect x="${oT.x}" y="${oT.y}" width="${oT.w}" height="${oT.h}" rx="8" fill="#141416" stroke="${oT.color}" stroke-width="1.5"/><text x="${cx(oT)}" y="${oT.y+oT.ly1}" ${tpProps} font-size="${oT.fs}" fill="${oT.c1}">${tp.toFixed(1)}°C / ${Math.round(hm)}%</text></svg>`;
   

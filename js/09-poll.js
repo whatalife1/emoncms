@@ -23,9 +23,16 @@ window.backgroundFetchMonthly = async function() {
 
 async function poll() {
   const btn = document.getElementById('btn-refresh');
-  if (!btn) return;
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spin">↻</span>';
+  const footer = document.getElementById('footer');
+  
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spin">↻</span>';
+  }
+  
+  // Instant feedback: Let the user know we are working
+  if (footer) footer.textContent = 'Fetching data...';
+
   try {
     if (!window.monthlyUnits) {
        window.backgroundFetchMonthly(); 
@@ -35,19 +42,25 @@ async function poll() {
       ...f, 
       value: await fetchEmon(f.id) 
     })));
+    
     const bm = new Map(results.map(r => [r.name, r]));
     window.lastResultsMap = bm; 
     window.lastSolarActual = bm.get('Solar')?.value || 0;
+    
     renderResults(results);
+    
     if (typeof checkAlerts === 'function') checkAlerts(bm);
     if (typeof updateMainPredicted === 'function') updateMainPredicted();
-    document.getElementById('footer').textContent = 'Updated ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    
+    if (footer) footer.textContent = 'Updated ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   } catch (e) {
     console.error("Poll error:", e);
-    document.getElementById('footer').textContent = 'Update Failed';
+    if (footer) footer.textContent = 'Update Failed';
   } finally {
-    btn.disabled = false;
-    btn.textContent = 'Refresh';
+    if (btn) {
+        btn.disabled = false;
+        btn.textContent = 'Refresh';
+    }
     resetCountdown();
     _lastPollSuccess = Date.now();
   }

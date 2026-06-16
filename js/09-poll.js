@@ -2,37 +2,48 @@ let _lastPollSuccess = Date.now();
 let countdownVal = autoRefreshSec;
 let countdownTimer, refreshTimer;
 
+window.isFetchingMonthly = false;
+
+window.backgroundFetchMonthly = async function() {
+  if (window.isFetchingMonthly) return;
+  window.isFetchingMonthly = true;
+  try {
+    if (typeof fetchMonthlyUnits === 'function') {
+      await fetchMonthlyUnits();
+      if (window.lastResultsMap && typeof renderFlowDiagram === 'function') {
+        renderFlowDiagram(window.lastResultsMap);
+      }
+    }
+  } catch (e) {
+    console.warn("Background fetch failed:", e);
+  } finally {
+    window.isFetchingMonthly = false;
+  }
+};
+
 async function poll() {
   const btn = document.getElementById('btn-refresh');
   if (!btn) return;
   btn.disabled = true;
   btn.innerHTML = '<span class="spin">↻</span>';
-
   try {
-    // 1. Fetch Monthly data ONLY on first load to save data/time
     if (!window.monthlyUnits) {
-       await fetchMonthlyUnits();
+       window.backgroundFetchMonthly(); 
     }
-
     const active = userOrderedFeeds.filter(f => f.enabled);
     const results = await Promise.all(active.map(async f => ({ 
       ...f, 
       value: await fetchEmon(f.id) 
     })));
-
     const bm = new Map(results.map(r => [r.name, r]));
     window.lastResultsMap = bm; 
     window.lastSolarActual = bm.get('Solar')?.value || 0;
-
     renderResults(results);
-    checkAlerts(bm);
-
-    if (typeof updateMainPredicted === 'function') {
-      updateMainPredicted();
-    }
-
+    if (typeof checkAlerts === 'function') checkAlerts(bm);
+    if (typeof updateMainPredicted === 'function') updateMainPredicted();
     document.getElementById('footer').textContent = 'Updated ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   } catch (e) {
+    console.error("Poll error:", e);
     document.getElementById('footer').textContent = 'Update Failed';
   } finally {
     btn.disabled = false;

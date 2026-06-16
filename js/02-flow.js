@@ -33,6 +33,13 @@ function renderFlowDiagram(byName) {
 
   const nF = x => Math.round(x).toLocaleString('en-US');
   const pF = x => Math.round(x) + ' w';
+  
+  // Custom formatter for Predicted Solar
+  const predF = x => {
+    if (x >= 1000) return (x / 1000).toFixed(1) + ' kWh';
+    return Math.round(x) + ' w';
+  };
+
   const kF = x => {
     const v = Math.round(x);
     if (v >= 1000) return (v / 1000).toFixed(1) + 'k';
@@ -49,7 +56,10 @@ function renderFlowDiagram(byName) {
   svg += `<text x="${cx(o)}" y="${o.y+o.ly1}" ${tpProps} font-size="${o.fs}" fill="${o.c1}">${o.label}: ${pF(s)}</text>`;
   svg += `<text x="${cx(o)}" y="${o.y+o.ly2}" ${tpProps} font-size="${o.fs2}" fill="${o.c2}">Load: ${pF(l)}</text>`;
   svg += `<text x="${cx(o)}" y="${o.y+o.ly3}" ${tpProps} font-size="${o.fs3}" fill="${o.c3}">${Math.round(sv)}V | ${sa.toFixed(1)}A</text>`;
-  svg += `<text x="${cx(o)}" y="${o.y+o.ly4}" ${tpProps} font-size="${o.fs4}" fill="${o.c4}">Pred: ${pF(predW)} | ☁ ${cloud}%</text>`;
+  
+  // Updated Pred line to use predF formatter
+  svg += `<text x="${cx(o)}" y="${o.y+o.ly4}" ${tpProps} font-size="${o.fs4}" fill="${o.c4}">Pred: ${predF(predW)} | ☁ ${cloud}%</text>`;
+  
   svg += `<text x="${cx(o)}" y="${o.y+o.ly5}" ${tpProps} font-size="${o.fs5}" fill="${o.c5}">Today: ${solar_t.toFixed(1)} kWh | ${kF(solar_t*rate)} PKR</text>`;
   svg += `<text x="${cx(o)}" y="${o.y+o.ly6}" ${tpProps} font-size="${o.fs6}" fill="${o.c6}">Month: ${nF(mU.solar||0)} kWh | ${kF((mU.solar||0)*rate)} PKR</text>`;
 

@@ -102,11 +102,20 @@ function _gNavInfo() {
     const lbl = graphDateNav===0?'Today':graphDateNav===-1?'Yesterday':
       d.toLocaleDateString('en-PK',{day:'numeric',month:'short',year:'numeric'});
     const sub = d.toLocaleDateString('en-PK',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
-    return { label:lbl, sub, interval:3600,
+    
+    // Generate 288 labels for 5-minute intervals (00:00, 00:05, 00:10, etc.)
+    const labels = [];
+    for(let i=0; i<288; i++) {
+      const h = Math.floor(i/12);
+      const m = (i%12) * 5;
+      labels.push(`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`);
+    }
+
+    return { label:lbl, sub, 
+      interval: 300, // 300 seconds = 5 mins
       startMs: new Date(d.getFullYear(),d.getMonth(),d.getDate(),0,0,0).getTime(),
       endMs:   new Date(d.getFullYear(),d.getMonth(),d.getDate(),23,59,59).getTime(),
-      isHourly:true, nBars:24,
-      labels: Array.from({length:24},(_,i)=>String(i).padStart(2,'0')+':00') };
+      isHourly:true, nBars:288, labels: labels };
   }
   if (graphTab === 'month') {
     const m = new Date(now.getFullYear(), now.getMonth()+graphMonthNav, 1);

@@ -1,130 +1,308 @@
-document.getElementById('btn-solar').addEventListener('click', () => {
-  document.getElementById('solar-panel').classList.add('open');
-  const now = new Date();
-  document.getElementById('sp-day-date').value   = now.toISOString().split('T')[0];
-  document.getElementById('sp-month-m').value    = now.getMonth() + 1;
-  document.getElementById('sp-month-y').value    = now.getFullYear();
-  _navOffset = 0;
-  solRenderToday();
-});
-
-document.getElementById('btn-solar-close').addEventListener('click', () => {
-  document.getElementById('solar-panel').classList.remove('open');
-});
-
-document.getElementById('sol-prev-day').addEventListener('click', () => { _navOffset--; solRenderToday(); });
-document.getElementById('sol-next-day').addEventListener('click', () => { if (_navOffset >= 7) return; _navOffset++; solRenderToday(); });
-
-document.getElementById('sol-cfg-toggle').addEventListener('click', () => {
-  const body  = document.getElementById('sol-cfg-body');
-  const arrow = document.getElementById('sol-cfg-arrow');
-  const open  = body.style.display === 'block';
-  body.style.display    = open ? 'none' : 'block';
-  arrow.style.transform = open ? '' : 'rotate(180deg)';
-});
-
-document.getElementById('sp-apply').addEventListener('click', applySolarConfig);
-document.getElementById('sp-cloud').addEventListener('input', function() { _updateCloudLabel(this.value); });
-
-document.querySelectorAll('.sol-tab').forEach(tab => {
-  tab.addEventListener('click', () => {
-    document.querySelectorAll('.sol-tab').forEach(t => t.classList.remove('active'));
-    tab.classList.add('active');
-    document.querySelectorAll('.sol-tab-content').forEach(c => c.classList.remove('active'));
-    const name = tab.dataset.tab;
-    document.getElementById('sol-tab-' + name).classList.add('active');
-    if (name === 'today')   { _navOffset = 0; solRenderToday(); }
-    if (name === 'billing') solRenderBilling();
-  });
-});
-
-document.getElementById('sp-day-calc').addEventListener('click', () => {
-  const dt = document.getElementById('sp-day-date').value;
-  if (!dt) return;
-  solRenderDay(dt);
-});
-
-document.getElementById('sp-month-calc').addEventListener('click', () => {
-  const mo = parseInt(document.getElementById('sp-month-m').value);
-  const y  = parseInt(document.getElementById('sp-month-y').value);
-  if (!mo || !y) return;
-  solRenderMonth(y, mo);
-});
-
-document.getElementById('btn-refresh').addEventListener('click', poll);
-document.getElementById('btn-settings').addEventListener('click', openSettings);
-document.getElementById('btn-save').addEventListener('click', saveSettings);
-
-document.getElementById('btn-view-report').addEventListener('click', () => {
-  document.getElementById('usage-report-panel').classList.add('open');
-  const now = new Date();
-  document.getElementById('report-month-m').value = now.getMonth() + 1;
-  document.getElementById('report-month-y').value = now.getFullYear();
-  calculateDetailedReport();
-});
-
-document.getElementById('btn-report-png').addEventListener('click', () => {
-  const btn = document.getElementById('btn-report-png');
-  const content = document.querySelector('#usage-report-content .report-wrapper');
-  if (!content) { alert('Calculate report first'); return; }
-  btn.disabled = true; btn.textContent = 'Saving...';
-  const clone = content.cloneNode(true);
-  clone.style.position = 'fixed'; clone.style.top = '0'; clone.style.left = '0';
-  clone.style.width = 'max-content'; clone.style.maxWidth = 'none';
-  clone.style.zIndex = '-9999'; clone.style.opacity = '1';
-  document.body.appendChild(clone);
-  html2canvas(clone, {
-    backgroundColor: '#121214', scale: 2, useCORS: true,
-    width: clone.scrollWidth, height: clone.scrollHeight
-  }).then(canvas => {
-    const link = document.createElement('a');
-    link.download = `Report_${new Date().toISOString().split('T')[0]}.png`;
-    link.href = canvas.toDataURL('image/png'); link.click();
-    document.body.removeChild(clone); btn.disabled = false; btn.textContent = 'Save PNG';
-  });
-});
-
-document.getElementById('btn-widgets').addEventListener('click', () => document.getElementById('widgets-panel').classList.add('open'));
-document.getElementById('btn-widgets-close').addEventListener('click', () => document.getElementById('widgets-panel').classList.remove('open'));
-document.getElementById('btn-theme').addEventListener('click', toggleTheme);
-document.getElementById('btn-compact').addEventListener('click', toggleCompact);
-document.getElementById('btn-alerts').addEventListener('click', openAlerts);
-document.getElementById('btn-alerts-close').addEventListener('click', () => document.getElementById('alerts-panel').classList.remove('open'));
-document.getElementById('btn-alert-add').addEventListener('click', addAlert);
-
-// ─── APP BOOT SEQUENCE ───
-buildWidgetPanel();
-loadSolarConfig();
-loadAlerts();
-initTheme();
-initCompact();
-
-// 2. INSTANT UI RENDER (Cache Loading)
-const cached = localStorage.getItem('last_known_results');
-if (cached) {
-  try {
-    const parsed = JSON.parse(cached);
-    // Draw the list and flow diagram immediately using old data
-    renderResults(parsed); 
-    document.getElementById('footer').textContent = 'Loading fresh data...';
-  } catch(e) {
-    renderFlowDiagram(new Map()); 
-    document.getElementById('footer').textContent = 'Initializing...';
+// ─── Safe button helper ───────────────────────────────────────────────────────
+function _btn(id, fn) {
+  const el = document.getElementById(id);
+  if (el) {
+    el.addEventListener('click', fn);
+  } else {
+    console.warn('Missing element:', id);
   }
+}
+
+// ─── Button wiring ────────────────────────────────────────────────────────────
+// Wait for DOM to be fully ready before wiring buttons
+function wireButtons() {
+  _btn('btn-solar', () => {
+    const panel = document.getElementById('solar-panel');
+    if (panel) panel.classList.add('open');
+    const now = new Date();
+    const dateInput = document.getElementById('sp-day-date');
+    const monthInput = document.getElementById('sp-month-m');
+    const yearInput = document.getElementById('sp-month-y');
+    if (dateInput) dateInput.value = now.toISOString().split('T')[0];
+    if (monthInput) monthInput.value = now.getMonth() + 1;
+    if (yearInput) yearInput.value = now.getFullYear();
+    window._navOffset = 0;
+    if (typeof solRenderToday === 'function') solRenderToday();
+  });
+  
+  _btn('btn-solar-close', () => {
+    const panel = document.getElementById('solar-panel');
+    if (panel) panel.classList.remove('open');
+  });
+  
+  _btn('sol-prev-day', () => { 
+    window._navOffset--; 
+    if (typeof solRenderToday === 'function') solRenderToday();
+  });
+  
+  _btn('sol-next-day', () => { 
+    if (window._navOffset >= 7) return; 
+    window._navOffset++; 
+    if (typeof solRenderToday === 'function') solRenderToday();
+  });
+
+  _btn('sol-cfg-toggle', () => {
+    const body = document.getElementById('sol-cfg-body');
+    const arrow = document.getElementById('sol-cfg-arrow');
+    if (!body) return;
+    const isOpen = body.style.display === 'block';
+    body.style.display = isOpen ? 'none' : 'block';
+    if (arrow) arrow.style.transform = isOpen ? '' : 'rotate(180deg)';
+  });
+
+  _btn('sp-apply', () => {
+    if (typeof applySolarConfig === 'function') applySolarConfig();
+  });
+
+  const cloudSlider = document.getElementById('sp-cloud');
+  if (cloudSlider) {
+    cloudSlider.addEventListener('input', function() {
+      if (typeof _updateCloudLabel === 'function') _updateCloudLabel(this.value);
+    });
+  }
+
+  // Solar tabs
+  document.querySelectorAll('.sol-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.sol-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      document.querySelectorAll('.sol-tab-content').forEach(c => c.classList.remove('active'));
+      const name = tab.dataset.tab;
+      const content = document.getElementById('sol-tab-' + name);
+      if (content) content.classList.add('active');
+      if (name === 'today') { 
+        window._navOffset = 0; 
+        if (typeof solRenderToday === 'function') solRenderToday();
+      }
+      if (name === 'billing' && typeof solRenderBilling === 'function') {
+        solRenderBilling();
+      }
+    });
+  });
+
+  _btn('sp-day-calc', () => {
+    const dt = document.getElementById('sp-day-date');
+    if (dt && dt.value && typeof solRenderDay === 'function') {
+      solRenderDay(dt.value);
+    }
+  });
+  
+  _btn('sp-month-calc', () => {
+    const mo = parseInt(document.getElementById('sp-month-m')?.value || '0');
+    const y = parseInt(document.getElementById('sp-month-y')?.value || '0');
+    if (mo && y && typeof solRenderMonth === 'function') {
+      solRenderMonth(y, mo);
+    }
+  });
+
+  _btn('btn-refresh', () => {
+    if (typeof poll === 'function') poll();
+  });
+  
+  _btn('btn-settings', () => {
+    if (typeof openSettings === 'function') openSettings();
+  });
+  
+  _btn('btn-save', () => {
+    if (typeof saveSettings === 'function') saveSettings();
+  });
+
+  _btn('btn-view-report', () => {
+    const panel = document.getElementById('usage-report-panel');
+    if (panel) panel.classList.add('open');
+    const now = new Date();
+    const monthInput = document.getElementById('report-month-m');
+    const yearInput = document.getElementById('report-month-y');
+    if (monthInput) monthInput.value = now.getMonth() + 1;
+    if (yearInput) yearInput.value = now.getFullYear();
+    if (typeof calculateDetailedReport === 'function') {
+      setTimeout(calculateDetailedReport, 100);
+    }
+  });
+  
+  _btn('btn-report-calculate', () => {
+    if (typeof calculateDetailedReport === 'function') calculateDetailedReport();
+  });
+
+  _btn('btn-report-png', () => {
+    const btn = document.getElementById('btn-report-png');
+    const content = document.querySelector('#usage-report-content .report-wrapper');
+    if (!content) { 
+      alert('Calculate report first'); 
+      return; 
+    }
+    if (typeof html2canvas === 'undefined') {
+      alert('html2canvas library not loaded');
+      return;
+    }
+    btn.disabled = true; 
+    btn.textContent = 'Saving...';
+    const clone = content.cloneNode(true);
+    clone.style.cssText = 'position:fixed;top:0;left:0;width:max-content;max-width:none;z-index:-9999;opacity:1';
+    document.body.appendChild(clone);
+    html2canvas(clone, {
+      backgroundColor: '#121214', 
+      scale: 2, 
+      useCORS: true,
+      width: clone.scrollWidth, 
+      height: clone.scrollHeight
+    }).then(canvas => {
+      const a = document.createElement('a');
+      a.download = `Report_${new Date().toISOString().split('T')[0]}.png`;
+      a.href = canvas.toDataURL('image/png');
+      a.click();
+      document.body.removeChild(clone);
+      btn.disabled = false; 
+      btn.textContent = 'Save PNG';
+    }).catch(() => {
+      document.body.removeChild(clone);
+      btn.disabled = false; 
+      btn.textContent = 'Save PNG';
+    });
+  });
+
+  _btn('btn-widgets', () => {
+    const panel = document.getElementById('widgets-panel');
+    if (panel) panel.classList.add('open');
+  });
+  
+  _btn('btn-widgets-close', () => {
+    const panel = document.getElementById('widgets-panel');
+    if (panel) panel.classList.remove('open');
+  });
+  
+  _btn('btn-theme', () => {
+    if (typeof toggleTheme === 'function') toggleTheme();
+  });
+  
+  _btn('btn-compact', () => {
+    if (typeof toggleCompact === 'function') toggleCompact();
+  });
+  
+  _btn('btn-alerts', () => {
+    if (typeof openAlerts === 'function') openAlerts();
+  });
+  
+  _btn('btn-alerts-close', () => {
+    const panel = document.getElementById('alerts-panel');
+    if (panel) panel.classList.remove('open');
+  });
+  
+  _btn('btn-alert-add', () => {
+    if (typeof addAlert === 'function') addAlert();
+  });
+
+  // Graph buttons
+  _btn('btn-graphs', () => {
+    if (typeof openGraphsPanel === 'function') {
+      openGraphsPanel();
+    } else {
+      // Fallback: try to load graphs panel directly
+      const p = document.getElementById('graphs-panel');
+      if (p) {
+        p.classList.add('open');
+        if (typeof renderGraphsPanel === 'function') {
+          setTimeout(renderGraphsPanel, 50);
+        }
+      }
+    }
+  });
+  
+  _btn('btn-graphs-close', () => {
+    if (typeof closeGraphsPanel === 'function') {
+      closeGraphsPanel();
+    } else {
+      const p = document.getElementById('graphs-panel');
+      if (p) p.classList.remove('open');
+    }
+  });
+}
+
+// ─── APP BOOT ────────────────────────────────────────────────────────────────
+// Initialize everything when DOM is ready
+function initApp() {
+  try { 
+    if (typeof buildWidgetPanel === 'function') buildWidgetPanel(); 
+  } catch(e) { console.error('buildWidgetPanel',e); }
+  
+  try { 
+    if (typeof loadSolarConfig === 'function') loadSolarConfig(); 
+  } catch(e) { console.error('loadSolarConfig',e); }
+  
+  try { 
+    if (typeof loadAlerts === 'function') loadAlerts(); 
+  } catch(e) { console.error('loadAlerts',e); }
+  
+  try { 
+    if (typeof initTheme === 'function') initTheme(); 
+  } catch(e) { console.error('initTheme',e); }
+  
+  try { 
+    if (typeof initCompact === 'function') initCompact(); 
+  } catch(e) { console.error('initCompact',e); }
+
+  // Wire all buttons
+  try {
+    wireButtons();
+  } catch(e) {
+    console.error('wireButtons error:', e);
+  }
+
+  // Instant render from cache
+  try {
+    const cached = localStorage.getItem('last_known_results');
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (typeof renderResults === 'function') {
+        renderResults(parsed);
+      }
+      const footer = document.getElementById('footer');
+      if (footer) footer.textContent = 'Loading fresh data...';
+    } else {
+      if (typeof renderFlowDiagram === 'function') {
+        renderFlowDiagram(new Map());
+      }
+      const footer = document.getElementById('footer');
+      if (footer) footer.textContent = 'Initializing...';
+    }
+  } catch(e) {
+    console.error('Cache render error:', e);
+    try { 
+      if (typeof renderFlowDiagram === 'function') renderFlowDiagram(new Map()); 
+    } catch(_) {}
+    const footer = document.getElementById('footer');
+    if (footer) footer.textContent = 'Initializing...';
+  }
+
+  // Background monthly fetch
+  try {
+    if (typeof window.backgroundFetchMonthly === 'function') {
+      window.backgroundFetchMonthly();
+    }
+  } catch(e) { console.error('backgroundFetchMonthly',e); }
+
+  // Load settings → start polling
+  if (typeof loadSettings === 'function') {
+    loadSettings().then(() => {
+      if (typeof poll === 'function') poll();
+    }).catch(e => {
+      console.error('loadSettings failed:', e);
+      if (typeof poll === 'function') poll(); // try anyway
+    });
+  } else {
+    if (typeof poll === 'function') poll();
+  }
+
+  // Start prediction updates
+  if (typeof updateMainPredicted === 'function') {
+    setInterval(updateMainPredicted, 120000);
+    setTimeout(updateMainPredicted, 3000);
+  }
+}
+
+// Run init when DOM is ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initApp);
 } else {
-  renderFlowDiagram(new Map()); 
-  document.getElementById('footer').textContent = 'Initializing...';
+  initApp();
 }
-
-// 3. START BACKGROUND PROCESSES
-if (typeof window.backgroundFetchMonthly === 'function') {
-  window.backgroundFetchMonthly();
-}
-
-// 4. LOAD SETTINGS AND FETCH LIVE DATA
-loadSettings().then(() => {
-    poll(); 
-});
-
-setInterval(updateMainPredicted, 120000);
-setTimeout(updateMainPredicted, 3000);

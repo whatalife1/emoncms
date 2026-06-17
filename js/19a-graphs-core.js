@@ -1,3 +1,6 @@
+// Change this to 5, 10, 15, 30, or 60 to easily adjust the daily graph resolution!
+const GRAPH_DAY_RESOLUTION_MINUTES = 20; 
+
 // ─── Graphs Panel - Core Configuration ──────────────────────────────────────
 const GRAPH_FEEDS = [
   { key: 'solar',   name: 'Solar',         id: '499380', color: '#facc15', label: '☀ Solar'        },

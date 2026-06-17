@@ -1,7 +1,10 @@
+// Initialize global nav offset
+window._navOffset = 0;
+
 async function solRenderToday() {
   const { y, mo, d, date } = _navDate();
-  const isToday = _navOffset === 0;
-  const isPast  = _navOffset < 0;
+  const isToday = window._navOffset === 0;
+  const isPast  = window._navOffset < 0;
   const out     = document.getElementById('sol-today-out');
   if (!out) return;
 

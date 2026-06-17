@@ -1,0 +1,103 @@
+/* ── Graphs Panel ──────────────────────────────────────────────────────────── */
+#graphs-panel {
+  position: fixed; top: 100%; left: 0; right: 0; bottom: 0;
+  background: var(--bg-base); z-index: 20; display: flex; flex-direction: column;
+  transition: top 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+#graphs-panel.open { top: 0; }
+
+.graphs-header {
+  padding: 15px; background: var(--bg-panel); border-bottom: 1px solid var(--border);
+  display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;
+}
+
+#graphs-body {
+  flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px;
+}
+
+/* ── Time tabs (Day/Month/Year/Total) ──────────────────────────────────────── */
+.graph-time-tabs {
+  display: flex; gap: 2px; background: var(--bg-panel);
+  border: 1px solid var(--border); border-radius: 10px; padding: 3px;
+}
+.gtime-tab {
+  flex: 1; padding: 7px 4px; border-radius: 7px; font-size: 12px; font-weight: 700;
+  background: transparent; border: 1px solid transparent; color: var(--text-muted); cursor: pointer;
+}
+.gtime-tab.active { background: var(--bg-card); color: var(--text-main); border-color: var(--border); }
+
+/* ── Chart Type Toggle ──────────────────────────────────────────────────────── */
+#chart-type-toggle .chart-type-btn.active {
+  background: var(--bg-card);
+  border-color: var(--border);
+}
+
+/* ── Nav bar ───────────────────────────────────────────────────────────────── */
+.graph-nav-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--bg-panel); border: 1px solid var(--border); border-radius: 10px; padding: 8px 12px;
+}
+.graph-nav-btn {
+  background: var(--bg-card); border: 1px solid var(--border); color: var(--text-main);
+  border-radius: 8px; padding: 5px 13px; font-size: 18px; cursor: pointer; line-height: 1; width: auto;
+}
+.graph-nav-center { flex: 1; text-align: center; }
+.graph-nav-label { font-size: 13px; font-weight: 700; color: var(--text-main); }
+.graph-nav-sub { font-size: 10px; color: var(--text-muted); margin-top: 1px; }
+
+/* ── Chart card ────────────────────────────────────────────────────────────── */
+.graph-chart-card {
+  background: var(--bg-panel); border: 1px solid var(--border); border-radius: 10px;
+  padding: 10px 10px 6px;
+  position: relative;
+}
+.graph-stat {
+  font-size: 12px; font-weight: 700; color: var(--text-muted); margin-bottom: 6px; min-height: 16px;
+}
+#graph-canvas {
+  width: 100%; height: 180px; display: block; border-radius: 4px;
+}
+
+/* ── Graph Tooltip ─────────────────────────────────────────────────────────── */
+#graph-tooltip {
+  position: fixed;
+  z-index: 100;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: var(--text-main);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  display: none;
+  pointer-events: none;
+  min-width: 80px;
+  max-width: 250px;
+  font-family: system-ui, -apple-system, sans-serif;
+  line-height: 1.6;
+}
+
+/* ── Feed tabs (scrollable row) ───────────────────────────────────────────── */
+.graph-feed-tabs {
+  display: flex; gap: 5px; overflow-x: auto; padding-bottom: 4px;
+  scrollbar-width: none; -ms-overflow-style: none;
+}
+.graph-feed-tabs::-webkit-scrollbar { display: none; }
+
+.gfeed-tab {
+  flex-shrink: 0; padding: 6px 11px; border-radius: 20px; font-size: 11px; font-weight: 700;
+  background: var(--bg-panel); border: 1px solid var(--border); color: var(--text-muted); cursor: pointer;
+  white-space: nowrap; transition: color 0.15s, border-color 0.15s;
+}
+.gfeed-tab.active { background: var(--bg-card); }
+
+/* Desktop constraint */
+@media (min-width: 480px) {
+  #graphs-panel {
+    max-width: 450px; left: 50% !important; right: auto !important;
+    transform: translateX(-50%);
+    border-left: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+    box-shadow: 0 -4px 20px rgba(0,0,0,0.5);
+  }
+}

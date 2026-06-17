@@ -1,3 +1,6 @@
+// ─── Store the latest feed data for flow updates ──────────────────────────────
+let _latestFeedData = null;
+
 async function updateMainPredicted() {
   try {
     if (typeof _calcHourly !== 'function') return;

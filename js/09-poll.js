@@ -24,12 +24,13 @@ window.backgroundFetchMonthly = async function() {
 async function poll() {
   const btn = document.getElementById('btn-refresh');
   const footer = document.getElementById('footer');
+  const dbg = document.getElementById('debug-info');
   
   if (btn) {
     btn.disabled = true;
     btn.innerHTML = '<span class="spin">↻</span>';
   }
-  if (footer) footer.textContent = 'Fetching data...';
+  if (footer) footer.textContent = 'Fetching...';
 
   try {
     if (!window.monthlyUnits) {
@@ -37,14 +38,13 @@ async function poll() {
     }
 
     const bulkData = await fetchEmonBulk();
-    if (!bulkData) throw new Error("Bulk data null");
+    if (!bulkData) throw new Error("No data received");
 
     const results = userOrderedFeeds.filter(f => f.enabled).map(f => ({
       ...f,
       value: bulkData.get(String(f.id)) ?? null
     }));
 
-    // Save current results to cache for Instant-On next time
     localStorage.setItem('last_known_results', JSON.stringify(results));
 
     const bm = new Map(results.map(r => [r.name, r]));
@@ -59,16 +59,17 @@ async function poll() {
     if (footer) {
       footer.textContent = 'Updated ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
+    _lastPollSuccess = Date.now();
   } catch (e) {
     console.error("Poll error:", e);
-    if (footer) footer.textContent = 'Update Failed';
+    if (footer) footer.textContent = 'Error: ' + e.message.substring(0, 20);
+    if (dbg) dbg.textContent = "Error: " + e.message;
   } finally {
     if (btn) {
         btn.disabled = false;
         btn.textContent = 'Refresh';
     }
     resetCountdown();
-    _lastPollSuccess = Date.now();
   }
 }
 

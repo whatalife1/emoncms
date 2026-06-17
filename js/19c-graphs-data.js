@@ -15,10 +15,20 @@ async function _gFetch(feedId, startMs, endMs, interval) {
 
 function _pointsToBars(pts, nav) {
   if (nav.isHourly) {
-    const bars = Array(24).fill(0);
+    const bars = Array(nav.nBars).fill(0);
+    // Determine how many points per hour based on nBars (e.g., 288 bars / 24 = 12 pts/hr)
+    const ptsPerHour = nav.nBars / 24; 
+    
     for (const [ts,v] of pts) {
-      const h = new Date(ts).getHours();
-      if (h >= 0 && h < 24) bars[h] = Math.max(bars[h], v);
+      const d = new Date(ts);
+      const h = d.getHours();
+      const m = d.getMinutes();
+      
+      // Map the minute to the correct bucket
+      const idx = (h * ptsPerHour) + Math.floor(m / (60 / ptsPerHour));
+      if (idx >= 0 && idx < nav.nBars) {
+        bars[idx] = Math.max(bars[idx], v);
+      }
     }
     return bars;
   }

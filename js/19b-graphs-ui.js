@@ -103,20 +103,24 @@ function _gNavInfo() {
       d.toLocaleDateString('en-PK',{day:'numeric',month:'short',year:'numeric'});
     const sub = d.toLocaleDateString('en-PK',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
     
-    // Generate 288 labels for 5-minute intervals (00:00, 00:05, 00:10, etc.)
+    // Dynamically calculate bars and labels based on your easy setting
     const labels = [];
-    for(let i=0; i<288; i++) {
-      const h = Math.floor(i/12);
-      const m = (i%12) * 5;
+    const pointsPerHour = 60 / GRAPH_DAY_RESOLUTION_MINUTES;
+    const totalBars = 24 * pointsPerHour;
+    
+    for(let i=0; i<totalBars; i++) {
+      const h = Math.floor(i / pointsPerHour);
+      const m = (i % pointsPerHour) * GRAPH_DAY_RESOLUTION_MINUTES;
       labels.push(`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`);
     }
 
     return { label:lbl, sub, 
-      interval: 300, // 300 seconds = 5 mins
+      interval: GRAPH_DAY_RESOLUTION_MINUTES * 60, // Converts your mins setting to seconds
       startMs: new Date(d.getFullYear(),d.getMonth(),d.getDate(),0,0,0).getTime(),
       endMs:   new Date(d.getFullYear(),d.getMonth(),d.getDate(),23,59,59).getTime(),
-      isHourly:true, nBars:288, labels: labels };
+      isHourly:true, nBars: totalBars, labels: labels };
   }
+  
   if (graphTab === 'month') {
     const m = new Date(now.getFullYear(), now.getMonth()+graphMonthNav, 1);
     const days = new Date(m.getFullYear(),m.getMonth()+1,0).getDate();
@@ -137,6 +141,7 @@ function _gNavInfo() {
   return { label:'All Time', sub:null, interval:86400*7, isTotal:true, nBars:0,
     startMs: new Date(2024,0,1).getTime(), endMs: now.getTime(), labels:[] };
 }
+
 
 function _renderGNavBar() {
   const wrap = document.getElementById('graph-nav-bar');

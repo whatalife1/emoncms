@@ -1,3 +1,29 @@
+// Add at the top of the file to ensure _navOffset is accessible
+// (If not already defined in 14-solar-today.js)
+
+function _navDate() {
+  const d = new Date();
+  const offset = window._navOffset || 0;
+  d.setDate(d.getDate() + offset);
+  return { y: d.getFullYear(), mo: d.getMonth()+1, d: d.getDate(), date: d };
+}
+
+function _updateNavLabel() {
+  const { date } = _navDate();
+  const lbl = document.getElementById('sol-nav-label');
+  const sub = document.getElementById('sol-nav-sub');
+  if (!lbl) return;
+  const offset = window._navOffset || 0;
+  if (offset === 0)      lbl.textContent = 'Today';
+  else if (offset === -1) lbl.textContent = 'Yesterday';
+  else if (offset === 1)  lbl.textContent = 'Tomorrow';
+  else lbl.textContent = date.toLocaleDateString('en-PK', { weekday:'short', day:'numeric', month:'short' });
+  if (sub) sub.textContent = date.toLocaleDateString('en-PK', { day:'numeric', month:'long', year:'numeric' });
+  const nextBtn = document.getElementById('sol-next-day');
+  if (nextBtn) nextBtn.style.opacity = offset >= 7 ? '0.3' : '1';
+}
+
+// The rest of the file remains the same...
 async function _fetchTodayActuals(y, mo, d) {
   const solarFeed = userOrderedFeeds.find(f => f.name === 'Solar');
   const solarId   = solarFeed ? solarFeed.id : '499380';
@@ -56,28 +82,6 @@ async function _getBreakerKwh(y, mo, d, isToday) {
       return await _fetchDayBreakerKwh(y, mo, d);
     }
   } catch(e) { return null; }
-}
-
-let _navOffset = 0;
-
-function _navDate() {
-  const d = new Date();
-  d.setDate(d.getDate() + _navOffset);
-  return { y: d.getFullYear(), mo: d.getMonth()+1, d: d.getDate(), date: d };
-}
-
-function _updateNavLabel() {
-  const { date } = _navDate();
-  const lbl = document.getElementById('sol-nav-label');
-  const sub = document.getElementById('sol-nav-sub');
-  if (!lbl) return;
-  if (_navOffset === 0)      lbl.textContent = 'Today';
-  else if (_navOffset === -1) lbl.textContent = 'Yesterday';
-  else if (_navOffset === 1)  lbl.textContent = 'Tomorrow';
-  else lbl.textContent = date.toLocaleDateString('en-PK', { weekday:'short', day:'numeric', month:'short' });
-  if (sub) sub.textContent = date.toLocaleDateString('en-PK', { day:'numeric', month:'long', year:'numeric' });
-  const nextBtn = document.getElementById('sol-next-day');
-  if (nextBtn) nextBtn.style.opacity = _navOffset >= 7 ? '0.3' : '1';
 }
 
 function _renderHeatmap(daily, container) {

@@ -1,5 +1,7 @@
 // ─── Graphs Panel - UI Rendering ────────────────────────────────────────────
 
+let graphNeedsDayZoom = false;
+
 function _renderZoomControls() {
   const wrap = document.getElementById('graph-time-tabs');
   if (!wrap) return;
@@ -69,11 +71,20 @@ function _renderGTimeTabs() {
   ).join('');
   wrap.querySelectorAll('.gtime-tab').forEach(b => b.addEventListener('click', () => {
     graphTab = b.dataset.gtab;
+    
+    if (graphTab === 'day') {
+      graphChartType = 'line';
+      graphNeedsDayZoom = true;
+    } else {
+      graphChartType = 'bar';
+    }
+
     graphDateNav = 0; graphMonthNav = 0; graphYearNav = 0;
     graphZoomLevel = 1;
     graphPanOffset = 0;
     _renderGTimeTabs(); 
     _renderGNavBar(); 
+    _renderChartTypeToggle();
     _loadAndDraw();
   }));
 }
@@ -90,35 +101,52 @@ function _renderGFeedTabs() {
     graphFeedKey = b.dataset.gkey;
     graphZoomLevel = 1;
     graphPanOffset = 0;
+    graphNeedsDayZoom = true;
     _renderGFeedTabs(); 
     _loadAndDraw();
   }));
 }
 
+function _getLocalMidnight(date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+}
+
 function _gNavInfo() {
   const now = new Date();
   if (graphTab === 'day') {
-    const d = new Date(now); d.setDate(d.getDate() + graphDateNav);
-    const lbl = graphDateNav===0?'Today':graphDateNav===-1?'Yesterday':
-      d.toLocaleDateString('en-PK',{day:'numeric',month:'short',year:'numeric'});
-    const sub = d.toLocaleDateString('en-PK',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
-    
-    // Dynamically calculate bars and labels based on your easy setting
+    const d = new Date(now);
+    d.setDate(d.getDate() + graphDateNav);
+
+    const lbl = graphDateNav === 0 ? 'Today' : graphDateNav === -1 ? 'Yesterday' :
+      d.toLocaleDateString('en-PK', { day: 'numeric', month: 'short', year: 'numeric' });
+    const sub = d.toLocaleDateString('en-PK', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+
+    const centreDayStart = _getLocalMidnight(d);
+    const startMs = centreDayStart;
+    const endMs = centreDayStart + 24 * 3600 * 1000 - 1;
+
+    const totalMinutes = 24 * 60;
+    const nBars = Math.ceil(totalMinutes / GRAPH_DAY_RESOLUTION_MINUTES);
     const labels = [];
-    const pointsPerHour = 60 / GRAPH_DAY_RESOLUTION_MINUTES;
-    const totalBars = 24 * pointsPerHour;
-    
-    for(let i=0; i<totalBars; i++) {
-      const h = Math.floor(i / pointsPerHour);
-      const m = (i % pointsPerHour) * GRAPH_DAY_RESOLUTION_MINUTES;
-      labels.push(`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`);
+    for (let i = 0; i < nBars; i++) {
+      const ms = startMs + i * GRAPH_DAY_RESOLUTION_MINUTES * 60000;
+      const date = new Date(ms);
+      const h = date.getHours();
+      const m = date.getMinutes();
+      labels.push(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
     }
 
-    return { label:lbl, sub, 
-      interval: GRAPH_DAY_RESOLUTION_MINUTES * 60, // Converts your mins setting to seconds
-      startMs: new Date(d.getFullYear(),d.getMonth(),d.getDate(),0,0,0).getTime(),
-      endMs:   new Date(d.getFullYear(),d.getMonth(),d.getDate(),23,59,59).getTime(),
-      isHourly:true, nBars: totalBars, labels: labels };
+    return {
+      label: lbl,
+      sub,
+      interval: GRAPH_DAY_RESOLUTION_MINUTES * 60,
+      startMs,
+      endMs,
+      isHourly: true,
+      nBars,
+      labels,
+      centreDateMs: centreDayStart
+    };
   }
   
   if (graphTab === 'month') {
@@ -137,7 +165,6 @@ function _gNavInfo() {
       startMs: new Date(y,0,1).getTime(), endMs: new Date(y,11,31,23,59,59).getTime(),
       labels:['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'], year:y };
   }
-  // total
   return { label:'All Time', sub:null, interval:86400*7, isTotal:true, nBars:0,
     startMs: new Date(2024,0,1).getTime(), endMs: now.getTime(), labels:[] };
 }
@@ -162,6 +189,7 @@ function _renderGNavBar() {
     if (graphTab==='day') graphDateNav--; else if (graphTab==='month') graphMonthNav--; else graphYearNav--;
     graphZoomLevel = 1;
     graphPanOffset = 0;
+    graphNeedsDayZoom = true;
     _renderGNavBar(); 
     _loadAndDraw();
   });
@@ -170,6 +198,7 @@ function _renderGNavBar() {
     if (graphTab==='day') graphDateNav++; else if (graphTab==='month') graphMonthNav++; else graphYearNav++;
     graphZoomLevel = 1;
     graphPanOffset = 0;
+    graphNeedsDayZoom = true;
     _renderGNavBar(); 
     _loadAndDraw();
   });
@@ -211,4 +240,29 @@ function showTooltip(e, label, value1, value2, color1, color2, isCombined) {
   
   tooltip.style.left = left + 'px';
   tooltip.style.top = top + 'px';
+}
+
+function _showGraphLoading(show) {
+  const card = document.querySelector('.graph-chart-card');
+  if (!card) return;
+  let overlay = document.getElementById('graph-loading-overlay');
+  if (show) {
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = 'graph-loading-overlay';
+      overlay.style.cssText = `
+        position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0,0,0,0.4); z-index: 20;
+        display: flex; align-items: center; justify-content: center;
+        border-radius: 10px;
+        pointer-events: none;
+      `;
+      overlay.innerHTML = `<div style="color:var(--text-main);font-size:14px;font-weight:700;">⏳ Loading...</div>`;
+      card.style.position = 'relative';
+      card.appendChild(overlay);
+    }
+    overlay.style.display = 'flex';
+  } else {
+    if (overlay) overlay.style.display = 'none';
+  }
 }

@@ -1,5 +1,7 @@
 // ─── Graphs Panel - Data Layer ─────────────────────────────────────────────
 
+let graphIsLoading = false;
+
 async function _gFetch(feedId, startMs, endMs, interval) {
   if (!feedId) return [];
   const url = `${PROXY_BASE}/feed/data.json?ids=${feedId}&start=${startMs}&end=${endMs}&skipmissing=0&average=1&delta=0&interval=${interval}`;
@@ -13,74 +15,140 @@ async function _gFetch(feedId, startMs, endMs, interval) {
   } catch(e) { return []; }
 }
 
-function _pointsToBars(pts, nav) {
+function _pointsToBars(pts, nav, feedKey) {
+  const isAvgFeed = feedKey === 'temp' || feedKey === 'water' || feedKey === 'AC Volts';
+
   if (nav.isHourly) {
     const bars = Array(nav.nBars).fill(0);
-    // Determine how many points per hour based on nBars (e.g., 288 bars / 24 = 12 pts/hr)
-    const ptsPerHour = nav.nBars / 24; 
-    
-    for (const [ts,v] of pts) {
-      const d = new Date(ts);
-      const h = d.getHours();
-      const m = d.getMinutes();
-      
-      // Map the minute to the correct bucket
-      const idx = (h * ptsPerHour) + Math.floor(m / (60 / ptsPerHour));
-      if (idx >= 0 && idx < nav.nBars) {
-        bars[idx] = Math.max(bars[idx], v);
+    for (const [ts, v] of pts) {
+      const offsetMs = ts - nav.startMs;
+      if (offsetMs < 0) continue;
+      const idx = Math.floor(offsetMs / (GRAPH_DAY_RESOLUTION_MINUTES * 60000));
+      if (idx >= 0 && idx < nav.nBars) bars[idx] = v;
+    }
+    return bars;
+  }
+
+  if (nav.isYearly) {
+    const bars = Array(12).fill(0), counts = Array(12).fill(0);
+    for (const [ts,v] of pts) { 
+      const m = new Date(ts).getMonth();
+      bars[m] += isAvgFeed ? v : (v/1000); counts[m]++;
+    }
+    return isAvgFeed ? bars.map((v, i) => counts[i]>0 ? v/counts[i] : 0) : bars;
+  }
+
+  if (nav.isTotal) {
+    const by = {}, ct = {};
+    for (const [ts,v] of pts) { 
+      const y = new Date(ts).getFullYear(); 
+      by[y] = (by[y]||0) + (isAvgFeed?v:(v/1000)); ct[y]=(ct[y]||0)+1;
+    }
+    const years = Object.keys(by).sort();
+    const bars = years.map(y => isAvgFeed ? by[y]/ct[y] : by[y]);
+    return { bars, labels: years };
+  }
+
+  const bars = Array(nav.nBars || 1).fill(0), counts = Array(nav.nBars || 1).fill(0);
+  for (const [ts,v] of pts) { 
+    const d = new Date(ts); 
+    if(d.getMonth() === nav.month && d.getFullYear() === nav.year) {
+      const dayIdx = d.getDate()-1;
+      if (dayIdx >= 0 && dayIdx < bars.length) {
+        bars[dayIdx] += isAvgFeed ? v : (v/1000); counts[dayIdx]++;
       }
     }
-    return bars;
   }
-  if (nav.isYearly) {
-    const bars = Array(12).fill(0);
-    for (const [ts,v] of pts) { 
-      const d=new Date(ts); 
-      if(d.getFullYear()===nav.year && d.getMonth() >= 0 && d.getMonth() < 12) 
-        bars[d.getMonth()]+=v/1000; 
-    }
-    return bars;
+  return isAvgFeed ? bars.map((v, i) => counts[i]>0 ? v/counts[i] : 0) : bars;
+}
+
+// Helper to ensure canvas has valid dimensions
+function _ensureCanvasSize(canvas) {
+  if (!canvas) return null;
+  let W = canvas.offsetWidth;
+  let H = canvas.offsetHeight;
+  if (W === 0 || H === 0) {
+    // Try to get computed style fallback
+    const rect = canvas.getBoundingClientRect();
+    W = rect.width || 400;
+    H = rect.height || 180;
   }
-  if (nav.isTotal) {
-    const by={};
-    for (const [ts,v] of pts) { 
-      const y=new Date(ts).getFullYear(); 
-      by[y]=(by[y]||0)+v/1000; 
-    }
-    const years=Object.keys(by).sort();
-    nav.labels = years.length ? years : ['No Data'];
-    return years.map(y=>by[y]);
-  }
-  // monthly (daily bars)
-  const bars = Array(nav.nBars || 1).fill(0);
-  if (!nav.nBars) return bars;
-  for (const [ts,v] of pts) { 
-    const d=new Date(ts); 
-    if(d.getMonth()===nav.month && d.getFullYear()===nav.year) {
-      const dayIdx = d.getDate()-1;
-      if (dayIdx >= 0 && dayIdx < bars.length) bars[dayIdx]+=v/1000;
-    }
-  }
-  return bars;
+  return { W, H };
 }
 
 async function _loadAndDraw() {
+  if (graphIsLoading) return;
+  graphIsLoading = true;
+  _showGraphLoading(true);
+
   const stat   = document.getElementById('graph-stat');
   const canvas = document.getElementById('graph-canvas');
-  if (!canvas||!stat) return;
+  if (!canvas||!stat) {
+    graphIsLoading = false;
+    _showGraphLoading(false);
+    return;
+  }
   stat.textContent = 'Loading…';
   hideTooltip();
 
-  const nav  = _gNavInfo();
-  const isCombined = graphFeedKey === 'combined';
-  const f1 = GRAPH_FEEDS.find(f=>f.key==='solar');
-  const f2 = GRAPH_FEEDS.find(f=>f.key==='grid');
-  const fA = GRAPH_FEEDS.find(f=>f.key===graphFeedKey);
+  const nav = _gNavInfo();
 
+  // Ensure canvas has size before calculating layout
+  const dims = _ensureCanvasSize(canvas);
+  if (!dims || dims.W < 10) {
+    // Wait a frame and retry
+    await new Promise(resolve => requestAnimationFrame(resolve));
+    const retryDims = _ensureCanvasSize(canvas);
+    if (!retryDims || retryDims.W < 10) {
+      console.warn('Graph canvas still has no width, using fallback.');
+      // use fallback width
+      canvas.style.width = '100%';
+      canvas.style.height = '180px';
+      // force reflow
+      canvas.offsetHeight;
+    }
+  }
+
+  if (graphTab === 'day' && graphNeedsDayZoom) {
+    const barsPerDay = (24 * 60) / GRAPH_DAY_RESOLUTION_MINUTES;
+    graphZoomLevel = nav.nBars / barsPerDay;
+
+    // Recalculate dims after possible layout change
+    const dims2 = _ensureCanvasSize(canvas);
+    const W = dims2.W || 400;
+    const PL = 38, PR = 8;
+    const cW = W - PL - PR;
+    const nBars = nav.nBars;
+    const gap = cW * 0.02 / nBars;
+    const grpW = (cW - gap * (nBars + 1)) / nBars;
+
+    // Center on current time if today, otherwise midday
+    const now = new Date();
+    const isToday = graphDateNav === 0;
+    let centerHour = 12;
+    if (isToday) {
+      const h = now.getHours() + now.getMinutes()/60;
+      centerHour = Math.min(24, Math.max(0, h));
+    }
+    const centerIndex = Math.round((centerHour / 24) * nBars);
+    const targetX = PL + gap + centerIndex * (grpW + gap) + grpW / 2;
+    const centerX = PL + cW / 2;
+    graphPanOffset = (centerX - targetX) * graphZoomLevel;
+
+    const zl = document.getElementById('zoom-level');
+    if (zl) zl.textContent = Math.round(graphZoomLevel * 100) + '%';
+
+    graphNeedsDayZoom = false;
+  }
+
+  const fA = GRAPH_FEEDS.find(f => f.key === graphFeedKey);
+  const isCombined = graphFeedKey === 'combined';
+  
   let pts1=[], pts2=[];
   try {
-    if (isCombined && f1 && f2) {
-      [pts1,pts2] = await Promise.all([
+    if (isCombined) {
+      const f1 = GRAPH_FEEDS.find(f => f.key === 'solar'), f2 = GRAPH_FEEDS.find(f => f.key === 'grid');
+      [pts1, pts2] = await Promise.all([
         _gFetch(f1.id, nav.startMs, nav.endMs, nav.interval),
         _gFetch(f2.id, nav.startMs, nav.endMs, nav.interval)
       ]);
@@ -88,35 +156,52 @@ async function _loadAndDraw() {
       pts1 = await _gFetch(fA.id, nav.startMs, nav.endMs, nav.interval);
     }
   } catch(e) {
+    console.warn('Graph data fetch error:', e);
     stat.textContent = 'Error loading data';
-    console.warn('Graph fetch error:', e);
+    graphIsLoading = false;
+    _showGraphLoading(false);
     return;
   }
 
-  const nav1 = {...nav, labels:[...nav.labels]};
-  const nav2 = {...nav, labels:[...nav.labels]};
-  const bars1 = _pointsToBars(pts1, nav1);
-  const bars2 = isCombined ? _pointsToBars(pts2, nav2) : [];
-  const labels = nav1.labels;
+  let bars1 = _pointsToBars(pts1, nav, graphFeedKey);
+  let bars2 = isCombined ? _pointsToBars(pts2, nav, 'grid') : [];
+  let labels = nav.labels;
 
-  const color1 = isCombined ? f1?.color || '#facc15' : (fA?.color||'#facc15');
-  const color2 = f2?.color || '#ef4444';
-  const unit   = nav.isHourly ? 'W' : 'kWh';
+  if (nav.isTotal && typeof bars1 === 'object' && bars1.bars !== undefined) {
+    labels = bars1.labels;
+    bars1 = bars1.bars;
+    if (isCombined && typeof bars2 === 'object' && bars2.bars !== undefined) {
+      labels = bars2.labels;
+      bars2 = bars2.bars;
+    }
+  }
+
+  let unit = nav.isHourly ? 'W' : 'kWh';
+  if (graphFeedKey === 'temp') unit = '°C';
+  if (graphFeedKey === 'water') unit = '%';
+
+  const color1 = isCombined ? '#facc15' : (fA?.color || '#facc15');
+  const color2 = '#ef4444';
 
   graphDataCache = { bars1, bars2, labels, color1, color2, unit, isCombined, nav };
-
-  _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombined);
-
-  const tot1 = bars1.reduce((s,v)=>s+v,0);
-  const dispUnit = nav.isHourly ? 'W peak' : 'kWh';
-  if (isCombined) {
-    const tot2 = bars2.reduce((s,v)=>s+v,0);
-    const max1 = Math.max(0, ...bars1);
-    const max2 = Math.max(0, ...bars2);
-    stat.innerHTML = `<span style="color:${color1}">☀ Solar: ${nav.isHourly?Math.round(max1):tot1.toFixed(1)} ${dispUnit}</span>&nbsp;&nbsp;`+
-                     `<span style="color:${color2}">⚡ Grid: ${nav.isHourly?Math.round(max2):tot2.toFixed(1)} ${dispUnit}</span>`;
-  } else {
-    const val = nav.isHourly ? Math.round(Math.max(0,...bars1)) : tot1.toFixed(1);
-    stat.innerHTML = `<span style="color:${color1}">${fA?.label||'Feed'}: ${val} ${dispUnit}</span>`;
+  try {
+    _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombined, nav);
+  } catch(e) {
+    console.error('Drawing error:', e);
+    stat.textContent = 'Error rendering chart';
+    graphIsLoading = false;
+    _showGraphLoading(false);
+    return;
   }
+
+  if (isCombined) {
+    const max1 = Math.max(0, ...bars1), max2 = Math.max(0, ...bars2);
+    stat.innerHTML = `<span style="color:${color1}">Solar: ${Math.round(max1)}W</span> & <span style="color:${color2}">Grid: ${Math.round(max2)}W</span>`;
+  } else {
+    const val = (graphFeedKey==='temp'||graphFeedKey==='water') ? (bars1.reduce((a,b)=>a+b,0)/bars1.length) : (nav.isHourly?Math.max(0,...bars1):bars1.reduce((a,b)=>a+b,0));
+    stat.innerHTML = `<span style="color:${color1}">${fA?.label}: ${val.toFixed(unit==='W'?0:1)} ${unit}</span>`;
+  }
+
+  graphIsLoading = false;
+  _showGraphLoading(false);
 }

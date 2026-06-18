@@ -101,3 +101,14 @@
     box-shadow: 0 -4px 20px rgba(0,0,0,0.5);
   }
 }
+
+/* In css/06-graphs.css */
+#graph-loading-overlay {
+  pointer-events: none; /* allow clicks to pass through when hidden, but we set display:none when not loading */
+}
+#graph-loading-overlay > div {
+  background: var(--bg-panel);
+  padding: 12px 20px;
+  border-radius: 10px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+}

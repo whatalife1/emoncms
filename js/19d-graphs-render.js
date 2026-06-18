@@ -6,7 +6,9 @@ let graphIsDragging = false;
 let graphDragLastX = 0;
 let graphDragLastPanOffset = 0;
 let _tooltipIndex = -1;
-let tooltipPinned = false;          // track pinned state
+let _touchStartX = 0;
+let _touchStartY = 0;
+let _isTouchDrag = false;
 
 function _fastRedraw() {
   if (_graphRedrawFrame) return;
@@ -26,15 +28,31 @@ function _initGraphOverlay() {
   
   graphOverlay = document.createElement('canvas');
   graphOverlay.className = 'graph-overlay';
-  graphOverlay.style.cssText = `position:absolute;top:0;left:0;z-index:10;cursor:crosshair;touch-action:none;pointer-events:auto;`;
+  graphOverlay.style.cssText = `
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 10;
+    cursor: crosshair;
+    touch-action: none;
+    pointer-events: auto;
+  `;
+  parent.style.position = 'relative';
   parent.appendChild(graphOverlay);
 
   const mainCanvas = document.getElementById('graph-canvas');
   if (mainCanvas) {
-    graphOverlay.width = mainCanvas.width;
-    graphOverlay.height = mainCanvas.height;
-    graphOverlay.style.width = mainCanvas.style.width;
-    graphOverlay.style.height = mainCanvas.style.height;
+    _syncOverlaySize();
+  }
+
+  // Resize observer
+  if (window.ResizeObserver) {
+    const ro = new ResizeObserver(() => {
+      _syncOverlaySize();
+    });
+    ro.observe(mainCanvas || parent);
   }
 
   // ── Wheel zoom ──────────────────────────────────────────────────────────
@@ -74,26 +92,36 @@ function _initGraphOverlay() {
 
   // ── Touch pan ──────────────────────────────────────────────────────────
   graphOverlay.addEventListener('touchstart', (e) => {
-    if (e.touches.length === 1) {
-      graphDragLastX = e.touches[0].clientX;
+    const touch = e.touches[0];
+    if (touch) {
+      _touchStartX = touch.clientX;
+      _touchStartY = touch.clientY;
+      _isTouchDrag = false;
+      graphDragLastX = touch.clientX;
       graphDragLastPanOffset = graphPanOffset;
       graphIsDragging = true;
-      e.preventDefault();
     }
-  });
+  }, { passive: true });
 
-  document.addEventListener('touchmove', (e) => {
+  graphOverlay.addEventListener('touchmove', (e) => {
     if (!graphIsDragging || !graphOverlay) return;
-    const dx = (e.touches[0].clientX - graphDragLastX) * graphZoomLevel * 1.5;
-    graphPanOffset = graphDragLastPanOffset + dx;
+    const touch = e.touches[0];
+    if (!touch) return;
+    const dx = touch.clientX - _touchStartX;
+    const dy = touch.clientY - _touchStartY;
+    if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+      _isTouchDrag = true;
+    }
+    const panDx = (touch.clientX - graphDragLastX) * graphZoomLevel * 1.5;
+    graphPanOffset = graphDragLastPanOffset + panDx;
     _fastRedraw();
-  });
+  }, { passive: true });
 
   document.addEventListener('touchend', () => {
     graphIsDragging = false;
   });
 
-  // ── Tooltip: mouse hover (unpinned) ──────────────────────────────────
+  // ── Tooltip: hover (mouse only) ──────────────────────────────────────
   graphOverlay.addEventListener('mousemove', (e) => {
     if (!tooltipPinned) {
       _handleGraphHover(e, false);
@@ -107,30 +135,40 @@ function _initGraphOverlay() {
     }
   });
 
-  // ── Tooltip: touch (unpinned) ──────────────────────────────────────────
-  graphOverlay.addEventListener('touchstart', (e) => {
-    if (e.touches.length === 1 && !tooltipPinned) {
-      _handleGraphHover(e.touches[0], false);
-    }
-  });
-
-  // ── Click to pin tooltip ──────────────────────────────────────────────
+  // ── Click / tap to pin ──────────────────────────────────────────────
   graphOverlay.addEventListener('click', (e) => {
-    // If tooltip is pinned and we click again, unpin and hide
     if (tooltipPinned) {
       tooltipPinned = false;
       hideTooltip();
       _tooltipIndex = -1;
       return;
     }
-    // Otherwise, pin at this point
     _handleGraphHover(e, true);
     if (_tooltipIndex !== -1) {
       tooltipPinned = true;
     }
   });
 
-  // ── Resize observer ──────────────────────────────────────────────────
+  graphOverlay.addEventListener('touchend', (e) => {
+    if (_isTouchDrag) {
+      _isTouchDrag = false;
+      return;
+    }
+    const touch = e.changedTouches[0];
+    if (!touch) return;
+    const fakeEvent = { clientX: touch.clientX, clientY: touch.clientY };
+    if (tooltipPinned) {
+      tooltipPinned = false;
+      hideTooltip();
+      _tooltipIndex = -1;
+      return;
+    }
+    _handleGraphHover(fakeEvent, true);
+    if (_tooltipIndex !== -1) {
+      tooltipPinned = true;
+    }
+  });
+
   window.addEventListener('resize', () => {
     _syncOverlaySize();
     _fastRedraw();
@@ -140,10 +178,12 @@ function _initGraphOverlay() {
 function _syncOverlaySize() {
   const mainCanvas = document.getElementById('graph-canvas');
   if (!graphOverlay || !mainCanvas) return;
-  graphOverlay.width = mainCanvas.width;
-  graphOverlay.height = mainCanvas.height;
-  graphOverlay.style.width = mainCanvas.style.width;
-  graphOverlay.style.height = mainCanvas.style.height;
+  const rect = mainCanvas.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  graphOverlay.width = rect.width * dpr;
+  graphOverlay.height = rect.height * dpr;
+  graphOverlay.style.width = rect.width + 'px';
+  graphOverlay.style.height = rect.height + 'px';
 }
 
 function _handleGraphHover(e, pin = false) {
@@ -207,19 +247,19 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
     return;
   }
 
-  let W = canvas.offsetWidth;
-  let H = canvas.offsetHeight || 180;
-  if (W === 0) {
-    const rect = canvas.getBoundingClientRect();
-    W = rect.width || 400;
-  }
+  // Get actual display size
+  const rect = canvas.getBoundingClientRect();
+  let W = rect.width;
+  let H = rect.height || 180;
   if (W < 10) W = 400;
   if (H < 10) H = 180;
 
   const dpr = window.devicePixelRatio || 1;
-  canvas.width = W * dpr; canvas.height = H * dpr;
+  canvas.width = W * dpr;
+  canvas.height = H * dpr;
   ctx.scale(dpr, dpr);
 
+  // Draw
   const zoom = graphZoomLevel;
   const PL = 38, PR = 8, PT = 12, PB = 28, cW = W - PL - PR, cH = H - PT - PB;
   if (cW < 20 || cH < 20) {
@@ -257,7 +297,6 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
   const isLine = graphChartType === 'line';
   const gap = cW * 0.02 / n, grpW = (cW - gap * (n + 1)) / n;
 
-  // Stop line at current time for today
   let lastIdx = n - 1;
   if (graphTab === 'day' && graphDateNav === 0) {
     const now = new Date();
@@ -304,7 +343,7 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
     drawLine(bars1, color1, lastIdx);
   }
 
-  // Draw centre-day marker (vertical dashed line) – only if we have a centre date
+  // Centre-day marker
   if (graphTab === 'day' && nav.centreDateMs) {
     const centreX = mapX(PL + gap + ((nav.centreDateMs - nav.startMs) / (nav.interval * 1000)) * (grpW + gap));
     if (centreX >= PL && centreX <= W - PR) {

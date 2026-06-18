@@ -6,6 +6,7 @@ let graphIsDragging = false;
 let graphDragLastX = 0;
 let graphDragLastPanOffset = 0;
 let _tooltipIndex = -1;
+let tooltipPinned = false;          // track pinned state
 
 function _fastRedraw() {
   if (_graphRedrawFrame) return;
@@ -92,20 +93,40 @@ function _initGraphOverlay() {
     graphIsDragging = false;
   });
 
-  // ── Tooltip: mouse ──────────────────────────────────────────────────
+  // ── Tooltip: mouse hover (unpinned) ──────────────────────────────────
   graphOverlay.addEventListener('mousemove', (e) => {
-    _handleGraphHover(e);
+    if (!tooltipPinned) {
+      _handleGraphHover(e, false);
+    }
   });
 
   graphOverlay.addEventListener('mouseleave', () => {
-    hideTooltip();
-    _tooltipIndex = -1;
+    if (!tooltipPinned) {
+      hideTooltip();
+      _tooltipIndex = -1;
+    }
   });
 
-  // ── Tooltip: touch ──────────────────────────────────────────────────
+  // ── Tooltip: touch (unpinned) ──────────────────────────────────────────
   graphOverlay.addEventListener('touchstart', (e) => {
-    if (e.touches.length === 1) {
-      _handleGraphHover(e.touches[0]);
+    if (e.touches.length === 1 && !tooltipPinned) {
+      _handleGraphHover(e.touches[0], false);
+    }
+  });
+
+  // ── Click to pin tooltip ──────────────────────────────────────────────
+  graphOverlay.addEventListener('click', (e) => {
+    // If tooltip is pinned and we click again, unpin and hide
+    if (tooltipPinned) {
+      tooltipPinned = false;
+      hideTooltip();
+      _tooltipIndex = -1;
+      return;
+    }
+    // Otherwise, pin at this point
+    _handleGraphHover(e, true);
+    if (_tooltipIndex !== -1) {
+      tooltipPinned = true;
     }
   });
 
@@ -125,7 +146,7 @@ function _syncOverlaySize() {
   graphOverlay.style.height = mainCanvas.style.height;
 }
 
-function _handleGraphHover(e) {
+function _handleGraphHover(e, pin = false) {
   if (!graphDataCache) return;
   const { bars1, bars2, labels, color1, color2, unit, isCombined, nav } = graphDataCache;
   const rect = graphOverlay.getBoundingClientRect();
@@ -155,12 +176,14 @@ function _handleGraphHover(e) {
     }
   }
   if (foundIdx === -1) {
-    hideTooltip();
-    _tooltipIndex = -1;
+    if (!pin) {
+      hideTooltip();
+      _tooltipIndex = -1;
+    }
     return;
   }
 
-  if (_tooltipIndex === foundIdx) return;
+  if (_tooltipIndex === foundIdx && !pin) return;
   _tooltipIndex = foundIdx;
 
   const v1 = bars1[foundIdx];
@@ -170,7 +193,7 @@ function _handleGraphHover(e) {
   const val1 = v1 !== undefined ? (unit === 'W' ? Math.round(v1) : v1.toFixed(1)) : '--';
   const val2 = isCombined && v2 !== undefined ? (unit === 'W' ? Math.round(v2) : v2.toFixed(1)) : '--';
 
-  showTooltip(e, label, val1 + ' ' + unit, val2 + ' ' + unit, color1, color2, isCombined);
+  showTooltip(e, label, val1 + ' ' + unit, val2 + ' ' + unit, color1, color2, isCombined, pin);
 }
 
 function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombined, nav) {
@@ -184,7 +207,6 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
     return;
   }
 
-  // Get valid dimensions
   let W = canvas.offsetWidth;
   let H = canvas.offsetHeight || 180;
   if (W === 0) {

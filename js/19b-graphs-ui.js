@@ -1,7 +1,7 @@
 // ─── Graphs Panel - UI Rendering ────────────────────────────────────────────
 
 let graphNeedsDayZoom = false;
-let tooltipPinned = false; // track pinned state for tooltips
+let tooltipPinned = false;
 
 function _renderZoomControls() {
   const wrap = document.getElementById('graph-time-tabs');
@@ -83,7 +83,6 @@ function _renderGTimeTabs() {
     graphDateNav = 0; graphMonthNav = 0; graphYearNav = 0;
     graphZoomLevel = 1;
     graphPanOffset = 0;
-    // Unpin tooltip when switching tabs
     tooltipPinned = false;
     hideTooltip();
     _renderGTimeTabs(); 
@@ -226,7 +225,7 @@ function showTooltip(e, label, value1, value2, color1, color2, isCombined, pinne
   const container = document.getElementById('graphs-body');
   const containerRect = container?.getBoundingClientRect();
   
-  let closeBtn = pinned ? `<span style="float:right;margin-left:10px;cursor:pointer;font-weight:bold;color:var(--text-muted);" onclick="hideTooltip();">✕</span>` : '';
+  let closeBtn = pinned ? `<span class="close-btn" onclick="hideTooltip();">✕</span>` : '';
   let html = `<div style="font-weight:700;font-size:11px;color:var(--text-muted);margin-bottom:4px">${label} ${closeBtn}</div>`;
   html += `<div style="color:${color1}">● ${isCombined ? 'Solar' : graphFeedKey}: ${value1}</div>`;
   if (isCombined) {

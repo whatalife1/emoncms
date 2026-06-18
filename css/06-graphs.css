@@ -50,6 +50,7 @@
   background: var(--bg-panel); border: 1px solid var(--border); border-radius: 10px;
   padding: 10px 10px 6px;
   position: relative;
+  overflow: hidden; /* Keep overlay inside */
 }
 .graph-stat {
   font-size: 12px; font-weight: 700; color: var(--text-muted); margin-bottom: 6px; min-height: 16px;
@@ -91,8 +92,8 @@
 .graph-feed-tabs {
   display: flex; gap: 5px; overflow-x: auto; padding-bottom: 4px;
   scrollbar-width: none; -ms-overflow-style: none;
-  position: relative;          /* Ensure stacking context */
-  z-index: 11;                /* Keep above the overlay canvas (z-index:10) */
+  position: relative;
+  z-index: 11; /* Above the overlay (z-index:10) */
 }
 .graph-feed-tabs::-webkit-scrollbar { display: none; }
 
@@ -100,6 +101,7 @@
   flex-shrink: 0; padding: 6px 11px; border-radius: 20px; font-size: 11px; font-weight: 700;
   background: var(--bg-panel); border: 1px solid var(--border); color: var(--text-muted); cursor: pointer;
   white-space: nowrap; transition: color 0.15s, border-color 0.15s;
+  touch-action: manipulation; /* Help with mobile taps */
 }
 .gfeed-tab.active { background: var(--bg-card); }
 
@@ -112,6 +114,7 @@
 .chart-type-btn {
   user-select: none;
   -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 .zoom-btn:active,
 .chart-type-btn:active {

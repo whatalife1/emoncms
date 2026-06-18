@@ -23,6 +23,7 @@
 .gtime-tab {
   flex: 1; padding: 7px 4px; border-radius: 7px; font-size: 12px; font-weight: 700;
   background: transparent; border: 1px solid transparent; color: var(--text-muted); cursor: pointer;
+  user-select: none; -webkit-user-select: none; touch-action: manipulation;
 }
 .gtime-tab.active { background: var(--bg-card); color: var(--text-main); border-color: var(--border); }
 
@@ -40,6 +41,7 @@
 .graph-nav-btn {
   background: var(--bg-card); border: 1px solid var(--border); color: var(--text-main);
   border-radius: 8px; padding: 5px 13px; font-size: 18px; cursor: pointer; line-height: 1; width: auto;
+  user-select: none; -webkit-user-select: none; touch-action: manipulation;
 }
 .graph-nav-center { flex: 1; text-align: center; }
 .graph-nav-label { font-size: 13px; font-weight: 700; color: var(--text-main); }
@@ -62,7 +64,7 @@
 /* ── Graph Tooltip ─────────────────────────────────────────────────────────── */
 #graph-tooltip {
   position: fixed;
-  z-index: 100;
+  z-index: 99999;
   background: var(--bg-panel);
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -93,7 +95,7 @@
   display: flex; gap: 5px; overflow-x: auto; padding-bottom: 4px;
   scrollbar-width: none; -ms-overflow-style: none;
   position: relative;
-  z-index: 11;
+  z-index: 11; 
 }
 .graph-feed-tabs::-webkit-scrollbar { display: none; }
 
@@ -101,6 +103,10 @@
   flex-shrink: 0; padding: 6px 11px; border-radius: 20px; font-size: 11px; font-weight: 700;
   background: var(--bg-panel); border: 1px solid var(--border); color: var(--text-muted); cursor: pointer;
   white-space: nowrap; transition: color 0.15s, border-color 0.15s;
+  /* CRITICAL: Allows horizontal scrolling while making taps instant on mobile */
+  touch-action: pan-x manipulation;
+  user-select: none;
+  -webkit-user-select: none;
 }
 .gfeed-tab.active { background: var(--bg-card); }
 
@@ -113,12 +119,14 @@
 .chart-type-btn {
   user-select: none;
   -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 .zoom-btn:active,
 .chart-type-btn:active {
   opacity: 0.7;
 }
 
+/* Desktop constraint */
 @media (min-width: 480px) {
   #graphs-panel {
     max-width: 450px; left: 50% !important; right: auto !important;
@@ -129,6 +137,7 @@
   }
 }
 
+/* ─── Loading overlay ──────────────────────────────────────────────────────── */
 #graph-loading-overlay {
   pointer-events: none;
 }

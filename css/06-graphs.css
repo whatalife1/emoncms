@@ -76,11 +76,23 @@
   font-family: system-ui, -apple-system, sans-serif;
   line-height: 1.6;
 }
+/* When tooltip has a close button (pinned), allow pointer events so the button works */
+#graph-tooltip:has(.close-btn) {
+  pointer-events: auto;
+}
+#graph-tooltip .close-btn {
+  float: right; margin-left: 10px; cursor: pointer; font-weight: bold; color: var(--text-muted);
+}
+#graph-tooltip .close-btn:hover {
+  color: var(--text-main);
+}
 
 /* ── Feed tabs (scrollable row) ───────────────────────────────────────────── */
 .graph-feed-tabs {
   display: flex; gap: 5px; overflow-x: auto; padding-bottom: 4px;
   scrollbar-width: none; -ms-overflow-style: none;
+  position: relative;          /* Ensure stacking context */
+  z-index: 11;                /* Keep above the overlay canvas (z-index:10) */
 }
 .graph-feed-tabs::-webkit-scrollbar { display: none; }
 
@@ -91,20 +103,35 @@
 }
 .gfeed-tab.active { background: var(--bg-card); }
 
+/* ── Zoom controls & chart type toggle ───────────────────────────────────── */
+#zoom-controls,
+#chart-type-toggle {
+  flex-shrink: 0;
+}
+.zoom-btn,
+.chart-type-btn {
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.zoom-btn:active,
+.chart-type-btn:active {
+  opacity: 0.7;
+}
+
 /* Desktop constraint */
 @media (min-width: 480px) {
   #graphs-panel {
     max-width: 450px; left: 50% !important; right: auto !important;
     transform: translateX(-50%);
     border-left: 1px solid var(--border);
-    border-right: 1px solid var(--border);
+    border-right: 1px var(--border);
     box-shadow: 0 -4px 20px rgba(0,0,0,0.5);
   }
 }
 
-/* In css/06-graphs.css */
+/* ─── Loading overlay ──────────────────────────────────────────────────────── */
 #graph-loading-overlay {
-  pointer-events: none; /* allow clicks to pass through when hidden, but we set display:none when not loading */
+  pointer-events: none;
 }
 #graph-loading-overlay > div {
   background: var(--bg-panel);

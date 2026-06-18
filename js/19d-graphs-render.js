@@ -53,9 +53,6 @@ function _initGraphOverlay() {
   const mainCanvas = document.getElementById('graph-canvas');
   if (mainCanvas) {
     _syncOverlaySize();
-    console.log('Overlay size:', graphOverlay.width, graphOverlay.height);
-  } else {
-    console.warn('Main canvas not found');
   }
 
   // Resize observer
@@ -148,7 +145,6 @@ function _initGraphOverlay() {
 
   // ── Click / tap to pin ──────────────────────────────────────────────
   graphOverlay.addEventListener('click', (e) => {
-    console.log('Overlay clicked');
     if (tooltipPinned) {
       tooltipPinned = false;
       hideTooltip();
@@ -162,6 +158,9 @@ function _initGraphOverlay() {
   });
 
   graphOverlay.addEventListener('touchend', (e) => {
+    // CRITICAL: Stop emulated click on mobile to prevent instant hiding
+    if (e.cancelable) e.preventDefault();
+
     if (_isTouchDrag) {
       _isTouchDrag = false;
       return;
@@ -169,7 +168,6 @@ function _initGraphOverlay() {
     const touch = e.changedTouches[0];
     if (!touch) return;
     const fakeEvent = { clientX: touch.clientX, clientY: touch.clientY };
-    console.log('Overlay touchend');
     if (tooltipPinned) {
       tooltipPinned = false;
       hideTooltip();
@@ -180,7 +178,7 @@ function _initGraphOverlay() {
     if (_tooltipIndex !== -1) {
       tooltipPinned = true;
     }
-  });
+  }, { passive: false });
 
   window.addEventListener('resize', () => {
     _syncOverlaySize();
@@ -197,19 +195,17 @@ function _syncOverlaySize() {
   graphOverlay.height = rect.height * dpr;
   graphOverlay.style.width = rect.width + 'px';
   graphOverlay.style.height = rect.height + 'px';
-  console.log('Overlay synced:', graphOverlay.width, graphOverlay.height);
 }
 
 function _handleGraphHover(e, pin = false) {
-  console.log('_handleGraphHover called', pin);
   if (!graphDataCache) return;
   const { bars1, bars2, labels, color1, color2, unit, isCombined, nav } = graphDataCache;
   const rect = graphOverlay.getBoundingClientRect();
   const x = e.clientX - rect.left;
-  const y = e.clientY - rect.top;
 
-  const PL = 38, PR = 8, PT = 12, PB = 28;
-  const cW = graphOverlay.width - PL - PR;
+  const PL = 38, PR = 8;
+  const W = rect.width; // CRITICAL: Use CSS width to align with hit logic, ignore DPR
+  const cW = W - PL - PR;
   const n = bars1.length;
   if (n === 0) return;
 
@@ -222,15 +218,21 @@ function _handleGraphHover(e, pin = false) {
   const mapX = (idx) => centerX + (PL + gap + idx * (grpW + gap) + grpW / 2 - centerX) * zoom + panX;
 
   let foundIdx = -1;
+  let minDist = Infinity;
+
+  // Closest point matching for easier tapping on mobile
   for (let i = 0; i < n; i++) {
     const xPos = mapX(i);
-    const halfWidth = (grpW * zoom) / 2;
-    if (x >= xPos - halfWidth && x <= xPos + halfWidth) {
+    const dist = Math.abs(x - xPos);
+    if (dist < minDist) {
+      minDist = dist;
       foundIdx = i;
-      break;
     }
   }
-  if (foundIdx === -1) {
+
+  // Hit radius: max of half-bar width or 30px (generous for fingers)
+  const maxHitDist = Math.max((grpW * zoom) / 2, 30);
+  if (minDist > maxHitDist) {
     if (!pin) {
       hideTooltip();
       _tooltipIndex = -1;

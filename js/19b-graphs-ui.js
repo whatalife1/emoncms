@@ -70,26 +70,27 @@ function _renderGTimeTabs() {
   wrap.innerHTML = ['day','month','year','total'].map(t =>
     `<button class="gtime-tab${graphTab===t?' active':''}" data-gtab="${t}">${t[0].toUpperCase()+t.slice(1)}</button>`
   ).join('');
-  wrap.querySelectorAll('.gtime-tab').forEach(b => b.addEventListener('click', () => {
-    graphTab = b.dataset.gtab;
-    
-    if (graphTab === 'day') {
-      graphChartType = 'line';
-      graphNeedsDayZoom = true;
-    } else {
-      graphChartType = 'bar';
-    }
-
-    graphDateNav = 0; graphMonthNav = 0; graphYearNav = 0;
-    graphZoomLevel = 1;
-    graphPanOffset = 0;
-    tooltipPinned = false;
-    hideTooltip();
-    _renderGTimeTabs(); 
-    _renderGNavBar(); 
-    _renderChartTypeToggle();
-    _loadAndDraw();
-  }));
+  
+  wrap.querySelectorAll('.gtime-tab').forEach(b => {
+    b.addEventListener('click', () => {
+      graphTab = b.dataset.gtab;
+      if (graphTab === 'day') {
+        graphChartType = 'line';
+        graphNeedsDayZoom = true;
+      } else {
+        graphChartType = 'bar';
+      }
+      graphDateNav = 0; graphMonthNav = 0; graphYearNav = 0;
+      graphZoomLevel = 1;
+      graphPanOffset = 0;
+      tooltipPinned = false;
+      hideTooltip();
+      _renderGTimeTabs(); 
+      _renderGNavBar(); 
+      _renderChartTypeToggle();
+      _loadAndDraw();
+    });
+  });
 }
 
 function _renderGFeedTabs() {
@@ -100,16 +101,19 @@ function _renderGFeedTabs() {
     `<button class="gfeed-tab${graphFeedKey===f.key?' active':''}" data-gkey="${f.key}"
       style="${graphFeedKey===f.key?`border-color:${f.color};color:${f.color}`:''}">${f.label}</button>`
   ).join('');
-  wrap.querySelectorAll('.gfeed-tab').forEach(b => b.addEventListener('click', () => {
-    graphFeedKey = b.dataset.gkey;
-    graphZoomLevel = 1;
-    graphPanOffset = 0;
-    graphNeedsDayZoom = true;
-    tooltipPinned = false;
-    hideTooltip();
-    _renderGFeedTabs(); 
-    _loadAndDraw();
-  }));
+  
+  wrap.querySelectorAll('.gfeed-tab').forEach(b => {
+    b.addEventListener('click', () => {
+      graphFeedKey = b.dataset.gkey;
+      graphZoomLevel = 1;
+      graphPanOffset = 0;
+      graphNeedsDayZoom = true;
+      tooltipPinned = false;
+      hideTooltip();
+      _renderGFeedTabs(); 
+      _loadAndDraw();
+    });
+  });
 }
 
 function _getLocalMidnight(date) {
@@ -187,8 +191,10 @@ function _renderGNavBar() {
       ${nav.sub?`<div class="graph-nav-sub">${nav.sub}</div>`:''}
     </div>
     <button class="graph-nav-btn" id="gnav-next" style="opacity:${canFwd?1:0.3}">›</button>`;
+    
   const prevBtn = document.getElementById('gnav-prev');
   const nextBtn = document.getElementById('gnav-next');
+  
   if (prevBtn) prevBtn.addEventListener('click', () => {
     if (graphTab==='day') graphDateNav--; else if (graphTab==='month') graphMonthNav--; else graphYearNav--;
     graphZoomLevel = 1;
@@ -199,6 +205,7 @@ function _renderGNavBar() {
     _renderGNavBar(); 
     _loadAndDraw();
   });
+  
   if (nextBtn) nextBtn.addEventListener('click', () => {
     if (!canFwd) return;
     if (graphTab==='day') graphDateNav++; else if (graphTab==='month') graphMonthNav++; else graphYearNav++;
@@ -223,14 +230,16 @@ function hideTooltip() {
 
 function showTooltip(e, label, value1, value2, color1, color2, isCombined, pinned = false) {
   let tooltip = document.getElementById('graph-tooltip');
+  
+  // CRITICAL: Ensure tooltip is absolutely positioned inside document.body 
+  // so it breaks completely out of the slide-panel Desktop bounds
   if (!tooltip) {
     tooltip = document.createElement('div');
     tooltip.id = 'graph-tooltip';
     document.body.appendChild(tooltip);
+  } else if (tooltip.parentElement !== document.body) {
+    document.body.appendChild(tooltip); 
   }
-  
-  const container = document.getElementById('graphs-body');
-  const containerRect = container?.getBoundingClientRect();
   
   let closeBtn = pinned ? `<span class="close-btn" onclick="hideTooltip();">✕</span>` : '';
   let html = `<div style="font-weight:700;font-size:11px;color:var(--text-muted);margin-bottom:4px">${label} ${closeBtn}</div>`;
@@ -243,18 +252,19 @@ function showTooltip(e, label, value1, value2, color1, color2, isCombined, pinne
   tooltip.style.display = 'block';
   tooltip.classList.toggle('pinned', pinned);
   
-  let left = e.clientX - (containerRect?.left || 0) + 10;
-  let top = e.clientY - (containerRect?.top || 0) - 10;
+  // Directly base coordinates off raw viewport screen position
+  let left = e.clientX + 15;
+  let top = e.clientY - 15;
   
-  const tooltipRect = tooltip.getBoundingClientRect();
-  const containerWidth = containerRect?.width || window.innerWidth;
-  if (left + tooltipRect.width > containerWidth - 20) {
-    left = left - tooltipRect.width - 20;
-  }
-  if (top + tooltipRect.height > (containerRect?.height || window.innerHeight) - 20) {
-    top = (containerRect?.height || window.innerHeight) - tooltipRect.height - 20;
-  }
-  if (top < 0) top = 10;
+  const rect = tooltip.getBoundingClientRect();
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  
+  // Prevent overflow off the right/bottom edge
+  if (left + rect.width > vw - 10) left = e.clientX - rect.width - 15;
+  if (top + rect.height > vh - 10) top = e.clientY - rect.height - 15;
+  if (top < 10) top = 10;
+  if (left < 10) left = 10;
   
   tooltip.style.left = left + 'px';
   tooltip.style.top = top + 'px';

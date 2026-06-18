@@ -214,13 +214,20 @@ function _renderGNavBar() {
 
 function hideTooltip() {
   const tooltip = document.getElementById('graph-tooltip');
-  if (tooltip) tooltip.style.display = 'none';
+  if (tooltip) {
+    tooltip.style.display = 'none';
+    tooltip.classList.remove('pinned');
+  }
   tooltipPinned = false;
 }
 
 function showTooltip(e, label, value1, value2, color1, color2, isCombined, pinned = false) {
-  const tooltip = document.getElementById('graph-tooltip');
-  if (!tooltip) return;
+  let tooltip = document.getElementById('graph-tooltip');
+  if (!tooltip) {
+    tooltip = document.createElement('div');
+    tooltip.id = 'graph-tooltip';
+    document.body.appendChild(tooltip);
+  }
   
   const container = document.getElementById('graphs-body');
   const containerRect = container?.getBoundingClientRect();
@@ -234,6 +241,7 @@ function showTooltip(e, label, value1, value2, color1, color2, isCombined, pinne
   
   tooltip.innerHTML = html;
   tooltip.style.display = 'block';
+  tooltip.classList.toggle('pinned', pinned);
   
   let left = e.clientX - (containerRect?.left || 0) + 10;
   let top = e.clientY - (containerRect?.top || 0) - 10;

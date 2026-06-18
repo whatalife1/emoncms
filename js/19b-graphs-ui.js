@@ -1,6 +1,7 @@
 // ─── Graphs Panel - UI Rendering ────────────────────────────────────────────
 
 let graphNeedsDayZoom = false;
+let tooltipPinned = false; // track pinned state for tooltips
 
 function _renderZoomControls() {
   const wrap = document.getElementById('graph-time-tabs');
@@ -82,6 +83,9 @@ function _renderGTimeTabs() {
     graphDateNav = 0; graphMonthNav = 0; graphYearNav = 0;
     graphZoomLevel = 1;
     graphPanOffset = 0;
+    // Unpin tooltip when switching tabs
+    tooltipPinned = false;
+    hideTooltip();
     _renderGTimeTabs(); 
     _renderGNavBar(); 
     _renderChartTypeToggle();
@@ -102,6 +106,8 @@ function _renderGFeedTabs() {
     graphZoomLevel = 1;
     graphPanOffset = 0;
     graphNeedsDayZoom = true;
+    tooltipPinned = false;
+    hideTooltip();
     _renderGFeedTabs(); 
     _loadAndDraw();
   }));
@@ -169,7 +175,6 @@ function _gNavInfo() {
     startMs: new Date(2024,0,1).getTime(), endMs: now.getTime(), labels:[] };
 }
 
-
 function _renderGNavBar() {
   const wrap = document.getElementById('graph-nav-bar');
   if (!wrap) return;
@@ -190,6 +195,8 @@ function _renderGNavBar() {
     graphZoomLevel = 1;
     graphPanOffset = 0;
     graphNeedsDayZoom = true;
+    tooltipPinned = false;
+    hideTooltip();
     _renderGNavBar(); 
     _loadAndDraw();
   });
@@ -199,6 +206,8 @@ function _renderGNavBar() {
     graphZoomLevel = 1;
     graphPanOffset = 0;
     graphNeedsDayZoom = true;
+    tooltipPinned = false;
+    hideTooltip();
     _renderGNavBar(); 
     _loadAndDraw();
   });
@@ -207,7 +216,7 @@ function _renderGNavBar() {
 function hideTooltip() {
   const tooltip = document.getElementById('graph-tooltip');
   if (tooltip) tooltip.style.display = 'none';
-  if (typeof tooltipPinned !== 'undefined') tooltipPinned = false;
+  tooltipPinned = false;
 }
 
 function showTooltip(e, label, value1, value2, color1, color2, isCombined, pinned = false) {

@@ -9,6 +9,8 @@ let _tooltipIndex = -1;
 let _touchStartX = 0;
 let _touchStartY = 0;
 let _isTouchDrag = false;
+let _pinchStartDist = 0;
+let _pinchStartZoom = 1;
 
 function _fastRedraw() {
   if (_graphRedrawFrame) return;
@@ -23,13 +25,12 @@ function _fastRedraw() {
 }
 
 function _initGraphOverlay() {
-  const parent = document.querySelector('.graph-chart-card');
-  if (!parent) {
-    console.warn('Graph card not found');
-    return;
-  }
+  const mainCanvas = document.getElementById('graph-canvas');
+  if (!mainCanvas) return;
+  
+  const parent = mainCanvas.parentElement;
+  
   if (graphOverlay) {
-    // Remove existing overlay to avoid duplicates
     graphOverlay.remove();
     graphOverlay = null;
   }
@@ -38,32 +39,21 @@ function _initGraphOverlay() {
   graphOverlay.className = 'graph-overlay';
   graphOverlay.style.cssText = `
     position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
     z-index: 10;
     cursor: crosshair;
     touch-action: none;
     pointer-events: auto;
   `;
-  parent.style.position = 'relative';
   parent.appendChild(graphOverlay);
 
-  const mainCanvas = document.getElementById('graph-canvas');
-  if (mainCanvas) {
-    _syncOverlaySize();
-  }
+  _syncOverlaySize();
 
-  // Resize observer
   if (window.ResizeObserver) {
-    const ro = new ResizeObserver(() => {
-      _syncOverlaySize();
-    });
-    ro.observe(mainCanvas || parent);
+    const ro = new ResizeObserver(() => _syncOverlaySize());
+    ro.observe(mainCanvas);
   }
 
-  // ── Wheel zoom ──────────────────────────────────────────────────────────
+  // ── Wheel zoom (Desktop) ────────────────────────────────────────────────
   graphOverlay.addEventListener('wheel', (e) => {
     e.preventDefault();
     const delta = e.deltaY < 0 ? 1.2 : 0.8;
@@ -75,7 +65,7 @@ function _initGraphOverlay() {
     _fastRedraw();
   }, { passive: false });
 
-  // ── Mouse pan ──────────────────────────────────────────────────────────
+  // ── Mouse pan (Desktop) ─────────────────────────────────────────────────
   graphOverlay.addEventListener('mousedown', (e) => {
     graphIsDragging = true;
     graphDragLastX = e.clientX;
@@ -98,42 +88,80 @@ function _initGraphOverlay() {
     }
   });
 
-  // ── Touch pan ──────────────────────────────────────────────────────────
+  // ── Touch pan & Pinch Zoom (Mobile) ─────────────────────────────────────
   graphOverlay.addEventListener('touchstart', (e) => {
-    const touch = e.touches[0];
-    if (touch) {
+    if (e.touches.length === 2) {
+      e.preventDefault(); // Prevent standard browser zoom
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      _pinchStartDist = Math.sqrt(dx * dx + dy * dy);
+      _pinchStartZoom = graphZoomLevel;
+      graphIsDragging = false;
+      return;
+    }
+
+    if (e.touches.length === 1) {
+      const touch = e.touches[0];
       _touchStartX = touch.clientX;
       _touchStartY = touch.clientY;
       _isTouchDrag = false;
       graphDragLastX = touch.clientX;
       graphDragLastPanOffset = graphPanOffset;
       graphIsDragging = true;
+      _pinchStartDist = 0;
     }
-  }, { passive: true });
+  }, { passive: false });
 
   graphOverlay.addEventListener('touchmove', (e) => {
-    if (!graphIsDragging || !graphOverlay) return;
+    // Handle Pinch Zoom
+    if (e.touches.length === 2) {
+      e.preventDefault();
+      if (_pinchStartDist > 0) {
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        
+        const ratio = dist / _pinchStartDist;
+        const oldZ = graphZoomLevel;
+        graphZoomLevel = Math.max(graphZoomMin, Math.min(graphZoomMax, _pinchStartZoom * ratio));
+        graphPanOffset *= (graphZoomLevel / oldZ); // Keep pan proportional
+        
+        const zl = document.getElementById('zoom-level');
+        if (zl) zl.textContent = Math.round(graphZoomLevel * 100) + '%';
+        _fastRedraw();
+      }
+      return;
+    }
+
+    // Handle Pan
+    if (!graphIsDragging || !graphOverlay || e.touches.length !== 1) return;
+    
     const touch = e.touches[0];
-    if (!touch) return;
     const dx = touch.clientX - _touchStartX;
     const dy = touch.clientY - _touchStartY;
+    
+    // Prevent browser back/forward swipe gestures if panning horizontally
+    if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 5) {
+      if (e.cancelable) e.preventDefault();
+    }
+
     if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
       _isTouchDrag = true;
     }
+    
     const panDx = (touch.clientX - graphDragLastX) * graphZoomLevel * 1.5;
     graphPanOffset = graphDragLastPanOffset + panDx;
     _fastRedraw();
-  }, { passive: true });
+  }, { passive: false });
 
-  document.addEventListener('touchend', () => {
-    graphIsDragging = false;
+  document.addEventListener('touchend', (e) => {
+    if (e.touches.length < 2) _pinchStartDist = 0;
+    if (e.touches.length === 0) graphIsDragging = false;
   });
 
-  // ── Tooltip: hover (mouse only) ──────────────────────────────────────
+  // ── Tooltip: hover (Desktop) ────────────────────────────────────────────
   graphOverlay.addEventListener('mousemove', (e) => {
-    if (!tooltipPinned) {
-      _handleGraphHover(e, false);
-    }
+    if (!tooltipPinned && !graphIsDragging) _handleGraphHover(e, false);
   });
 
   graphOverlay.addEventListener('mouseleave', () => {
@@ -143,7 +171,7 @@ function _initGraphOverlay() {
     }
   });
 
-  // ── Click / tap to pin ──────────────────────────────────────────────
+  // ── Click / tap to pin (Desktop & Mobile) ───────────────────────────────
   graphOverlay.addEventListener('click', (e) => {
     if (tooltipPinned) {
       tooltipPinned = false;
@@ -152,32 +180,34 @@ function _initGraphOverlay() {
       return;
     }
     _handleGraphHover(e, true);
-    if (_tooltipIndex !== -1) {
-      tooltipPinned = true;
-    }
+    if (_tooltipIndex !== -1) tooltipPinned = true;
   });
 
   graphOverlay.addEventListener('touchend', (e) => {
-    // CRITICAL: Stop emulated click on mobile to prevent instant hiding
+    // If lifting a finger after a pinch zoom, ignore tooltip click
+    if (_pinchStartDist > 0 || e.touches.length > 0) return;
+    
+    // Stop emulated click on mobile to prevent instant hiding
     if (e.cancelable) e.preventDefault();
 
     if (_isTouchDrag) {
       _isTouchDrag = false;
       return;
     }
+    
     const touch = e.changedTouches[0];
     if (!touch) return;
-    const fakeEvent = { clientX: touch.clientX, clientY: touch.clientY };
+    
     if (tooltipPinned) {
       tooltipPinned = false;
       hideTooltip();
       _tooltipIndex = -1;
       return;
     }
+    
+    const fakeEvent = { clientX: touch.clientX, clientY: touch.clientY };
     _handleGraphHover(fakeEvent, true);
-    if (_tooltipIndex !== -1) {
-      tooltipPinned = true;
-    }
+    if (_tooltipIndex !== -1) tooltipPinned = true;
   }, { passive: false });
 
   window.addEventListener('resize', () => {
@@ -191,10 +221,13 @@ function _syncOverlaySize() {
   if (!graphOverlay || !mainCanvas) return;
   const rect = mainCanvas.getBoundingClientRect();
   const dpr = window.devicePixelRatio || 1;
+  
   graphOverlay.width = rect.width * dpr;
   graphOverlay.height = rect.height * dpr;
   graphOverlay.style.width = rect.width + 'px';
   graphOverlay.style.height = rect.height + 'px';
+  graphOverlay.style.top = mainCanvas.offsetTop + 'px';
+  graphOverlay.style.left = mainCanvas.offsetLeft + 'px';
 }
 
 function _handleGraphHover(e, pin = false) {
@@ -204,10 +237,10 @@ function _handleGraphHover(e, pin = false) {
   const x = e.clientX - rect.left;
 
   const PL = 38, PR = 8;
-  const W = rect.width; // CRITICAL: Use CSS width to align with hit logic, ignore DPR
+  const W = rect.width; 
   const cW = W - PL - PR;
   const n = bars1.length;
-  if (n === 0) return;
+  if (n === 0 || cW <= 0) return;
 
   const gap = cW * 0.02 / n;
   const grpW = (cW - gap * (n + 1)) / n;
@@ -220,7 +253,6 @@ function _handleGraphHover(e, pin = false) {
   let foundIdx = -1;
   let minDist = Infinity;
 
-  // Closest point matching for easier tapping on mobile
   for (let i = 0; i < n; i++) {
     const xPos = mapX(i);
     const dist = Math.abs(x - xPos);
@@ -230,8 +262,8 @@ function _handleGraphHover(e, pin = false) {
     }
   }
 
-  // Hit radius: max of half-bar width or 30px (generous for fingers)
-  const maxHitDist = Math.max((grpW * zoom) / 2, 30);
+  // Very generous hit radius makes it easier to tap on mobile
+  const maxHitDist = Math.max((grpW * zoom) / 2, 35);
   if (minDist > maxHitDist) {
     if (!pin) {
       hideTooltip();
@@ -254,17 +286,10 @@ function _handleGraphHover(e, pin = false) {
 }
 
 function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombined, nav) {
-  if (!canvas || !canvas.getContext) {
-    console.error('Canvas not available');
-    return;
-  }
+  if (!canvas || !canvas.getContext) return;
   const ctx = canvas.getContext('2d');
-  if (!ctx) {
-    console.error('Could not get canvas context');
-    return;
-  }
+  if (!ctx) return;
 
-  // Get actual display size
   const rect = canvas.getBoundingClientRect();
   let W = rect.width;
   let H = rect.height || 180;
@@ -276,13 +301,9 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
   canvas.height = H * dpr;
   ctx.scale(dpr, dpr);
 
-  // Draw
   const zoom = graphZoomLevel;
   const PL = 38, PR = 8, PT = 12, PB = 28, cW = W - PL - PR, cH = H - PT - PB;
-  if (cW < 20 || cH < 20) {
-    console.warn('Canvas too small to draw');
-    return;
-  }
+  if (cW < 20 || cH < 20) return;
   
   const zoomedWidth = cW * zoom;
   const maxPanX = Math.max(0, (zoomedWidth - cW) / 2);
@@ -301,7 +322,6 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
   const niceStep = niceMult * mag;
   const maxV = niceStep * 4;
 
-  // Y-Axis
   ctx.font='9px system-ui'; ctx.textAlign='right'; ctx.fillStyle='#52525b';
   for (let i=0; i<=4; i++) {
     const yv = niceStep*i, y = PT+cH-(i/4)*cH;
@@ -360,7 +380,6 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
     drawLine(bars1, color1, lastIdx);
   }
 
-  // Centre-day marker
   if (graphTab === 'day' && nav.centreDateMs) {
     const centreX = mapX(PL + gap + ((nav.centreDateMs - nav.startMs) / (nav.interval * 1000)) * (grpW + gap));
     if (centreX >= PL && centreX <= W - PR) {
@@ -378,7 +397,6 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
 
   ctx.restore();
 
-  // X-Axis Labels
   const skip = Math.max(1, Math.ceil(n / (10 * zoom)));
   ctx.textAlign='center'; ctx.fillStyle='#52525b';
   for (let i=0; i<n; i++) {
@@ -388,7 +406,7 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
     }
   }
 
-  _syncOverlaySize();
+  if (typeof _syncOverlaySize === 'function') _syncOverlaySize();
 }
 
 function _roundRect(ctx,x,y,w,h,r) {

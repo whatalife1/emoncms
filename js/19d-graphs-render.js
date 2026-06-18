@@ -24,7 +24,15 @@ function _fastRedraw() {
 
 function _initGraphOverlay() {
   const parent = document.querySelector('.graph-chart-card');
-  if (!parent || graphOverlay) return;
+  if (!parent) {
+    console.warn('Graph card not found');
+    return;
+  }
+  if (graphOverlay) {
+    // Remove existing overlay to avoid duplicates
+    graphOverlay.remove();
+    graphOverlay = null;
+  }
   
   graphOverlay = document.createElement('canvas');
   graphOverlay.className = 'graph-overlay';
@@ -45,6 +53,9 @@ function _initGraphOverlay() {
   const mainCanvas = document.getElementById('graph-canvas');
   if (mainCanvas) {
     _syncOverlaySize();
+    console.log('Overlay size:', graphOverlay.width, graphOverlay.height);
+  } else {
+    console.warn('Main canvas not found');
   }
 
   // Resize observer
@@ -137,6 +148,7 @@ function _initGraphOverlay() {
 
   // ── Click / tap to pin ──────────────────────────────────────────────
   graphOverlay.addEventListener('click', (e) => {
+    console.log('Overlay clicked');
     if (tooltipPinned) {
       tooltipPinned = false;
       hideTooltip();
@@ -157,6 +169,7 @@ function _initGraphOverlay() {
     const touch = e.changedTouches[0];
     if (!touch) return;
     const fakeEvent = { clientX: touch.clientX, clientY: touch.clientY };
+    console.log('Overlay touchend');
     if (tooltipPinned) {
       tooltipPinned = false;
       hideTooltip();
@@ -184,9 +197,11 @@ function _syncOverlaySize() {
   graphOverlay.height = rect.height * dpr;
   graphOverlay.style.width = rect.width + 'px';
   graphOverlay.style.height = rect.height + 'px';
+  console.log('Overlay synced:', graphOverlay.width, graphOverlay.height);
 }
 
 function _handleGraphHover(e, pin = false) {
+  console.log('_handleGraphHover called', pin);
   if (!graphDataCache) return;
   const { bars1, bars2, labels, color1, color2, unit, isCombined, nav } = graphDataCache;
   const rect = graphOverlay.getBoundingClientRect();
@@ -381,5 +396,5 @@ function _roundRect(ctx,x,y,w,h,r) {
 const _origOpenGraphsPanel = openGraphsPanel;
 openGraphsPanel = function() {
   _origOpenGraphsPanel();
-  setTimeout(() => { _initGraphOverlay(); }, 100);
+  setTimeout(() => { _initGraphOverlay(); }, 150);
 };

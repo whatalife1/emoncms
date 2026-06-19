@@ -290,7 +290,6 @@ function _handleGraphHover(e, pin = false) {
   showTooltip(e, label, val1 + ' ' + unit, val2 + ' ' + unit, color1, color2, isCombined, pin);
 }
 
-// ─── UPDATED: Properly handles combined solar+grid for all chart types ──────
 function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombined, nav) {
   if (!canvas || !canvas.getContext) return;
   const ctx = canvas.getContext('2d');
@@ -321,7 +320,6 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
 
   const allV = [...bars1, ...bars2];
   const rawMax = Math.max(...allV, 1);
-  // Tighter step calculation to prevent excessive empty space at top
   const roughStep = rawMax / 3.8;
   const mag = Math.pow(10, Math.floor(Math.log10(roughStep || 1)));
   const rel = roughStep / mag;
@@ -341,7 +339,6 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
   const isLine = graphChartType === 'line';
   const gap = cW * 0.02 / n, grpW = (cW - gap * (n + 1)) / n;
 
-  // Determine the cutoff index so lines don't drop to 0 for future dates
   let lastIdx = n - 1;
   const now = new Date();
   if (graphTab === 'day' && graphDateNav === 0) {
@@ -359,56 +356,56 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
 
   const getX = (i) => mapX(PL + gap + i*(grpW+gap) + grpW/2);
 
-  // ─── BAR / HOURLY CHART (with combined support) ──────────────────────────
+  // ─── BAR / HOURLY CHART (Combined Side-by-Side Drawing) ─────────────────
   if (!isLine) {
-    // If combined, draw stacked or side-by-side bars
     if (isCombined) {
-      // Draw Grid bars first (behind)
-      for (let i=0; i<n; i++) {
-        const x = mapX(PL + gap + i*(grpW+gap));
+      for (let i = 0; i < n; i++) {
+        const x = mapX(PL + gap + i * (grpW + gap));
         const bw = grpW * zoom;
-        if (x+bw < PL || x > W-PR) continue;
-        if (bars2[i] > 0) {
-          const barHeight = (bars2[i]/maxV)*cH;
-          ctx.fillStyle = color2;
-          _roundRect(ctx, x, PT+cH - barHeight, bw, barHeight, 1);
-          // Add subtle label for Grid bars
-          ctx.fillStyle = 'rgba(255,255,255,0.3)';
-          ctx.font = '7px system-ui';
-          ctx.textAlign = 'center';
-          if (barHeight > 10) {
-            ctx.fillText('⚡', x + bw/2, PT+cH - barHeight/2 + 2);
+        if (x + bw < PL || x > W - PR) continue;
+
+        // Split each slot's width cleanly between Solar and Grid
+        const subW = bw * 0.47; 
+        const x1 = x;               // Left position: Solar
+        const x2 = x + bw * 0.53;   // Right position: Grid
+
+        // 1. Draw Solar bar (Left)
+        if (bars1[i] > 0) {
+          const barHeight = (bars1[i] / maxV) * cH;
+          ctx.fillStyle = color1;
+          _roundRect(ctx, x1, PT + cH - barHeight, subW, barHeight, 1);
+          
+          if (subW > 6 && barHeight > 10) {
+            ctx.fillStyle = 'rgba(0,0,0,0.4)';
+            ctx.font = '6px system-ui';
+            ctx.textAlign = 'center';
+            ctx.fillText('☀', x1 + subW / 2, PT + cH - barHeight / 2 + 2);
           }
         }
-      }
-      
-      // Draw Solar bars on top (foreground)
-      for (let i=0; i<n; i++) {
-        const x = mapX(PL + gap + i*(grpW+gap));
-        const bw = grpW * zoom;
-        if (x+bw < PL || x > W-PR) continue;
-        if (bars1[i] > 0) {
-          const barHeight = (bars1[i]/maxV)*cH;
-          ctx.fillStyle = color1;
-          _roundRect(ctx, x, PT+cH - barHeight, bw, barHeight, 1);
-          // Add subtle label for Solar bars
-          ctx.fillStyle = 'rgba(255,255,255,0.3)';
-          ctx.font = '7px system-ui';
-          ctx.textAlign = 'center';
-          if (barHeight > 10) {
-            ctx.fillText('☀', x + bw/2, PT+cH - barHeight/2 + 2);
+
+        // 2. Draw Grid bar (Right)
+        if (bars2[i] > 0) {
+          const barHeight = (bars2[i] / maxV) * cH;
+          ctx.fillStyle = color2;
+          _roundRect(ctx, x2, PT + cH - barHeight, subW, barHeight, 1);
+          
+          if (subW > 6 && barHeight > 10) {
+            ctx.fillStyle = 'rgba(255,255,255,0.4)';
+            ctx.font = '6px system-ui';
+            ctx.textAlign = 'center';
+            ctx.fillText('⚡', x2 + subW / 2, PT + cH - barHeight / 2 + 2);
           }
         }
       }
     } else {
       // Single dataset (non-combined)
-      for (let i=0; i<n; i++) {
-        const x = mapX(PL + gap + i*(grpW+gap));
+      for (let i = 0; i < n; i++) {
+        const x = mapX(PL + gap + i * (grpW + gap));
         const bw = grpW * zoom;
-        if (x+bw < PL || x > W-PR) continue;
+        if (x + bw < PL || x > W - PR) continue;
         if (bars1[i] > 0) {
           ctx.fillStyle = color1;
-          _roundRect(ctx, x, PT+cH-(bars1[i]/maxV)*cH, bw, (bars1[i]/maxV)*cH, 1);
+          _roundRect(ctx, x, PT + cH - (bars1[i] / maxV) * cH, bw, (bars1[i] / maxV) * cH, 1);
         }
       }
     }
@@ -525,7 +522,6 @@ function _roundRect(ctx,x,y,w,h,r) {
   ctx.fill();
 }
 
-// ─── Monkey patch roundRect if not available ────────────────────────────────
 if (!CanvasRenderingContext2D.prototype.roundRect) {
   CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, radii) {
     const r = typeof radii === 'number' ? radii : (radii || 0);

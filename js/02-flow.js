@@ -7,7 +7,8 @@ const LAYOUT = {
  k15: { x:277, y:361, w:246, h:183, color:'#38bdf8', label:'Kenwood 1.5T', ly1:21, fs:34, c1:'#38bdf8', ly2:74, fs2:64, c2:'#25f447', ly3:128, fs3:25, c3:'#00c8f0', ly4:163, fs4:25, c4:'#518e35',  },
  fridge: { x:6, y:550, w:270, h:176, color:'#c084fc', label:'Fridges', ly1:19, fs:34, c1:'#38bdf8', ly2:76, fs2:63, c2:'#25f447', ly3:122, fs3:24, c3:'#00c8f0', ly4:155, fs4:25, c4:'#518d35',  },
  pc: { x:280, y:544, w:245, h:182, color:'#10b9f8', label:'PC', ly1:22, fs:47, c1:'#38bdf8', ly2:72, fs2:62, c2:'#25f447', ly3:123, fs3:24, c3:'#00c8f0', ly4:164, fs4:25, c4:'#518e35',  },
- temp: { x:532, y:612, w:194, h:66, color:'#22c55e', label:'temp', ly1:26, fs:27, c1:'#25f447',  },
+ temp: { x:532, y:550, w:194, h:86, color:'#22c55e', label:'temp', ly1:45, fs:27, c1:'#25f447',  },
+ temp2: { x:532, y:642, w:194, h:86, color:'#22c55e', label:'temp2', ly1:45, fs:27, c1:'#25f447',  },
 };
 
 function renderFlowDiagram(byName) {
@@ -23,6 +24,8 @@ function renderFlowDiagram(byName) {
   const tk = getV('Water Tank');
   const tp = getV('Temperature');
   const hm = getV('Humidity');
+  const tp2 = getV('Temperature 2');
+  const hm2 = getV('Humidity 2');
   const solar_t = getV('Solar Today');
   const grid_t = getV('Grid Today') || getV('Breaker Today');
   
@@ -105,7 +108,9 @@ function renderFlowDiagram(byName) {
 
   // 5. TEMP
   const oT = L.temp;
-  svg += `<rect x="${oT.x}" y="${oT.y}" width="${oT.w}" height="${oT.h}" rx="8" fill="#141416" stroke="${oT.color}" stroke-width="1.5"/><text x="${cx(oT)}" y="${oT.y+oT.ly1}" ${tpProps} font-size="${oT.fs}" fill="${oT.c1}">${tp.toFixed(1)}°C / ${Math.round(hm)}%</text></svg>`;
+  svg += `<rect x="${oT.x}" y="${oT.y}" width="${oT.w}" height="${oT.h}" rx="8" fill="#141416" stroke="${oT.color}" stroke-width="1.5"/><text x="${cx(oT)}" y="${oT.y+oT.ly1}" ${tpProps} font-size="${oT.fs}" fill="${oT.c1}">${tp.toFixed(1)}°C / ${Math.round(hm)}%</text>`;
+  const oT2 = L.temp2;
+  svg += `<rect x="${oT2.x}" y="${oT2.y}" width="${oT2.w}" height="${oT2.h}" rx="8" fill="#141416" stroke="${oT2.color}" stroke-width="1.5"/><text x="${cx(oT2)}" y="${oT2.y+oT2.ly1}" ${tpProps} font-size="${oT2.fs}" fill="${oT2.c1}">${tp2.toFixed(1)}°C / ${Math.round(hm2)}%</text></svg>`;
   
   document.getElementById('flow-svg-wrap').innerHTML = svg;
 }

@@ -80,3 +80,14 @@ function renderGraphsPanel() {
     graphIsRendering = false;
   }
 }
+
+// ─── Auto-Update Loop ─────────────────────────────────────────────────────────
+// Automatically update Today's graph metrics every 20 seconds while the panel is active
+setInterval(() => {
+  const p = document.getElementById('graphs-panel');
+  if (p && p.classList.contains('open') && graphTab === 'day' && graphDateNav === 0) {
+    if (typeof _loadAndDraw === 'function' && !graphIsLoading) {
+      _loadAndDraw();
+    }
+  }
+}, 20000);

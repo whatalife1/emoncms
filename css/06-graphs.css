@@ -12,8 +12,7 @@
 }
 
 #graphs-body {
-  flex: 1; overflow-y: auto !important; padding: 10px 10px 45px !important; display: flex; flex-direction: column; gap: 8px;
-  min-height: 0;
+  flex: 1; overflow-y: auto; padding: 10px 10px 45px !important; display: flex; flex-direction: column; gap: 8px;
 }
 
 /* ── Time tabs (Day/Month/Year/Total) ──────────────────────────────────────── */
@@ -97,7 +96,7 @@
   scrollbar-width: none; -ms-overflow-style: none;
   position: relative;
   z-index: 11; 
-  margin-bottom: 25px !important;
+  margin-bottom: 15px !important;
 }
 .gfeed-tab {
   flex-shrink: 0; padding: 6px 12px; border-radius: 20px; font-size: 11px; font-weight: 700;
@@ -146,11 +145,6 @@
 #graphs-panel.fullscreen #graph-canvas {
   height: calc(100vh - 380px) !important;
   min-height: 220px;
-}
-
-#graphs-panel.fullscreen #graphs-body {
-  max-height: calc(100vh - 65px) !important;
-  overflow-y: auto !important;
 }
 
 @media (max-height: 480px), (max-width: 900px) and (orientation: landscape) {

@@ -50,7 +50,11 @@ function renderFlowDiagram(byName) {
     return v.toLocaleString('en-US');
   };
   const tpProps = 'font-family="system-ui, -apple-system, sans-serif" dominant-baseline="central" text-anchor="middle" font-weight="700"';
-  let svg = `<svg viewBox="0 0 730 730" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%" preserveAspectRatio="xMidYMid meet">`;
+
+  // KEY FIX: use width="100%" and NO height attribute (or height="auto")
+  // This lets the SVG scale based on its viewBox aspect ratio (730x730 = square)
+  // which means height follows width automatically on both desktop and mobile.
+  let svg = `<svg viewBox="0 0 730 730" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;display:block;" preserveAspectRatio="xMidYMid meet">`;
 
   // 1. SOLAR
   let o = L.solar;
@@ -60,10 +64,7 @@ function renderFlowDiagram(byName) {
   svg += `<text x="${cx(o)}" y="${o.y+o.ly1}" ${tpProps} font-size="${o.fs}" fill="${o.c1}">${o.label}: ${pF(s)}</text>`;
   svg += `<text x="${cx(o)}" y="${o.y+o.ly2}" ${tpProps} font-size="${o.fs2}" fill="${o.c2}">Load: ${pF(l)}</text>`;
   svg += `<text x="${cx(o)}" y="${o.y+o.ly3}" ${tpProps} font-size="${o.fs3}" fill="${o.c3}">${Math.round(sv)}V | ${sa.toFixed(1)}A</text>`;
-  
-  // Updated Pred line to use predF formatter
   svg += `<text x="${cx(o)}" y="${o.y+o.ly4}" ${tpProps} font-size="${o.fs4}" fill="${o.c4}">Pred: ${predF(predW)} | ☁ ${cloud}%</text>`;
-  
   svg += `<text x="${cx(o)}" y="${o.y+o.ly5}" ${tpProps} font-size="${o.fs5}" fill="${o.c5}">Today: ${solar_t.toFixed(1)} kWh | ${kF(solar_t*rate)} PKR</text>`;
   svg += `<text x="${cx(o)}" y="${o.y+o.ly6}" ${tpProps} font-size="${o.fs6}" fill="${o.c6}">Month: ${nF(mU.solar||0)} kWh | ${kF((mU.solar||0)*rate)} PKR</text>`;
 

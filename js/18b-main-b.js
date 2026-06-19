@@ -208,7 +208,10 @@ function wireButtons() {
     }
   });
   
-  _btn('btn-graphs-close', () => {
+_btn('btn-graphs-close', () => {
+    if (screen.orientation && screen.orientation.unlock) {
+      screen.orientation.unlock();
+    }
     if (typeof closeGraphsPanel === 'function') {
       closeGraphsPanel();
     } else {
@@ -217,21 +220,33 @@ function wireButtons() {
     }
   });
 
-  _btn('btn-graphs-fullscreen', () => {
+
+
+_btn('btn-graphs-fullscreen', () => {
     const p = document.getElementById('graphs-panel');
     if (!p) return;
     
+    const isGoingFull = !p.classList.contains('fullscreen');
     p.classList.toggle('fullscreen');
     const btn = document.getElementById('btn-graphs-fullscreen');
     if (btn) {
-      btn.textContent = p.classList.contains('fullscreen') ? 'Exit' : 'Full';
+      btn.textContent = isGoingFull ? 'Exit' : 'Full';
+    }
+
+    // On mobile, lock/unlock orientation
+    if (screen.orientation && screen.orientation.lock) {
+      if (isGoingFull) {
+        screen.orientation.lock('landscape').catch(() => {});
+      } else {
+        screen.orientation.unlock();
+      }
     }
     
     // Trigger canvas scale update immediately
     setTimeout(() => {
       if (typeof _syncOverlaySize === 'function') _syncOverlaySize();
       if (typeof _fastRedraw === 'function') _fastRedraw();
-    }, 100);
+    }, 300);
   });
 }
 
@@ -311,6 +326,14 @@ function initApp() {
   }
 
   // Start prediction updates
+  // Hide Full button on mobile devices
+  const isDesktop = window.matchMedia('(min-width: 1024px)').matches;
+  const fullBtn = document.getElementById('btn-graphs-fullscreen');
+  if (fullBtn && !isDesktop) {
+    fullBtn.style.display = 'none';
+  }
+
+
   if (typeof updateMainPredicted === 'function') {
     setInterval(updateMainPredicted, 120000);
     setTimeout(updateMainPredicted, 3000);

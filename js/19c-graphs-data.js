@@ -84,6 +84,29 @@ function _ensureCanvasSize(canvas) {
   return { W, H };
 }
 
+// ─── Helper to calculate average watts for a specific time range ───────────
+function _calcAvgWatts(bars, startHour, endHour, nav) {
+  if (!nav.isDayTab) return null;
+  
+  const totalHours = 24;
+  const barsPerHour = nav.nBars / totalHours;
+  
+  // Calculate which indices correspond to the time range
+  const startIdx = Math.floor(startHour * barsPerHour);
+  const endIdx = Math.ceil(endHour * barsPerHour);
+  
+  let sum = 0;
+  let count = 0;
+  for (let i = startIdx; i < endIdx && i < bars.length; i++) {
+    if (bars[i] > 0) {
+      sum += bars[i];
+      count++;
+    }
+  }
+  
+  return count > 0 ? sum / count : null;
+}
+
 async function _loadAndDraw() {
   if (graphIsLoading) return;
   graphIsLoading = true;
@@ -228,10 +251,19 @@ async function _loadAndDraw() {
 
     const nFmt = x => Math.round(x).toLocaleString('en-US');
 
+    // ─── Enhanced stat display with average watts ───────────────────────────
     if (isCombined) {
       if (nav.isDayTab) {
         const max1 = Math.max(0, ...bars1), max2 = Math.max(0, ...bars2);
-        stat.innerHTML = `<span style="color:${color1}">☀ ${totalKwh1.toFixed(1)} kWh (Peak: ${nFmt(max1)} w)</span> &nbsp;&nbsp;|&nbsp;&nbsp; <span style="color:${color2}">⚡ ${totalKwh2.toFixed(1)} kWh (Peak: ${nFmt(max2)} w)</span>`;
+        // For Solar: show avg from 5am-5pm
+        const avgSolar = _calcAvgWatts(bars1, 5, 17, nav);
+        // For Grid: show avg for 24hr
+        const avgGrid = _calcAvgWatts(bars2, 0, 24, nav);
+        
+        let avgSolarStr = avgSolar !== null ? `Avg: ${Math.round(avgSolar)}w` : '';
+        let avgGridStr = avgGrid !== null ? `Avg: ${Math.round(avgGrid)}w` : '';
+        
+        stat.innerHTML = `<span style="color:${color1}">☀ ${totalKwh1.toFixed(1)} kWh (Peak: ${nFmt(max1)}w${avgSolarStr ? ', ' + avgSolarStr : ''})</span> &nbsp;&nbsp;|&nbsp;&nbsp; <span style="color:${color2}">⚡ ${totalKwh2.toFixed(1)} kWh (Peak: ${nFmt(max2)}w${avgGridStr ? ', ' + avgGridStr : ''})</span>`;
       } else {
         const avg1 = totalKwh1 / validCount, avg2 = totalKwh2 / validCount;
         stat.innerHTML = `<span style="color:${color1}">☀ ${totalKwh1.toFixed(1)} kWh (Avg: ${avg1.toFixed(1)})</span> &nbsp;&nbsp;|&nbsp;&nbsp; <span style="color:${color2}">⚡ ${totalKwh2.toFixed(1)} kWh (Avg: ${avg2.toFixed(1)})</span>`;
@@ -244,7 +276,15 @@ async function _loadAndDraw() {
       } else {
         if (nav.isDayTab) {
           const max1 = Math.max(0, ...bars1);
-          stat.innerHTML = `<span style="color:${color1}">${fA?.label}: ${totalKwh1.toFixed(1)} kWh (Peak: ${nFmt(max1)} w)</span>`;
+          // For Solar: show avg from 5am-5pm
+          // For other appliances: show avg for 24hr
+          const isSolarFeed = graphFeedKey === 'solar';
+          const startHour = isSolarFeed ? 5 : 0;
+          const endHour = isSolarFeed ? 17 : 24;
+          const avgWatts = _calcAvgWatts(bars1, startHour, endHour, nav);
+          const avgStr = avgWatts !== null ? `Avg: ${Math.round(avgWatts)}w` : '';
+          
+          stat.innerHTML = `<span style="color:${color1}">${fA?.label}: ${totalKwh1.toFixed(1)} kWh (Peak: ${nFmt(max1)}w${avgStr ? ', ' + avgStr : ''})</span>`;
         } else {
           const max1 = Math.max(0, ...bars1.slice(0, validCount));
           const avg1 = totalKwh1 / validCount;

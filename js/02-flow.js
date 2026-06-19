@@ -38,7 +38,6 @@ function renderFlowDiagram(byName) {
   const nF = x => Math.round(x).toLocaleString('en-US');
   const pF = x => Math.round(x) + ' w';
   
-  // Custom formatter for Predicted Solar
   const predF = x => {
     if (x >= 1000) return (x / 1000).toFixed(1) + ' kWh';
     return Math.round(x) + ' w';
@@ -51,10 +50,9 @@ function renderFlowDiagram(byName) {
   };
   const tpProps = 'font-family="system-ui, -apple-system, sans-serif" dominant-baseline="central" text-anchor="middle" font-weight="700"';
 
-  // KEY FIX: use width="100%" and NO height attribute (or height="auto")
-  // This lets the SVG scale based on its viewBox aspect ratio (730x730 = square)
-  // which means height follows width automatically on both desktop and mobile.
-  let svg = `<svg viewBox="0 0 730 730" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;display:block;" preserveAspectRatio="xMidYMid meet">`;
+  // KEY: no inline width/height on svg element — let CSS control sizing.
+  // CSS sets width:100% height:auto so the 730x730 viewBox drives a perfect square.
+  let svg = `<svg viewBox="0 0 730 730" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">`;
 
   // 1. SOLAR
   let o = L.solar;

@@ -5,7 +5,8 @@ const GRAPH_DAY_RESOLUTION_MINUTES = 20;
 const GRAPH_FEEDS = [
   { key: 'solar',   name: 'Solar',         id: '499380', color: '#facc15', label: '☀ Solar'        },
   { key: 'grid',    name: 'Grid (Breaker)', id: '499374', color: '#ef4444', label: '⚡ Grid'         },
-  { key: 'temp',    name: 'Temperature',   id: '499428', color: '#10b981', label: '🌡 Temp'         },
+  { key: 'temp',    name: 'Temperature',   id: '499428', color: '#10b981', label: '🌡 Temp 1'       },
+  { key: 'temp2',   name: 'Temperature 2', id: '512473', color: '#34d399', label: '🌡 Temp 2'       },
   { key: 'k15',     name: 'Kenwood 1.5T',  id: '499362', color: '#38bdf8', label: '❄ Kenwood 1.5T' },
   { key: 'k1',      name: 'Kenwood 1T',    id: '499364', color: '#7dd3fc', label: '❄ Kenwood 1T'   },
   { key: 'haier',   name: 'Haier 1T',      id: '499367', color: '#a5f3fc', label: '❄ Haier 1T'     },

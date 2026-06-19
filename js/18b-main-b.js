@@ -216,6 +216,23 @@ function wireButtons() {
       if (p) p.classList.remove('open');
     }
   });
+
+  _btn('btn-graphs-fullscreen', () => {
+    const p = document.getElementById('graphs-panel');
+    if (!p) return;
+    
+    p.classList.toggle('fullscreen');
+    const btn = document.getElementById('btn-graphs-fullscreen');
+    if (btn) {
+      btn.textContent = p.classList.contains('fullscreen') ? 'Exit' : 'Full';
+    }
+    
+    // Trigger canvas scale update immediately
+    setTimeout(() => {
+      if (typeof _syncOverlaySize === 'function') _syncOverlaySize();
+      if (typeof _fastRedraw === 'function') _fastRedraw();
+    }, 100);
+  });
 }
 
 // ─── APP BOOT ────────────────────────────────────────────────────────────────

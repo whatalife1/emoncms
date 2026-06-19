@@ -314,11 +314,12 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
   const mapX = (x) => centerX + (x - centerX) * zoom + panX;
 
   const allV = [...bars1, ...bars2];
-  const rawMax = (allV.length ? Math.max(...allV) : 1);
-  const roughStep = rawMax / 4;
+  const rawMax = Math.max(...allV, 1);
+  // tighter step calculation to prevent excessive empty space at top
+  const roughStep = rawMax / 3.5;
   const mag = Math.pow(10, Math.floor(Math.log10(roughStep || 1)));
   const rel = roughStep / mag;
-  let niceMult = rel <= 1 ? 1 : rel <= 1.5 ? 1.5 : rel <= 2 ? 2 : rel <= 2.5 ? 2.5 : rel <= 5 ? 5 : 10;
+  let niceMult = rel <= 1 ? 1 : rel <= 1.5 ? 1.5 : rel <= 2 ? 2 : rel <= 2.5 ? 2.5 : rel <= 4 ? 4 : rel <= 5 ? 5 : rel <= 7.5 ? 7.5 : 10;
   const niceStep = niceMult * mag;
   const maxV = niceStep * 4;
 
@@ -338,7 +339,7 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
   if (graphTab === 'day' && graphDateNav === 0) {
     const now = new Date();
     const offsetMs = now.getTime() - nav.startMs;
-    lastIdx = Math.floor(offsetMs / (GRAPH_DAY_RESOLUTION_MINUTES * 60000));
+    lastIdx = Math.floor(offsetMs / (nav.resMins * 60000));
     lastIdx = Math.max(0, Math.min(n-1, lastIdx));
   }
 

@@ -1,4 +1,4 @@
-/* ── Container & cards ────────────────────────────────────────────────────── */
+/* ── Container & cards ────────────────────────────────────────────────── */
 .container { padding: 10px; display: flex; flex-direction: column; gap: 6px; padding-bottom: 60px; }
 .card { background: var(--bg-panel); border: 1px solid var(--border); border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 4px; box-shadow: var(--shadow); }
 .card-header { display: flex; justify-content: space-between; align-items: center; }
@@ -17,60 +17,37 @@
 .linked-value { display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--text-muted); }
 .linked-reading { font-weight: 700; color: var(--accent-kwh); font-size: 12px; }
 
-/* ── Card accent borders ──────────────────────────────────────────────────── */
+/* ── Card accent borders ──────────────────────────────────────────────── */
 .card-watts  { border-left: 3px solid var(--accent-w); }
 .card-units  { border-left: 3px solid var(--accent-kwh); }
 .card-env    { border-left: 3px solid var(--accent-env); }
 .card-solar  { border-left: 3px solid var(--accent-solar); }
 
-/* ── Trend arrows ─────────────────────────────────────────────────────────── */
+/* ── Trend arrows ─────────────────────────────────────────────────────── */
 .trend { font-size: 10px; margin-left: 4px; font-weight: 700; }
 .trend-up   { color: #4ade80; }
 .trend-down { color: #f87171; }
 .trend-flat { color: var(--text-muted); }
 
-/* ── Sparklines ───────────────────────────────────────────────────────────── */
+/* ── Sparklines ───────────────────────────────────────────────────────── */
 .sparkline-wrap { margin-top: 4px; height: 28px; position: relative; overflow: hidden; }
 .sparkline-wrap svg { width: 100%; height: 28px; display: block; }
 
-/* ── Power Flow Diagram ───────────────────────────────────────────────────── */
+/* ── Power Flow Diagram ───────────────────────────────────────────────── */
 #flow-card { background: var(--bg-panel); border: 1px solid var(--border); border-radius: 10px; padding: 10px; margin-bottom: 2px; box-shadow: var(--shadow); }
 #flow-card .flow-title { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 8px; }
-#flow-svg-wrap { overflow: hidden; line-height: 0; }
-
-/* SVG: width:100% + height:auto = scales as a square matching the 730x730 viewBox.
-   This is correct on mobile — fills screen width with no gaps above/below.        */
+#flow-svg-wrap { overflow: hidden; }
 #flow-svg-wrap svg { width: 100%; height: auto; display: block; }
 
-/* ── DESKTOP ONLY: break flow card out of 450px shell, expand to 900px ──────── */
-/* Mobile (< 480px) keeps the natural square. Desktop gets a much bigger canvas   */
-/* so you can design extra graphs and widgets in the expanded SVG space.           */
-@media (min-width: 480px) {
-  #flow-wrap {
-    /* escape the 450px main-shell constraint */
-    width: calc(100vw - 40px);
-    max-width: 900px;
-    align-self: center;
-    padding: 0 !important;
-  }
-  #flow-card {
-    width: 100%;
-  }
-  #flow-svg-wrap {
-    width: 100%;
-    height: auto;
-  }
-  #flow-svg-wrap svg {
-    width: 100%;
-    height: auto;
-    display: block;
-  }
-}
+/* ── FORCE BIG FLOW ─────────────────────────────────────────────────── */
+#flow-card { min-height: 420px !important; }
+#flow-svg-wrap { height: 400px !important; overflow: visible !important; }
+#flow-svg-wrap svg { width: 100% !important; height: 100% !important; }
 
 /* ── GLOW PULSE ANIMATION ── */
 @keyframes glow-pulse {
-  0%   { stroke-width: 2; filter: drop-shadow(0 0 1px var(--pulse-clr)); }
-  50%  { stroke-width: 3; filter: drop-shadow(0 0 6px var(--pulse-clr)); }
+  0% { stroke-width: 2; filter: drop-shadow(0 0 1px var(--pulse-clr)); }
+  50% { stroke-width: 3; filter: drop-shadow(0 0 6px var(--pulse-clr)); }
   100% { stroke-width: 2; filter: drop-shadow(0 0 1px var(--pulse-clr)); }
 }
 .pulse-animation {

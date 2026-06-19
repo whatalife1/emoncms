@@ -40,9 +40,13 @@ async function poll() {
     const bulkData = await fetchEmonBulk();
     if (!bulkData) throw new Error("No data received");
 
-    const results = userOrderedFeeds.filter(f => f.enabled).map(f => ({
-      ...f,
-      value: bulkData.get(String(f.id)) ?? null
+    // Added Fallback: If bulkData misses a feed, fetch it directly
+    const results = await Promise.all(userOrderedFeeds.filter(f => f.enabled).map(async f => {
+      let val = bulkData.get(String(f.id));
+      if (val === undefined || val === null) {
+        try { val = await fetchEmon(f.id); } catch(err) {}
+      }
+      return { ...f, value: val ?? null };
     }));
 
     localStorage.setItem('last_known_results', JSON.stringify(results));

@@ -50,8 +50,9 @@ function _renderChartTypeToggle() {
   toggle.id = 'chart-type-toggle';
   toggle.style.cssText = 'display:flex;gap:4px;margin-top:6px;background:var(--bg-panel);border:1px solid var(--border);border-radius:8px;padding:3px;';
   toggle.innerHTML = `
-    <button class="chart-type-btn${graphChartType==='bar'?' active':''}" data-type="bar" style="flex:1;padding:5px 10px;border-radius:6px;font-size:11px;font-weight:700;background:${graphChartType==='bar'?'var(--bg-card)':'transparent'};border:${graphChartType==='bar'?'1px solid var(--border)':'1px solid transparent'};color:var(--text-main);cursor:pointer;">📊 Bars</button>
     <button class="chart-type-btn${graphChartType==='line'?' active':''}" data-type="line" style="flex:1;padding:5px 10px;border-radius:6px;font-size:11px;font-weight:700;background:${graphChartType==='line'?'var(--bg-card)':'transparent'};border:${graphChartType==='line'?'1px solid var(--border)':'1px solid transparent'};color:var(--text-main);cursor:pointer;">📈 Lines</button>
+    <button class="chart-type-btn${graphChartType==='bar'?' active':''}" data-type="bar" style="flex:1;padding:5px 10px;border-radius:6px;font-size:11px;font-weight:700;background:${graphChartType==='bar'?'var(--bg-card)':'transparent'};border:${graphChartType==='bar'?'1px solid var(--border)':'1px solid transparent'};color:var(--text-main);cursor:pointer;">📊 Bars</button>
+    <button class="chart-type-btn${graphChartType==='hourly'?' active':''}" data-type="hourly" style="flex:1;padding:5px 10px;border-radius:6px;font-size:11px;font-weight:700;background:${graphChartType==='hourly'?'var(--bg-card)':'transparent'};border:${graphChartType==='hourly'?'1px solid var(--border)':'1px solid transparent'};color:var(--text-main);cursor:pointer;">⏱ Hourly</button>
   `;
   wrap.parentNode.insertBefore(toggle, wrap.nextSibling);
   
@@ -134,27 +135,29 @@ function _gNavInfo() {
     const startMs = centreDayStart;
     const endMs = centreDayStart + 24 * 3600 * 1000 - 1;
 
-    const totalMinutes = 24 * 60;
-    const nBars = Math.ceil(totalMinutes / GRAPH_DAY_RESOLUTION_MINUTES);
+    const isHourlyView = (graphChartType === 'hourly');
+    const resMins = isHourlyView ? 60 : GRAPH_DAY_RESOLUTION_MINUTES;
+    const nBars = Math.ceil((24 * 60) / resMins);
     const labels = [];
     for (let i = 0; i < nBars; i++) {
-      const ms = startMs + i * GRAPH_DAY_RESOLUTION_MINUTES * 60000;
+      const ms = startMs + i * resMins * 60000;
       const date = new Date(ms);
       const h = date.getHours();
       const m = date.getMinutes();
-      labels.push(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
+      labels.push(isHourlyView ? `${String(h).padStart(2, '0')}:00` : `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
     }
 
     return {
       label: lbl,
       sub,
-      interval: GRAPH_DAY_RESOLUTION_MINUTES * 60,
+      interval: resMins * 60,
       startMs,
       endMs,
-      isHourly: true,
+      isDayTab: true,
       nBars,
       labels,
-      centreDateMs: centreDayStart
+      centreDateMs: centreDayStart,
+      resMins
     };
   }
   
@@ -162,7 +165,7 @@ function _gNavInfo() {
     const m = new Date(now.getFullYear(), now.getMonth()+graphMonthNav, 1);
     const days = new Date(m.getFullYear(),m.getMonth()+1,0).getDate();
     return { label: m.toLocaleDateString('en-PK',{month:'long',year:'numeric'}), sub:null,
-      interval:86400, isHourly:false, nBars:days,
+      interval:86400, isDayTab:false, nBars:days,
       startMs: new Date(m.getFullYear(),m.getMonth(),1).getTime(),
       endMs:   new Date(m.getFullYear(),m.getMonth(),days,23,59,59).getTime(),
       labels: Array.from({length:days},(_,i)=>String(i+1)),

@@ -4,11 +4,17 @@ let graphNeedsDayZoom = false;
 let tooltipPinned = false;
 
 function _renderZoomControls() {
+function _renderZoomControls() {
   const wrap = document.getElementById('graph-time-tabs');
   if (!wrap) return;
   const existing = document.getElementById('zoom-controls');
   if (existing) existing.remove();
-  
+
+  // Hide zoom controls on desktop (Windows or wide screen)
+  const isDesktop = /Win/i.test(navigator.platform) ||
+                    window.matchMedia('(min-width: 1024px)').matches;
+  if (isDesktop) return;   // ← nothing rendered on desktop
+
   const controls = document.createElement('div');
   controls.id = 'zoom-controls';
   controls.style.cssText = 'display:flex;gap:4px;margin-top:6px;align-items:center;justify-content:center;';
@@ -19,19 +25,17 @@ function _renderZoomControls() {
     <button class="zoom-btn" id="zoom-reset" style="padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700;background:var(--bg-card);border:1px solid var(--border);color:var(--text-muted);cursor:pointer;width:auto;">↺ Reset</button>
   `;
   wrap.parentNode.insertBefore(controls, wrap.nextSibling);
-  
+
   document.getElementById('zoom-in').addEventListener('click', () => {
     graphZoomLevel = Math.min(graphZoomMax, graphZoomLevel * 1.3);
     document.getElementById('zoom-level').textContent = Math.round(graphZoomLevel * 100) + '%';
     _loadAndDraw();
   });
-  
   document.getElementById('zoom-out').addEventListener('click', () => {
     graphZoomLevel = Math.max(graphZoomMin, graphZoomLevel / 1.3);
     document.getElementById('zoom-level').textContent = Math.round(graphZoomLevel * 100) + '%';
     _loadAndDraw();
   });
-  
   document.getElementById('zoom-reset').addEventListener('click', () => {
     graphZoomLevel = 1;
     graphPanOffset = 0;
@@ -40,30 +44,55 @@ function _renderZoomControls() {
   });
 }
 
+
+
 function _renderChartTypeToggle() {
-  const wrap = document.getElementById('graph-time-tabs');
-  if (!wrap) return;
+  // Remove old standalone row if it exists
   const existing = document.getElementById('chart-type-toggle');
   if (existing) existing.remove();
-  
+
+  // Inject as floating overlay inside the chart card (top-right)
+  const card = document.querySelector('.graph-chart-card');
+  if (!card) return;
+
   const toggle = document.createElement('div');
   toggle.id = 'chart-type-toggle';
-  toggle.style.cssText = 'display:flex;gap:4px;margin-top:6px;background:var(--bg-panel);border:1px solid var(--border);border-radius:8px;padding:3px;';
-  toggle.innerHTML = `
-    <button class="chart-type-btn${graphChartType==='line'?' active':''}" data-type="line" style="flex:1;padding:5px 10px;border-radius:6px;font-size:11px;font-weight:700;background:${graphChartType==='line'?'var(--bg-card)':'transparent'};border:${graphChartType==='line'?'1px solid var(--border)':'1px solid transparent'};color:var(--text-main);cursor:pointer;">📈 Lines</button>
-    <button class="chart-type-btn${graphChartType==='bar'?' active':''}" data-type="bar" style="flex:1;padding:5px 10px;border-radius:6px;font-size:11px;font-weight:700;background:${graphChartType==='bar'?'var(--bg-card)':'transparent'};border:${graphChartType==='bar'?'1px solid var(--border)':'1px solid transparent'};color:var(--text-main);cursor:pointer;">📊 Bars</button>
-    <button class="chart-type-btn${graphChartType==='hourly'?' active':''}" data-type="hourly" style="flex:1;padding:5px 10px;border-radius:6px;font-size:11px;font-weight:700;background:${graphChartType==='hourly'?'var(--bg-card)':'transparent'};border:${graphChartType==='hourly'?'1px solid var(--border)':'1px solid transparent'};color:var(--text-main);cursor:pointer;">⏱ Hourly</button>
+  toggle.style.cssText = `
+    position:absolute; top:6px; right:8px; z-index:15;
+    display:flex; gap:3px;
   `;
-  wrap.parentNode.insertBefore(toggle, wrap.nextSibling);
-  
-  toggle.querySelectorAll('.chart-type-btn').forEach(btn => {
+
+  const types = [
+    { type: 'line',   label: '📈' },
+    { type: 'bar',    label: '📊' },
+    { type: 'hourly', label: '⏱' },
+  ];
+
+  types.forEach(({ type, label }) => {
+    const btn = document.createElement('button');
+    const active = graphChartType === type;
+    btn.dataset.type = type;
+    btn.title = type.charAt(0).toUpperCase() + type.slice(1);
+    btn.textContent = label;
+    btn.style.cssText = `
+      padding:3px 7px; border-radius:6px; font-size:13px; cursor:pointer; width:auto;
+      background:${active ? 'var(--bg-base)' : 'rgba(0,0,0,0.45)'};
+      border:1px solid ${active ? 'var(--border)' : 'transparent'};
+      color:var(--text-main); opacity:${active ? '1' : '0.55'};
+      transition:opacity 0.15s;
+    `;
     btn.addEventListener('click', () => {
-      graphChartType = btn.dataset.type;
+      graphChartType = type;
       _renderChartTypeToggle();
       _loadAndDraw();
     });
+    toggle.appendChild(btn);
   });
+
+  card.appendChild(toggle);
 }
+
+
 
 function _renderGTimeTabs() {
   const wrap = document.getElementById('graph-time-tabs');

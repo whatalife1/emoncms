@@ -161,15 +161,68 @@
     box-shadow: none !important;
   }
   #graphs-panel #graph-canvas {
-    height: calc(100vh - 160px) !important;
-    min-height: 180px;
+    height: calc(100vh - 260px) !important;
+    min-height: 120px;
   }
   .graphs-header {
-    padding: 8px 12px !important;
+    padding: 4px 10px !important;
+  }
+  .graphs-header span {
+    font-size: 12px !important;
   }
   #graphs-body {
-    padding: 6px 6px 30px !important;
-    gap: 4px !important;
+    padding: 3px 6px 6px !important;
+    gap: 2px !important;
+    overflow-y: auto !important;
+  }
+  /* Compact time tabs */
+  .graph-time-tabs {
+    padding: 2px !important;
+  }
+  .gtime-tab {
+    padding: 4px 2px !important;
+    font-size: 10px !important;
+  }
+  /* Compact chart type toggle */
+  #chart-type-toggle {
+    margin-top: 2px !important;
+  }
+  #chart-type-toggle button {
+    padding: 3px 6px !important;
+    font-size: 10px !important;
+  }
+  /* Hide zoom controls in landscape - use pinch instead */
+  #zoom-controls {
+    display: none !important;
+  }
+  /* Compact nav bar */
+  .graph-nav-bar {
+    padding: 4px 8px !important;
+  }
+  .graph-nav-label {
+    font-size: 11px !important;
+  }
+  .graph-nav-sub {
+    display: none !important;
+  }
+  .graph-nav-btn {
+    padding: 3px 10px !important;
+    font-size: 14px !important;
+  }
+  /* Compact stat line */
+  .graph-stat {
+    font-size: 10px !important;
+    margin-bottom: 2px !important;
+    min-height: 12px !important;
+  }
+  /* Feed tabs wrap compactly */
+  .graph-feed-tabs {
+    gap: 3px !important;
+    padding-bottom: 4px !important;
+    margin-bottom: 4px !important;
+  }
+  .gfeed-tab {
+    padding: 4px 8px !important;
+    font-size: 10px !important;
   }
 }
-

@@ -58,8 +58,14 @@
   font-size: 12px; font-weight: 700; color: var(--text-muted); margin-bottom: 6px; min-height: 16px;
 }
 #graph-canvas {
-  width: 100%; height: 180px; display: block; border-radius: 4px;
+#graph-canvas {
+  width: 100%;
+  height: 240px;   /* was 180px — gained ~60px by removing the chart-type row */
+  display: block;
+  border-radius: 4px;
 }
+
+
 
 /* ── Graph Tooltip ─────────────────────────────────────────────────────────── */
 #graph-tooltip {
@@ -147,9 +153,10 @@
 
 /* change to: */
 #graphs-panel.fullscreen #graph-canvas {
-  height: calc(100vh - 460px) !important;
+  height: calc(100vh - 400px) !important;  /* was 460px */
   min-height: 220px;
 }
+
 
 
 
@@ -163,10 +170,11 @@
     border-right: none !important;
     box-shadow: none !important;
   }
-  #graphs-panel #graph-canvas {
-    height: calc(100vh - 260px) !important;
-    min-height: 120px;
-  }
+#graphs-panel #graph-canvas {
+  height: calc(100vh - 200px) !important;  /* was 260px, smaller offset = more chart */
+  min-height: 120px;
+}
+
   .graphs-header {
     padding: 4px 10px !important;
   }

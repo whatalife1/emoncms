@@ -32,11 +32,16 @@ function _pointsToBars(pts, nav, feedKey) {
     return bars;
   }
 
+  // Convert Average Interval Watts into Total Interval Energy (kWh)
+  // Formula: (Average Watts * Hours) / 1000 = kWh
+  const kwhFactor = (nav.interval / 3600) / 1000;
+
   if (nav.isYearly) {
     const bars = Array(12).fill(0), counts = Array(12).fill(0);
     for (const [ts,v] of pts) { 
       const m = new Date(ts).getMonth();
-      bars[m] += isAvgFeed ? v : (v/1000); counts[m]++;
+      bars[m] += isAvgFeed ? v : (v * kwhFactor); 
+      counts[m]++;
     }
     return isAvgFeed ? bars.map((v, i) => counts[i]>0 ? v/counts[i] : 0) : bars;
   }
@@ -45,7 +50,8 @@ function _pointsToBars(pts, nav, feedKey) {
     const by = {}, ct = {};
     for (const [ts,v] of pts) { 
       const y = new Date(ts).getFullYear(); 
-      by[y] = (by[y]||0) + (isAvgFeed?v:(v/1000)); ct[y]=(ct[y]||0)+1;
+      by[y] = (by[y]||0) + (isAvgFeed ? v : (v * kwhFactor)); 
+      ct[y]=(ct[y]||0)+1;
     }
     const years = Object.keys(by).sort();
     const bars = years.map(y => isAvgFeed ? by[y]/ct[y] : by[y]);
@@ -58,7 +64,8 @@ function _pointsToBars(pts, nav, feedKey) {
     if(d.getMonth() === nav.month && d.getFullYear() === nav.year) {
       const dayIdx = d.getDate()-1;
       if (dayIdx >= 0 && dayIdx < bars.length) {
-        bars[dayIdx] += isAvgFeed ? v : (v/1000); counts[dayIdx]++;
+        bars[dayIdx] += isAvgFeed ? v : (v * kwhFactor); 
+        counts[dayIdx]++;
       }
     }
   }
@@ -95,17 +102,15 @@ async function _loadAndDraw() {
   try {
     const nav = _gNavInfo();
 
-    // Ensure canvas has size before calculating layout
     const dims = _ensureCanvasSize(canvas);
     if (!dims || dims.W < 10) {
-      // Wait a frame and retry
       await new Promise(resolve => requestAnimationFrame(resolve));
       const retryDims = _ensureCanvasSize(canvas);
       if (!retryDims || retryDims.W < 10) {
         console.warn('Graph canvas still has no width, using fallback.');
         canvas.style.width = '100%';
         canvas.style.height = '180px';
-        canvas.offsetHeight; // force reflow
+        canvas.offsetHeight;
       }
     }
 
@@ -194,12 +199,58 @@ async function _loadAndDraw() {
       return;
     }
 
+    // Determine the last valid index for the current timeline to calculate accurate averages
+    let lastIdx = bars1.length - 1;
+    const now = new Date();
+    if (graphTab === 'day' && graphDateNav === 0) {
+      const offsetMs = now.getTime() - nav.startMs;
+      lastIdx = Math.floor(offsetMs / (nav.resMins * 60000));
+    } else if (graphTab === 'month' && graphMonthNav === 0) {
+      lastIdx = now.getDate() - 1;
+    } else if (graphTab === 'year' && graphYearNav === 0) {
+      lastIdx = now.getMonth();
+    }
+    lastIdx = Math.max(0, Math.min(bars1.length - 1, lastIdx));
+    const validCount = lastIdx + 1;
+
+    // Process top stats bar (kWh integrations)
+    let totalKwh1 = 0, totalKwh2 = 0;
+    const isAvg = graphFeedKey.startsWith('temp') || graphFeedKey === 'water';
+
+    if (nav.isDayTab && !isAvg) {
+      const factor = (nav.resMins / 60) / 1000;
+      totalKwh1 = bars1.reduce((a,b)=>a+b, 0) * factor;
+      if (isCombined) totalKwh2 = bars2.reduce((a,b)=>a+b, 0) * factor;
+    } else if (!isAvg) {
+      totalKwh1 = bars1.reduce((a,b)=>a+b, 0);
+      if (isCombined) totalKwh2 = bars2.reduce((a,b)=>a+b, 0);
+    }
+
+    const nFmt = x => Math.round(x).toLocaleString('en-US');
+
     if (isCombined) {
-      const max1 = Math.max(0, ...bars1), max2 = Math.max(0, ...bars2);
-      stat.innerHTML = `<span style="color:${color1}">Solar: ${Math.round(max1)}W</span> & <span style="color:${color2}">Grid: ${Math.round(max2)}W</span>`;
+      if (nav.isDayTab) {
+        const max1 = Math.max(0, ...bars1), max2 = Math.max(0, ...bars2);
+        stat.innerHTML = `<span style="color:${color1}">☀ ${totalKwh1.toFixed(1)} kWh (Peak: ${nFmt(max1)} w)</span> &nbsp;&nbsp;|&nbsp;&nbsp; <span style="color:${color2}">⚡ ${totalKwh2.toFixed(1)} kWh (Peak: ${nFmt(max2)} w)</span>`;
+      } else {
+        const avg1 = totalKwh1 / validCount, avg2 = totalKwh2 / validCount;
+        stat.innerHTML = `<span style="color:${color1}">☀ ${totalKwh1.toFixed(1)} kWh (Avg: ${avg1.toFixed(1)})</span> &nbsp;&nbsp;|&nbsp;&nbsp; <span style="color:${color2}">⚡ ${totalKwh2.toFixed(1)} kWh (Avg: ${avg2.toFixed(1)})</span>`;
+      }
     } else {
-      const val = (graphFeedKey.startsWith('temp')||graphFeedKey==='water') ? (bars1.reduce((a,b)=>a+b,0)/bars1.length) : (nav.isDayTab?Math.max(0,...bars1):bars1.reduce((a,b)=>a+b,0));
-      stat.innerHTML = `<span style="color:${color1}">${fA?.label}: ${val.toFixed(unit==='W'?0:1)} ${unit}</span>`;
+      if (isAvg) {
+        const validBars = bars1.slice(0, validCount).filter(b => b > 0);
+        const val = validBars.length > 0 ? (validBars.reduce((a,b)=>a+b,0)/validBars.length) : 0;
+        stat.innerHTML = `<span style="color:${color1}">${fA?.label}: ${val.toFixed(1)} ${unit}</span>`;
+      } else {
+        if (nav.isDayTab) {
+          const max1 = Math.max(0, ...bars1);
+          stat.innerHTML = `<span style="color:${color1}">${fA?.label}: ${totalKwh1.toFixed(1)} kWh (Peak: ${nFmt(max1)} w)</span>`;
+        } else {
+          const max1 = Math.max(0, ...bars1.slice(0, validCount));
+          const avg1 = totalKwh1 / validCount;
+          stat.innerHTML = `<span style="color:${color1}">${fA?.label}: ${totalKwh1.toFixed(1)} kWh (Max: ${max1.toFixed(1)}, Avg: ${avg1.toFixed(1)})</span>`;
+        }
+      }
     }
 
   } catch(e) {

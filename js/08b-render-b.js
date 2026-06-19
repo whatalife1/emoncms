@@ -83,17 +83,20 @@ function renderResults(results) {
     const group   = gn ? gn.map(n => byName.get(n)).filter(Boolean) : [f];
     const primary = group[0];
     if (!primary) return '';
-    if (primary.name === 'Temperature' || primary.name === 'Humidity') {
-      const t = byName.get('Temperature');
-      const h = byName.get('Humidity');
-      used.add('Temperature'); used.add('Humidity');
+    if (primary.name === 'Temperature' || primary.name === 'Humidity' || primary.name === 'Temperature 2' || primary.name === 'Humidity 2') {
+      const isTwo = primary.name.includes('2');
+      const baseName = isTwo ? 'Temperature 2' : 'Temperature';
+      const humName = isTwo ? 'Humidity 2' : 'Humidity';
+      const t = byName.get(baseName);
+      const h = byName.get(humName);
+      used.add(baseName); used.add(humName);
       return `<div class="card card-env"><div class="linked-values linked-values-pair">
         <div class="linked-value">
-          <span>Temperature</span>
+          <span>${baseName}</span>
           <span class="val-env" style="font-weight:700">${t?.value?.toFixed(1) ?? '--'} °C ${sparkSvg(t?.id, '#10b981')}</span>
         </div>
         <div class="linked-value">
-          <span>Humidity</span>
+          <span>${humName}</span>
           <span class="val-env" style="font-weight:700">${h?.value?.toFixed(1) ?? '--'} % ${sparkSvg(h?.id, '#10b981')}</span>
         </div>
       </div></div>`;

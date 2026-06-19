@@ -208,10 +208,7 @@ function wireButtons() {
     }
   });
   
-_btn('btn-graphs-close', () => {
-    if (screen.orientation && screen.orientation.unlock) {
-      screen.orientation.unlock();
-    }
+  _btn('btn-graphs-close', () => {
     if (typeof closeGraphsPanel === 'function') {
       closeGraphsPanel();
     } else {
@@ -220,33 +217,21 @@ _btn('btn-graphs-close', () => {
     }
   });
 
-
-
-_btn('btn-graphs-fullscreen', () => {
+  _btn('btn-graphs-fullscreen', () => {
     const p = document.getElementById('graphs-panel');
     if (!p) return;
     
-    const isGoingFull = !p.classList.contains('fullscreen');
     p.classList.toggle('fullscreen');
     const btn = document.getElementById('btn-graphs-fullscreen');
     if (btn) {
-      btn.textContent = isGoingFull ? 'Exit' : 'Full';
-    }
-
-    // On mobile, lock/unlock orientation
-    if (screen.orientation && screen.orientation.lock) {
-      if (isGoingFull) {
-        screen.orientation.lock('landscape').catch(() => {});
-      } else {
-        screen.orientation.unlock();
-      }
+      btn.textContent = p.classList.contains('fullscreen') ? 'Exit' : 'Full';
     }
     
     // Trigger canvas scale update immediately
     setTimeout(() => {
       if (typeof _syncOverlaySize === 'function') _syncOverlaySize();
       if (typeof _fastRedraw === 'function') _fastRedraw();
-    }, 300);
+    }, 100);
   });
 }
 

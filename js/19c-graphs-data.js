@@ -32,8 +32,6 @@ function _pointsToBars(pts, nav, feedKey) {
     return bars;
   }
 
-  // Convert Average Interval Watts into Total Interval Energy (kWh)
-  // Formula: (Average Watts * Hours) / 1000 = kWh
   const kwhFactor = (nav.interval / 3600) / 1000;
 
   if (nav.isYearly) {
@@ -84,14 +82,12 @@ function _ensureCanvasSize(canvas) {
   return { W, H };
 }
 
-// ─── Helper to calculate average watts for a specific time range ───────────
 function _calcAvgWatts(bars, startHour, endHour, nav) {
   if (!nav.isDayTab) return null;
   
   const totalHours = 24;
   const barsPerHour = nav.nBars / totalHours;
   
-  // Calculate which indices correspond to the time range
   const startIdx = Math.floor(startHour * barsPerHour);
   const endIdx = Math.ceil(endHour * barsPerHour);
   
@@ -112,7 +108,7 @@ async function _loadAndDraw() {
   graphIsLoading = true;
   _showGraphLoading(true);
 
-  const stat   = document.getElementById('graph-stat');
+  const stat = document.getElementById('graph-stat');
   const canvas = document.getElementById('graph-canvas');
   if (!canvas||!stat) {
     graphIsLoading = false;
@@ -130,7 +126,7 @@ async function _loadAndDraw() {
       await new Promise(resolve => requestAnimationFrame(resolve));
       const retryDims = _ensureCanvasSize(canvas);
       if (!retryDims || retryDims.W < 10) {
-        console.warn('Graph canvas still has no width, using fallback.');
+        console.warn('Canvas width missing, using CSS fallback.');
         canvas.style.width = '100%';
         canvas.style.height = '180px';
         canvas.offsetHeight;
@@ -182,7 +178,7 @@ async function _loadAndDraw() {
         pts1 = await _gFetch(fA.id, nav.startMs, nav.endMs, nav.interval);
       }
     } catch(e) {
-      console.warn('Graph data fetch error:', e);
+      console.warn('Graph fetch failed:', e);
       stat.textContent = 'Error loading data';
       graphIsLoading = false;
       _showGraphLoading(false);
@@ -211,18 +207,16 @@ async function _loadAndDraw() {
 
     graphDataCache = { bars1, bars2, labels, color1, color2, unit, isCombined, nav };
     
-    // Draw
     try {
       _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombined, nav);
     } catch(e) {
-      console.error('Drawing error:', e);
+      console.error('Render chart draw failed:', e);
       stat.textContent = 'Error rendering chart: ' + e.message;
       graphIsLoading = false;
       _showGraphLoading(false);
       return;
     }
 
-    // Determine the last valid index for the current timeline to calculate accurate averages
     let lastIdx = bars1.length - 1;
     const now = new Date();
     if (graphTab === 'day' && graphDateNav === 0) {
@@ -236,7 +230,6 @@ async function _loadAndDraw() {
     lastIdx = Math.max(0, Math.min(bars1.length - 1, lastIdx));
     const validCount = lastIdx + 1;
 
-    // Process top stats bar (kWh integrations)
     let totalKwh1 = 0, totalKwh2 = 0;
     const isAvg = graphFeedKey.startsWith('temp') || graphFeedKey === 'water';
 
@@ -251,53 +244,85 @@ async function _loadAndDraw() {
 
     const nFmt = x => Math.round(x).toLocaleString('en-US');
 
-    // ─── Enhanced stat display with average watts ───────────────────────────
+    // ─── STYLING THE HEADER MULTI-LINE CONTAINER DYNAMICALLY ─────────────────
+    stat.style.display = 'flex';
+    stat.style.flexDirection = 'column';
+    stat.style.gap = '3px';
+    stat.style.paddingRight = '85px'; // Leave space for absolutely positioned type toggle buttons
+    stat.style.minHeight = '32px';    // Reserve height to stop layout shifting
+    stat.style.marginBottom = '6px';
+
+    const formatLine = (icon, label, kwh, accentColor, detailText) => {
+      return `<div style="display:flex; align-items:center; flex-wrap:wrap; gap:4px; font-size:11.5px; font-weight:700; line-height:1.2;">
+        <span style="color:${accentColor};">${icon} ${label}:</span>
+        <span style="color:var(--text-main); font-weight:800; margin-left:1px;">${kwh.toFixed(1)} kWh</span>
+        <span style="color:var(--text-muted); font-size:10px; font-weight:600; margin-left:3px;">(${detailText})</span>
+      </div>`;
+    };
+
     if (isCombined) {
       if (nav.isDayTab) {
         const max1 = Math.max(0, ...bars1), max2 = Math.max(0, ...bars2);
-        // For Solar: show avg from 5am-5pm
         const avgSolar = _calcAvgWatts(bars1, 5, 17, nav);
-        // For Grid: show avg for 24hr
         const avgGrid = _calcAvgWatts(bars2, 0, 24, nav);
         
-        // ─── UPDATED: Added space before "w" ──────────────────────────────────
-        let avgSolarStr = avgSolar !== null ? `Avg: ${Math.round(avgSolar)} w` : '';
-        let avgGridStr = avgGrid !== null ? `Avg: ${Math.round(avgGrid)} w` : '';
+        let detailSolar = `Peak: ${nFmt(Math.round(max1))} W${avgSolar !== null ? `, Avg: ${Math.round(avgSolar)} W` : ''}`;
+        let detailGrid = `Peak: ${nFmt(Math.round(max2))} W${avgGrid !== null ? `, Avg: ${Math.round(avgGrid)} W` : ''}`;
         
-        stat.innerHTML = `<span style="color:${color1}">☀ ${totalKwh1.toFixed(1)} kWh (Peak: ${nFmt(max1)} w${avgSolarStr ? ', ' + avgSolarStr : ''})</span> &nbsp;&nbsp;|&nbsp;&nbsp; <span style="color:${color2}">⚡ ${totalKwh2.toFixed(1)} kWh (Peak: ${nFmt(max2)} w${avgGridStr ? ', ' + avgGridStr : ''})</span>`;
+        stat.innerHTML = `
+          ${formatLine('☀', 'Solar', totalKwh1, color1, detailSolar)}
+          ${formatLine('⚡', 'Grid', totalKwh2, color2, detailGrid)}
+        `;
       } else {
         const avg1 = totalKwh1 / validCount, avg2 = totalKwh2 / validCount;
-        stat.innerHTML = `<span style="color:${color1}">☀ ${totalKwh1.toFixed(1)} kWh (Avg: ${avg1.toFixed(1)})</span> &nbsp;&nbsp;|&nbsp;&nbsp; <span style="color:${color2}">⚡ ${totalKwh2.toFixed(1)} kWh (Avg: ${avg2.toFixed(1)})</span>`;
+        const avgUnit = nav.isYearly ? 'kWh/mo' : 'kWh/day';
+        
+        stat.innerHTML = `
+          ${formatLine('☀', 'Solar', totalKwh1, color1, `Avg: ${avg1.toFixed(1)} ${avgUnit}`)}
+          ${formatLine('⚡', 'Grid', totalKwh2, color2, `Avg: ${avg2.toFixed(1)} ${avgUnit}`)}
+        `;
       }
     } else {
       if (isAvg) {
         const validBars = bars1.slice(0, validCount).filter(b => b > 0);
         const val = validBars.length > 0 ? (validBars.reduce((a,b)=>a+b,0)/validBars.length) : 0;
-        stat.innerHTML = `<span style="color:${color1}">${fA?.label}: ${val.toFixed(1)} ${unit}</span>`;
+        
+        stat.innerHTML = `
+          <div style="font-size:11.5px; font-weight:700; color:${color1}; line-height:1.2; display:flex; align-items:center;">
+            <span>${fA?.label}:</span>
+            <span style="color:var(--text-main); font-weight:800; margin-left:4px;">${val.toFixed(1)} ${unit}</span>
+          </div>
+          <div style="height:12px;"></div>
+        `;
       } else {
         if (nav.isDayTab) {
           const max1 = Math.max(0, ...bars1);
-          // For Solar: show avg from 5am-5pm
-          // For other appliances: show avg for 24hr
           const isSolarFeed = graphFeedKey === 'solar';
           const startHour = isSolarFeed ? 5 : 0;
           const endHour = isSolarFeed ? 17 : 24;
           const avgWatts = _calcAvgWatts(bars1, startHour, endHour, nav);
           
-          // ─── UPDATED: Added space before "w" ──────────────────────────────────
-          const avgStr = avgWatts !== null ? `Avg: ${Math.round(avgWatts)} w` : '';
+          let details = `Peak: ${nFmt(Math.round(max1))} W${avgWatts !== null ? `, Avg: ${Math.round(avgWatts)} W` : ''}`;
           
-          stat.innerHTML = `<span style="color:${color1}">${fA?.label}: ${totalKwh1.toFixed(1)} kWh (Peak: ${nFmt(max1)} w${avgStr ? ', ' + avgStr : ''})</span>`;
+          stat.innerHTML = `
+            ${formatLine(isSolarFeed ? '☀' : '🔌', fA?.label || '', totalKwh1, color1, details)}
+            <div style="height:12px;"></div>
+          `;
         } else {
           const max1 = Math.max(0, ...bars1.slice(0, validCount));
           const avg1 = totalKwh1 / validCount;
-          stat.innerHTML = `<span style="color:${color1}">${fA?.label}: ${totalKwh1.toFixed(1)} kWh (Max: ${max1.toFixed(1)}, Avg: ${avg1.toFixed(1)})</span>`;
+          const avgUnit = nav.isYearly ? 'kWh/mo' : 'kWh/day';
+          
+          stat.innerHTML = `
+            ${formatLine('🔌', fA?.label || '', totalKwh1, color1, `Max: ${max1.toFixed(1)}, Avg: ${avg1.toFixed(1)} ${avgUnit}`)}
+            <div style="height:12px;"></div>
+          `;
         }
       }
     }
 
   } catch(e) {
-    console.error('_loadAndDraw top-level error:', e);
+    console.error('_loadAndDraw calculation/stats failed:', e);
     stat.textContent = 'Error: ' + e.message;
   } finally {
     graphIsLoading = false;

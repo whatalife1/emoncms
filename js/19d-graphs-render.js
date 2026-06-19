@@ -279,8 +279,10 @@ function _handleGraphHover(e, pin = false) {
   const v2 = isCombined ? bars2[foundIdx] : 0;
   const label = labels[foundIdx] || '';
 
-  const val1 = v1 !== undefined ? (unit === 'W' ? Math.round(v1) : v1.toFixed(1)) : '--';
-  const val2 = isCombined && v2 !== undefined ? (unit === 'W' ? Math.round(v2) : v2.toFixed(1)) : '--';
+  const nFmt = x => x.toLocaleString('en-US');
+
+  const val1 = v1 !== undefined ? (unit === 'W' ? nFmt(Math.round(v1)) : v1.toFixed(1)) : '--';
+  const val2 = isCombined && v2 !== undefined ? (unit === 'W' ? nFmt(Math.round(v2)) : v2.toFixed(1)) : '--';
 
   showTooltip(e, label, val1 + ' ' + unit, val2 + ' ' + unit, color1, color2, isCombined, pin);
 }
@@ -302,7 +304,7 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
   ctx.scale(dpr, dpr);
 
   const zoom = graphZoomLevel;
-  const PL = 38, PR = 8, PT = 12, PB = 28, cW = W - PL - PR, cH = H - PT - PB;
+  const PL = 38, PR = 8, PT = 12, PB = 34, cW = W - PL - PR, cH = H - PT - PB;
   if (cW < 20 || cH < 20) return;
   
   const zoomedWidth = cW * zoom;
@@ -315,15 +317,15 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
 
   const allV = [...bars1, ...bars2];
   const rawMax = Math.max(...allV, 1);
-  // tighter step calculation to prevent excessive empty space at top
-  const roughStep = rawMax / 3.5;
+  // Tighter step calculation to prevent excessive empty space at top
+  const roughStep = rawMax / 3.8;
   const mag = Math.pow(10, Math.floor(Math.log10(roughStep || 1)));
   const rel = roughStep / mag;
-  let niceMult = rel <= 1 ? 1 : rel <= 1.5 ? 1.5 : rel <= 2 ? 2 : rel <= 2.5 ? 2.5 : rel <= 4 ? 4 : rel <= 5 ? 5 : rel <= 7.5 ? 7.5 : 10;
+  let niceMult = rel <= 1 ? 1 : rel <= 1.2 ? 1.2 : rel <= 1.5 ? 1.5 : rel <= 2 ? 2 : rel <= 2.5 ? 2.5 : rel <= 3 ? 3 : rel <= 4 ? 4 : rel <= 5 ? 5 : rel <= 6 ? 6 : rel <= 8 ? 8 : 10;
   const niceStep = niceMult * mag;
   const maxV = niceStep * 4;
 
-  ctx.font='9px system-ui'; ctx.textAlign='right'; ctx.fillStyle='#52525b';
+  ctx.font='9px system-ui'; ctx.textAlign='right'; ctx.fillStyle='#facc15';
   for (let i=0; i<=4; i++) {
     const yv = niceStep*i, y = PT+cH-(i/4)*cH;
     ctx.strokeStyle = 'rgba(255,255,255,0.05)';
@@ -335,13 +337,18 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
   const isLine = graphChartType === 'line';
   const gap = cW * 0.02 / n, grpW = (cW - gap * (n + 1)) / n;
 
+  // Determine the cutoff index so lines don't drop to 0 for future dates
   let lastIdx = n - 1;
+  const now = new Date();
   if (graphTab === 'day' && graphDateNav === 0) {
-    const now = new Date();
     const offsetMs = now.getTime() - nav.startMs;
     lastIdx = Math.floor(offsetMs / (nav.resMins * 60000));
-    lastIdx = Math.max(0, Math.min(n-1, lastIdx));
+  } else if (graphTab === 'month' && graphMonthNav === 0) {
+    lastIdx = now.getDate() - 1;
+  } else if (graphTab === 'year' && graphYearNav === 0) {
+    lastIdx = now.getMonth();
   }
+  lastIdx = Math.max(0, Math.min(n - 1, lastIdx));
 
   ctx.save();
   ctx.beginPath(); ctx.rect(PL, PT, cW, cH); ctx.clip();
@@ -399,11 +406,11 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
   ctx.restore();
 
   const skip = Math.max(1, Math.ceil(n / (10 * zoom)));
-  ctx.textAlign='center'; ctx.fillStyle='#52525b';
+  ctx.textAlign='center'; ctx.fillStyle='#facc15';
   for (let i=0; i<n; i++) {
     if (i % skip === 0) {
       const lx = getX(i);
-      if (lx >= PL && lx <= W-PR) ctx.fillText(labels[i], lx, PT+cH+12);
+      if (lx >= PL && lx <= W-PR) ctx.fillText(labels[i], lx, PT+cH+15);
     }
   }
 

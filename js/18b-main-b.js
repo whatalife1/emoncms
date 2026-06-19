@@ -326,14 +326,6 @@ function initApp() {
   }
 
   // Start prediction updates
-  // Hide Full button on mobile devices
-  const isDesktop = window.matchMedia('(min-width: 1024px)').matches;
-  const fullBtn = document.getElementById('btn-graphs-fullscreen');
-  if (fullBtn && !isDesktop) {
-    fullBtn.style.display = 'none';
-  }
-
-
   if (typeof updateMainPredicted === 'function') {
     setInterval(updateMainPredicted, 120000);
     setTimeout(updateMainPredicted, 3000);

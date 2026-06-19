@@ -19,14 +19,14 @@ async function _gFetch(feedId, startMs, endMs, interval) {
 }
 
 function _pointsToBars(pts, nav, feedKey) {
-  const isAvgFeed = feedKey === 'temp' || feedKey === 'water' || feedKey === 'AC Volts';
+  const isAvgFeed = feedKey.startsWith('temp') || feedKey === 'water' || feedKey === 'AC Volts';
 
-  if (nav.isHourly) {
+  if (nav.isDayTab) {
     const bars = Array(nav.nBars).fill(0);
     for (const [ts, v] of pts) {
       const offsetMs = ts - nav.startMs;
       if (offsetMs < 0) continue;
-      const idx = Math.floor(offsetMs / (GRAPH_DAY_RESOLUTION_MINUTES * 60000));
+      const idx = Math.floor(offsetMs / (nav.resMins * 60000));
       if (idx >= 0 && idx < nav.nBars) bars[idx] = v;
     }
     return bars;
@@ -110,7 +110,7 @@ async function _loadAndDraw() {
     }
 
     if (graphTab === 'day' && graphNeedsDayZoom) {
-      const barsPerDay = (24 * 60) / GRAPH_DAY_RESOLUTION_MINUTES;
+      const barsPerDay = (24 * 60) / nav.resMins;
       graphZoomLevel = nav.nBars / barsPerDay;
 
       const dims2 = _ensureCanvasSize(canvas);
@@ -174,8 +174,8 @@ async function _loadAndDraw() {
       }
     }
 
-    let unit = nav.isHourly ? 'W' : 'kWh';
-    if (graphFeedKey === 'temp') unit = '°C';
+    let unit = nav.isDayTab ? 'W' : 'kWh';
+    if (graphFeedKey.startsWith('temp')) unit = '°C';
     if (graphFeedKey === 'water') unit = '%';
 
     const color1 = isCombined ? '#facc15' : (fA?.color || '#facc15');
@@ -198,7 +198,7 @@ async function _loadAndDraw() {
       const max1 = Math.max(0, ...bars1), max2 = Math.max(0, ...bars2);
       stat.innerHTML = `<span style="color:${color1}">Solar: ${Math.round(max1)}W</span> & <span style="color:${color2}">Grid: ${Math.round(max2)}W</span>`;
     } else {
-      const val = (graphFeedKey==='temp'||graphFeedKey==='water') ? (bars1.reduce((a,b)=>a+b,0)/bars1.length) : (nav.isHourly?Math.max(0,...bars1):bars1.reduce((a,b)=>a+b,0));
+      const val = (graphFeedKey.startsWith('temp')||graphFeedKey==='water') ? (bars1.reduce((a,b)=>a+b,0)/bars1.length) : (nav.isDayTab?Math.max(0,...bars1):bars1.reduce((a,b)=>a+b,0));
       stat.innerHTML = `<span style="color:${color1}">${fA?.label}: ${val.toFixed(unit==='W'?0:1)} ${unit}</span>`;
     }
 

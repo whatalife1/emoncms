@@ -260,10 +260,11 @@ async function _loadAndDraw() {
         // For Grid: show avg for 24hr
         const avgGrid = _calcAvgWatts(bars2, 0, 24, nav);
         
-        let avgSolarStr = avgSolar !== null ? `Avg: ${Math.round(avgSolar)}w` : '';
-        let avgGridStr = avgGrid !== null ? `Avg: ${Math.round(avgGrid)}w` : '';
+        // ─── UPDATED: Added space before "w" ──────────────────────────────────
+        let avgSolarStr = avgSolar !== null ? `Avg: ${Math.round(avgSolar)} w` : '';
+        let avgGridStr = avgGrid !== null ? `Avg: ${Math.round(avgGrid)} w` : '';
         
-        stat.innerHTML = `<span style="color:${color1}">☀ ${totalKwh1.toFixed(1)} kWh (Peak: ${nFmt(max1)}w${avgSolarStr ? ', ' + avgSolarStr : ''})</span> &nbsp;&nbsp;|&nbsp;&nbsp; <span style="color:${color2}">⚡ ${totalKwh2.toFixed(1)} kWh (Peak: ${nFmt(max2)}w${avgGridStr ? ', ' + avgGridStr : ''})</span>`;
+        stat.innerHTML = `<span style="color:${color1}">☀ ${totalKwh1.toFixed(1)} kWh (Peak: ${nFmt(max1)} w${avgSolarStr ? ', ' + avgSolarStr : ''})</span> &nbsp;&nbsp;|&nbsp;&nbsp; <span style="color:${color2}">⚡ ${totalKwh2.toFixed(1)} kWh (Peak: ${nFmt(max2)} w${avgGridStr ? ', ' + avgGridStr : ''})</span>`;
       } else {
         const avg1 = totalKwh1 / validCount, avg2 = totalKwh2 / validCount;
         stat.innerHTML = `<span style="color:${color1}">☀ ${totalKwh1.toFixed(1)} kWh (Avg: ${avg1.toFixed(1)})</span> &nbsp;&nbsp;|&nbsp;&nbsp; <span style="color:${color2}">⚡ ${totalKwh2.toFixed(1)} kWh (Avg: ${avg2.toFixed(1)})</span>`;
@@ -282,9 +283,11 @@ async function _loadAndDraw() {
           const startHour = isSolarFeed ? 5 : 0;
           const endHour = isSolarFeed ? 17 : 24;
           const avgWatts = _calcAvgWatts(bars1, startHour, endHour, nav);
-          const avgStr = avgWatts !== null ? `Avg: ${Math.round(avgWatts)}w` : '';
           
-          stat.innerHTML = `<span style="color:${color1}">${fA?.label}: ${totalKwh1.toFixed(1)} kWh (Peak: ${nFmt(max1)}w${avgStr ? ', ' + avgStr : ''})</span>`;
+          // ─── UPDATED: Added space before "w" ──────────────────────────────────
+          const avgStr = avgWatts !== null ? `Avg: ${Math.round(avgWatts)} w` : '';
+          
+          stat.innerHTML = `<span style="color:${color1}">${fA?.label}: ${totalKwh1.toFixed(1)} kWh (Peak: ${nFmt(max1)} w${avgStr ? ', ' + avgStr : ''})</span>`;
         } else {
           const max1 = Math.max(0, ...bars1.slice(0, validCount));
           const avg1 = totalKwh1 / validCount;

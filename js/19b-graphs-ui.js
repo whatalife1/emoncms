@@ -4,7 +4,6 @@ let graphNeedsDayZoom = false;
 let tooltipPinned = false;
 
 function _renderZoomControls() {
-function _renderZoomControls() {
   const wrap = document.getElementById('graph-time-tabs');
   if (!wrap) return;
   const existing = document.getElementById('zoom-controls');

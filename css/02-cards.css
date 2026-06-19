@@ -34,40 +34,37 @@
 .sparkline-wrap svg { width: 100%; height: 28px; display: block; }
 
 /* ── Power Flow Diagram ───────────────────────────────────────────────────── */
-#flow-card {
-  background: var(--bg-panel);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 10px;
-  margin-bottom: 2px;
-  box-shadow: var(--shadow);
-  /* NO min-height - let content drive height */
-}
-#flow-card .flow-title {
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
-  margin-bottom: 8px;
-}
+#flow-card { background: var(--bg-panel); border: 1px solid var(--border); border-radius: 10px; padding: 10px; margin-bottom: 2px; box-shadow: var(--shadow); }
+#flow-card .flow-title { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 8px; }
+#flow-svg-wrap { overflow: hidden; line-height: 0; }
 
-/* The wrapper must NOT have a fixed height.
-   The SVG has a square viewBox (730x730).
-   By setting width:100% and height:auto the SVG
-   will naturally size itself as a square and fill
-   its container width — identical on Windows & Android. */
-#flow-svg-wrap {
-  width: 100%;
-  height: auto;
-  overflow: visible;
-  line-height: 0; /* kills inline gap below SVG */
-}
-#flow-svg-wrap svg {
-  display: block;
-  width: 100%;
-  height: auto;        /* lets the 730×730 viewBox set its own height */
-  max-width: 100%;
+/* SVG: width:100% + height:auto = scales as a square matching the 730x730 viewBox.
+   This is correct on mobile — fills screen width with no gaps above/below.        */
+#flow-svg-wrap svg { width: 100%; height: auto; display: block; }
+
+/* ── DESKTOP ONLY: break flow card out of 450px shell, expand to 900px ──────── */
+/* Mobile (< 480px) keeps the natural square. Desktop gets a much bigger canvas   */
+/* so you can design extra graphs and widgets in the expanded SVG space.           */
+@media (min-width: 480px) {
+  #flow-wrap {
+    /* escape the 450px main-shell constraint */
+    width: calc(100vw - 40px);
+    max-width: 900px;
+    align-self: center;
+    padding: 0 !important;
+  }
+  #flow-card {
+    width: 100%;
+  }
+  #flow-svg-wrap {
+    width: 100%;
+    height: auto;
+  }
+  #flow-svg-wrap svg {
+    width: 100%;
+    height: auto;
+    display: block;
+  }
 }
 
 /* ── GLOW PULSE ANIMATION ── */

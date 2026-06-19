@@ -55,13 +55,13 @@ function _renderChartTypeToggle() {
   const toggle = document.createElement('div');
   toggle.id = 'chart-type-toggle';
   toggle.style.cssText = `
-    position:absolute; top:6px; right:8px; z-index:15;
-    display:flex; gap:3px;
+    position:absolute; top:8px; right:8px; z-index:15;
+    display:flex; flex-direction:column; gap:4px;
   `;
 
-  // ─── MODIFIED: Changed labels from emoji to text ──────────────────────────
+  // ─── VERTICAL LAYOUT WITH LARGER TEXT ──────────────────────────────────────
   const types = [
-    { type: 'line',   label: 'Line' },
+    { type: 'line',   label: 'Lines' },
     { type: 'bar',    label: 'Bars' },
     { type: 'hourly', label: 'Hourly' },
   ];
@@ -73,12 +73,13 @@ function _renderChartTypeToggle() {
     btn.title = type.charAt(0).toUpperCase() + type.slice(1);
     btn.textContent = label;
     btn.style.cssText = `
-      padding:3px 8px; border-radius:6px; font-size:11px; cursor:pointer; width:auto;
+      padding:4px 10px; border-radius:6px; font-size:13px; cursor:pointer; width:auto;
       background:${active ? 'var(--bg-base)' : 'rgba(0,0,0,0.45)'};
       border:1px solid ${active ? 'var(--border)' : 'transparent'};
       color:var(--text-main); opacity:${active ? '1' : '0.55'};
       transition:opacity 0.15s;
-      font-weight:600;
+      font-weight:700;
+      letter-spacing:0.3px;
     `;
     btn.addEventListener('click', () => {
       graphChartType = type;

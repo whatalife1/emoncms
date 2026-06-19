@@ -92,12 +92,14 @@
 
 /* ── Feed tabs (scrollable row) ───────────────────────────────────────────── */
 .graph-feed-tabs {
-  display: flex; gap: 5px; overflow-x: auto; padding-bottom: 12px !important;
-  scrollbar-width: none; -ms-overflow-style: none;
+  display: flex; gap: 5px; flex-wrap: wrap; overflow-x: hidden;
+  padding-bottom: 8px !important;
   position: relative;
-  z-index: 11; 
-  margin-bottom: 15px !important;
+  z-index: 11;
+  margin-bottom: 8px !important;
 }
+
+
 .gfeed-tab {
   flex-shrink: 0; padding: 6px 12px; border-radius: 20px; font-size: 11px; font-weight: 700;
   background: var(--bg-card); border: 1px solid var(--border); color: var(--text-muted); cursor: pointer;
@@ -143,9 +145,10 @@
 }
 
 #graphs-panel.fullscreen #graph-canvas {
-  height: calc(100vh - 380px) !important;
+  height: calc(100vh - 460px) !important;
   min-height: 220px;
 }
+
 
 @media (max-height: 480px), (max-width: 900px) and (orientation: landscape) {
   #graphs-panel {

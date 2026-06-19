@@ -33,7 +33,9 @@ const FEEDS_BASE = [
   { id: "499424", name: "PC Today",             unit: "kWh", type: "units" },
   { id: "499428", name: "Temperature",          unit: "°C",  type: "env"   },
   { id: "499382", name: "Solar Amps",           unit: "A",   type: "env"   },
-  { id: "499429", name: "Humidity",             unit: "%",   type: "env"   }
+  { id: "499429", name: "Humidity",             unit: "%",   type: "env"   },
+  { id: "512473", name: "Temperature 2",        unit: "°C",  type: "env"   },
+  { id: "512474", name: "Humidity 2",           unit: "%",   type: "env"   }
 ];
 
 const COLORS = { watts: "val-watts", units: "val-units", env: "val-env" };
@@ -47,7 +49,8 @@ const LINKED_GROUPS = [
   ["Kenwood 1.5Ton", "Kenwood 1.5Ton Today", "Kenwood 1.5Ton Total"],
   ["Haier 1Ton", "Haier 1Ton Today", "Haier 1Ton Total"],
   ["Fridge", "Fridge2", "Fridge Today", "Fridge2 Today"],
-  ["Temperature", "Humidity"]
+  ["Temperature", "Humidity"],
+  ["Temperature 2", "Humidity 2"]
 ];
 
 const WIDGET_CATALOG = [
@@ -80,9 +83,11 @@ const WIDGET_CATALOG = [
     { name: "Emon Kenwood 1Ton Total",    desc: "Kenwood 1Ton lifetime kWh" }
   ]},
   { category: "🌡 Environment", items: [
-    { name: "Emon Temperature", desc: "Temperature °C" },
-    { name: "Emon Humidity",    desc: "Humidity %" },
-    { name: "Emon Water Tank",  desc: "Water Tank %" }
+    { name: "Emon Temperature",   desc: "Temperature °C" },
+    { name: "Emon Humidity",      desc: "Humidity %" },
+    { name: "Emon Temperature 2", desc: "Temperature 2 °C" },
+    { name: "Emon Humidity 2",    desc: "Humidity 2 %" },
+    { name: "Emon Water Tank",    desc: "Water Tank %" }
   ]}
 ];
 

@@ -194,25 +194,11 @@ function wireButtons() {
 
   // Graph buttons
   _btn('btn-graphs', () => {
-    const p = document.getElementById('graphs-panel');
-    const isWin = navigator.userAgent.toLowerCase().includes('windows') || navigator.platform.toLowerCase().includes('win');
-    
-    if (isWin && p) {
-      if (p.requestFullscreen) {
-        p.requestFullscreen().catch(err => console.log("Fullscreen blocked:", err));
-      } else if (p.webkitRequestFullscreen) {
-        p.webkitRequestFullscreen();
-      } else if (p.mozRequestFullScreen) {
-        p.mozRequestFullScreen();
-      } else if (p.msRequestFullscreen) {
-        p.msRequestFullscreen();
-      }
-    }
-    
     if (typeof openGraphsPanel === 'function') {
       openGraphsPanel();
     } else {
       // Fallback: try to load graphs panel directly
+      const p = document.getElementById('graphs-panel');
       if (p) {
         p.classList.add('open');
         if (typeof renderGraphsPanel === 'function') {

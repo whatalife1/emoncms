@@ -90,7 +90,7 @@
   color: var(--text-main);
 }
 
-/* ── Feed tabs (scrollable row) ───────────────────────────────────────────── */
+/* ── Feed tabs ────────────────────────────────────────────────────────────── */
 .graph-feed-tabs {
   display: flex; gap: 5px; flex-wrap: wrap; overflow-x: hidden;
   padding-bottom: 8px !important;
@@ -98,6 +98,7 @@
   z-index: 11;
   margin-bottom: 8px !important;
 }
+
 
 
 .gfeed-tab {
@@ -144,10 +145,12 @@
   box-shadow: none !important;
 }
 
+/* change to: */
 #graphs-panel.fullscreen #graph-canvas {
   height: calc(100vh - 460px) !important;
   min-height: 220px;
 }
+
 
 
 @media (max-height: 480px), (max-width: 900px) and (orientation: landscape) {

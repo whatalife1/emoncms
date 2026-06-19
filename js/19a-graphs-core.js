@@ -35,13 +35,25 @@ let graphDataCache = null;
 function openGraphsPanel() {
   const p = document.getElementById('graphs-panel');
   if (!p) return;
+  const isWin = navigator.userAgent.toLowerCase().includes('windows') || navigator.platform.toLowerCase().includes('win');
+  if (isWin) {
+    p.classList.add('fullscreen');
+  } else {
+    p.classList.remove('fullscreen');
+  }
   p.classList.add('open');
   setTimeout(renderGraphsPanel, 50);
 }
 
 function closeGraphsPanel() {
   const p = document.getElementById('graphs-panel');
-  if (p) p.classList.remove('open');
+  if (p) {
+    p.classList.remove('open');
+    const isWin = navigator.userAgent.toLowerCase().includes('windows') || navigator.platform.toLowerCase().includes('win');
+    if (!isWin) {
+      p.classList.remove('fullscreen');
+    }
+  }
   hideTooltip();
   graphZoomLevel = 1;
   graphPanOffset = 0;

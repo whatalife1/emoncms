@@ -234,8 +234,6 @@ function hideTooltip() {
 function showTooltip(e, label, value1, value2, color1, color2, isCombined, pinned = false) {
   let tooltip = document.getElementById('graph-tooltip');
   
-  // CRITICAL: Ensure tooltip is absolutely positioned inside document.body 
-  // so it breaks completely out of the slide-panel Desktop bounds
   if (!tooltip) {
     tooltip = document.createElement('div');
     tooltip.id = 'graph-tooltip';
@@ -255,7 +253,6 @@ function showTooltip(e, label, value1, value2, color1, color2, isCombined, pinne
   tooltip.style.display = 'block';
   tooltip.classList.toggle('pinned', pinned);
   
-  // Directly base coordinates off raw viewport screen position
   let left = e.clientX + 15;
   let top = e.clientY - 15;
   
@@ -263,7 +260,6 @@ function showTooltip(e, label, value1, value2, color1, color2, isCombined, pinne
   const vw = window.innerWidth;
   const vh = window.innerHeight;
   
-  // Prevent overflow off the right/bottom edge
   if (left + rect.width > vw - 10) left = e.clientX - rect.width - 15;
   if (top + rect.height > vh - 10) top = e.clientY - rect.height - 15;
   if (top < 10) top = 10;

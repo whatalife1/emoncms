@@ -193,32 +193,44 @@ function wireButtons() {
   });
 
   // Graph buttons
-  _btn('btn-graphs', () => {
-    if (typeof openGraphsPanel === 'function') {
-      openGraphsPanel();
-    } else {
-      // Fallback: try to load graphs panel directly
-      const p = document.getElementById('graphs-panel');
-      if (p) {
-        p.classList.add('open');
-        if (typeof renderGraphsPanel === 'function') {
-          setTimeout(renderGraphsPanel, 50);
-        }
+_btn('btn-graphs', () => {
+  if (typeof openGraphsPanel === 'function') {
+    openGraphsPanel();
+  } else {
+    const p = document.getElementById('graphs-panel');
+    if (p) {
+      p.classList.add('open');
+      if (typeof renderGraphsPanel === 'function') {
+        setTimeout(renderGraphsPanel, 50);
       }
     }
-  });
-  
+  }
+  // Request fullscreen on mobile to hide browser URL bar
+  const isMobile = /Android|iPhone|iPad/i.test(navigator.userAgent);
+  if (isMobile && document.documentElement.requestFullscreen) {
+    document.documentElement.requestFullscreen().catch(() => {});
+  }
+});
+
+// REPLACE the btn-graphs-close handler:
 _btn('btn-graphs-close', () => {
-    if (screen.orientation && screen.orientation.unlock) {
-      screen.orientation.unlock();
-    }
-    if (typeof closeGraphsPanel === 'function') {
-      closeGraphsPanel();
-    } else {
-      const p = document.getElementById('graphs-panel');
-      if (p) p.classList.remove('open');
-    }
-  });
+  if (screen.orientation && screen.orientation.unlock) {
+    screen.orientation.unlock();
+  }
+  // Exit fullscreen when closing graphs
+  if (document.fullscreenElement && document.exitFullscreen) {
+    document.exitFullscreen().catch(() => {});
+  }
+  if (typeof closeGraphsPanel === 'function') {
+    closeGraphsPanel();
+  } else {
+    const p = document.getElementById('graphs-panel');
+    if (p) p.classList.remove('open');
+  }
+});
+
+
+
 
 
 

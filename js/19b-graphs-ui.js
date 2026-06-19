@@ -43,8 +43,6 @@ function _renderZoomControls() {
   });
 }
 
-
-
 function _renderChartTypeToggle() {
   // Remove old standalone row if it exists
   const existing = document.getElementById('chart-type-toggle');
@@ -61,10 +59,11 @@ function _renderChartTypeToggle() {
     display:flex; gap:3px;
   `;
 
+  // ─── MODIFIED: Changed labels from emoji to text ──────────────────────────
   const types = [
-    { type: 'line',   label: '📈' },
-    { type: 'bar',    label: '📊' },
-    { type: 'hourly', label: '⏱' },
+    { type: 'line',   label: 'Line' },
+    { type: 'bar',    label: 'Bars' },
+    { type: 'hourly', label: 'Hourly' },
   ];
 
   types.forEach(({ type, label }) => {
@@ -74,11 +73,12 @@ function _renderChartTypeToggle() {
     btn.title = type.charAt(0).toUpperCase() + type.slice(1);
     btn.textContent = label;
     btn.style.cssText = `
-      padding:3px 7px; border-radius:6px; font-size:13px; cursor:pointer; width:auto;
+      padding:3px 8px; border-radius:6px; font-size:11px; cursor:pointer; width:auto;
       background:${active ? 'var(--bg-base)' : 'rgba(0,0,0,0.45)'};
       border:1px solid ${active ? 'var(--border)' : 'transparent'};
       color:var(--text-main); opacity:${active ? '1' : '0.55'};
       transition:opacity 0.15s;
+      font-weight:600;
     `;
     btn.addEventListener('click', () => {
       graphChartType = type;
@@ -90,8 +90,6 @@ function _renderChartTypeToggle() {
 
   card.appendChild(toggle);
 }
-
-
 
 function _renderGTimeTabs() {
   const wrap = document.getElementById('graph-time-tabs');

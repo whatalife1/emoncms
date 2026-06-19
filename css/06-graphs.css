@@ -161,8 +161,9 @@
     box-shadow: none !important;
   }
   #graphs-panel #graph-canvas {
-    height: calc(100vh - 260px) !important;
-    min-height: 120px;
+#graphs-panel #graph-canvas {
+    height: calc(100vh - 360px) !important;
+    min-height: 100px;
   }
   .graphs-header {
     padding: 4px 10px !important;

@@ -49,7 +49,10 @@ function _initGraphOverlay() {
   _syncOverlaySize();
 
   if (window.ResizeObserver) {
-    const ro = new ResizeObserver(() => _syncOverlaySize());
+    const ro = new ResizeObserver(() => {
+      _syncOverlaySize();
+      _fastRedraw();
+    });
     ro.observe(mainCanvas);
   }
 
@@ -410,7 +413,7 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
   for (let i=0; i<n; i++) {
     if (i % skip === 0) {
       const lx = getX(i);
-      if (lx >= PL && lx <= W-PR) ctx.fillText(labels[i], lx, PT+cH+15);
+      if (lx >= PL && lx <= W-PR) ctx.fillText(labels[i], lx, H - 12);
     }
   }
 

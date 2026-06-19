@@ -290,6 +290,7 @@ function _handleGraphHover(e, pin = false) {
   showTooltip(e, label, val1 + ' ' + unit, val2 + ' ' + unit, color1, color2, isCombined, pin);
 }
 
+// ─── UPDATED: Properly handles combined solar+grid for all chart types ──────
 function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombined, nav) {
   if (!canvas || !canvas.getContext) return;
   const ctx = canvas.getContext('2d');
@@ -358,17 +359,64 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
 
   const getX = (i) => mapX(PL + gap + i*(grpW+gap) + grpW/2);
 
+  // ─── BAR / HOURLY CHART (with combined support) ──────────────────────────
   if (!isLine) {
-    for (let i=0; i<n; i++) {
-      const x = mapX(PL + gap + i*(grpW+gap)), bw = grpW * zoom;
-      if (x+bw < PL || x > W-PR) continue;
-      if (bars1[i]>0) {
-        ctx.fillStyle = color1;
-        _roundRect(ctx, x, PT+cH-(bars1[i]/maxV)*cH, bw, (bars1[i]/maxV)*cH, 1);
+    // If combined, draw stacked or side-by-side bars
+    if (isCombined) {
+      // Draw Grid bars first (behind)
+      for (let i=0; i<n; i++) {
+        const x = mapX(PL + gap + i*(grpW+gap));
+        const bw = grpW * zoom;
+        if (x+bw < PL || x > W-PR) continue;
+        if (bars2[i] > 0) {
+          const barHeight = (bars2[i]/maxV)*cH;
+          ctx.fillStyle = color2;
+          _roundRect(ctx, x, PT+cH - barHeight, bw, barHeight, 1);
+          // Add subtle label for Grid bars
+          ctx.fillStyle = 'rgba(255,255,255,0.3)';
+          ctx.font = '7px system-ui';
+          ctx.textAlign = 'center';
+          if (barHeight > 10) {
+            ctx.fillText('⚡', x + bw/2, PT+cH - barHeight/2 + 2);
+          }
+        }
+      }
+      
+      // Draw Solar bars on top (foreground)
+      for (let i=0; i<n; i++) {
+        const x = mapX(PL + gap + i*(grpW+gap));
+        const bw = grpW * zoom;
+        if (x+bw < PL || x > W-PR) continue;
+        if (bars1[i] > 0) {
+          const barHeight = (bars1[i]/maxV)*cH;
+          ctx.fillStyle = color1;
+          _roundRect(ctx, x, PT+cH - barHeight, bw, barHeight, 1);
+          // Add subtle label for Solar bars
+          ctx.fillStyle = 'rgba(255,255,255,0.3)';
+          ctx.font = '7px system-ui';
+          ctx.textAlign = 'center';
+          if (barHeight > 10) {
+            ctx.fillText('☀', x + bw/2, PT+cH - barHeight/2 + 2);
+          }
+        }
+      }
+    } else {
+      // Single dataset (non-combined)
+      for (let i=0; i<n; i++) {
+        const x = mapX(PL + gap + i*(grpW+gap));
+        const bw = grpW * zoom;
+        if (x+bw < PL || x > W-PR) continue;
+        if (bars1[i] > 0) {
+          ctx.fillStyle = color1;
+          _roundRect(ctx, x, PT+cH-(bars1[i]/maxV)*cH, bw, (bars1[i]/maxV)*cH, 1);
+        }
       }
     }
-  } else {
-    const drawLine = (data, clr, limit) => {
+  } 
+  
+  // ─── LINE CHART ─────────────────────────────────────────────────────────────
+  else {
+    const drawLine = (data, clr, label, limit) => {
       ctx.beginPath(); ctx.strokeStyle = clr; ctx.lineWidth = 2.5;
       let started = false;
       for (let i=0; i <= limit; i++) {
@@ -387,10 +435,16 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
         ctx.fill();
       }
     };
-    if (isCombined) drawLine(bars2, color2, lastIdx);
-    drawLine(bars1, color1, lastIdx);
+    
+    if (isCombined) {
+      drawLine(bars2, color2, 'Grid', lastIdx);
+      drawLine(bars1, color1, 'Solar', lastIdx);
+    } else {
+      drawLine(bars1, color1, '', lastIdx);
+    }
   }
 
+  // ─── MIDNIGHT LINE (Day view only) ─────────────────────────────────────────
   if (graphTab === 'day' && nav.centreDateMs) {
     const centreX = mapX(PL + gap + ((nav.centreDateMs - nav.startMs) / (nav.interval * 1000)) * (grpW + gap));
     if (centreX >= PL && centreX <= W - PR) {
@@ -408,6 +462,7 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
 
   ctx.restore();
 
+  // ─── X-AXIS LABELS ─────────────────────────────────────────────────────────
   const skip = Math.max(1, Math.ceil(n / (10 * zoom)));
   ctx.textAlign='center'; ctx.fillStyle='#facc15';
   for (let i=0; i<n; i++) {
@@ -417,11 +472,74 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
     }
   }
 
+  // ─── LEGEND FOR COMBINED CHART (only if both datasets have data) ──────────
+  if (isCombined && isLine) {
+    const hasSolar = bars1.some(v => v > 0);
+    const hasGrid = bars2.some(v => v > 0);
+    if (hasSolar || hasGrid) {
+      ctx.save();
+      const legendX = W - 120;
+      const legendY = PT + 8;
+      ctx.globalAlpha = 0.85;
+      
+      // Background
+      ctx.fillStyle = 'rgba(0,0,0,0.6)';
+      ctx.beginPath();
+      ctx.roundRect(legendX - 8, legendY - 4, 110, hasSolar && hasGrid ? 44 : 24, 6);
+      ctx.fill();
+      
+      let yOff = 0;
+      if (hasSolar) {
+        ctx.fillStyle = color1;
+        ctx.fillRect(legendX, legendY + yOff, 12, 3);
+        ctx.font = '9px system-ui';
+        ctx.fillStyle = '#f4f4f5';
+        ctx.textAlign = 'left';
+        ctx.fillText('☀ Solar', legendX + 16, legendY + yOff + 4);
+        yOff += 20;
+      }
+      if (hasGrid) {
+        ctx.fillStyle = color2;
+        ctx.fillRect(legendX, legendY + yOff, 12, 3);
+        ctx.font = '9px system-ui';
+        ctx.fillStyle = '#f4f4f5';
+        ctx.textAlign = 'left';
+        ctx.fillText('⚡ Grid', legendX + 16, legendY + yOff + 4);
+      }
+      ctx.restore();
+    }
+  }
+
   if (typeof _syncOverlaySize === 'function') _syncOverlaySize();
 }
 
 function _roundRect(ctx,x,y,w,h,r) {
-  ctx.beginPath(); ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y); ctx.quadraticCurveTo(x+w,y,x+w,y+r); ctx.lineTo(x+w,y+h); ctx.lineTo(x,y+h); ctx.lineTo(x,y,r); ctx.quadraticCurveTo(x,y,x+r,y); ctx.fill();
+  ctx.beginPath(); 
+  ctx.moveTo(x+r,y); 
+  ctx.lineTo(x+w-r,y); 
+  ctx.quadraticCurveTo(x+w,y,x+w,y+r); 
+  ctx.lineTo(x+w,y+h); 
+  ctx.lineTo(x,y+h); 
+  ctx.lineTo(x,y+r); 
+  ctx.quadraticCurveTo(x,y,x+r,y); 
+  ctx.fill();
+}
+
+// ─── Monkey patch roundRect if not available ────────────────────────────────
+if (!CanvasRenderingContext2D.prototype.roundRect) {
+  CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, radii) {
+    const r = typeof radii === 'number' ? radii : (radii || 0);
+    this.moveTo(x + r, y);
+    this.lineTo(x + w - r, y);
+    this.quadraticCurveTo(x + w, y, x + w, y + r);
+    this.lineTo(x + w, y + h - r);
+    this.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    this.lineTo(x + r, y + h);
+    this.quadraticCurveTo(x, y + h, x, y + h - r);
+    this.lineTo(x, y + r);
+    this.quadraticCurveTo(x, y, x + r, y);
+    return this;
+  };
 }
 
 const _origOpenGraphsPanel = openGraphsPanel;

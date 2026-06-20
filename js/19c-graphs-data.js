@@ -101,6 +101,8 @@ function _formatStatLine(icon, label, kwh, accentColor, peakVal, avgVal, nightAv
 
 
 
+
+
 async function _loadAndDraw() {
   if (graphIsLoading) return;
   graphIsLoading = true; _showGraphLoading(true);
@@ -145,7 +147,7 @@ async function _loadAndDraw() {
       stat.innerHTML = `<div style="color:${color1};font-weight:700;font-size:15px">${fA.label}: ${v.toFixed(1)} ${graphDataCache.unit}</div>`;
     } else {
       const isSol = graphFeedKey==='solar';
-      stat.innerHTML = _formatStatLine(isSol?'☀':'🔌', fA.label, t1, color1, Math.max(...bars1), _calcAvgForRange(bars1,isSol?5:0,isSol?17:24,nav,lastIdx), _calcAvgForRange(bars1,17,8,nav,lastIdx));
+      stat.innerHTML = _formatStatLine('', fA.label, t1, color1, Math.max(...bars1), _calcAvgForRange(bars1,isSol?5:0,isSol?17:24,nav,lastIdx), _calcAvgForRange(bars1,17,8,nav,lastIdx));
     }
   } catch(e) { stat.textContent = 'Error loading data'; }
   finally { graphIsLoading = false; _showGraphLoading(false); }

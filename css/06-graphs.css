@@ -265,3 +265,36 @@
   display: inline-block;
   margin-right: 2px;
 }
+
+/* ── Graph Stat Responsive Layout ── */
+.graph-stat {
+  display: block !important; /* Overriding previous flex */
+  margin-bottom: 12px !important;
+  padding-right: 0 !important; /* Give back the space used by the toggle */
+}
+
+.stat-row {
+  display: flex;
+  flex-direction: column; /* Stack vertically on mobile */
+  gap: 2px;
+  line-height: 1.2;
+}
+
+.stat-primary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.stat-meta {
+  display: block;
+  white-space: nowrap;
+}
+
+@media (min-width: 480px) {
+  .stat-row {
+    flex-direction: row; /* Side-by-side on desktop/wider screens */
+    align-items: baseline;
+    flex-wrap: wrap;
+  }
+}

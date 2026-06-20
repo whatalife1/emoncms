@@ -32,41 +32,22 @@
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+body { background: var(--bg-base); color: var(--text-main); font-family: system-ui, -apple-system, sans-serif; font-size: 14px; width: 100%; min-height: 100vh; overflow-x: hidden; transition: background 0.25s, color 0.25s; }
 
-html, body {
-  height: 100%;
-}
-
-body {
-  background: var(--bg-base);
-  color: var(--text-main);
-  font-family: system-ui, -apple-system, sans-serif;
-  font-size: 14px;
-  width: 100%;
-  min-height: 100%;
-  /* Use dvh so mobile browser chrome is accounted for */
-  min-height: 100dvh;
-  overflow-x: hidden;
-  transition: background 0.25s, color 0.25s;
-}
-
-/* ── App Shell — fills full viewport height ──────────────────────────── */
+/* ── App Shell Desktop Constraint ─────────────────────────────────────── */
 .main-shell {
   width: 100%;
-  /* Fill the full dynamic viewport height (shrinks when browser chrome appears) */
-  min-height: 100dvh;
-  height: 100dvh;
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
   position: relative;
   background: var(--bg-base);
-  overflow: hidden; /* prevents page scroll; internal sections scroll */
 }
 
-/* ── Desktop: centre the mobile-width shell ─────────────────────────── */
+/* ── Override desktop constraints for the Detailed Usage Report ── */
 @media (min-width: 480px) {
   body {
-    background: #040406;
+    background: #040406; /* Slightly darker surrounding margin on desktop */
     display: flex;
     justify-content: center;
     align-items: flex-start;
@@ -78,7 +59,7 @@ body {
     border-right: 1px solid var(--border);
   }
   .header {
-    max-width: 448px;
+    max-width: 448px; /* Keeps header contained within center app layout */
   }
   .footer {
     position: absolute;
@@ -87,8 +68,8 @@ body {
     right: 0;
     max-width: 448px;
   }
-
-  /* Constrain pop-up panels to the centred mobile layout */
+  
+  /* Constrain pop-ups (Solar, Settings, Widgets, Alerts) to the centered mobile layout on desktop */
   .slide-panel, #solar-panel, #settings, #widgets-panel, #alerts-panel {
     max-width: 450px;
     left: 50% !important;
@@ -99,7 +80,7 @@ body {
     box-shadow: 0 -4px 20px rgba(0,0,0,0.5);
   }
 
-  /* Detailed usage report stays full-screen */
+  /* Specific override ONLY for the detailed usage report panel so it stays full screen */
   #usage-report-panel {
     max-width: 100% !important;
     left: 0 !important;

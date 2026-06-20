@@ -41,17 +41,16 @@
   padding: 10px;
   margin-bottom: 2px;
   box-shadow: var(--shadow);
-  min-height: 85vh !important;
+  min-height: auto !important; /* Let height adapt dynamically to the SVG aspect ratio */
   display: flex;
   flex-direction: column;
 }
-.flow-title { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 8px; }
-#flow-svg-wrap { flex: 1; display: flex; align-items: center; justify-content: center; overflow: visible !important; }
-#flow-svg-wrap svg { width: 100% !important; height: 100% !important; max-height: 100%; display: block; }
+#flow-card .flow-title { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 8px; }
+#flow-svg-wrap { width: 100%; overflow: visible !important; }
+#flow-svg-wrap svg { width: 100% !important; height: auto !important; display: block; }
 
-@media (min-width: 480px) {
-  #flow-card { min-height: 600px !important; }
-}
+/* ── FORCE BIG FLOW ─────────────────────────────────────────────────── */
+#flow-card { min-height: auto !important; }
 
 /* ── GLOW PULSE ANIMATION ── */
 @keyframes glow-pulse {

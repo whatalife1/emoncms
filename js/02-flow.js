@@ -5,11 +5,12 @@ const LAYOUT = {
  haier: { x:5, y:430, w:235, h:210, color:'#38bdf8', label:'Haier 1T', ly1:25, fs:34, c1:'#38bdf8', ly2:75, fs2:63, c2:'#25f447', ly3:128, fs3:25, c3:'#00c8f0', ly4:164, fs4:25, c4:'#518e35',  },
  k15: { x:250, y:430, w:235, h:210, color:'#38bdf8', label:'Kenwood 1.5T', ly1:21, fs:34, c1:'#38bdf8', ly2:74, fs2:59, c2:'#25f447', ly3:128, fs3:25, c3:'#00c8f0', ly4:163, fs4:29, c4:'#518e35',  },
  k1: { x:495, y:430, w:230, h:210, color:'#38bdf8', label:'Kenwood 1T', ly1:27, fs:34, c1:'#38bdf8', ly2:75, fs2:63, c2:'#25f447', ly3:131, fs3:24, c3:'#00c8f0', ly4:171, fs4:25, c4:'#518e35',  },
- fridge: { x:5, y:710, w:350, h:195, color:'#c084fc', label:'Fridges', ly1:19, fs:34, c1:'#38bdf8', ly2:59, fs2:62, c2:'#25f447', ly3:100, fs3:24, c3:'#00c8f0', ly4:129, fs4:23, c4:'#518d35',  },
+ fridge: { x:5, y:896, w:350, h:195, color:'#c084fc', label:'Fridges', ly1:19, fs:34, c1:'#38bdf8', ly2:59, fs2:62, c2:'#25f447', ly3:100, fs3:24, c3:'#00c8f0', ly4:129, fs4:23, c4:'#518d35',  },
  pc: { x:376, y:704, w:360, h:195, color:'#10b9f8', label:'PC', ly1:22, fs:47, c1:'#38bdf8', ly2:72, fs2:62, c2:'#25f447', ly3:123, fs3:24, c3:'#00c8f0', ly4:164, fs4:25, c4:'#518e35',  },
  temp: { x:-25, y:648, w:266, h:42, color:'#22c55e', label:'temp', ly1:16, fs:27, c1:'#25f447',  },
  temp2: { x:504, y:648, w:219, h:42, color:'#22c55e', label:'temp2', ly1:20, fs:27, c1:'#25f447',  },
 };
+
 
 
 function renderFlowDiagram(byName) {

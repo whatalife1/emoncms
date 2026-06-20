@@ -8,8 +8,9 @@ const LAYOUT = {
  fridge: { x:5, y:689, w:350, h:195, color:'#c084fc', label:'Fridges', ly1:19, fs:34, c1:'#38bdf8', ly2:59, fs2:62, c2:'#25f447', ly3:100, fs3:24, c3:'#00c8f0', ly4:129, fs4:23, c4:'#518d35',  },
  pc: { x:374, y:688, w:360, h:195, color:'#10b9f8', label:'PC', ly1:22, fs:52, c1:'#38bdf8', ly2:72, fs2:62, c2:'#25f447', ly3:123, fs3:28, c3:'#00c8f0', ly4:164, fs4:25, c4:'#518e35',  },
  temp: { x:18, y:897, w:350, h:55, color:'#22c55e', label:'temp', ly1:16, fs:27, c1:'#25f447',  },
- temp2: { x:379, y:894, w:360, h:50, color:'#22c55e', label:'temp2', ly1:29, fs:27, c1:'#25f447',  },
+ temp2: { x:366, y:795, w:360, h:50, color:'#22c55e', label:'temp2', ly1:29, fs:27, c1:'#25f447',  },
 };
+
 
 function renderFlowDiagram(byName) {
   if (!byName) return;

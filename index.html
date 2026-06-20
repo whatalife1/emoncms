@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>EmonCMS Monitor</title>
+  <!-- Link to external CSS stylesheets -->
   <link rel="stylesheet" href="css/00-variables.css">
   <link rel="stylesheet" href="css/01-layout.css">
   <link rel="stylesheet" href="css/02-cards.css">
@@ -14,6 +15,7 @@
 </head>
 <body>
 
+  <!-- Floating app boundary container -->
   <div class="main-shell">
 
     <div class="header">
@@ -31,16 +33,16 @@
       </div>
     </div>
 
-    <!-- Hidden cost/pred containers — logic still runs in JS -->
+    <!-- 
+      Note: Prediction and Cost containers are hidden. 
+      The logic remains in JS to calculate values, but they are 
+      now displayed inside the Flow Chart.
+    -->
     <div id="pred-wrap" style="display:none;"></div>
     <div id="cost-wrap" style="display:none;"></div>
 
-    <!--
-      Power flow diagram.
-      flex:1 makes this section grow to fill all space between
-      the header and footer, exactly like the Android view.
-    -->
-    <div class="container" id="flow-wrap" style="padding-bottom:0; flex:1 1 auto; display:flex; flex-direction:column;">
+    <!-- Power flow diagram - Now the primary visual focus -->
+    <div class="container" id="flow-wrap" style="padding-bottom:0;">
       <div id="flow-card">
         <div class="flow-title">⚡ Live power flow</div>
         <div id="flow-svg-wrap">
@@ -49,7 +51,7 @@
       </div>
     </div>
 
-    <!-- Feed cards list (scrolls below the flow diagram) -->
+    <!-- Feed cards list -->
     <div class="container" id="list">
       <!-- Skeleton Loading State -->
       <div class="skel-card" style="border-left:3px solid var(--accent-solar)">
@@ -78,7 +80,7 @@
       </div>
     </div>
 
-  </div><!-- End main-shell -->
+  </div> <!-- End main-shell -->
 
   <!-- Settings panel -->
   <div id="settings">
@@ -128,6 +130,7 @@
       <button id="btn-solar-close" class="btn-primary">Close</button>
     </div>
     <div class="solar-body">
+
       <div class="sol-config-wrap">
         <div class="sol-config-toggle" id="sol-cfg-toggle">
           <span class="sol-cfg-title">⚙ Panel Config</span>
@@ -206,6 +209,7 @@
       <div id="sol-tab-billing" class="sol-tab-content">
         <div id="sol-billing-out"><div class="sol-loading">Tap to load billing cycle…</div></div>
       </div>
+
     </div>
   </div>
 
@@ -278,9 +282,12 @@
   <script src="js/17-reports-ui.js" defer></script>
   <script src="js/18-main-a.js" defer></script>
   <script src="js/18b-main-b.js" defer></script>
+  <!-- Graphs Panel Scripts (split into 4 parts) -->
   <script src="js/19a-graphs-core.js" defer></script>
   <script src="js/19b-graphs-ui.js" defer></script>
   <script src="js/19c-graphs-data.js" defer></script>
   <script src="js/19d-graphs-render.js" defer></script>
+
+
 </body>
 </html>

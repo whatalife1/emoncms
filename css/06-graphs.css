@@ -64,8 +64,6 @@
   border-radius: 4px;
 }
 
-
-
 /* ── Graph Tooltip ─────────────────────────────────────────────────────────── */
 #graph-tooltip {
   position: fixed;
@@ -104,8 +102,6 @@
   margin-bottom: 8px !important;
 }
 
-
-
 .gfeed-tab {
   flex-shrink: 0; padding: 6px 12px; border-radius: 20px; font-size: 11px; font-weight: 700;
   background: var(--bg-card); border: 1px solid var(--border); color: var(--text-muted); cursor: pointer;
@@ -117,11 +113,14 @@
   color: var(--text-main);
 }
 
-/* Desktop constraint */
+/* ── Desktop constraint ────────────────────────────────────────────────────── */
 @media (min-width: 480px) {
   #graphs-panel {
-    max-width: 450px; left: 50% !important; right: auto !important;
-    transform: translateX(-50%);
+    max-width: 450px;
+    left: 0 !important;
+    right: 0 !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
     border-left: 1px solid var(--border);
     border-right: 1px solid var(--border);
     box-shadow: 0 -4px 20px rgba(0,0,0,0.5);
@@ -150,14 +149,10 @@
   box-shadow: none !important;
 }
 
-/* change to: */
 #graphs-panel.fullscreen #graph-canvas {
-  height: calc(100vh - 400px) !important;  /* was 460px */
+  height: calc(100vh - 400px) !important;
   min-height: 220px;
 }
-
-
-
 
 @media (max-height: 480px), (max-width: 900px) and (orientation: landscape) {
   #graphs-panel {
@@ -169,10 +164,10 @@
     border-right: none !important;
     box-shadow: none !important;
   }
-#graphs-panel #graph-canvas {
-  height: calc(100vh - 200px) !important;  /* was 260px, smaller offset = more chart */
-  min-height: 120px;
-}
+  #graphs-panel #graph-canvas {
+    height: calc(100vh - 200px) !important;
+    min-height: 120px;
+  }
 
   .graphs-header {
     padding: 4px 10px !important;
@@ -185,7 +180,6 @@
     gap: 2px !important;
     overflow-y: auto !important;
   }
-  /* Compact time tabs */
   .graph-time-tabs {
     padding: 2px !important;
   }
@@ -193,7 +187,6 @@
     padding: 4px 2px !important;
     font-size: 10px !important;
   }
-  /* Compact chart type toggle */
   #chart-type-toggle {
     margin-top: 2px !important;
   }
@@ -201,11 +194,9 @@
     padding: 3px 6px !important;
     font-size: 10px !important;
   }
-  /* Hide zoom controls in landscape - use pinch instead */
   #zoom-controls {
     display: none !important;
   }
-  /* Compact nav bar */
   .graph-nav-bar {
     padding: 4px 8px !important;
   }
@@ -219,13 +210,11 @@
     padding: 3px 10px !important;
     font-size: 14px !important;
   }
-  /* Compact stat line */
   .graph-stat {
     font-size: 10px !important;
     margin-bottom: 2px !important;
     min-height: 12px !important;
   }
-  /* Feed tabs wrap compactly */
   .graph-feed-tabs {
     gap: 3px !important;
     padding-bottom: 4px !important;
@@ -235,4 +224,44 @@
     padding: 4px 8px !important;
     font-size: 10px !important;
   }
+}
+
+/* ─── Peak Value Highlighting ────────────────────────────────────────────── */
+.graph-stat .peak-high {
+  font-weight: 800;
+  padding: 0 2px;
+  text-shadow: 0 0 8px currentColor;
+  transition: color 0.2s ease;
+}
+
+.graph-stat .peak-high.peak-extreme {
+  color: #ef4444 !important;
+  text-shadow: 0 0 12px rgba(239, 68, 68, 0.5);
+}
+
+.graph-stat .peak-high.peak-high {
+  color: #f97316 !important;
+  text-shadow: 0 0 10px rgba(249, 115, 22, 0.4);
+}
+
+.graph-stat .peak-high.peak-medium {
+  color: #f59e0b !important;
+  text-shadow: 0 0 8px rgba(245, 158, 11, 0.3);
+}
+
+.graph-stat .avg-value {
+  font-weight: 700;
+  padding: 0 2px;
+}
+
+.graph-stat .night-value {
+  font-weight: 700;
+  color: #c084fc !important;
+  padding: 0 2px;
+  text-shadow: 0 0 8px rgba(192, 132, 252, 0.3);
+}
+
+.graph-stat .stat-label-icon {
+  display: inline-block;
+  margin-right: 2px;
 }

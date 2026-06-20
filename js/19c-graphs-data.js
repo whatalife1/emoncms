@@ -16,31 +16,61 @@ async function _gFetch(feedId, startMs, endMs, interval) {
 
 function _pointsToBars(pts, nav, feedKey) {
   const isAvgFeed = feedKey.startsWith('temp') || feedKey === 'water' || feedKey === 'AC Volts';
-  if (nav.isDayTab) {
-    const bars = Array(nav.nBars).fill(0);
-    for (const [ts, v] of pts) {
-      const offsetMs = ts - nav.startMs;
-      const idx = Math.floor(offsetMs / (nav.resMins * 60000));
-      if (idx >= 0 && idx < nav.nBars) bars[idx] = v;
-    }
-    return bars;
-  }
-  const kwhFactor = (nav.interval / 3600) / 1000;
-  if (nav.isYearly) {
-    const bars = Array(12).fill(0), counts = Array(12).fill(0);
-    for (const [ts,v] of pts) { 
-      const m = new Date(ts).getMonth();
-      bars[m] += isAvgFeed ? v : (v * kwhFactor); counts[m]++;
-    }
-    return isAvgFeed ? bars.map((v, i) => counts[i]>0 ? v/counts[i] : 0) : bars;
-  }
   const bars = Array(nav.nBars || 1).fill(0);
-  for (const [ts,v] of pts) { 
-    const d = new Date(ts); 
-    const dayIdx = d.getDate()-1;
-    if (dayIdx >= 0 && dayIdx < bars.length) bars[dayIdx] += isAvgFeed ? v : (v * kwhFactor);
+  const counts = Array(nav.nBars || 1).fill(0);
+  
+  const now = new Date();
+  const nowMs = now.getTime();
+  
+  // Identify if we are looking at the current time period
+  const isCurrentMonth = !nav.isDayTab && !nav.isYearly && !nav.isTotal && 
+                         nav.month === now.getMonth() && nav.year === now.getFullYear();
+
+  for (const [ts, v] of pts) {
+    let idx = -1;
+    let factor = 1;
+
+    if (nav.isDayTab) {
+      idx = Math.floor((ts - nav.startMs) / (nav.resMins * 60000));
+      factor = 1; // Power (Watts)
+    } else {
+      // For Month/Year/Total, convert Power (W) to Energy (kWh)
+      const d = new Date(ts);
+      if (nav.isYearly) {
+        idx = d.getMonth();
+      } else if (nav.isTotal) {
+        // Simple year grouping for Total
+        idx = 0; // Total is handled differently in _loadAndDraw, but we bin here
+      } else {
+        // Month View (Daily bars)
+        if (d.getMonth() === nav.month && d.getFullYear() === nav.year) {
+          idx = d.getDate() - 1;
+        }
+      }
+
+      // CALCULATE DYNAMIC ENERGY FACTOR
+      if (!isAvgFeed) {
+        const secondsInInterval = nav.interval; // e.g., 86400 for 1 day
+        const intervalEndMs = ts + (secondsInInterval * 1000);
+        
+        let effectiveSeconds = secondsInInterval;
+        // If the interval is currently in progress (Today), only count elapsed time
+        if (ts < nowMs && intervalEndMs > nowMs) {
+          effectiveSeconds = (nowMs - ts) / 1000;
+        }
+        
+        factor = (effectiveSeconds / 3600) / 1000;
+      }
+    }
+
+    if (idx >= 0 && idx < bars.length) {
+      bars[idx] += isAvgFeed ? v : (v * factor);
+      counts[idx]++;
+    }
   }
-  return bars;
+  
+  // Return averages for Temp/Water, otherwise return the calculated Energy totals
+  return isAvgFeed ? bars.map((v, i) => counts[i] > 0 ? v / counts[i] : 0) : bars;
 }
 
 function _calcAvgForRange(bars, startHour, endHour, nav, lastIdx) {
@@ -65,26 +95,26 @@ function _calcAvgForRange(bars, startHour, endHour, nav, lastIdx) {
   return count > 0 ? sum / count : null;
 }
 
-function _formatStatLine(icon, label, mainVal, accentColor, peakVal, avgVal, nightAvgVal, unit, isKwh) {
+function _formatStatLine(icon, label, mainVal, accentColor, peakVal, avgVal, nightAvgVal, unit, isKwh, currentTab) {
   const lblLower = label.toLowerCase();
   const isSolar = lblLower.includes('solar');
   const isTemp = lblLower.includes('temp');
-  const hideNight = isSolar || isTemp;
-
-  // Peak color logic
-  let peakColor = accentColor;
-  if (peakVal > 1500 && !isTemp) peakColor = '#ef4444';
-  else if (peakVal > 1000 && !isTemp) peakColor = '#f97316';
+  const isDay = currentTab === 'day';
   
-  // SHARED STYLE for Peak, Avg, and Night to ensure they are huge and identical
+  const hideNight = isSolar || isTemp || !isDay;
+  const peakLabel = isDay ? "Peak" : "Max Day";
+  const avgLabel  = isDay ? "Avg"  : (currentTab === 'month' ? "Daily Avg" : "Monthly Avg");
+
+  let peakColor = accentColor;
+  if (peakVal > 1500 && isDay && !isTemp) peakColor = '#ef4444';
+  else if (peakVal > 1000 && isDay && !isTemp) peakColor = '#f97316';
+  
   const boldStyle = `font-size: 15.5px; font-weight: 900;`;
 
-  // AVG STYLING
   const avgHtml = (avgVal !== null && avgVal !== 0) 
-    ? ` · <span style="color:${accentColor}; ${boldStyle}">Avg: ${Math.round(avgVal)} ${unit}</span>` 
+    ? ` · <span style="color:${accentColor}; ${boldStyle}">${avgLabel}: ${Math.round(avgVal)} ${unit}</span>` 
     : '';
 
-  // NIGHT STYLING - Using same 15.5px and 900 weight
   const nightHtml = (!hideNight && nightAvgVal !== null && nightAvgVal !== 0) 
     ? ` · <span style="color:#bf7aff; ${boldStyle}">Night: ${Math.round(nightAvgVal)} ${unit}</span>` 
     : '';
@@ -95,12 +125,10 @@ function _formatStatLine(icon, label, mainVal, accentColor, peakVal, avgVal, nig
     <span style="color:${accentColor}">${icon} ${label}:</span>
     <span style="color:var(--text-main); font-size:17px; font-weight:900;">${mainDisplay}</span>
     <span style="color:var(--text-muted); font-size:13px; font-weight:600; margin-left:2px;">
-      (<span style="font-size:13px">Peak:</span> <span style="color:${peakColor}; ${boldStyle}">${Math.round(peakVal).toLocaleString()}</span> ${unit}${avgHtml}${nightHtml})
+      (<span style="font-size:13px">${peakLabel}:</span> <span style="color:${peakColor}; ${boldStyle}">${Math.round(peakVal).toLocaleString()}</span> ${unit}${avgHtml}${nightHtml})
     </span>
   </div>`;
 }
-
-
 
 async function _loadAndDraw() {
   if (graphIsLoading) return;
@@ -137,17 +165,34 @@ async function _loadAndDraw() {
     _drawChart(canvas, bars1, bars2, nav.labels, color1, color2, unit, isCombined, nav, lastIdx);
 
     const isAvgFeed = graphFeedKey.startsWith('temp') || graphFeedKey === 'water' || graphFeedKey === 'AC Volts';
-    const factor = nav.isDayTab && !isAvgFeed ? (nav.resMins/60)/1000 : 1;
     
-    const t1 = isAvgFeed ? (bars1.slice(0, lastIdx).reduce((a,b)=>a+b,0)/lastIdx) : (bars1.reduce((a,b,i)=>i<lastIdx?a+b:a, 0)*factor);
-    const t2 = isCombined ? (bars2.reduce((a,b,i)=>i<lastIdx?a+b:a, 0)*factor) : 0;
+    // Note: bars1/bars2 now ALREADY contain kWh for non-day tabs. 
+    // For Day tab, we still need to apply factor to the sum of Watts.
+    const dayFactor = (nav.resMins / 60) / 1000;
+
+    const t1 = nav.isDayTab 
+      ? (isAvgFeed ? (bars1.slice(0, lastIdx).reduce((a,b)=>a+b,0)/lastIdx) : (bars1.reduce((a,b,i)=>i<lastIdx?a+b:a, 0) * dayFactor))
+      : (isAvgFeed ? (bars1.reduce((a,b)=>a+b,0)/bars1.filter(v=>v!==0).length) : bars1.reduce((a,b)=>a+b,0));
+    
+    const t2 = isCombined 
+      ? (nav.isDayTab ? (bars2.reduce((a,b,i)=>i<lastIdx?a+b:a, 0) * dayFactor) : bars2.reduce((a,b)=>a+b,0))
+      : 0;
 
     if (isCombined) {
-      stat.innerHTML = _formatStatLine('☀', 'Solar', t1, color1, Math.max(...bars1), _calcAvgForRange(bars1,5,17,nav,lastIdx), null, 'W', true) +
-                       _formatStatLine('⚡', 'Grid', t2, color2, Math.max(...bars2), _calcAvgForRange(bars2,0,24,nav,lastIdx), _calcAvgForRange(bars2,17,8,nav,lastIdx), 'W', true);
+      const p1 = Math.max(...bars1), p2 = Math.max(...bars2);
+      const a1 = nav.isDayTab ? _calcAvgForRange(bars1,5,17,nav,lastIdx) : (t1 / bars1.filter(b=>b>0).length);
+      const a2 = nav.isDayTab ? _calcAvgForRange(bars2,0,24,nav,lastIdx) : (t2 / bars2.filter(b=>b>0).length);
+      const n2 = nav.isDayTab ? _calcAvgForRange(bars2,17,8,nav,lastIdx) : null;
+
+      stat.innerHTML = _formatStatLine('☀', 'Solar', t1, color1, p1, a1, null, unit, true, graphTab) +
+                       _formatStatLine('⚡', 'Grid', t2, color2, p2, a2, n2, unit, true, graphTab);
     } else {
       const isSol = graphFeedKey==='solar';
-      stat.innerHTML = _formatStatLine('', fA.label, t1, color1, Math.max(...bars1), _calcAvgForRange(bars1,isSol?5:0,isSol?17:24,nav,lastIdx), _calcAvgForRange(bars1,17,8,nav,lastIdx), unit, !isAvgFeed);
+      const p1 = Math.max(...bars1);
+      const a1 = nav.isDayTab ? _calcAvgForRange(bars1,isSol?5:0,isSol?17:24,nav,lastIdx) : (t1 / bars1.filter(b=>b>0).length);
+      const n1 = nav.isDayTab ? _calcAvgForRange(bars1,17,8,nav,lastIdx) : null;
+      
+      stat.innerHTML = _formatStatLine('', fA.label, t1, color1, p1, a1, n1, unit, !isAvgFeed, graphTab);
     }
   } catch(e) { console.error(e); stat.textContent = 'Error loading data'; }
   finally { graphIsLoading = false; _showGraphLoading(false); }

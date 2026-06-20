@@ -21,10 +21,6 @@ function _pointsToBars(pts, nav, feedKey) {
   
   const now = new Date();
   const nowMs = now.getTime();
-  
-  // Identify if we are looking at the current time period
-  const isCurrentMonth = !nav.isDayTab && !nav.isYearly && !nav.isTotal && 
-                         nav.month === now.getMonth() && nav.year === now.getFullYear();
 
   for (const [ts, v] of pts) {
     let idx = -1;
@@ -32,33 +28,28 @@ function _pointsToBars(pts, nav, feedKey) {
 
     if (nav.isDayTab) {
       idx = Math.floor((ts - nav.startMs) / (nav.resMins * 60000));
-      factor = 1; // Power (Watts)
+      factor = 1; 
     } else {
-      // For Month/Year/Total, convert Power (W) to Energy (kWh)
       const d = new Date(ts);
       if (nav.isYearly) {
         idx = d.getMonth();
       } else if (nav.isTotal) {
-        // Simple year grouping for Total
-        idx = 0; // Total is handled differently in _loadAndDraw, but we bin here
+        idx = 0;
       } else {
-        // Month View (Daily bars)
         if (d.getMonth() === nav.month && d.getFullYear() === nav.year) {
           idx = d.getDate() - 1;
         }
       }
 
-      // CALCULATE DYNAMIC ENERGY FACTOR
       if (!isAvgFeed) {
-        const secondsInInterval = nav.interval; // e.g., 86400 for 1 day
+        const secondsInInterval = nav.interval; 
         const intervalEndMs = ts + (secondsInInterval * 1000);
-        
         let effectiveSeconds = secondsInInterval;
-        // If the interval is currently in progress (Today), only count elapsed time
+        
+        // If today, only count until now
         if (ts < nowMs && intervalEndMs > nowMs) {
           effectiveSeconds = (nowMs - ts) / 1000;
         }
-        
         factor = (effectiveSeconds / 3600) / 1000;
       }
     }
@@ -69,8 +60,45 @@ function _pointsToBars(pts, nav, feedKey) {
     }
   }
   
-  // Return averages for Temp/Water, otherwise return the calculated Energy totals
-  return isAvgFeed ? bars.map((v, i) => counts[i] > 0 ? v / counts[i] : 0) : bars;
+  const result = isAvgFeed ? bars.map((v, i) => counts[i] > 0 ? v / counts[i] : 0) : bars;
+
+  // CRITICAL FIX: Overwrite the "Today" bar in Month view with the actual Live Today kWh feed
+  if (!nav.isDayTab && !isAvgFeed) {
+    const isTodayInView = (nav.isYearly && now.getFullYear() === nav.year) || 
+                          (!nav.isYearly && nav.month === now.getMonth() && nav.year === now.getFullYear());
+
+    if (isTodayInView) {
+      const todayIdx = nav.isYearly ? now.getMonth() : now.getDate() - 1;
+      
+      // Map Feed Names to their "Today" kWh counterparts
+      const todayMap = {
+        'solar': 'Solar Today',
+        'grid':  'Breaker Today',
+        'haier': 'Haier 1Ton Today',
+        'k1':    'Kenwood 1Ton Today',
+        'k15':   'Kenwood 1.5Ton Today',
+        'pc':    'PC Today',
+        'fridge1': 'Fridge Today',
+        'fridge2': 'Fridge2 Today'
+      };
+
+      const targetTodayName = todayMap[feedKey];
+      if (targetTodayName && window.lastResultsMap) {
+        const liveVal = window.lastResultsMap.get(targetTodayName)?.value;
+        if (liveVal !== undefined && liveVal !== null) {
+          // If yearly, add the live today value to the existing month's total
+          if (nav.isYearly) {
+             // We don't overwrite the whole month, we just ensure the sum is correct
+             // but for Month view (Daily bars) we overwrite the specific day
+          } else {
+             result[todayIdx] = liveVal;
+          }
+        }
+      }
+    }
+  }
+
+  return result;
 }
 
 function _calcAvgForRange(bars, startHour, endHour, nav, lastIdx) {
@@ -165,9 +193,6 @@ async function _loadAndDraw() {
     _drawChart(canvas, bars1, bars2, nav.labels, color1, color2, unit, isCombined, nav, lastIdx);
 
     const isAvgFeed = graphFeedKey.startsWith('temp') || graphFeedKey === 'water' || graphFeedKey === 'AC Volts';
-    
-    // Note: bars1/bars2 now ALREADY contain kWh for non-day tabs. 
-    // For Day tab, we still need to apply factor to the sum of Watts.
     const dayFactor = (nav.resMins / 60) / 1000;
 
     const t1 = nav.isDayTab 

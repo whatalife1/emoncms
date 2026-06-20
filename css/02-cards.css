@@ -41,7 +41,7 @@
   padding: 10px;
   margin-bottom: 2px;
   box-shadow: var(--shadow);
-  min-height: auto !important; /* Allow layout container height to dynamically shape with the SVG aspect ratio dimensions */
+  min-height: auto !important; /* Dynamic sizing based on viewport height */
   display: flex;
   flex-direction: column;
 }

@@ -80,21 +80,23 @@ function _formatStatLine(icon, label, kwh, accentColor, peakVal, avgVal, nightAv
   if (peakVal > 1500) peakColor = '#ef4444';
   else if (peakVal > 1000) peakColor = '#f97316';
 
-  // Added space before W and rounded values
   const nightHtml = (!hideNight && nightAvgVal !== null && nightAvgVal > 0) 
     ? ` · <span style="color:#a855f7">Night: ${Math.round(nightAvgVal)} W</span>` 
     : '';
   
   const avgHtml = (avgVal !== null && avgVal > 0) ? ` · Avg: ${Math.round(avgVal)} W` : '';
 
-  // Increased font sizes (14px base, 16px kWh, 15px Peak)
-  return `<div style="display:flex;align-items:center;gap:6px;font-size:14px;font-weight:700;margin-bottom:3px;">
-    <span style="color:${accentColor}">${icon} ${label}:</span>
-    <span style="color:var(--text-main);font-size:16px;">${kwh.toFixed(1)} kWh</span>
-    <span style="color:var(--text-muted);font-size:12px;font-weight:600;margin-left:4px;">
-      (<span style="font-size:13px">Peak:</span> <span style="color:${peakColor};font-size:15px;font-weight:800">${Math.round(peakVal).toLocaleString()}</span> W${avgHtml}${nightHtml})
-    </span>
-  </div>`;
+  return `
+    <div class="stat-row">
+      <div class="stat-primary" style="font-size:15px; font-weight:700;">
+        <span style="color:${accentColor}">${icon} ${label}:</span>
+        <span style="color:var(--text-main); font-size:17px; font-weight:800;">${kwh.toFixed(1)} kWh</span>
+      </div>
+      <div class="stat-meta" style="color:var(--text-muted); font-size:12px; font-weight:600;">
+        (<span style="font-size:13px">Peak:</span> 
+        <span style="color:${peakColor}; font-size:15px; font-weight:800">${Math.round(peakVal).toLocaleString()}</span> W${avgHtml}${nightHtml})
+      </div>
+    </div>`;
 }
 
 

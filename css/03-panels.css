@@ -97,3 +97,59 @@ input[type=number], input[type=text], input[type=date], select {
 .alert-label-inp { background: var(--input-bg); border: 1px solid var(--border); color: var(--text-muted); border-radius: 6px; padding: 6px 10px; font-size: 12px; flex: 1; }
 .alert-del { background: #3f1212; border: 1px solid #7f1d1d; color: #f87171; border-radius: 6px; padding: 5px 10px; font-size: 12px; flex-shrink: 0; width: auto; }
 .btn-add-alert { margin: 12px; padding: 12px; background: var(--bg-card); border: 1px dashed var(--border); border-radius: 10px; font-size: 13px; font-weight: 600; color: var(--accent-env); width: calc(100% - 24px); }
+
+/* ── Desktop Centering Fix ────────────────────────────────────────────── */
+@media (min-width: 480px) {
+  body {
+    background: #040406;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+  }
+  .main-shell {
+    max-width: 450px;
+    box-shadow: 0 0 24px rgba(0,0,0,0.7);
+    border-left: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+  }
+  .header {
+    max-width: 448px;
+  }
+  .footer {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    max-width: 448px;
+  }
+  
+  /* Constrain pop-ups to the centered mobile layout on desktop */
+  .slide-panel, #solar-panel, #settings, #widgets-panel, #alerts-panel {
+    max-width: 450px;
+    left: 0 !important;
+    right: 0 !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+    border-left: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+    box-shadow: 0 -4px 20px rgba(0,0,0,0.5);
+  }
+
+  /* Specific override ONLY for the detailed usage report panel so it stays full screen */
+  #usage-report-panel {
+    max-width: 100% !important;
+    left: 0 !important;
+    right: 0 !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    transform: none !important;
+    border-left: none;
+    border-right: none;
+    box-shadow: none;
+  }
+  #usage-report-panel .panel-body {
+    max-width: 1400px;
+    margin: 0 auto;
+    width: 100%;
+  }
+}

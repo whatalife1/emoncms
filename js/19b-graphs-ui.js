@@ -9,10 +9,9 @@ function _renderZoomControls() {
   const existing = document.getElementById('zoom-controls');
   if (existing) existing.remove();
 
-  // Hide zoom controls on desktop (Windows or wide screen)
   const isDesktop = /Win/i.test(navigator.platform) ||
                     window.matchMedia('(min-width: 1024px)').matches;
-  if (isDesktop) return;   // ← nothing rendered on desktop
+  if (isDesktop) return;
 
   const controls = document.createElement('div');
   controls.id = 'zoom-controls';
@@ -44,11 +43,9 @@ function _renderZoomControls() {
 }
 
 function _renderChartTypeToggle() {
-  // Remove old standalone row if it exists
   const existing = document.getElementById('chart-type-toggle');
   if (existing) existing.remove();
 
-  // Inject as floating overlay inside the chart card (top-right)
   const card = document.querySelector('.graph-chart-card');
   if (!card) return;
 
@@ -59,7 +56,6 @@ function _renderChartTypeToggle() {
     display:flex; flex-direction:column; gap:4px;
   `;
 
-  // ─── VERTICAL LAYOUT WITH LARGER TEXT ──────────────────────────────────────
   const types = [
     { type: 'line',   label: 'Lines' },
     { type: 'bar',    label: 'Bars' },

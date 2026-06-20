@@ -11,7 +11,6 @@ const LAYOUT = {
  temp2: { x:534, y:547, w:194, h:33, color:'#22c55e', label:'temp2', ly1:16, fs:27, c1:'#25f447',  },
 };
 
-
 function renderFlowDiagram(byName) {
   if (!byName) return;
 

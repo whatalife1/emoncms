@@ -1,136 +1,150 @@
-// ─── Replace the stat rendering section in _loadAndDraw ────────────────────
-// Find this section in the _loadAndDraw function and replace it completely
+// ─── Graphs Panel - Data Layer ─────────────────────────────────────────────
+let graphIsLoading = false;
 
-// ─── STYLING THE HEADER MULTI-LINE CONTAINER DYNAMICALLY ─────────────────
-stat.style.display = 'flex';
-stat.style.flexDirection = 'column';
-stat.style.gap = '4px';
-stat.style.paddingRight = '85px';
-stat.style.minHeight = '40px';
-stat.style.marginBottom = '8px';
+async function _gFetch(feedId, startMs, endMs, interval) {
+  if (!feedId) return [];
+  const url = `${PROXY_BASE}/feed/data.json?ids=${feedId}&start=${startMs}&end=${endMs}&skipmissing=0&average=1&delta=0&interval=${interval}`;
+  try {
+    const text = await nativeFetch(url);
+    if (!text || text.startsWith('ERROR')) return [];
+    const root = JSON.parse(text);
+    if (!Array.isArray(root)||!root.length) return [];
+    const data = root[0]?.data || root;
+    return data.filter(p => p && p[1] != null);
+  } catch(e) { return []; }
+}
 
-// Helper to calculate averages for specific time ranges
-const calcAvgForRange = (bars, startHour, endHour, nav, resMins) => {
-  if (!nav.isDayTab) return null;
-  const totalHours = 24;
-  const barsPerHour = nav.nBars / totalHours;
-  
-  // Handle wrap-around (e.g., 17-24 and 0-8)
-  if (startHour > endHour) {
-    // Night: 17:00-24:00 and 00:00-08:00
-    const firstPart = calcAvgForRange(bars, startHour, 24, nav, resMins);
-    const secondPart = calcAvgForRange(bars, 0, endHour, nav, resMins);
-    if (firstPart !== null && secondPart !== null) {
-      return (firstPart + secondPart) / 2;
+function _pointsToBars(pts, nav, feedKey) {
+  const isAvgFeed = feedKey.startsWith('temp') || feedKey === 'water' || feedKey === 'AC Volts';
+  if (nav.isDayTab) {
+    const bars = Array(nav.nBars).fill(0);
+    for (const [ts, v] of pts) {
+      const offsetMs = ts - nav.startMs;
+      const idx = Math.floor(offsetMs / (nav.resMins * 60000));
+      if (idx >= 0 && idx < nav.nBars) bars[idx] = v;
     }
-    return firstPart !== null ? firstPart : secondPart;
+    return bars;
   }
-  
-  let startIdx = Math.floor(startHour * barsPerHour);
-  let endIdx = Math.ceil(endHour * barsPerHour);
-  
-  let sum = 0;
-  let count = 0;
-  for (let i = startIdx; i < endIdx && i < bars.length; i++) {
-    if (bars[i] > 0) {
-      sum += bars[i];
-      count++;
+  const kwhFactor = (nav.interval / 3600) / 1000;
+  if (nav.isYearly) {
+    const bars = Array(12).fill(0), counts = Array(12).fill(0);
+    for (const [ts,v] of pts) { 
+      const m = new Date(ts).getMonth();
+      bars[m] += isAvgFeed ? v : (v * kwhFactor); counts[m]++;
     }
+    return isAvgFeed ? bars.map((v, i) => counts[i]>0 ? v/counts[i] : 0) : bars;
+  }
+  const bars = Array(nav.nBars || 1).fill(0);
+  for (const [ts,v] of pts) { 
+    const d = new Date(ts); 
+    const dayIdx = d.getDate()-1;
+    if (dayIdx >= 0 && dayIdx < bars.length) bars[dayIdx] += isAvgFeed ? v : (v * kwhFactor);
+  }
+  return bars;
+}
+
+function _calcAvgForRange(bars, startHour, endHour, nav, lastIdx) {
+  if (!nav.isDayTab) return null;
+  const barsPerHour = nav.nBars / 24;
+  
+  // Handle wrap-around for night (e.g. 17 to 8)
+  if (startHour > endHour) {
+    let sum = 0, count = 0;
+    // Part 1: StartHour to 24
+    for (let i = Math.floor(startHour * barsPerHour); i < Math.floor(24 * barsPerHour); i++) {
+        if (bars[i] > 0 && i < (lastIdx || bars.length)) { sum += bars[i]; count++; }
+    }
+    // Part 2: 0 to EndHour
+    for (let i = 0; i < Math.ceil(endHour * barsPerHour); i++) {
+        if (bars[i] > 0 && i < (lastIdx || bars.length)) { sum += bars[i]; count++; }
+    }
+    return count > 0 ? sum / count : null;
+  }
+
+  const startIdx = Math.floor(startHour * barsPerHour);
+  const endIdx = Math.min(lastIdx || bars.length, Math.ceil(endHour * barsPerHour));
+  let sum = 0, count = 0;
+  for (let i = startIdx; i < endIdx; i++) {
+    if (bars[i] > 0) { sum += bars[i]; count++; }
   }
   return count > 0 ? sum / count : null;
-};
+}
 
-const formatStatLine = (icon, label, kwh, accentColor, peakVal, avgVal, nightAvgVal, unit, isCombined = false) => {
-  const kwhDisplay = kwh.toFixed(1);
-  const peakDisplay = Math.round(peakVal).toLocaleString('en-US');
-  const avgDisplay = avgVal !== null ? Math.round(avgVal).toLocaleString('en-US') : '--';
-  const nightDisplay = nightAvgVal !== null ? Math.round(nightAvgVal).toLocaleString('en-US') : '--';
-  
-  // Determine peak color based on value
+function _formatStatLine(icon, label, kwh, accentColor, peakVal, avgVal, nightAvgVal, unit) {
+  const lblLower = label.toLowerCase();
+  const isSolar = lblLower.includes('solar');
+  const isTemp = lblLower.includes('temp');
+  const hideNight = isSolar || isTemp;
+
   let peakColor = accentColor;
-  let peakClass = '';
-  if (peakVal > 0) {
-    const ratio = peakVal / Math.max(...[peakVal, 100]);
-    if (ratio > 0.8) { peakColor = '#ef4444'; peakClass = 'peak-extreme'; }
-    else if (ratio > 0.6) { peakColor = '#f97316'; peakClass = 'peak-high'; }
-    else if (ratio > 0.4) { peakColor = '#f59e0b'; peakClass = 'peak-medium'; }
-  }
+  if (peakVal > 1500) peakColor = '#ef4444';
+  else if (peakVal > 1000) peakColor = '#f97316';
+
+  // Added space before W and rounded values
+  const nightHtml = (!hideNight && nightAvgVal !== null && nightAvgVal > 0) 
+    ? ` · <span style="color:#a855f7">Night: ${Math.round(nightAvgVal)} W</span>` 
+    : '';
   
-  let nightHtml = '';
-  if (nightAvgVal !== null && nightAvgVal > 0) {
-    nightHtml = `· Night: <span class="night-value" style="color:#c084fc; font-weight:700;">${nightDisplay}</span> W`;
-  }
-  
-  let avgHtml = '';
-  if (avgVal !== null && avgVal > 0) {
-    avgHtml = `· Avg: <span class="avg-value" style="color:${accentColor}; font-weight:700;">${avgDisplay}</span> W`;
-  }
-  
-  return `<div style="display:flex; align-items:center; flex-wrap:wrap; gap:6px; font-size:13px; font-weight:700; line-height:1.4;">
-    <span style="color:${accentColor};">${icon} ${label}:</span>
-    <span style="color:var(--text-main); font-weight:800; margin-left:2px; font-size:15px;">${kwhDisplay} kWh</span>
-    <span style="color:var(--text-muted); font-size:11px; font-weight:600; margin-left:4px;">
-      (Peak: <span class="peak-high ${peakClass}" style="color:${peakColor}; font-weight:800;">${peakDisplay}</span> W
-      ${avgHtml}
-      ${nightHtml})
+  const avgHtml = (avgVal !== null && avgVal > 0) ? ` · Avg: ${Math.round(avgVal)} W` : '';
+
+  // Increased font sizes (14px base, 16px kWh, 15px Peak)
+  return `<div style="display:flex;align-items:center;gap:6px;font-size:14px;font-weight:700;margin-bottom:3px;">
+    <span style="color:${accentColor}">${icon} ${label}:</span>
+    <span style="color:var(--text-main);font-size:16px;">${kwh.toFixed(1)} kWh</span>
+    <span style="color:var(--text-muted);font-size:12px;font-weight:600;margin-left:4px;">
+      (<span style="font-size:13px">Peak:</span> <span style="color:${peakColor};font-size:15px;font-weight:800">${Math.round(peakVal).toLocaleString()}</span> W${avgHtml}${nightHtml})
     </span>
   </div>`;
-};
+}
 
-if (isCombined) {
-  if (nav.isDayTab) {
-    const max1 = Math.max(0, ...bars1);
-    const max2 = Math.max(0, ...bars2);
-    const avgSolar = _calcAvgWatts(bars1, 5, 17, nav);
-    const nightAvgSolar = calcAvgForRange(bars1, 17, 8, nav, nav.resMins);
-    const avgGrid = _calcAvgWatts(bars2, 0, 24, nav);
-    const nightAvgGrid = calcAvgForRange(bars2, 17, 8, nav, nav.resMins);
-    
-    stat.innerHTML = `
-      ${formatStatLine('☀', 'Solar', totalKwh1, color1, max1, avgSolar, nightAvgSolar, unit)}
-      ${formatStatLine('⚡', 'Grid', totalKwh2, color2, max2, avgGrid, nightAvgGrid, unit)}
-    `;
-  } else {
-    const avg1 = totalKwh1 / validCount;
-    const avg2 = totalKwh2 / validCount;
-    const avgUnit = nav.isYearly ? 'kWh/mo' : 'kWh/day';
-    
-    stat.innerHTML = `
-      ${formatStatLine('☀', 'Solar', totalKwh1, color1, 0, null, null, unit)}
-      ${formatStatLine('⚡', 'Grid', totalKwh2, color2, 0, null, null, unit)}
-    `;
-  }
-} else {
-  if (isAvg) {
-    const validBars = bars1.slice(0, validCount).filter(b => b > 0);
-    const val = validBars.length > 0 ? (validBars.reduce((a,b)=>a+b,0)/validBars.length) : 0;
-    
-    stat.innerHTML = `
-      <div style="font-size:13px; font-weight:700; color:${color1}; line-height:1.4; display:flex; align-items:center;">
-        <span>${fA?.label}:</span>
-        <span style="color:var(--text-main); font-weight:800; margin-left:6px; font-size:15px;">${val.toFixed(1)} ${unit}</span>
-      </div>
-    `;
-  } else {
-    if (nav.isDayTab) {
-      const max1 = Math.max(0, ...bars1);
-      const isSolarFeed = graphFeedKey === 'solar';
-      const startHour = isSolarFeed ? 5 : 0;
-      const endHour = isSolarFeed ? 17 : 24;
-      const avgWatts = _calcAvgWatts(bars1, startHour, endHour, nav);
-      const nightAvgWatts = calcAvgForRange(bars1, 17, 8, nav, nav.resMins);
-      
-      stat.innerHTML = `
-        ${formatStatLine(isSolarFeed ? '☀' : '🔌', fA?.label || '', totalKwh1, color1, max1, avgWatts, nightAvgWatts, unit)}
-      `;
+
+
+async function _loadAndDraw() {
+  if (graphIsLoading) return;
+  graphIsLoading = true; _showGraphLoading(true);
+  const stat = document.getElementById('graph-stat'), canvas = document.getElementById('graph-canvas');
+  if (!canvas||!stat) { graphIsLoading = false; _showGraphLoading(false); return; }
+  stat.textContent = 'Loading…'; hideTooltip();
+
+  try {
+    const nav = _gNavInfo();
+    const fA = GRAPH_FEEDS.find(f => f.key === graphFeedKey), isCombined = graphFeedKey === 'combined';
+    let pts1=[], pts2=[];
+    if (isCombined) {
+      pts1 = await _gFetch(GRAPH_FEEDS.find(f=>f.key==='solar').id, nav.startMs, nav.endMs, nav.interval);
+      pts2 = await _gFetch(GRAPH_FEEDS.find(f=>f.key==='grid').id, nav.startMs, nav.endMs, nav.interval);
     } else {
-      const max1 = Math.max(0, ...bars1.slice(0, validCount));
-      const avg1 = totalKwh1 / validCount;
-      const avgUnit = nav.isYearly ? 'kWh/mo' : 'kWh/day';
-      
-      stat.innerHTML = `
-        ${formatStatLine('🔌', fA?.label || '', totalKwh1, color1, max1, avg1, null, unit)}
-      `;
+      pts1 = await _gFetch(fA.id, nav.startMs, nav.endMs, nav.interval);
     }
-  }
+
+    const bars1 = _pointsToBars(pts1, nav, graphFeedKey);
+    const bars2 = isCombined ? _pointsToBars(pts2, nav, 'grid') : [];
+    
+    let lastIdx = bars1.length;
+    if (graphTab === 'day' && graphDateNav === 0) {
+      lastIdx = Math.floor((Date.now() - nav.startMs) / (nav.resMins * 60000)) + 1;
+    }
+
+    const color1 = isCombined ? '#facc15' : (fA?.color || '#facc15'), color2 = '#ef4444';
+    graphDataCache = { bars1, bars2, labels: nav.labels, color1, color2, unit: (nav.isDayTab?'W':'kWh'), isCombined, nav, lastIdx };
+    
+    _drawChart(canvas, bars1, bars2, nav.labels, color1, color2, graphDataCache.unit, isCombined, nav, lastIdx);
+
+    const isAvg = graphFeedKey.startsWith('temp') || graphFeedKey === 'water';
+    const factor = nav.isDayTab && !isAvg ? (nav.resMins/60)/1000 : 1;
+    const t1 = bars1.reduce((a,b,i)=>i<lastIdx?a+b:a, 0)*factor;
+    const t2 = isCombined ? bars2.reduce((a,b,i)=>i<lastIdx?a+b:a, 0)*factor : 0;
+
+    if (isCombined) {
+      stat.innerHTML = _formatStatLine('☀', 'Solar', t1, color1, Math.max(...bars1), _calcAvgForRange(bars1,5,17,nav,lastIdx), _calcAvgForRange(bars1,17,8,nav,lastIdx)) +
+                       _formatStatLine('⚡', 'Grid', t2, color2, Math.max(...bars2), _calcAvgForRange(bars2,0,24,nav,lastIdx), _calcAvgForRange(bars2,17,8,nav,lastIdx));
+    } else if (isAvg) {
+      const v = bars1.length? (bars1.reduce((a,b)=>a+b,0)/bars1.length) : 0;
+      stat.innerHTML = `<div style="color:${color1};font-weight:700;font-size:15px">${fA.label}: ${v.toFixed(1)} ${graphDataCache.unit}</div>`;
+    } else {
+      const isSol = graphFeedKey==='solar';
+      stat.innerHTML = _formatStatLine(isSol?'☀':'🔌', fA.label, t1, color1, Math.max(...bars1), _calcAvgForRange(bars1,isSol?5:0,isSol?17:24,nav,lastIdx), _calcAvgForRange(bars1,17,8,nav,lastIdx));
+    }
+  } catch(e) { stat.textContent = 'Error loading data'; }
+  finally { graphIsLoading = false; _showGraphLoading(false); }
 }

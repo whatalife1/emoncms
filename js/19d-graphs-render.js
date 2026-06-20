@@ -94,7 +94,7 @@ function _initGraphOverlay() {
   // ── Touch pan & Pinch Zoom (Mobile) ─────────────────────────────────────
   graphOverlay.addEventListener('touchstart', (e) => {
     if (e.touches.length === 2) {
-      e.preventDefault(); // Prevent standard browser zoom
+      e.preventDefault();
       const dx = e.touches[0].clientX - e.touches[1].clientX;
       const dy = e.touches[0].clientY - e.touches[1].clientY;
       _pinchStartDist = Math.sqrt(dx * dx + dy * dy);
@@ -127,7 +127,7 @@ function _initGraphOverlay() {
         const ratio = dist / _pinchStartDist;
         const oldZ = graphZoomLevel;
         graphZoomLevel = Math.max(graphZoomMin, Math.min(graphZoomMax, _pinchStartZoom * ratio));
-        graphPanOffset *= (graphZoomLevel / oldZ); // Keep pan proportional
+        graphPanOffset *= (graphZoomLevel / oldZ);
         
         const zl = document.getElementById('zoom-level');
         if (zl) zl.textContent = Math.round(graphZoomLevel * 100) + '%';
@@ -143,7 +143,6 @@ function _initGraphOverlay() {
     const dx = touch.clientX - _touchStartX;
     const dy = touch.clientY - _touchStartY;
     
-    // Prevent browser back/forward swipe gestures if panning horizontally
     if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 5) {
       if (e.cancelable) e.preventDefault();
     }
@@ -187,10 +186,8 @@ function _initGraphOverlay() {
   });
 
   graphOverlay.addEventListener('touchend', (e) => {
-    // If lifting a finger after a pinch zoom, ignore tooltip click
     if (_pinchStartDist > 0 || e.touches.length > 0) return;
     
-    // Stop emulated click on mobile to prevent instant hiding
     if (e.cancelable) e.preventDefault();
 
     if (_isTouchDrag) {
@@ -265,7 +262,6 @@ function _handleGraphHover(e, pin = false) {
     }
   }
 
-  // Very generous hit radius makes it easier to tap on mobile
   const maxHitDist = Math.max((grpW * zoom) / 2, 35);
   if (minDist > maxHitDist) {
     if (!pin) {
@@ -356,7 +352,7 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
 
   const getX = (i) => mapX(PL + gap + i*(grpW+gap) + grpW/2);
 
-  // ─── BAR / HOURLY CHART (Combined Side-by-Side Drawing) ─────────────────
+  // ─── BAR / HOURLY CHART ─────────────────────────────────────────────────
   if (!isLine) {
     if (isCombined) {
       for (let i = 0; i < n; i++) {
@@ -364,12 +360,10 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
         const bw = grpW * zoom;
         if (x + bw < PL || x > W - PR) continue;
 
-        // Split each slot's width cleanly between Solar and Grid
         const subW = bw * 0.47; 
-        const x1 = x;               // Left position: Solar
-        const x2 = x + bw * 0.53;   // Right position: Grid
+        const x1 = x;
+        const x2 = x + bw * 0.53;
 
-        // 1. Draw Solar bar (Left)
         if (bars1[i] > 0) {
           const barHeight = (bars1[i] / maxV) * cH;
           ctx.fillStyle = color1;
@@ -383,7 +377,6 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
           }
         }
 
-        // 2. Draw Grid bar (Right)
         if (bars2[i] > 0) {
           const barHeight = (bars2[i] / maxV) * cH;
           ctx.fillStyle = color2;
@@ -398,7 +391,6 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
         }
       }
     } else {
-      // Single dataset (non-combined)
       for (let i = 0; i < n; i++) {
         const x = mapX(PL + gap + i * (grpW + gap));
         const bw = grpW * zoom;
@@ -441,7 +433,7 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
     }
   }
 
-  // ─── MIDNIGHT LINE (Day view only) ─────────────────────────────────────────
+  // ─── MIDNIGHT LINE ─────────────────────────────────────────────────────────
   if (graphTab === 'day' && nav.centreDateMs) {
     const centreX = mapX(PL + gap + ((nav.centreDateMs - nav.startMs) / (nav.interval * 1000)) * (grpW + gap));
     if (centreX >= PL && centreX <= W - PR) {
@@ -469,7 +461,7 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
     }
   }
 
-  // ─── LEGEND FOR COMBINED CHART (only if both datasets have data) ──────────
+  // ─── LEGEND FOR COMBINED CHART ──────────────────────────────────────────
   if (isCombined && isLine) {
     const hasSolar = bars1.some(v => v > 0);
     const hasGrid = bars2.some(v => v > 0);
@@ -479,7 +471,6 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
       const legendY = PT + 8;
       ctx.globalAlpha = 0.85;
       
-      // Background
       ctx.fillStyle = 'rgba(0,0,0,0.6)';
       ctx.beginPath();
       ctx.roundRect(legendX - 8, legendY - 4, 110, hasSolar && hasGrid ? 44 : 24, 6);
@@ -543,3 +534,41 @@ openGraphsPanel = function() {
   _origOpenGraphsPanel();
   setTimeout(() => { _initGraphOverlay(); }, 150);
 };
+
+// ─── REPLACE the stat rendering section in _loadAndDraw ────────────────────
+// This function is called from js/19c-graphs-data.js
+// The _loadAndDraw function in that file needs the stat rendering replaced.
+
+// Helper function for night avg calculation - add this
+function _calcNightAvgWatts(bars, nav) {
+  if (!nav.isDayTab) return null;
+  const totalHours = 24;
+  const barsPerHour = nav.nBars / totalHours;
+  
+  // Night: 17:00-24:00 and 00:00-08:00
+  const nightStart1 = Math.floor(17 * barsPerHour);
+  const nightEnd1 = Math.floor(24 * barsPerHour);
+  const nightStart2 = 0;
+  const nightEnd2 = Math.floor(8 * barsPerHour);
+  
+  let sum = 0;
+  let count = 0;
+  
+  // First part: 17:00-24:00
+  for (let i = nightStart1; i < nightEnd1 && i < bars.length; i++) {
+    if (bars[i] > 0) {
+      sum += bars[i];
+      count++;
+    }
+  }
+  
+  // Second part: 00:00-08:00
+  for (let i = nightStart2; i < nightEnd2 && i < bars.length; i++) {
+    if (bars[i] > 0) {
+      sum += bars[i];
+      count++;
+    }
+  }
+  
+  return count > 0 ? sum / count : null;
+}

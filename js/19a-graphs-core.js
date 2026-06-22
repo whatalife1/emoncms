@@ -1,10 +1,11 @@
-// Change this to 5, 10, 15, 30, or 60 to easily adjust the daily graph resolution!
-const GRAPH_DAY_RESOLUTION_MINUTES = 20; 
+// Set to 30 for 30-second resolution, 60 for 1-minute, 300 for 5-minutes, etc.
+const GRAPH_DAY_RESOLUTION_SECONDS = 180; 
 
 // ─── Graphs Panel - Core Configuration ──────────────────────────────────────
 const GRAPH_FEEDS = [
   { key: 'solar',   name: 'Solar',         id: '499380', color: '#facc15', label: '☀ Solar'        },
   { key: 'grid',    name: 'Grid (Breaker)', id: '499374', color: '#ef4444', label: '⚡ Grid'         },
+  { key: 'acvolts', name: 'AC Input Volts', id: '499383', color: '#fb7185', label: '⚡ AC Volts'     },
   { key: 'temp',    name: 'Temperature',   id: '499428', color: '#10b981', label: '🌡 Temp 1'       },
   { key: 'temp2',   name: 'Temperature 2', id: '512473', color: '#34d399', label: '🌡 Temp 2'       },
   { key: 'k15',     name: 'Kenwood 1.5T',  id: '499362', color: '#38bdf8', label: '❄ Kenwood 1.5T' },
@@ -26,7 +27,7 @@ let graphIsRendering = false;
 let graphChartType = 'line'; 
 let graphZoomLevel = 1;
 let graphZoomMin = 1;        
-let graphZoomMax = 60;          // 6000%
+let graphZoomMax = 60;          
 let graphPanOffset = 0;
 let graphPanStart = null;
 let graphIsPanning = false;

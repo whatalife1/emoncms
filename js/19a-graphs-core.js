@@ -1,5 +1,5 @@
 // Set to 30 for 30-second resolution, 60 for 1-minute, 300 for 5-minutes, etc.
-const GRAPH_DAY_RESOLUTION_SECONDS = 180; 
+const GRAPH_DAY_RESOLUTION_SECONDS = 120; 
 
 // ─── Graphs Panel - Core Configuration ──────────────────────────────────────
 const GRAPH_FEEDS = [

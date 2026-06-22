@@ -203,6 +203,10 @@ _btn('btn-graphs', () => {
       if (typeof renderGraphsPanel === 'function') {
         setTimeout(renderGraphsPanel, 50);
       }
+      // Ensure auto-refresh starts for day view
+      if (graphTab === 'day' && typeof startGraphsAutoRefresh === 'function') {
+        setTimeout(startGraphsAutoRefresh, 100);
+      }
     }
   }
   // Request fullscreen on mobile to hide browser URL bar

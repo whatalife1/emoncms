@@ -15,7 +15,7 @@ async function _gFetch(feedId, startMs, endMs, interval) {
 }
 
 function _pointsToBars(pts, nav, feedKey) {
-  const isAvgFeed = feedKey.startsWith('temp') || feedKey === 'water' || feedKey === 'AC Volts';
+  const isAvgFeed = feedKey.startsWith('temp') || feedKey === 'water' || feedKey === 'acvolts' || feedKey === 'AC Volts';
   const bars = Array(nav.nBars || 1).fill(0);
   const counts = Array(nav.nBars || 1).fill(0);
   
@@ -27,7 +27,8 @@ function _pointsToBars(pts, nav, feedKey) {
     let factor = 1;
 
     if (nav.isDayTab) {
-      idx = Math.floor((ts - nav.startMs) / (nav.resMins * 60000));
+      // Changed to use seconds
+      idx = Math.floor((ts - nav.startMs) / (nav.resSeconds * 1000));
       factor = 1; 
     } else {
       const d = new Date(ts);
@@ -46,7 +47,6 @@ function _pointsToBars(pts, nav, feedKey) {
         const intervalEndMs = ts + (secondsInInterval * 1000);
         let effectiveSeconds = secondsInInterval;
         
-        // If today, only count until now
         if (ts < nowMs && intervalEndMs > nowMs) {
           effectiveSeconds = (nowMs - ts) / 1000;
         }
@@ -62,7 +62,6 @@ function _pointsToBars(pts, nav, feedKey) {
   
   const result = isAvgFeed ? bars.map((v, i) => counts[i] > 0 ? v / counts[i] : 0) : bars;
 
-  // CRITICAL FIX: Overwrite the "Today" bar in Month view with the actual Live Today kWh feed
   if (!nav.isDayTab && !isAvgFeed) {
     const isTodayInView = (nav.isYearly && now.getFullYear() === nav.year) || 
                           (!nav.isYearly && nav.month === now.getMonth() && nav.year === now.getFullYear());
@@ -70,7 +69,6 @@ function _pointsToBars(pts, nav, feedKey) {
     if (isTodayInView) {
       const todayIdx = nav.isYearly ? now.getMonth() : now.getDate() - 1;
       
-      // Map Feed Names to their "Today" kWh counterparts
       const todayMap = {
         'solar': 'Solar Today',
         'grid':  'Breaker Today',
@@ -86,13 +84,7 @@ function _pointsToBars(pts, nav, feedKey) {
       if (targetTodayName && window.lastResultsMap) {
         const liveVal = window.lastResultsMap.get(targetTodayName)?.value;
         if (liveVal !== undefined && liveVal !== null) {
-          // If yearly, add the live today value to the existing month's total
-          if (nav.isYearly) {
-             // We don't overwrite the whole month, we just ensure the sum is correct
-             // but for Month view (Daily bars) we overwrite the specific day
-          } else {
-             result[todayIdx] = liveVal;
-          }
+          if (!nav.isYearly) result[todayIdx] = liveVal;
         }
       }
     }
@@ -179,21 +171,23 @@ async function _loadAndDraw() {
     
     let lastIdx = bars1.length;
     if (graphTab === 'day' && graphDateNav === 0) {
-      lastIdx = Math.floor((Date.now() - nav.startMs) / (nav.resMins * 60000)) + 1;
+      // Updated to use seconds
+      lastIdx = Math.floor((Date.now() - nav.startMs) / (nav.resSeconds * 1000)) + 1;
     }
 
     let unit = (nav.isDayTab ? 'W' : 'kWh');
     if (graphFeedKey.startsWith('temp')) unit = '°C';
     else if (graphFeedKey === 'water') unit = '%';
-    else if (graphFeedKey === 'AC Volts') unit = 'V';
+    else if (graphFeedKey === 'acvolts' || graphFeedKey === 'AC Volts') unit = 'V';
 
     const color1 = isCombined ? '#facc15' : (fA?.color || '#facc15'), color2 = '#ef4444';
     graphDataCache = { bars1, bars2, labels: nav.labels, color1, color2, unit, isCombined, nav, lastIdx };
     
     _drawChart(canvas, bars1, bars2, nav.labels, color1, color2, unit, isCombined, nav, lastIdx);
 
-    const isAvgFeed = graphFeedKey.startsWith('temp') || graphFeedKey === 'water' || graphFeedKey === 'AC Volts';
-    const dayFactor = (nav.resMins / 60) / 1000;
+    const isAvgFeed = graphFeedKey.startsWith('temp') || graphFeedKey === 'water' || graphFeedKey === 'acvolts' || graphFeedKey === 'AC Volts';
+    // dayFactor updated to use seconds
+    const dayFactor = (nav.resSeconds / 3600) / 1000;
 
     const t1 = nav.isDayTab 
       ? (isAvgFeed ? (bars1.slice(0, lastIdx).reduce((a,b)=>a+b,0)/lastIdx) : (bars1.reduce((a,b,i)=>i<lastIdx?a+b:a, 0) * dayFactor))

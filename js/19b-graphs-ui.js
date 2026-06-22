@@ -146,6 +146,15 @@ function _getLocalMidnight(date) {
 
 function _gNavInfo() {
   const now = new Date();
+  
+  const to12hr = (h, m, s) => {
+    const ampm = h >= 12 ? 'pm' : 'am';
+    const hh = h % 12 || 12;
+    const mm = (m === 0 && s === 0) ? '' : `:${String(m).padStart(2, '0')}`;
+    const ss = s === 0 ? '' : `:${String(s).padStart(2, '0')}`;
+    return `${hh}${mm}${ss}${ampm}`;
+  };
+
   if (graphTab === 'day') {
     const d = new Date(now);
     d.setDate(d.getDate() + graphDateNav);
@@ -159,28 +168,19 @@ function _gNavInfo() {
     const endMs = centreDayStart + 24 * 3600 * 1000 - 1;
 
     const isHourlyView = (graphChartType === 'hourly');
-    const resMins = isHourlyView ? 60 : GRAPH_DAY_RESOLUTION_MINUTES;
-    const nBars = Math.ceil((24 * 60) / resMins);
+    const resSeconds = isHourlyView ? 3600 : GRAPH_DAY_RESOLUTION_SECONDS;
+    const nBars = Math.ceil((24 * 3600) / resSeconds);
+    
     const labels = [];
     for (let i = 0; i < nBars; i++) {
-      const ms = startMs + i * resMins * 60000;
+      const ms = startMs + i * resSeconds * 1000;
       const date = new Date(ms);
-      const h = date.getHours();
-      const m = date.getMinutes();
-      labels.push(isHourlyView ? `${String(h).padStart(2, '0')}:00` : `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
+      labels.push(to12hr(date.getHours(), date.getMinutes(), date.getSeconds()));
     }
 
     return {
-      label: lbl,
-      sub,
-      interval: resMins * 60,
-      startMs,
-      endMs,
-      isDayTab: true,
-      nBars,
-      labels,
-      centreDateMs: centreDayStart,
-      resMins
+      label: lbl, sub, interval: resSeconds, startMs, endMs,
+      isDayTab: true, nBars, labels, centreDateMs: centreDayStart, resSeconds
     };
   }
   

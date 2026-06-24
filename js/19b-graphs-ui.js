@@ -8,33 +8,26 @@ let graphsLastUpdate = 0;
 // ─── Auto-refresh management ────────────────────────────────────────────────
 
 function startGraphsAutoRefresh() {
-    // Clear any existing interval
     if (graphsAutoRefreshInterval) {
         clearInterval(graphsAutoRefreshInterval);
         graphsAutoRefreshInterval = null;
     }
-    
-    // Only auto-refresh when on day tab
     if (graphTab === 'day') {
         graphsAutoRefreshInterval = setInterval(() => {
-            // Check if panel is open
             const panel = document.getElementById('graphs-panel');
             if (!panel || !panel.classList.contains('open')) {
-                // Stop refreshing if panel is closed
                 if (graphsAutoRefreshInterval) {
                     clearInterval(graphsAutoRefreshInterval);
                     graphsAutoRefreshInterval = null;
                 }
                 return;
             }
-            
-            // Check if user is currently interacting (avoid refreshes during interaction)
             if (!graphIsLoading && !graphIsPanning) {
                 console.log('🔄 Auto-refreshing graph (day view)');
                 _loadAndDraw();
                 graphsLastUpdate = Date.now();
             }
-        }, 60000); // 60 seconds
+        }, 60000);
     }
 }
 
@@ -48,12 +41,8 @@ function stopGraphsAutoRefresh() {
 function _addRefreshIndicator() {
     const stat = document.getElementById('graph-stat');
     if (!stat) return;
-    
-    // Remove existing indicator
     const existing = document.getElementById('graph-refresh-indicator');
     if (existing) existing.remove();
-    
-    // Only show for day tab
     if (graphTab === 'day') {
         const indicator = document.createElement('span');
         indicator.id = 'graph-refresh-indicator';
@@ -73,7 +62,6 @@ function _addRefreshIndicator() {
 function _addUpdateTimestamp() {
     const stat = document.getElementById('graph-stat');
     if (!stat) return;
-    
     let timestamp = document.getElementById('graph-timestamp');
     if (!timestamp) {
         timestamp = document.createElement('div');
@@ -87,7 +75,6 @@ function _addUpdateTimestamp() {
         `;
         stat.appendChild(timestamp);
     }
-    
     const now = new Date();
     timestamp.textContent = `Updated: ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
 }
@@ -183,18 +170,16 @@ function _renderGTimeTabs() {
     wrap.innerHTML = ['day','month','year','total'].map(t =>
         `<button class="gtime-tab${graphTab===t?' active':''}" data-gtab="${t}">${t[0].toUpperCase()+t.slice(1)}</button>`
     ).join('');
-    
+
     wrap.querySelectorAll('.gtime-tab').forEach(b => {
         b.addEventListener('click', () => {
             graphTab = b.dataset.gtab;
             if (graphTab === 'day') {
                 graphChartType = 'line';
                 graphNeedsDayZoom = true;
-                // Start auto-refresh when switching to day
                 startGraphsAutoRefresh();
             } else {
                 graphChartType = 'bar';
-                // Stop auto-refresh for other tabs
                 stopGraphsAutoRefresh();
             }
             graphDateNav = 0; graphMonthNav = 0; graphYearNav = 0;
@@ -202,12 +187,68 @@ function _renderGTimeTabs() {
             graphPanOffset = 0;
             tooltipPinned = false;
             hideTooltip();
-            _renderGTimeTabs(); 
-            _renderGNavBar(); 
+            _renderGTimeTabs();
+            _renderGNavBar();
             _renderChartTypeToggle();
             _loadAndDraw();
         });
     });
+}
+
+// ─── Grid-All per-feed toggle pills ─────────────────────────────────────────
+function _renderGridAllToggles() {
+    // Remove any existing toggle row
+    const existing = document.getElementById('gridall-toggles');
+    if (existing) existing.remove();
+
+    // Only show when Grid-All feed is selected
+    if (graphFeedKey !== 'gridall') return;
+
+    const wrap = document.createElement('div');
+    wrap.id = 'gridall-toggles';
+    wrap.style.cssText = 'display:flex;gap:5px;flex-wrap:wrap;padding:4px 0 6px;';
+
+    GRID_ALL_FEEDS.forEach(f => {
+        const off = window.gridAllDisabled.has(f.key);
+        const btn = document.createElement('button');
+        btn.style.cssText = `
+            padding:4px 10px;
+            border-radius:20px;
+            font-size:11px;
+            font-weight:700;
+            cursor:pointer;
+            border:1.5px solid ${f.color};
+            width:auto;
+            background:${off ? 'transparent' : f.color + '33'};
+            color:${off ? 'var(--text-muted)' : f.color};
+            opacity:${off ? '0.4' : '1'};
+            transition:opacity 0.15s, background 0.15s;
+        `;
+        // Coloured dot + label so the line colour is immediately obvious
+        btn.innerHTML = `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${f.color};margin-right:5px;vertical-align:middle;opacity:${off ? 0.3 : 1}"></span>${f.label}`;
+
+        btn.addEventListener('click', () => {
+            if (window.gridAllDisabled.has(f.key)) {
+                // Re-enable
+                window.gridAllDisabled.delete(f.key);
+            } else {
+                // Disable — but keep at least one feed visible
+                const visibleCount = GRID_ALL_FEEDS.length - window.gridAllDisabled.size;
+                if (visibleCount > 1) {
+                    window.gridAllDisabled.add(f.key);
+                }
+            }
+            _renderGridAllToggles();
+            _loadAndDraw();
+        });
+        wrap.appendChild(btn);
+    });
+
+    // Insert above the feed-tabs row
+    const feedTabsWrap = document.getElementById('graph-feed-tabs');
+    if (feedTabsWrap) {
+        feedTabsWrap.parentNode.insertBefore(wrap, feedTabsWrap);
+    }
 }
 
 function _renderGFeedTabs() {
@@ -218,7 +259,7 @@ function _renderGFeedTabs() {
         `<button class="gfeed-tab${graphFeedKey===f.key?' active':''}" data-gkey="${f.key}"
             style="${graphFeedKey===f.key?`border-color:${f.color};color:${f.color}`:''}">${f.label}</button>`
     ).join('');
-    
+
     wrap.querySelectorAll('.gfeed-tab').forEach(b => {
         b.addEventListener('click', () => {
             graphFeedKey = b.dataset.gkey;
@@ -227,10 +268,13 @@ function _renderGFeedTabs() {
             graphNeedsDayZoom = true;
             tooltipPinned = false;
             hideTooltip();
-            _renderGFeedTabs(); 
+            _renderGFeedTabs();
             _loadAndDraw();
         });
     });
+
+    // Show / hide Grid-All toggle pills
+    _renderGridAllToggles();
 }
 
 function _getLocalMidnight(date) {
@@ -239,7 +283,7 @@ function _getLocalMidnight(date) {
 
 function _gNavInfo() {
     const now = new Date();
-    
+
     const to12hr = (h, m, s) => {
         const ampm = h >= 12 ? 'pm' : 'am';
         const hh = h % 12 || 12;
@@ -263,7 +307,7 @@ function _gNavInfo() {
         const isHourlyView = (graphChartType === 'hourly');
         const resSeconds = isHourlyView ? 3600 : GRAPH_DAY_RESOLUTION_SECONDS;
         const nBars = Math.ceil((24 * 3600) / resSeconds);
-        
+
         const labels = [];
         for (let i = 0; i < nBars; i++) {
             const ms = startMs + i * resSeconds * 1000;
@@ -276,7 +320,7 @@ function _gNavInfo() {
             isDayTab: true, nBars, labels, centreDateMs: centreDayStart, resSeconds
         };
     }
-    
+
     if (graphTab === 'month') {
         const m = new Date(now.getFullYear(), now.getMonth()+graphMonthNav, 1);
         const days = new Date(m.getFullYear(),m.getMonth()+1,0).getDate();
@@ -310,10 +354,10 @@ function _renderGNavBar() {
             ${nav.sub?`<div class="graph-nav-sub">${nav.sub}</div>`:''}
         </div>
         <button class="graph-nav-btn" id="gnav-next" style="opacity:${canFwd?1:0.3}">›</button>`;
-        
+
     const prevBtn = document.getElementById('gnav-prev');
     const nextBtn = document.getElementById('gnav-next');
-    
+
     if (prevBtn) prevBtn.addEventListener('click', () => {
         if (graphTab==='day') graphDateNav--; else if (graphTab==='month') graphMonthNav--; else graphYearNav--;
         graphZoomLevel = 1;
@@ -321,10 +365,10 @@ function _renderGNavBar() {
         graphNeedsDayZoom = true;
         tooltipPinned = false;
         hideTooltip();
-        _renderGNavBar(); 
+        _renderGNavBar();
         _loadAndDraw();
     });
-    
+
     if (nextBtn) nextBtn.addEventListener('click', () => {
         if (!canFwd) return;
         if (graphTab==='day') graphDateNav++; else if (graphTab==='month') graphMonthNav++; else graphYearNav++;
@@ -333,7 +377,7 @@ function _renderGNavBar() {
         graphNeedsDayZoom = true;
         tooltipPinned = false;
         hideTooltip();
-        _renderGNavBar(); 
+        _renderGNavBar();
         _loadAndDraw();
     });
 }
@@ -349,38 +393,38 @@ function hideTooltip() {
 
 function showTooltip(e, label, value1, value2, color1, color2, isCombined, pinned = false) {
     let tooltip = document.getElementById('graph-tooltip');
-    
+
     if (!tooltip) {
         tooltip = document.createElement('div');
         tooltip.id = 'graph-tooltip';
         document.body.appendChild(tooltip);
     } else if (tooltip.parentElement !== document.body) {
-        document.body.appendChild(tooltip); 
+        document.body.appendChild(tooltip);
     }
-    
+
     let closeBtn = pinned ? `<span class="close-btn" onclick="hideTooltip();">✕</span>` : '';
     let html = `<div style="font-weight:700;font-size:11px;color:var(--text-muted);margin-bottom:4px">${label} ${closeBtn}</div>`;
     html += `<div style="color:${color1}">● ${isCombined ? 'Solar' : graphFeedKey}: ${value1}</div>`;
     if (isCombined) {
         html += `<div style="color:${color2}">● Grid: ${value2}</div>`;
     }
-    
+
     tooltip.innerHTML = html;
     tooltip.style.display = 'block';
     tooltip.classList.toggle('pinned', pinned);
-    
+
     let left = e.clientX + 15;
     let top = e.clientY - 15;
-    
+
     const rect = tooltip.getBoundingClientRect();
     const vw = window.innerWidth;
     const vh = window.innerHeight;
-    
+
     if (left + rect.width > vw - 10) left = e.clientX - rect.width - 15;
     if (top + rect.height > vh - 10) top = e.clientY - rect.height - 15;
     if (top < 10) top = 10;
     if (left < 10) left = 10;
-    
+
     tooltip.style.left = left + 'px';
     tooltip.style.top = top + 'px';
 }
@@ -424,7 +468,6 @@ function openGraphsPanel() {
     p.classList.add('open');
     setTimeout(() => {
         renderGraphsPanel();
-        // Start auto-refresh for day view
         if (graphTab === 'day') {
             startGraphsAutoRefresh();
         }
@@ -443,8 +486,6 @@ function closeGraphsPanel() {
     hideTooltip();
     graphZoomLevel = 1;
     graphPanOffset = 0;
-    
-    // Stop auto-refresh when panel is closed
     stopGraphsAutoRefresh();
 }
 
@@ -452,7 +493,7 @@ function renderGraphsPanel() {
     if (graphIsRendering) return;
     graphIsRendering = true;
     try {
-        _renderGFeedTabs();
+        _renderGFeedTabs();      // also calls _renderGridAllToggles()
         _renderGTimeTabs();
         _renderGNavBar();
         _renderChartTypeToggle();
@@ -460,7 +501,6 @@ function renderGraphsPanel() {
 
         if (graphTab === 'day') {
             graphNeedsDayZoom = true;
-            // Start auto-refresh for day view
             startGraphsAutoRefresh();
         }
 

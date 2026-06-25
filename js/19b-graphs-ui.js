@@ -403,7 +403,7 @@ function hideTooltip() {
     tooltipPinned = false;
 }
 
-function showTooltip(e, label, value1, value2, color1, color2, isCombined, pinned = false) {
+function showTooltip(e, label, value1, value2, color1, color2, isCombined, pinned = false, label1 = null, label2 = null) {
     let tooltip = document.getElementById('graph-tooltip');
 
     if (!tooltip) {
@@ -414,11 +414,14 @@ function showTooltip(e, label, value1, value2, color1, color2, isCombined, pinne
         document.body.appendChild(tooltip);
     }
 
+    const L1 = label1 || (isCombined ? 'Solar' : graphFeedKey);
+    const L2 = label2 || 'Grid';
+
     let closeBtn = pinned ? `<span class="close-btn" onclick="hideTooltip();">✕</span>` : '';
     let html = `<div style="font-weight:700;font-size:11px;color:var(--text-muted);margin-bottom:4px">${label} ${closeBtn}</div>`;
-    html += `<div style="color:${color1}">● ${isCombined ? 'Solar' : graphFeedKey}: ${value1}</div>`;
+    html += `<div style="color:${color1}">● ${L1}: ${value1}</div>`;
     if (isCombined) {
-        html += `<div style="color:${color2}">● Grid: ${value2}</div>`;
+        html += `<div style="color:${color2}">● ${L2}: ${value2}</div>`;
     }
 
     tooltip.innerHTML = html;

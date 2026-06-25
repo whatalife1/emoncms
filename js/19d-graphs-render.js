@@ -163,7 +163,8 @@ function _handleGraphHover(e, pin) {
         let html = `<div style="font-weight:700;font-size:11px;color:var(--text-muted);margin-bottom:4px">${labels[idx] || ''} ${closeBtn}</div>`;
         for (const line of multiData) {
             const val = (line.data[idx] ?? 0);
-            const valStr = graphTab === 'day' ? Math.round(val) + ' ' + unit : val.toFixed(2) + ' ' + unit;
+            const isTemp = unit === '°C';
+            const valStr = graphTab === 'day' ? (isTemp ? val.toFixed(1) : Math.round(val)) + ' ' + unit : val.toFixed(2) + ' ' + unit;
             html += `<div style="color:${line.color};margin:1px 0">
                 <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${line.color};margin-right:5px;vertical-align:middle"></span>
                 <b>${line.label}:</b> ${valStr}
@@ -188,9 +189,19 @@ function _handleGraphHover(e, pin) {
     }
 
     // ---- Single / combined line tooltip ----
-    const val1 = Math.round(bars1[idx]) + ' ' + unit;
-    const val2 = isCombined ? Math.round(bars2[idx]) + ' ' + unit : '';
-    showTooltip(e, labels[idx], val1, val2, color1, color2, isCombined, pin);
+    const isTempCombined = graphFeedKey === 'temp' || graphFeedKey === 'temp2';
+    const isTemp = unit === '°C' || isTempCombined;
+    const val1 = (isTemp ? bars1[idx].toFixed(1) : Math.round(bars1[idx])) + ' ' + (isTempCombined ? '°C' : unit);
+    let val2 = '';
+    let c2 = color2;
+    if (isCombined) val2 = Math.round(bars2[idx]) + ' ' + unit;
+    if (isTempCombined) { 
+        val2 = Math.round(bars2[idx]) + ' %';
+        c2 = '#6366f1';
+    }
+    const l1 = isTempCombined ? 'Temp' : (isCombined ? 'Solar' : null);
+    const l2 = isTempCombined ? 'Hum' : (isCombined ? 'Grid' : null);
+    showTooltip(e, labels[idx], val1, val2, color1, c2, (isCombined || isTempCombined), pin, l1, l2);
 }
 
 // ---- _drawChart with Multi-Line support + end-of-line name labels ----
@@ -233,24 +244,33 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
         } else {
             maxV = 1; minV = 0;
         }
-    } else if (isTemp) {
+    } else if (isTemp || graphFeedKey === 'temp' || graphFeedKey === 'temp2') {
         const allVals = [...bars1, ...bars2].filter(v => v !== 0 && v !== null && v !== undefined);
         if (allVals.length > 0) {
             const minVal = Math.min(...allVals);
             const maxVal = Math.max(...allVals);
             const range  = maxVal - minVal;
+            // Use 10% padding, or at least 5 units
             const padding = Math.max(TEMP_RANGE_PADDING, range * 0.1);
             minV = Math.floor(minVal - padding);
             maxV = Math.ceil(maxVal + padding);
             if (minV < 0) minV = 0;
+            
+            // Limit humidity graphs to 100%
+            if (maxV > 100 && (graphFeedKey === 'temp' || graphFeedKey === 'temp2' || graphFeedKey === 'water')) {
+                maxV = 100;
+            }
+
+            // Ensure minimum span of 10 (5 up, 5 down) if data is flat
             if (maxV - minV < 10) {
                 const mid = (maxV + minV) / 2;
                 minV = Math.floor(mid - 5);
                 maxV = Math.ceil(mid + 5);
                 if (minV < 0) minV = 0;
+                if (maxV > 100) maxV = 100;
             }
         } else {
-            minV = 0; maxV = 50;
+            minV = 0; maxV = 100;
         }
     } else {
         const allVals = [...bars1, ...bars2].filter(v => v !== 0 && v !== null && v !== undefined);
@@ -387,7 +407,11 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
             }
         };
         
-        if (isCombined) drawData(bars2, color2, true);
+        const isTempCombined = graphFeedKey === 'temp' || graphFeedKey === 'temp2';
+        if (isCombined || isTempCombined) {
+            const c2 = isTempCombined ? '#6366f1' : color2;
+            drawData(bars2, c2, true);
+        }
         drawData(bars1, color1, false);
     }
 

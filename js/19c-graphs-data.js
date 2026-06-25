@@ -52,52 +52,53 @@ if (typeof _calcAvgForRange !== 'function') {
 }
 
 // ---- Format stat line ----
-function _formatStatLine(icon, label, mainVal, accentColor, peakVal, avgVal, nightAvgVal, unit, isKwh, currentTab) {
+function _formatStatLine(icon, label, mainVal, accentColor, peakVal, avgVal, nightAvgVal, unit, isKwh, currentTab, isCompact = false) {
+    // FORCE: Month view always uses kWh
     if (currentTab === 'month') {
         unit = 'kWh';
         isKwh = true;
     }
-
-    const isTemp = label && label.toLowerCase().includes('temp');
-    if (isTemp) {
-        avgVal = null;
-        nightAvgVal = null;
-    }
-
+    
     const lblLower = (label || '').toLowerCase();
-    const isSolar = lblLower.includes('solar');
+    const isSolar = lblLower.includes('solar') && !lblLower.includes('grid');
+    const isTemp = lblLower.includes('temp') || lblLower.includes('°c');
+    const isWater = lblLower.includes('water') || lblLower.includes('tank');
     const isDay = currentTab === 'day';
-    const hideNight = isSolar || isTemp || !isDay;
+    // Only hide night for Solar, Temp, and Water
+    const hideNight = isSolar || isTemp || isWater || !isDay;
     const peakLabel = isDay ? "Peak" : "Max Day";
     const avgLabel  = isDay ? "Avg"  : (currentTab === 'month' ? "Daily Avg" : "Monthly Avg");
 
+    // Only show peak color highlighting for non-temp
     let peakColor = accentColor;
     if (peakVal > 1500 && isDay && !isTemp) peakColor = '#ef4444';
     else if (peakVal > 1000 && isDay && !isTemp) peakColor = '#f97316';
 
-    const boldStyle = `font-size: 15.5px; font-weight: 900;`;
+    const fsMain = isCompact ? '13px' : '17px';
+    const fsLabel = isCompact ? '12px' : '14px';
+    const fsSub = isCompact ? '11px' : '13px';
+    const boldStyle = `font-size: ${isCompact ? '11px' : '15.5px'}; font-weight: 900;`;
 
     let avgHtml = '';
-    if (!isTemp && avgVal !== null && avgVal !== 0) {
+    if (avgVal !== null && avgVal !== 0 && avgVal !== undefined && !isNaN(avgVal) && avgVal > 0.01) {
         avgHtml = ` · <span style="color:${accentColor}; ${boldStyle}">${avgLabel}: ${Math.round(avgVal)} ${unit}</span>`;
     }
 
-    const nightHtml = (!hideNight && nightAvgVal !== null && nightAvgVal !== 0)
-        ? ` · <span style="color:#bf7aff; ${boldStyle}">Night: ${Math.round(nightAvgVal)} ${unit}</span>`
-        : '';
-
-    let mainDisplay;
-    if (isTemp) {
-        mainDisplay = `${mainVal.toFixed(1)}°C`;
-    } else {
-        mainDisplay = isKwh ? `${mainVal.toFixed(1)} kWh` : `${mainVal.toFixed(1)} ${unit}`;
+    let nightHtml = '';
+    if (!hideNight && nightAvgVal !== null && nightAvgVal !== 0 && nightAvgVal !== undefined && !isNaN(nightAvgVal) && nightAvgVal > 0.01) {
+        nightHtml = ` · <span style="color:#bf7aff; ${boldStyle}">Night: ${Math.round(nightAvgVal)} ${unit}</span>`;
     }
 
-    return `<div style="display:flex; align-items:center; gap:6px; font-size:14px; font-weight:700; margin-bottom:5px; flex-wrap:wrap;">
-        <span style="color:${accentColor}">${icon} ${label}:</span>
-        <span style="color:var(--text-main); font-size:17px; font-weight:900;">${mainDisplay}</span>
-        <span style="color:var(--text-muted); font-size:13px; font-weight:600; margin-left:2px;">
-            (<span style="font-size:13px">${peakLabel}:</span> <span style="color:${peakColor}; ${boldStyle}">${Math.round(peakVal).toLocaleString()}</span> ${isTemp ? '°C' : unit}${avgHtml}${nightHtml})
+    const mainDisplay = isKwh ? `${mainVal.toFixed(1)} kWh` : `${mainVal.toFixed(1)} ${unit}`;
+
+    // For Grid-All, don't show the icon as text (already have dot)
+    const iconDisplay = icon && !icon.includes('span') ? `${icon} ` : '';
+
+    return `<div style="display:flex; align-items:center; gap:4px; font-size:${fsLabel}; font-weight:700; margin-bottom:${isCompact ? '0' : '5px'}; flex-wrap:wrap; line-height:1.2;">
+        ${icon ? `<span style="color:${accentColor}">${iconDisplay}${label}:</span>` : `<span style="color:${accentColor}">${label}:</span>`}
+        <span style="color:var(--text-main); font-size:${fsMain}; font-weight:900;">${mainDisplay}</span>
+        <span style="color:var(--text-muted); font-size:${fsSub}; font-weight:600; margin-left:2px;">
+            (<span style="font-size:${fsSub}">${peakLabel}:</span> <span style="color:${peakColor}; ${boldStyle}">${Math.round(peakVal).toLocaleString()}</span> ${unit}${avgHtml}${nightHtml})
         </span>
     </div>`;
 }
@@ -125,13 +126,13 @@ if (typeof window.GRAPH_COMBINED === 'undefined') {
 }
 if (typeof window.GRID_ALL_FEEDS === 'undefined') {
     window.GRID_ALL_FEEDS = [
+        { key: 'solar',     id: '499380', color: '#facc15', label: 'Solar'        },
         { key: 'k15',       id: '499362', color: '#38bdf8', label: 'Kenwood 1.5T' },
         { key: 'k1',        id: '499364', color: '#7dd3fc', label: 'Kenwood 1T'   },
         { key: 'haier',     id: '499367', color: '#a5f3fc', label: 'Haier 1T'     },
         { key: 'fridge1',   id: '499373', color: '#c084fc', label: 'Fridge 1'     },
         { key: 'fridge2',   id: '541348', color: '#e879f9', label: 'Fridge 2'     },
-        { key: 'pc',        id: '499422', color: '#4ade80', label: 'PC'           },
-        { key: 'solar',     id: '499380', color: '#facc15', label: 'Solar'        }
+        { key: 'pc',        id: '499422', color: '#4ade80', label: 'PC'           }
     ];
 }
 if (typeof window.TEMP_RANGE_PADDING === 'undefined') {
@@ -246,6 +247,32 @@ function _pointsToBars(pts, nav, feedKey) {
         }
     }
     return result;
+}
+
+// ---- Calculate average for a specific hour range ----
+function _calcAvgForRange(bars, startHour, endHour, nav, lastIdx) {
+    if (!bars || bars.length === 0) return 0;
+    const isWrapping = startHour > endHour;
+    let total = 0;
+    let count = 0;
+    const hourStep = nav.resSeconds / 3600;
+    
+    for (let i = 0; i < Math.min(bars.length, lastIdx || bars.length); i++) {
+        const val = bars[i];
+        if (val === 0 || val === null || val === undefined) continue;
+        const hour = i * hourStep;
+        let inRange = false;
+        if (isWrapping) {
+            inRange = hour >= startHour || hour < endHour;
+        } else {
+            inRange = hour >= startHour && hour < endHour;
+        }
+        if (inRange) {
+            total += val;
+            count++;
+        }
+    }
+    return count > 0 ? total / count : 0;
 }
 
 // ---- Main load & draw ----
@@ -394,35 +421,86 @@ async function _loadAndDraw() {
         let displayLabel = fA?.label || graphFeedKey;
         if (isGridAll) displayLabel = '⚡ Grid-All';
 
-        // ---- Grid-All stat: one line per visible feed ----
+        // ---- Grid-All stat: one line per visible feed with Avg and Night Avg ----
         if (isGridAll && multiData && multiData.length > 0) {
             const dayFactor = (nav.resSeconds / 3600) / 1000;
             let statHtml = '';
             for (const line of multiData) {
                 const data = line.data || [];
                 let total = 0;
-                if (graphTab === 'month') {
-                    total = data.reduce((a, b) => a + b, 0);
-                } else if (nav.isDayTab) {
-                    total = data.reduce((a, b, i) => i < lastIdx ? a + b : a, 0) * dayFactor;
-                } else {
-                    total = data.reduce((a, b) => a + b, 0);
+                let peak = 0;
+                let dayAvg = 0;
+                let nightAvg = 0;
+                let dayCount = 0;
+                let nightCount = 0;
+                let validCount = 0;
+                const hourStep = nav.resSeconds / 3600;
+                
+                // Calculate totals and averages
+                for (let i = 0; i < data.length; i++) {
+                    const val = data[i];
+                    if (val === 0 || val === null || val === undefined) continue;
+                    validCount++;
+                    
+                    if (graphTab === 'month') {
+                        total += val;
+                    } else if (nav.isDayTab) {
+                        total += val;
+                        // Day: 5am-5pm, Night: 5pm-8am
+                        const hour = i * hourStep;
+                        if (hour >= 5 && hour < 17) {
+                            dayAvg += val;
+                            dayCount++;
+                        } else if (hour >= 17 || hour < 8) {
+                            nightAvg += val;
+                            nightCount++;
+                        }
+                    } else {
+                        total += val;
+                    }
+                    if (val > peak) peak = val;
                 }
-                const peak = data.length > 0 ? Math.max(...data) : 0;
+                
+                let displayTotal = total;
+                let displayDayAvg = 0;
+                let displayNightAvg = 0;
+                let displayUnit = unit;
+                let isKwh = false;
+                
+                if (graphTab === 'month') {
+                    // Month view: already in kWh from _pointsToBars
+                    displayUnit = 'kWh';
+                    isKwh = true;
+                    displayDayAvg = validCount > 0 ? total / validCount : 0;
+                } else if (nav.isDayTab) {
+                    // Day view: values are in Watts
+                    displayUnit = 'W';
+                    isKwh = true;
+                    displayTotal = total * dayFactor;
+                    displayDayAvg = dayCount > 0 ? (dayAvg / dayCount) : 0;
+                    displayNightAvg = nightCount > 0 ? (nightAvg / nightCount) : 0;
+                } else {
+                    // Year/Total view: already in kWh
+                    displayUnit = 'kWh';
+                    isKwh = true;
+                    displayDayAvg = validCount > 0 ? total / validCount : 0;
+                }
+                
                 statHtml += _formatStatLine(
                     `<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${line.color};margin-right:2px;vertical-align:middle"></span>`,
                     line.label,
-                    total,
+                    displayTotal,
                     line.color,
                     peak,
-                    null,
-                    null,
-                    unit,
-                    graphTab !== 'day',
-                    graphTab
+                    displayDayAvg,
+                    displayNightAvg,
+                    displayUnit,
+                    isKwh,
+                    graphTab,
+                    true
                 );
             }
-            stat.innerHTML = statHtml;
+            stat.innerHTML = `<div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px 8px; max-height: 110px; overflow-y: auto; padding-right: 4px; padding-bottom: 4px;">${statHtml}</div>`;
 
         } else if (isCombined) {
             const p1 = bars1.length > 0 ? Math.max(...bars1) : 0;
@@ -446,9 +524,16 @@ async function _loadAndDraw() {
                 a1 = bars1.length > 0 ? t1 / bars1.length : 0;
             } else {
                 if (!isTemp && bars1.length > 0) {
-                    a1 = nav.isDayTab ? _calcAvgForRange(bars1, isSol ? 5 : 0, isSol ? 17 : 24, nav, lastIdx) : (t1 / bars1.filter(b => b > 0).length);
+                    if (nav.isDayTab) {
+                        a1 = _calcAvgForRange(bars1, isSol ? 5 : 0, isSol ? 17 : 24, nav, lastIdx);
+                        // Only calculate night for non-solar, non-temp, non-water
+                        if (!isSol && !isAvgFeed) {
+                            n1 = _calcAvgForRange(bars1, 17, 8, nav, lastIdx);
+                        }
+                    } else {
+                        a1 = t1 / bars1.filter(b => b > 0).length;
+                    }
                 }
-                n1 = nav.isDayTab ? _calcAvgForRange(bars1, 17, 8, nav, lastIdx) : null;
             }
             stat.innerHTML = _formatStatLine('', displayLabel, t1, color1, p1, a1, n1, unit, !isAvgFeed, graphTab);
         }
@@ -464,3 +549,4 @@ async function _loadAndDraw() {
 
 // ---- Expose globally ----
 window._loadAndDraw = _loadAndDraw;
+window._calcAvgForRange = _calcAvgForRange;

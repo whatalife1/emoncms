@@ -55,6 +55,9 @@ let graphIsPanning = false;
 // ---- Grid-All per-feed toggle: keys in this Set are hidden ----
 window.gridAllDisabled = new Set();
 
+// ---- AC overlay for Temp feeds: null, 'haier', 'k1', or 'k15' ----
+window.graphOverlayAc = null;
+
 // ---- Expose globals ----
 window.GRAPH_FEEDS = GRAPH_FEEDS;
 window.GRAPH_COMBINED = GRAPH_COMBINED;

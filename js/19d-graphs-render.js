@@ -4,7 +4,8 @@ function _fastRedraw() {
     const canvas = document.getElementById('graph-canvas');
     if (canvas && graphDataCache) {
         const c = graphDataCache;
-        _drawChart(canvas, c.bars1, c.bars2, c.labels, c.color1, c.color2, c.unit, c.isCombined, c.nav, c.lastIdx, c.multiData);
+        _drawChart(canvas, c.bars1, c.bars2, c.labels, c.color1, c.color2, c.unit, c.isCombined, c.nav, c.lastIdx, c.multiData,
+                   c.minV, c.maxV, c.range, c.barsTemp, c.tempMinV, c.tempMaxV, c.tempRange, c.tempUnit, c.tempColor, c.overlayLabel);
     }
 }
 
@@ -134,7 +135,8 @@ function _handleGraphHover(e, pin) {
     if (!graphDataCache) return;
     const canvas = document.getElementById('graph-canvas');
     if (!canvas) return;
-    const { bars1, bars2, labels, color1, color2, unit, isCombined, lastIdx, multiData } = graphDataCache;
+    const { bars1, bars2, labels, color1, color2, unit, isCombined, lastIdx, multiData, minV, maxV, range, 
+            barsTemp, tempMinV, tempMaxV, tempRange, tempUnit, tempColor, overlayLabel, isDualY } = graphDataCache;
     const rect = canvas.getBoundingClientRect();
     const clientX = e.clientX || (e.touches?.[0]?.clientX ?? 0);
     const clientY = e.clientY || (e.touches?.[0]?.clientY ?? 0);
@@ -149,63 +151,121 @@ function _handleGraphHover(e, pin) {
     }
 
     // ---- Multi-line tooltip: show all visible feeds ----
+    const PT = 12, cH = rect.height - 12 - 34; // Top padding and Chart Height
+    const mouseY = clientY - rect.top;
+    let closestLineIdx = 0;
+
+    let tooltip = document.getElementById('graph-tooltip');
+    if (!tooltip) {
+        tooltip = document.createElement('div');
+        tooltip.id = 'graph-tooltip';
+        document.body.appendChild(tooltip);
+    } else if (tooltip.parentElement !== document.body) {
+        document.body.appendChild(tooltip);
+    }
+
+    const closeBtn = pin ? `<span class="close-btn" onclick="hideTooltip();">✕</span>` : '';
+    let html = `<div style="font-weight:700;font-size:11px;color:var(--text-muted);margin-bottom:4px">${labels[idx] || ''} ${closeBtn}</div>`;
+
     if (multiData && multiData.length > 0) {
-        let tooltip = document.getElementById('graph-tooltip');
-        if (!tooltip) {
-            tooltip = document.createElement('div');
-            tooltip.id = 'graph-tooltip';
-            document.body.appendChild(tooltip);
-        } else if (tooltip.parentElement !== document.body) {
-            document.body.appendChild(tooltip);
+        let minDist = 999;
+        for (let i = 0; i < multiData.length; i++) {
+            const val = multiData[i].data[idx];
+            if (val === null || val === undefined) continue;
+            const py = PT + cH - ((val - minV) / range) * cH;
+            const dist = Math.abs(mouseY - py);
+            if (dist < minDist) { minDist = dist; closestLineIdx = i + 1; }
         }
 
-        const closeBtn = pin ? `<span class="close-btn" onclick="hideTooltip();">✕</span>` : '';
-        let html = `<div style="font-weight:700;font-size:11px;color:var(--text-muted);margin-bottom:4px">${labels[idx] || ''} ${closeBtn}</div>`;
-        for (const line of multiData) {
+        multiData.forEach((line, i) => {
             const val = (line.data[idx] ?? 0);
             const isTemp = unit === '°C';
             const valStr = graphTab === 'day' ? (isTemp ? val.toFixed(1) : Math.round(val)) + ' ' + unit : val.toFixed(2) + ' ' + unit;
-            html += `<div style="color:${line.color};margin:1px 0">
-                <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${line.color};margin-right:5px;vertical-align:middle"></span>
+            const isFocused = (closestLineIdx === i + 1);
+            const focusStyle = isFocused ? 'font-weight:900;font-size:13px;filter:brightness(1.2);' : 'opacity:0.6;';
+            html += `<div style="color:${line.color};margin:2px 0;${focusStyle}">
+                ${isFocused ? '*' : '&nbsp;'} <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${line.color};margin-right:5px;vertical-align:middle;opacity:${isFocused?1:0.8}"></span>
                 <b>${line.label}:</b> ${valStr}
+            </div>`;
+        });
+
+        // Add overlay if present
+        if (isDualY && barsTemp && idx < barsTemp.length) {
+            const tempVal = barsTemp[idx] ?? 0;
+            const isOvTemp = tempUnit === '°C';
+            const tempValStr = isOvTemp ? tempVal.toFixed(1) + ' °C' : Math.round(tempVal) + ' W';
+            const labelStr = overlayLabel || (isOvTemp ? 'Temp' : 'AC');
+            html += `<div style="color:${tempColor};margin:2px 0;">
+                <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${tempColor};margin-right:5px;"></span>
+                <b>${labelStr}:</b> ${tempValStr}
+            </div>`;
+        }
+    } else {
+        // Single/combined line
+        const isTempCombined = graphFeedKey === 'temp' || graphFeedKey === 'temp2';
+        const isTemp = unit === '°C' || isTempCombined;
+        const val1 = (isTemp ? bars1[idx].toFixed(1) : Math.round(bars1[idx])) + ' ' + (isTempCombined ? '°C' : unit);
+        let val2 = '';
+        let c2 = color2;
+        if (isCombined) val2 = Math.round(bars2[idx]) + ' ' + unit;
+        if (isTempCombined) { 
+            val2 = Math.round(bars2[idx]) + ' %';
+            c2 = '#6366f1';
+        }
+        
+        if (isCombined || isTempCombined) {
+            const py1 = PT + cH - ((bars1[idx] - minV) / range) * cH;
+            const py2 = PT + cH - ((bars2[idx] - minV) / range) * cH;
+            closestLineIdx = Math.abs(mouseY - py1) < Math.abs(mouseY - py2) ? 1 : 2;
+        } else {
+            closestLineIdx = 1;
+        }
+
+        const l1 = isTempCombined ? 'Temp' : (isCombined ? 'Solar' : null);
+        const l2 = isTempCombined ? 'Hum' : (isCombined ? 'Grid' : null);
+
+        // showTooltip function needs to handle the overlay data too, so we directly set html
+        if (isDualY && barsTemp && idx < barsTemp.length) {
+            const tempVal = barsTemp[idx] ?? 0;
+            const isOvTemp = tempUnit === '°C';
+            const tempValStr = isOvTemp ? tempVal.toFixed(1) + ' °C' : Math.round(tempVal) + ' W';
+            const labelStr = overlayLabel || (isOvTemp ? 'Temp' : 'AC');
+            html += `<div style="color:${tempColor};margin:2px 0;">
+                <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${tempColor};margin-right:5px;"></span>
+                <b>${labelStr}:</b> ${tempValStr}
             </div>`;
         }
 
-        tooltip.innerHTML = html;
-        tooltip.style.display = 'block';
-        tooltip.classList.toggle('pinned', pin);
-
-        let left = clientX + 15;
-        let top  = clientY - 15;
-        const tRect = tooltip.getBoundingClientRect();
-        const vw = window.innerWidth, vh = window.innerHeight;
-        if (left + tRect.width  > vw - 10) left = clientX - tRect.width  - 15;
-        if (top  + tRect.height > vh - 10) top  = clientY - tRect.height - 15;
-        if (top  < 10) top  = 10;
-        if (left < 10) left = 10;
-        tooltip.style.left = left + 'px';
-        tooltip.style.top  = top  + 'px';
-        return;
+        const hl = isCombined || isTempCombined;
+        if (hl) {
+            const style1 = closestLineIdx === 1 ? 'font-weight:900;font-size:13px;filter:brightness(1.2);' : 'opacity:0.6;';
+            const style2 = closestLineIdx === 2 ? 'font-weight:900;font-size:13px;filter:brightness(1.2);' : 'opacity:0.6;';
+            html += `<div style="color:${color1};${style1}">${closestLineIdx === 1 ? '* ' : ''}● ${l1}: ${val1}</div>`;
+            if (val2) html += `<div style="color:${c2};${style2}">${closestLineIdx === 2 ? '* ' : ''}● ${l2}: ${val2}</div>`;
+        } else {
+            html += `<div style="color:${color1};">● ${val1}</div>`;
+        }
     }
 
-    // ---- Single / combined line tooltip ----
-    const isTempCombined = graphFeedKey === 'temp' || graphFeedKey === 'temp2';
-    const isTemp = unit === '°C' || isTempCombined;
-    const val1 = (isTemp ? bars1[idx].toFixed(1) : Math.round(bars1[idx])) + ' ' + (isTempCombined ? '°C' : unit);
-    let val2 = '';
-    let c2 = color2;
-    if (isCombined) val2 = Math.round(bars2[idx]) + ' ' + unit;
-    if (isTempCombined) { 
-        val2 = Math.round(bars2[idx]) + ' %';
-        c2 = '#6366f1';
-    }
-    const l1 = isTempCombined ? 'Temp' : (isCombined ? 'Solar' : null);
-    const l2 = isTempCombined ? 'Hum' : (isCombined ? 'Grid' : null);
-    showTooltip(e, labels[idx], val1, val2, color1, c2, (isCombined || isTempCombined), pin, l1, l2);
+    tooltip.innerHTML = html;
+    tooltip.style.display = 'block';
+    tooltip.classList.toggle('pinned', pin);
+
+    let left = clientX + 15;
+    let top  = clientY - 15;
+    const tRect = tooltip.getBoundingClientRect();
+    const vw = window.innerWidth, vh = window.innerHeight;
+    if (left + tRect.width  > vw - 10) left = clientX - tRect.width  - 15;
+    if (top  + tRect.height > vh - 10) top  = clientY - tRect.height - 15;
+    if (top  < 10) top  = 10;
+    if (left < 10) left = 10;
+    tooltip.style.left = left + 'px';
+    tooltip.style.top  = top  + 'px';
 }
 
-// ---- _drawChart with Multi-Line support + end-of-line name labels ----
-function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombined, nav, lastIdx, multiData) {
+// ---- _drawChart with Multi-Line support + dual Y-axis for overlay ----
+function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombined, nav, lastIdx, multiData,
+                   minV, maxV, range, barsTemp = [], tempMinV = 0, tempMaxV = 100, tempRange = 100, tempUnit = '°C', tempColor = '#10b981', overlayLabel = '') {
     _attachDirectZoom(canvas);
 
     if (graphTab === 'day') {
@@ -228,61 +288,13 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
     const zoom = graphZoomLevel, panX = graphPanOffset, centerX = PL + cW / 2;
     const mapX = (x) => centerX + (x - centerX) * zoom + panX;
 
-    const isTemp = graphFeedKey && (graphFeedKey.startsWith('temp') || graphFeedKey === 'temp' || graphFeedKey === 'temp2');
     const chartType = graphChartType || 'line';
-
-    let maxV, minV;
-
-    if (multiData && multiData.length > 0) {
-        let allVals = [];
-        for (const line of multiData) {
-            allVals = allVals.concat(line.data.filter(v => v !== 0 && v !== null && v !== undefined));
-        }
-        if (allVals.length > 0) {
-            maxV = Math.max(...allVals) * 1.1;
-            minV = 0;
-        } else {
-            maxV = 1; minV = 0;
-        }
-    } else if (isTemp || graphFeedKey === 'temp' || graphFeedKey === 'temp2') {
-        const allVals = [...bars1, ...bars2].filter(v => v !== 0 && v !== null && v !== undefined);
-        if (allVals.length > 0) {
-            const minVal = Math.min(...allVals);
-            const maxVal = Math.max(...allVals);
-            const range  = maxVal - minVal;
-            // Use 10% padding, or at least 5 units
-            const padding = Math.max(TEMP_RANGE_PADDING, range * 0.1);
-            minV = Math.floor(minVal - padding);
-            maxV = Math.ceil(maxVal + padding);
-            if (minV < 0) minV = 0;
-            
-            // Limit humidity graphs to 100%
-            if (maxV > 100 && (graphFeedKey === 'temp' || graphFeedKey === 'temp2' || graphFeedKey === 'water')) {
-                maxV = 100;
-            }
-
-            // Ensure minimum span of 10 (5 up, 5 down) if data is flat
-            if (maxV - minV < 10) {
-                const mid = (maxV + minV) / 2;
-                minV = Math.floor(mid - 5);
-                maxV = Math.ceil(mid + 5);
-                if (minV < 0) minV = 0;
-                if (maxV > 100) maxV = 100;
-            }
-        } else {
-            minV = 0; maxV = 100;
-        }
-    } else {
-        const allVals = [...bars1, ...bars2].filter(v => v !== 0 && v !== null && v !== undefined);
-        maxV = allVals.length > 0 ? Math.max(...allVals) * 1.1 : 1;
-        minV = 0;
-    }
-
-    const range = maxV - minV || 1;
+    const isTempCombined = graphFeedKey === 'temp' || graphFeedKey === 'temp2';
+    const isTemp = unit === '°C' || isTempCombined;
 
     ctx.clearRect(0, 0, rect.width, rect.height);
 
-    // ---- Y-axis grid ----
+    // ---- Left Y-axis grid ----
     ctx.fillStyle = '#71717a';
     ctx.font = '9px system-ui';
     ctx.textAlign = 'right';
@@ -299,6 +311,26 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
         ctx.stroke();
     }
 
+    // ---- Right Y-axis grid for overlay ----
+    if (barsTemp.length > 0) {
+        ctx.fillStyle = '#71717a';
+        ctx.font = '9px system-ui';
+        ctx.textAlign = 'left';
+        const rightX = PL + cW + 4;
+        const isOvTemp = tempUnit === '°C';
+        for (let i = 0; i <= 4; i++) {
+            const val = tempMinV + (i / 4) * tempRange;
+            const y = PT + cH - (i / 4) * cH;
+            const lbl = isOvTemp ? val.toFixed(1) + '°' : Math.round(val).toLocaleString();
+            ctx.fillText(lbl, rightX, y + 3);
+        }
+        ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+        for (let i = 0; i <= 4; i++) {
+            const y = PT + cH - (i / 4) * cH;
+            ctx.beginPath(); ctx.moveTo(PL, y); ctx.lineTo(PL + cW, y); ctx.stroke();
+        }
+    }
+
     // ---- Clip to chart area ----
     ctx.save();
     ctx.beginPath();
@@ -308,7 +340,6 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
     const n = bars1.length || (multiData?.[0]?.data?.length ?? 0);
     const isHourly = chartType === 'hourly';
     const isBar = chartType === 'bar';
-    const isLine = chartType === 'line';
 
     if (multiData && multiData.length > 0) {
         // ---- Multi-line: draw each visible feed ----
@@ -407,12 +438,31 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
             }
         };
         
-        const isTempCombined = graphFeedKey === 'temp' || graphFeedKey === 'temp2';
         if (isCombined || isTempCombined) {
             const c2 = isTempCombined ? '#6366f1' : color2;
             drawData(bars2, c2, true);
         }
         drawData(bars1, color1, false);
+    }
+
+    // ---- Overlay line (dashed) ----
+    if (barsTemp.length > 0) {
+        ctx.beginPath();
+        ctx.strokeStyle = tempColor;
+        ctx.lineWidth = 2;
+        ctx.setLineDash([4, 4]);
+        let started = false;
+        for (let i = 0; i < lastIdx; i++) {
+            if (i >= barsTemp.length) break;
+            const val = barsTemp[i];
+            if (val === 0 || val === null || val === undefined) { started = false; continue; }
+            const x = mapX(PL + (i / n) * cW);
+            const y = PT + cH - ((val - tempMinV) / tempRange) * cH;
+            if (!started) { ctx.moveTo(x, y); started = true; }
+            else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+        ctx.setLineDash([]);
     }
 
     ctx.restore();

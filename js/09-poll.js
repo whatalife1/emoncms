@@ -42,11 +42,13 @@ async function poll() {
 
     // Added Fallback: If bulkData misses a feed, fetch it directly
     const results = await Promise.all(userOrderedFeeds.filter(f => f.enabled).map(async f => {
-      let val = bulkData.get(String(f.id));
-      if (val === undefined || val === null) {
+      const entry = bulkData.get(String(f.id));
+      let val = entry ? entry.v : null;
+      let time = entry ? entry.t : null;
+      if (val === null) {
         try { val = await fetchEmon(f.id); } catch(err) {}
       }
-      return { ...f, value: val ?? null };
+      return { ...f, value: val ?? null, time: time ?? null };
     }));
 
     localStorage.setItem('last_known_results', JSON.stringify(results));

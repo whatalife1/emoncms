@@ -1,8 +1,8 @@
 function _billingRange() {
   const now   = new Date();
   const day   = now.getDate();
-  const endCal = new Date(now.getFullYear(), now.getMonth(), 25, 0, 0);
-  if (day < 25) endCal.setMonth(endCal.getMonth());
+  const endCal = new Date(now.getFullYear(), now.getMonth(), 26, 0, 0);
+  if (day < 26) endCal.setMonth(endCal.getMonth());
   else endCal.setMonth(endCal.getMonth() + 1);
   const startCal = new Date(endCal);
   startCal.setMonth(startCal.getMonth() - 1);

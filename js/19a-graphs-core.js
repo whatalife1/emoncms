@@ -25,13 +25,13 @@ const GRAPH_COMBINED = { key: 'combined', name: 'Solar + Grid', color: '#facc15'
 
 // ---- Map of feeds to show in Grid-All multi-line graph ----
 const GRID_ALL_FEEDS = [
+    { key: 'solar',     id: '499380', color: '#facc15', label: 'Solar'        },
     { key: 'k15',       id: '499362', color: '#38bdf8', label: 'Kenwood 1.5T' },
     { key: 'k1',        id: '499364', color: '#7dd3fc', label: 'Kenwood 1T'   },
     { key: 'haier',     id: '499367', color: '#a5f3fc', label: 'Haier 1T'     },
     { key: 'fridge1',   id: '499373', color: '#c084fc', label: 'Fridge 1'     },
     { key: 'fridge2',   id: '541348', color: '#e879f9', label: 'Fridge 2'     },
-    { key: 'pc',        id: '499422', color: '#4ade80', label: 'PC'           },
-    { key: 'solar',     id: '499380', color: '#facc15', label: 'Solar'        }
+    { key: 'pc',        id: '499422', color: '#4ade80', label: 'PC'           }
 ];
 
 // ---- Temperature range config ----

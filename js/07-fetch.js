@@ -53,7 +53,7 @@ async function fetchEmonBulk() {
     const data = JSON.parse(text);
     const lookup = new Map();
     data.forEach(f => {
-      lookup.set(String(f.id), parseFloat(f.value));
+      lookup.set(String(f.id), { v: parseFloat(f.value), t: parseInt(f.time) });
     });
     return lookup;
   } catch (e) {

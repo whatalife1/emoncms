@@ -1,7 +1,7 @@
 const LAYOUT = {
  solar: { x:5, y:10, w:315, h:365, color:'#f59e0b', label:'Solar', ly1:42, fs:47, c1:'#ffff00', ly2:106, fs2:46, c2:'#2c8758', ly3:166, fs3:38, c3:'#b4b635', ly4:219, fs4:28, c4:'#21c442', ly5:264, fs5:24, c5:'#3de31c', ly6:314, fs6:22, c6:'#38bdf8',  },
  grid: { x:330, y:10, w:245, h:365, color:'#ef4444', label:'Grid', ly1:48, fs:38, c1:'#ef4444', ly2:154, fs2:28, c2:'#35c0b7', ly3:275, fs3:22, c3:'#3de3e4', ly4:317, fs4:22, c4:'#38bdf8',  },
- water: { x:585, y:10, w:140, h:365, color:'#0ea5e9', label:'Water', ly1:56, fs:46, c1:'#0ea5e9', ly2:158, fs2:56, c2:'#25f447', ly3:251, fs3:25, c3:'#9ca3af', ly4:80, fs4:12, c4:'#9ca3af',  },
+ water: { x:585, y:10, w:140, h:365, color:'#0ea5e9', label:'Water', ly1:56, fs:46, c1:'#0ea5e9', ly2:158, fs2:56, c2:'#25f447', ly3:251, fs3:25, c3:'#9ca3af', ly4:330, fs4:18, c4:'#0ce4e0',  },
  haier: { x:7, y:379, w:235, h:210, color:'#38bdf8', label:'Haier 1T', ly1:25, fs:34, c1:'#38bdf8', ly2:75, fs2:63, c2:'#25f447', ly3:147, fs3:25, c3:'#00c8f0', ly4:186, fs4:25, c4:'#518e35',  },
  k15: { x:252, y:379, w:235, h:210, color:'#38bdf8', label:'Kenwood 1.5T', ly1:21, fs:34, c1:'#38bdf8', ly2:74, fs2:59, c2:'#25f447', ly3:147, fs3:25, c3:'#00c8f0', ly4:180, fs4:26, c4:'#518e35',  },
  k1: { x:497, y:379, w:230, h:210, color:'#38bdf8', label:'Kenwood 1T', ly1:27, fs:34, c1:'#38bdf8', ly2:75, fs2:63, c2:'#25f447', ly3:148, fs3:24, c3:'#00c8f0', ly4:184, fs4:26, c4:'#518e35',  },
@@ -10,6 +10,7 @@ const LAYOUT = {
  temp: { x:253, y:588, w:236, h:40, color:'#22c55e', label:'temp', ly1:20, fs:27, c1:'#25f447',  },
  temp2: { x:501, y:598, w:228, h:35, color:'#22c55e', label:'temp2', ly1:16, fs:27, c1:'#25f447',  },
 };
+
 
 function renderFlowDiagram(byName) {
   if (!byName) return;
@@ -75,6 +76,8 @@ function renderFlowDiagram(byName) {
 
   // 3. WATER 
   o = L.water;
+  const tkFeed = byName.get('Water Tank');
+  const tkTime = tkFeed?.time;
   let wS = "CRITICAL", wC = "#f87171";
   if (tk > 95) { wS = "FULL"; wC = "#38bdf8"; }
   else if (tk > 70) { wS = "GOOD"; wC = "#4ade80"; }
@@ -84,6 +87,10 @@ function renderFlowDiagram(byName) {
   svg += `<text x="${cx(o)}" y="${o.y+o.ly1}" ${tpProps} font-size="${o.fs}" fill="${o.c1}">${o.label}</text>`;
   svg += `<text x="${cx(o)}" y="${o.y+o.ly2}" ${tpProps} font-size="${o.fs2}" fill="${o.c2}">${Math.round(tk)}%</text>`;
   svg += `<text x="${cx(o)}" y="${o.y+o.ly3}" ${tpProps} font-size="${o.fs3}" fill="${wC}">${wS}</text>`;
+  if (tkTime) {
+    const timeStr = new Date(tkTime * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    svg += `<text x="${cx(o)}" y="${o.y+o.ly4}" ${tpProps} font-size="${o.fs4}" fill="${o.c4}">${timeStr}</text>`;
+  }
 
   // 4. APPLIANCES
   const drawApp = (k, name, suffix="Today") => {

@@ -263,6 +263,58 @@ function _renderGridAllToggles() {
     }
 }
 
+// ─── AC overlay toggle buttons (only for Temp feeds) ─────────────────
+function _renderOverlayToggles() {
+    const existing = document.getElementById('temp-overlay-toggles');
+    if (existing) existing.remove();
+
+    const tempKeys = ['temp', 'temp2'];
+    if (!tempKeys.includes(graphFeedKey)) return;
+
+    const container = document.createElement('div');
+    container.id = 'temp-overlay-toggles';
+    container.style.cssText = 'display:flex;gap:5px;flex-wrap:nowrap;overflow-x:auto;padding:6px 0 8px;scrollbar-width:none;';
+
+    const acs = [
+        { key: 'haier', label: '+ Haier 1T', color: '#a5f3fc' },
+        { key: 'k15', label: '+ Kenwood 1.5T', color: '#38bdf8' },
+        { key: 'k1', label: '+ Kenwood 1T', color: '#7dd3fc' }
+    ];
+
+    // Clear button
+    const clearBtn = document.createElement('button');
+    clearBtn.textContent = 'Clear';
+    clearBtn.style.cssText = 'padding:4px 10px;border-radius:20px;font-size:11px;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--text-muted);';
+    clearBtn.addEventListener('click', () => {
+        window.graphOverlayAc = null;
+        _renderOverlayToggles();
+        _loadAndDraw();
+    });
+    container.appendChild(clearBtn);
+
+    acs.forEach(t => {
+        const active = window.graphOverlayAc === t.key;
+        const btn = document.createElement('button');
+        btn.style.cssText = `
+            padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;cursor:pointer;
+            border:1.5px solid ${t.color};background:${active ? t.color+'33' : 'transparent'};
+            color:${active ? t.color : 'var(--text-muted)'};opacity:${active ? '1' : '0.5'};
+        `;
+        btn.textContent = t.label;
+        btn.addEventListener('click', () => {
+            window.graphOverlayAc = t.key;
+            _renderOverlayToggles();
+            _loadAndDraw();
+        });
+        container.appendChild(btn);
+    });
+
+    const feedTabsWrap = document.getElementById('graph-feed-tabs');
+    if (feedTabsWrap) {
+        feedTabsWrap.parentNode.insertBefore(container, feedTabsWrap.nextSibling);
+    }
+}
+
 function _renderGFeedTabs() {
     const wrap = document.getElementById('graph-feed-tabs');
     if (!wrap) return;
@@ -285,8 +337,8 @@ function _renderGFeedTabs() {
         });
     });
 
-    // Show / hide Grid-All toggle pills
     _renderGridAllToggles();
+    _renderOverlayToggles();   // <-- added
 }
 
 function _getLocalMidnight(date) {
@@ -403,7 +455,7 @@ function hideTooltip() {
     tooltipPinned = false;
 }
 
-function showTooltip(e, label, value1, value2, color1, color2, isCombined, pinned = false, label1 = null, label2 = null) {
+function showTooltip(e, label, value1, value2, color1, color2, isCombined, pinned = false, label1 = null, label2 = null, highlightIdx = 0, tempLabel = null, tempValue = null, tempColor = null) {
     let tooltip = document.getElementById('graph-tooltip');
 
     if (!tooltip) {
@@ -419,9 +471,19 @@ function showTooltip(e, label, value1, value2, color1, color2, isCombined, pinne
 
     let closeBtn = pinned ? `<span class="close-btn" onclick="hideTooltip();">✕</span>` : '';
     let html = `<div style="font-weight:700;font-size:11px;color:var(--text-muted);margin-bottom:4px">${label} ${closeBtn}</div>`;
-    html += `<div style="color:${color1}">● ${L1}: ${value1}</div>`;
+    
+    const style1 = highlightIdx === 1 ? 'font-weight:900;font-size:13px;filter:brightness(1.2);' : 'opacity:0.6;';
+    const style2 = highlightIdx === 2 ? 'font-weight:900;font-size:13px;filter:brightness(1.2);' : 'opacity:0.6;';
+
+    html += `<div style="color:${color1};${style1}">${highlightIdx === 1 ? '* ' : ''}● ${L1}: ${value1}</div>`;
     if (isCombined) {
-        html += `<div style="color:${color2}">● ${L2}: ${value2}</div>`;
+        html += `<div style="color:${color2};${style2}">${highlightIdx === 2 ? '* ' : ''}● ${L2}: ${value2}</div>`;
+    }
+    if (tempValue !== null) {
+        html += `<div style="color:${tempColor};margin:2px 0;">
+            <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${tempColor};margin-right:5px;"></span>
+            <b>${tempLabel}:</b> ${tempValue}
+        </div>`;
     }
 
     tooltip.innerHTML = html;
@@ -508,7 +570,7 @@ function renderGraphsPanel() {
     if (graphIsRendering) return;
     graphIsRendering = true;
     try {
-        _renderGFeedTabs();      // also calls _renderGridAllToggles()
+        _renderGFeedTabs();      // also calls _renderGridAllToggles and _renderTempOverlayToggles
         _renderGTimeTabs();
         _renderGNavBar();
         _renderChartTypeToggle();

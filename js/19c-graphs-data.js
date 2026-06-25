@@ -86,7 +86,7 @@ function _formatStatLine(icon, label, mainVal, accentColor, peakVal, avgVal, nig
 
     let nightHtml = '';
     if (!hideNight && nightAvgVal !== null && nightAvgVal !== 0 && nightAvgVal !== undefined && !isNaN(nightAvgVal) && nightAvgVal > 0.01) {
-        nightHtml = ` · <span style="color:#bf7aff; ${boldStyle}">Night: ${Math.round(nightAvgVal)} ${unit}</span>`;
+        nightHtml = ` · <span style="color:#bf7aff; ${boldStyle}">Night Avg: ${Math.round(nightAvgVal)} ${unit}</span>`;
     }
 
     const mainDisplay = isKwh ? `${mainVal.toFixed(1)} kWh` : `${mainVal.toFixed(1)} ${unit}`;
@@ -118,7 +118,7 @@ if (typeof window.GRAPH_FEEDS === 'undefined') {
         { key: 'fridge2',   name: 'Fridge 2',        id: '541348', color: '#e879f9', label: '🧊 Fridge 2',    isWatts: true },
         { key: 'pc',        name: 'PC',              id: '499422', color: '#4ade80', label: '💻 PC',          isWatts: true },
         { key: 'water',     name: 'Water Tank',      id: '499431', color: '#0ea5e9', label: '💧 Water',       isWatts: false },
-        { key: 'gridall',   name: 'Grid-All',        id: null,     color: '#ff6b6b', label: '⚡ Grid-All',    isWatts: true, isMultiLine: true }
+        { key: 'gridall',   name: 'All',             id: null,     color: '#ff6b6b', label: '⚡ All',         isWatts: true, isMultiLine: true }
     ];
 }
 if (typeof window.GRAPH_COMBINED === 'undefined') {
@@ -127,6 +127,7 @@ if (typeof window.GRAPH_COMBINED === 'undefined') {
 if (typeof window.GRID_ALL_FEEDS === 'undefined') {
     window.GRID_ALL_FEEDS = [
         { key: 'solar',     id: '499380', color: '#facc15', label: 'Solar'        },
+        { key: 'grid',      id: '499374', color: '#ef4444', label: 'Grid'         },
         { key: 'k15',       id: '499362', color: '#38bdf8', label: 'Kenwood 1.5T' },
         { key: 'k1',        id: '499364', color: '#7dd3fc', label: 'Kenwood 1T'   },
         { key: 'haier',     id: '499367', color: '#a5f3fc', label: 'Haier 1T'     },
@@ -419,7 +420,7 @@ async function _loadAndDraw() {
         }
 
         let displayLabel = fA?.label || graphFeedKey;
-        if (isGridAll) displayLabel = '⚡ Grid-All';
+        if (isGridAll) displayLabel = '⚡ All';
 
         // ---- Grid-All stat: one line per visible feed with Avg and Night Avg ----
         if (isGridAll && multiData && multiData.length > 0) {

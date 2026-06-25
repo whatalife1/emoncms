@@ -208,12 +208,22 @@ function _renderGridAllToggles() {
 
     const wrap = document.createElement('div');
     wrap.id = 'gridall-toggles';
-    wrap.style.cssText = 'display:flex;gap:5px;flex-wrap:wrap;padding:4px 0 6px;';
+    wrap.style.cssText = 'display:flex;gap:5px;flex-wrap:nowrap;overflow-x:auto;padding:6px 0 8px;scrollbar-width:none;-webkit-overflow-scrolling:touch;flex-shrink:0;align-items:center;';
+    
+    // Hide scrollbar for Chrome/Safari dynamically
+    if (!document.getElementById('gridall-scroll-style')) {
+        const s = document.createElement('style');
+        s.id = 'gridall-scroll-style';
+        s.textContent = '#gridall-toggles::-webkit-scrollbar { display: none; }';
+        document.head.appendChild(s);
+    }
 
     GRID_ALL_FEEDS.forEach(f => {
         const off = window.gridAllDisabled.has(f.key);
         const btn = document.createElement('button');
         btn.style.cssText = `
+            white-space:nowrap;
+            flex-shrink:0;
             padding:4px 10px;
             border-radius:20px;
             font-size:11px;

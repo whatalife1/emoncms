@@ -18,7 +18,7 @@ const GRAPH_FEEDS = [
     { key: 'pc',        name: 'PC',              id: '499422', color: '#4ade80', label: '💻 PC',          isWatts: true },
     { key: 'water',     name: 'Water Tank',      id: '499431', color: '#0ea5e9', label: '💧 Water',       isWatts: false },
     // ---- Grid-All Multi-Line (shows all appliances as separate lines) ----
-    { key: 'gridall',   name: 'Grid-All',        id: null,     color: '#ff6b6b', label: '⚡ Grid-All',    isWatts: true, isMultiLine: true }
+    { key: 'gridall',   name: 'All',             id: null,     color: '#ff6b6b', label: '⚡ All',         isWatts: true, isMultiLine: true }
 ];
 
 const GRAPH_COMBINED = { key: 'combined', name: 'Solar + Grid', color: '#facc15', label: '⚡☀ Solar+Grid' };
@@ -26,6 +26,7 @@ const GRAPH_COMBINED = { key: 'combined', name: 'Solar + Grid', color: '#facc15'
 // ---- Map of feeds to show in Grid-All multi-line graph ----
 const GRID_ALL_FEEDS = [
     { key: 'solar',     id: '499380', color: '#facc15', label: 'Solar'        },
+    { key: 'grid',      id: '499374', color: '#ef4444', label: 'Grid'         },
     { key: 'k15',       id: '499362', color: '#38bdf8', label: 'Kenwood 1.5T' },
     { key: 'k1',        id: '499364', color: '#7dd3fc', label: 'Kenwood 1T'   },
     { key: 'haier',     id: '499367', color: '#a5f3fc', label: 'Haier 1T'     },

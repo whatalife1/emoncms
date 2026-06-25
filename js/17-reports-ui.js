@@ -112,6 +112,22 @@ function renderDetailedReport(feedData, startMs, endMs, pkrPerKwh) {
   }
   headerHtml += '</tr>';
 
+  // --- Reversed Bottom Header ---
+  let bottomHeaderHtml = '<tr class=h2><th></th>'; // Date space
+  for (const feed of EXPORT_FEEDS) {
+    if (feed.isSolar) bottomHeaderHtml += '<th class=dv></th>';
+    else bottomHeaderHtml += `<th class=c24>24hr</th><th class=cday>${feed.isPc ? "Day*" : "Day"}</th><th class='dv cnight'>Night</th>`;
+  }
+  bottomHeaderHtml += '<th></th><th></th><th></th></tr>'; // Combined columns spaces
+  
+  bottomHeaderHtml += '<tr class=h1><th>Date</th>';
+  for (const feed of EXPORT_FEEDS) {
+    bottomHeaderHtml += feed.isSolar 
+      ? `<th class=dv>${feed.name}</th>` 
+      : `<th colspan=3 class=dv>${feed.name}</th>`;
+  }
+  bottomHeaderHtml += `<th>Solar+Breaker</th><th>Solar Saved</th><th>Grid Bill</th></tr>`;
+
   let tableRows = headerHtml;
 
   const totals24 = {};
@@ -218,8 +234,8 @@ function renderDetailedReport(feedData, startMs, endMs, pkrPerKwh) {
   tableRows += `<td class=col-save>${splitCell(grandSaveKwh.toFixed(2), fmtPkr(grandSavePkr))}</td>`;
   tableRows += `<td class=col-bill>${splitCell(grandGridKwh.toFixed(2), fmtPkr(grandBillPkr))}</td></tr>`;
 
-  // --- Repeated Header at bottom ---
-  tableRows += headerHtml;
+  // --- Repeated Header at bottom (Reversed) ---
+  tableRows += bottomHeaderHtml;
 
   const maxSolarVal = Math.max(...Object.values(solarByDay).map(v => v / 1000.0), 1.0);
   let heatHtml = '';

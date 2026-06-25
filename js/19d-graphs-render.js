@@ -218,6 +218,7 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
     const mapX = (x) => centerX + (x - centerX) * zoom + panX;
 
     const isTemp = graphFeedKey && (graphFeedKey.startsWith('temp') || graphFeedKey === 'temp' || graphFeedKey === 'temp2');
+    const chartType = graphChartType || 'line';
 
     let maxV, minV;
 
@@ -285,67 +286,109 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
     ctx.clip();
 
     const n = bars1.length || (multiData?.[0]?.data?.length ?? 0);
+    const isHourly = chartType === 'hourly';
+    const isBar = chartType === 'bar';
+    const isLine = chartType === 'line';
 
     if (multiData && multiData.length > 0) {
         // ---- Multi-line: draw each visible feed ----
         for (const line of multiData) {
             const data = line.data;
-            ctx.beginPath();
-            ctx.strokeStyle = line.color;
-            ctx.lineWidth = 2;
-            let started = false;
-            let lastDrawnX = null, lastDrawnY = null;
-
-            for (let i = 0; i < lastIdx; i++) {
-                if (i >= data.length) break;
-                const val = data[i];
-                if (val === 0 || val === null || val === undefined) { started = false; continue; }
-                const x = mapX(PL + (i / n) * cW);
-                const y = PT + cH - ((val - minV) / range) * cH;
-                if (!started) { ctx.moveTo(x, y); started = true; }
-                else ctx.lineTo(x, y);
-                lastDrawnX = x;
-                lastDrawnY = y;
-            }
-            ctx.stroke();
-
-            // ---- End-of-line label: coloured dot + feed name ----
-            if (lastDrawnX !== null && lastDrawnY !== null) {
-                // Dot at line end
+            
+            if (isBar || isHourly) {
+                // ---- Bar/Hourly mode for multi-data ----
+                const barWidth = Math.max(2, (cW / n) * 0.7);
+                for (let i = 0; i < lastIdx; i++) {
+                    if (i >= data.length) break;
+                    const val = data[i];
+                    if (val === 0 || val === null || val === undefined) continue;
+                    const x = mapX(PL + (i / n) * cW) - barWidth / 2;
+                    const y = PT + cH - ((val - minV) / range) * cH;
+                    const h = PT + cH - y;
+                    
+                    ctx.fillStyle = line.color;
+                    ctx.globalAlpha = 0.8;
+                    ctx.fillRect(x, y, barWidth, h);
+                    ctx.globalAlpha = 1;
+                }
+            } else {
+                // ---- Line mode ----
                 ctx.beginPath();
-                ctx.arc(lastDrawnX, lastDrawnY, 4, 0, Math.PI * 2);
-                ctx.fillStyle = line.color;
-                ctx.fill();
+                ctx.strokeStyle = line.color;
+                ctx.lineWidth = 2;
+                let started = false;
+                let lastDrawnX = null, lastDrawnY = null;
 
-                // Name label (clipped area still active, so it clips too)
-                ctx.font = 'bold 10px system-ui';
-                ctx.textAlign = 'left';
-                ctx.fillStyle = line.color;
-                const labelX = Math.min(lastDrawnX + 6, PL + cW - 2);
-                const labelY = Math.max(PT + 8, Math.min(lastDrawnY + 4, PT + cH - 2));
-                ctx.fillText(line.label, labelX, labelY);
+                for (let i = 0; i < lastIdx; i++) {
+                    if (i >= data.length) break;
+                    const val = data[i];
+                    if (val === 0 || val === null || val === undefined) { started = false; continue; }
+                    const x = mapX(PL + (i / n) * cW);
+                    const y = PT + cH - ((val - minV) / range) * cH;
+                    if (!started) { ctx.moveTo(x, y); started = true; }
+                    else ctx.lineTo(x, y);
+                    lastDrawnX = x;
+                    lastDrawnY = y;
+                }
+                ctx.stroke();
+
+                // ---- End-of-line label ----
+                if (lastDrawnX !== null && lastDrawnY !== null) {
+                    ctx.beginPath();
+                    ctx.arc(lastDrawnX, lastDrawnY, 4, 0, Math.PI * 2);
+                    ctx.fillStyle = line.color;
+                    ctx.fill();
+
+                    ctx.font = 'bold 10px system-ui';
+                    ctx.textAlign = 'left';
+                    ctx.fillStyle = line.color;
+                    const labelX = Math.min(lastDrawnX + 6, PL + cW - 2);
+                    const labelY = Math.max(PT + 8, Math.min(lastDrawnY + 4, PT + cH - 2));
+                    ctx.fillText(line.label, labelX, labelY);
+                }
             }
         }
     } else {
         // ---- Single / combined line ----
-        const drawL = (data, clr) => {
-            ctx.beginPath();
-            ctx.strokeStyle = clr;
-            ctx.lineWidth = 2.5;
-            let started = false;
-            for (let i = 0; i < lastIdx; i++) {
-                if (i >= data.length) break;
-                const val = data[i];
-                if (val === 0 || val === null || val === undefined) { started = false; continue; }
-                const x = mapX(PL + (i / n) * cW);
-                const y = PT + cH - ((val - minV) / range) * cH;
-                if (!started) { ctx.moveTo(x, y); started = true; }
-                else ctx.lineTo(x, y);
+        const drawData = (data, clr, isSecondary = false) => {
+            if (isBar || isHourly) {
+                // ---- Bar/Hourly mode ----
+                const barWidth = Math.max(2, (cW / n) * 0.6);
+                const offset = isSecondary ? barWidth * 0.5 : 0;
+                for (let i = 0; i < lastIdx; i++) {
+                    if (i >= data.length) break;
+                    const val = data[i];
+                    if (val === 0 || val === null || val === undefined) continue;
+                    const x = mapX(PL + (i / n) * cW) - barWidth / 2 + offset;
+                    const y = PT + cH - ((val - minV) / range) * cH;
+                    const h = PT + cH - y;
+                    
+                    ctx.fillStyle = clr;
+                    ctx.globalAlpha = isSecondary ? 0.6 : 0.8;
+                    ctx.fillRect(x, y, barWidth * 0.8, h);
+                    ctx.globalAlpha = 1;
+                }
+            } else {
+                // ---- Line mode ----
+                ctx.beginPath();
+                ctx.strokeStyle = clr;
+                ctx.lineWidth = isSecondary ? 1.5 : 2.5;
+                let started = false;
+                for (let i = 0; i < lastIdx; i++) {
+                    if (i >= data.length) break;
+                    const val = data[i];
+                    if (val === 0 || val === null || val === undefined) { started = false; continue; }
+                    const x = mapX(PL + (i / n) * cW);
+                    const y = PT + cH - ((val - minV) / range) * cH;
+                    if (!started) { ctx.moveTo(x, y); started = true; }
+                    else ctx.lineTo(x, y);
+                }
+                ctx.stroke();
             }
-            ctx.stroke();
         };
-        if (isCombined) drawL(bars2, color2);
-        drawL(bars1, color1);
+        
+        if (isCombined) drawData(bars2, color2, true);
+        drawData(bars1, color1, false);
     }
 
     ctx.restore();

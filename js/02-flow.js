@@ -71,10 +71,15 @@ function renderFlowDiagram(byName) {
   svg += `<text x="${cx(o)}" y="${o.y+o.ly6}" ${tpProps} font-size="${o.fs6}" fill="${o.c6}">Month: ${nF(mU.solar||0)} kWh | ${kF((mU.solar||0)*rate)} PKR</text>`;
 
   // 2. GRID 
-  o = L.grid; const grdAct = Math.abs(b) > 20;
-  svg += `<rect class="${grdAct ? 'pulse-animation' : ''}" style="--pulse-clr:${o.color}" x="${o.x}" y="${o.y}" width="${o.w}" height="${o.h}" rx="10" fill="${grdAct?'#2a0a0a':'#1f1f23'}" stroke="${grdAct?o.color:'#666'}" stroke-width="2"/>`;
-  svg += `<text x="${cx(o)}" y="${o.y+o.ly1}" ${tpProps} font-size="${o.fs}" fill="${grdAct?o.c1:'#777'}">${o.label}: ${pF(b)}</text>`;
-  svg += `<text x="${cx(o)}" y="${o.y+o.ly2}" ${tpProps} font-size="${o.fs2}" fill="${o.c2}">AC Input: ${Math.round(v)}V</text>`;
+  o = L.grid; 
+  const grdAct = Math.abs(b) > 20;
+  const gridOff = v < 10;
+  const gClass = gridOff ? 'grid-off-anim' : (grdAct ? 'pulse-animation' : '');
+  const gFill = gridOff ? '#1f1f23' : (grdAct ? '#2a0a0a' : '#1f1f23');
+  const gStroke = gridOff ? '#666' : (grdAct ? o.color : '#666');
+  svg += `<rect class="${gClass}" style="--pulse-clr:${o.color}" x="${o.x}" y="${o.y}" width="${o.w}" height="${o.h}" rx="10" fill="${gFill}" stroke="${gStroke}" stroke-width="2"/>`;
+  svg += `<text x="${cx(o)}" y="${o.y+o.ly1}" ${tpProps} font-size="${o.fs}" fill="${gridOff?'#ef4444':(grdAct?o.c1:'#777')}">${gridOff?'GRID OFF':o.label+': '+pF(b)}</text>`;
+  svg += `<text x="${cx(o)}" y="${o.y+o.ly2}" ${tpProps} font-size="${o.fs2}" fill="${gridOff?'#ef4444':o.c2}">AC Input: ${Math.round(v)}V</text>`;
   svg += `<text x="${cx(o)}" y="${o.y+o.ly3}" ${tpProps} font-size="${o.fs3}" fill="${o.c3}">T: ${grid_t.toFixed(1)} kWh | ${kF(grid_t*rate)} PKR</text>`;
   svg += `<text x="${cx(o)}" y="${o.y+o.ly4}" ${tpProps} font-size="${o.fs4}" fill="${o.c4}">M: ${nF(mU.grid||0)} kWh | ${kF((mU.grid||0)*rate)} PKR</text>`;
 

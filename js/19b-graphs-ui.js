@@ -130,11 +130,13 @@ function _renderChartTypeToggle() {
     toggle.style.cssText = `
         position:absolute; top:8px; right:8px; z-index:15;
         display:flex; flex-direction:column; gap:4px;
+        background: var(--bg-panel); padding: 4px; border-radius: 8px;
+        box-shadow: -2px 2px 8px rgba(0,0,0,0.4);
     `;
 
     const types = [
-        { type: 'line',   label: 'Lines' },
-        { type: 'bar',    label: 'Bars' },
+        { type: 'line',   label: 'Line' },
+        { type: 'bar',    label: 'Bar' },
         { type: 'hourly', label: 'Hourly' },
     ];
 
@@ -142,10 +144,10 @@ function _renderChartTypeToggle() {
         const btn = document.createElement('button');
         const active = graphChartType === type;
         btn.dataset.type = type;
-        btn.title = type.charAt(0).toUpperCase() + type.slice(1);
+        btn.title = label;
         btn.textContent = label;
         btn.style.cssText = `
-            padding:4px 10px; border-radius:6px; font-size:13px; cursor:pointer; width:auto;
+            padding:4px 8px; border-radius:6px; font-size:11px; cursor:pointer; width:auto;
             background:${active ? 'var(--bg-base)' : 'rgba(0,0,0,0.45)'};
             border:1px solid ${active ? 'var(--border)' : 'transparent'};
             color:var(--text-main); opacity:${active ? '1' : '0.55'};

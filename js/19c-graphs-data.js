@@ -81,12 +81,14 @@ function _formatStatLine(icon, label, mainVal, accentColor, peakVal, avgVal, nig
 
     let avgHtml = '';
     if (avgVal !== null && avgVal !== 0 && avgVal !== undefined && !isNaN(avgVal) && avgVal > 0.01) {
-        avgHtml = ` · <span style="color:${accentColor}; ${boldStyle}">${avgLabel}: ${Math.round(avgVal)} ${unit}</span>`;
+        const avgDisp = isTemp ? avgVal.toFixed(1) : Math.round(avgVal);
+        avgHtml = ` · <span style="color:${accentColor}; ${boldStyle}">${avgLabel}: ${avgDisp} ${unit}</span>`;
     }
 
     let nightHtml = '';
     if (!hideNight && nightAvgVal !== null && nightAvgVal !== 0 && nightAvgVal !== undefined && !isNaN(nightAvgVal) && nightAvgVal > 0.01) {
-        nightHtml = ` · <span style="color:#bf7aff; ${boldStyle}">Night Avg: ${Math.round(nightAvgVal)} ${unit}</span>`;
+        const nightDisp = isTemp ? nightAvgVal.toFixed(1) : Math.round(nightAvgVal);
+        nightHtml = ` · <span style="color:#bf7aff; ${boldStyle}">Night Avg: ${nightDisp} ${unit}</span>`;
     }
 
     const mainDisplay = isKwh ? `${mainVal.toFixed(1)} kWh` : `${mainVal.toFixed(1)} ${unit}`;
@@ -94,11 +96,13 @@ function _formatStatLine(icon, label, mainVal, accentColor, peakVal, avgVal, nig
     // For Grid-All, don't show the icon as text (already have dot)
     const iconDisplay = icon && !icon.includes('span') ? `${icon} ` : '';
 
+    const peakDisp = isTemp ? peakVal.toFixed(1) : Math.round(peakVal).toLocaleString();
+
     return `<div style="display:flex; align-items:center; gap:4px; font-size:${fsLabel}; font-weight:700; margin-bottom:${isCompact ? '0' : '5px'}; flex-wrap:wrap; line-height:1.2;">
         ${icon ? `<span style="color:${accentColor}">${iconDisplay}${label}:</span>` : `<span style="color:${accentColor}">${label}:</span>`}
         <span style="color:var(--text-main); font-size:${fsMain}; font-weight:900;">${mainDisplay}</span>
         <span style="color:var(--text-muted); font-size:${fsSub}; font-weight:600; margin-left:2px;">
-            (<span style="font-size:${fsSub}">${peakLabel}:</span> <span style="color:${peakColor}; ${boldStyle}">${Math.round(peakVal).toLocaleString()}</span> ${unit}${avgHtml}${nightHtml})
+            (<span style="font-size:${fsSub}">${peakLabel}:</span> <span style="color:${peakColor}; ${boldStyle}">${peakDisp}</span> ${unit}${avgHtml}${nightHtml})
         </span>
     </div>`;
 }
@@ -309,6 +313,9 @@ async function _loadAndDraw() {
         }
 
         // ---- Handle Grid-All Multi-Line ----
+        // Check if this is a Temperature + Humidity request
+        const isTempCombined = graphFeedKey === 'temp' || graphFeedKey === 'temp2';
+
         if (isGridAll && isMultiLine) {
             // Only fetch feeds that are NOT disabled by the toggle
             const visibleFeeds = GRID_ALL_FEEDS.filter(
@@ -348,6 +355,10 @@ async function _loadAndDraw() {
             const gridFeed  = GRAPH_FEEDS.find(f => f.key === 'grid');
             pts1 = await _gFetch(solarFeed.id, nav.startMs, nav.endMs, interval1);
             pts2 = await _gFetch(gridFeed.id,  nav.startMs, nav.endMs, interval2);
+        } else if (isTempCombined) {
+            const humId = graphFeedKey === 'temp' ? '499429' : '512474';
+            pts1 = await _gFetch(fA.id, nav.startMs, nav.endMs, interval1);
+            pts2 = await _gFetch(humId, nav.startMs, nav.endMs, interval2);
         } else {
             pts1 = await _gFetch(fA.id, nav.startMs, nav.endMs, interval1);
         }
@@ -357,7 +368,7 @@ async function _loadAndDraw() {
 
         if (!isGridAll || !isMultiLine) {
             bars1 = _pointsToBars(pts1, navForBars, graphFeedKey);
-            bars2 = isCombined ? _pointsToBars(pts2, navForBars, 'grid') : [];
+            bars2 = (isCombined || isTempCombined) ? _pointsToBars(pts2, navForBars, isCombined ? 'grid' : 'humidity') : [];
         }
 
         let labels = nav.labels;

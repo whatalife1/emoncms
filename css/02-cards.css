@@ -58,3 +58,11 @@
 .pulse-animation {
   animation: glow-pulse 2s infinite ease-in-out;
 }
+
+@keyframes grid-off-flash {
+  0%, 100% { fill: #4a0f0f; stroke: #ef4444; filter: drop-shadow(0 0 8px #ef4444); stroke-width: 3; }
+  50% { fill: #1f1f23; stroke: #666; filter: none; stroke-width: 2; }
+}
+.grid-off-anim {
+  animation: grid-off-flash 1.5s infinite ease-in-out;
+}

@@ -19,15 +19,15 @@ function renderWaterTank(pct) {
   </svg>`;
 }
 
-// ─── Billing Cycle Units Fetch (25th to 25th) ───────────────────────────────
+// ─── Billing Cycle Units Fetch (25th to 26th) ───────────────────────────────
 async function fetchMonthlyUnits() {
   const now = new Date();
   const day = now.getDate();
   let startMonth = now.getMonth();
   let startYear = now.getFullYear();
 
-  // If today is before 25th, cycle started on 25th of PREVIOUS month
-  if (day < 25) {
+  // If today is before 26th, cycle started on 25th of PREVIOUS month
+  if (day < 26) {
     startMonth -= 1;
     if (startMonth < 0) { startMonth = 11; startYear -= 1; }
   }

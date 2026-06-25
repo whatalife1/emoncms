@@ -117,10 +117,11 @@
 @media (min-width: 480px) {
   #graphs-panel {
     max-width: 450px;
-    left: 0 !important;
-    right: 0 !important;
-    margin-left: auto !important;
-    margin-right: auto !important;
+    left: 50% !important;
+    right: auto !important;
+    transform: translateX(-50%);
+    margin-left: 0 !important;
+    margin-right: 0 !important;
     border-left: 1px solid var(--border);
     border-right: 1px solid var(--border);
     box-shadow: 0 -4px 20px rgba(0,0,0,0.5);

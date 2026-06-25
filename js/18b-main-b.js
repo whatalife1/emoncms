@@ -124,6 +124,10 @@ function wireButtons() {
     if (typeof calculateDetailedReport === 'function') calculateDetailedReport();
   });
 
+  _btn('btn-report-text', () => {
+    if (typeof downloadTextReport === 'function') downloadTextReport();
+  });
+
   _btn('btn-report-png', () => {
     const btn = document.getElementById('btn-report-png');
     const content = document.querySelector('#usage-report-content .report-wrapper');

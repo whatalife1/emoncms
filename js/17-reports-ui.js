@@ -27,6 +27,7 @@ async function calculateDetailedReport() {
     results.forEach(r => {
       feedData[r.feed.id] = r.data;
     });
+    window._lastReportData = feedData;
     
     const pkrRate = solarCfg?.pkrPerUnit ?? 60;
     renderDetailedReport(feedData, startMs, endMs, pkrRate);
@@ -93,23 +94,25 @@ function renderDetailedReport(feedData, startMs, endMs, pkrPerKwh) {
   const avgSolar = dates.length > 0 ? (totalSolarKwh / dates.length) : 0;
   const avgGrid = dates.length > 0 ? (gridImportKwh / dates.length) : 0;
 
-  let tableRows = '';
-  tableRows += '<tr class=h1><th rowspan=2>Date</th>';
+  let headerHtml = '';
+  headerHtml += '<tr class=h1><th rowspan=2>Date</th>';
   for (const feed of EXPORT_FEEDS) {
-    tableRows += feed.isSolar 
+    headerHtml += feed.isSolar 
       ? `<th rowspan=2 class=dv>${feed.name}</th>` 
       : `<th colspan=3 class=dv>${feed.name}</th>`;
   }
-  tableRows += `<th rowspan=2 class=tot>Solar+Breaker<div class='head-split'>kWh / Rs</div></th>`;
-  tableRows += `<th rowspan=2 class=col-save>Solar Saved<div class='head-split'>kWh / Rs</div></th>`;
-  tableRows += `<th rowspan=2 class=col-bill>Grid Bill<div class='head-split'>kWh / Rs</div></th></tr><tr class=h2>`;
+  headerHtml += `<th rowspan=2 class=tot>Solar+Breaker<div class='head-split'>kWh / Rs</div></th>`;
+  headerHtml += `<th rowspan=2 class=col-save>Solar Saved<div class='head-split'>kWh / Rs</div></th>`;
+  headerHtml += `<th rowspan=2 class=col-bill>Grid Bill<div class='head-split'>kWh / Rs</div></th></tr><tr class=h2>`;
 
   for (const feed of EXPORT_FEEDS) {
     if (!feed.isSolar) {
-      tableRows += `<th class=c24>24hr</th><th class=cday>${feed.isPc ? "Day*" : "Day"}</th><th class='dv cnight'>Night</th>`;
+      headerHtml += `<th class=c24>24hr</th><th class=cday>${feed.isPc ? "Day*" : "Day"}</th><th class='dv cnight'>Night</th>`;
     }
   }
-  tableRows += '</tr>';
+  headerHtml += '</tr>';
+
+  let tableRows = headerHtml;
 
   const totals24 = {};
   const totalsDay = {};
@@ -119,6 +122,8 @@ function renderDetailedReport(feedData, startMs, endMs, pkrPerKwh) {
     totalsDay[f.id] = 0;
     totalsNight[f.id] = 0;
   });
+
+  window._lastReportSums = sums;
 
   let grandSaveKwh = 0;
   let grandSavePkr = 0;
@@ -172,6 +177,28 @@ function renderDetailedReport(feedData, startMs, endMs, pkrPerKwh) {
     tableRows += `<td class=col-bill>${splitCell(billKwhStr, fmtPkr(billKwh * pkrPerKwh))}</td></tr>`;
   }
 
+  const numDays = dates.length || 1;
+
+  // --- Daily Avg. Row ---
+  tableRows += `<tr class=tr><td class=dt>Daily Avg.</td>`;
+  for (const feed of EXPORT_FEEDS) {
+    const a24 = totals24[feed.id] / numDays;
+    const aDay = totalsDay[feed.id] / numDays;
+    const aNight = totalsNight[feed.id] / numDays;
+    if (feed.isSolar) {
+      tableRows += `<td class='dv c24'>${fmtKwh(a24)}</td>`;
+    } else {
+      tableRows += `<td class=c24>${fmtKwh(a24)}</td><td class=cday>${fmtKwh(aDay)}</td><td class='dv cnight'>${fmtKwh(aNight)}</td>`;
+    }
+  }
+  const avgCombinedKwh = (totals24[solarFeed.id] + totals24[breakerFeed.id]) / 1000.0 / numDays;
+  const avgSaveKwh = grandSaveKwh / numDays;
+  const avgGridKwh = grandGridKwh / numDays;
+  tableRows += `<td class=tot>${splitCell(avgCombinedKwh.toFixed(2), fmtPkr(avgCombinedKwh * pkrPerKwh))}</td>`;
+  tableRows += `<td class=col-save>${splitCell(avgSaveKwh.toFixed(2), fmtPkr(avgSaveKwh * pkrPerKwh))}</td>`;
+  tableRows += `<td class=col-bill>${splitCell(avgGridKwh.toFixed(2), fmtPkr(avgGridKwh * pkrPerKwh))}</td></tr>`;
+
+  // --- Total Row ---
   tableRows += `<tr class=tr><td class=dt>Total</td>`;
   for (const feed of EXPORT_FEEDS) {
     const t24 = totals24[feed.id];
@@ -190,6 +217,9 @@ function renderDetailedReport(feedData, startMs, endMs, pkrPerKwh) {
   tableRows += `<td class=tot>${splitCell(totalCombinedKwh.toFixed(2), fmtPkr(totalCombinedPkr))}</td>`;
   tableRows += `<td class=col-save>${splitCell(grandSaveKwh.toFixed(2), fmtPkr(grandSavePkr))}</td>`;
   tableRows += `<td class=col-bill>${splitCell(grandGridKwh.toFixed(2), fmtPkr(grandBillPkr))}</td></tr>`;
+
+  // --- Repeated Header at bottom ---
+  tableRows += headerHtml;
 
   const maxSolarVal = Math.max(...Object.values(solarByDay).map(v => v / 1000.0), 1.0);
   let heatHtml = '';
@@ -243,7 +273,7 @@ function renderDetailedReport(feedData, startMs, endMs, pkrPerKwh) {
           <div class="pkr-bar-pct">${coveragePct.toFixed(0)}%</div>
         </div>
         
-        <div class="pkr-proj-title">Full Cycle Estimates (Projected till 25th) &nbsp;·&nbsp; Cycle: ${daysInCycle.toFixed(0)} days (elapsed: ${dates.length})</div>
+        <div class="pkr-proj-title">Full Cycle Estimates (Projected till 26th) &nbsp;·&nbsp; Cycle: ${daysInCycle.toFixed(0)} days (elapsed: ${dates.length})</div>
         <div class="pkr-proj-row">
           <div class="pkr-proj-col">
             <span class="pkr-proj-lbl">Est. Solar Gen</span>
@@ -267,6 +297,59 @@ function renderDetailedReport(feedData, startMs, endMs, pkrPerKwh) {
       </div>
     </div>
   `;
+}
+
+async function downloadTextReport() {
+    const content = document.getElementById('usage-report-content');
+    if (!content || !window._lastReportSums) {
+        alert("Please calculate the report first.");
+        return;
+    }
+
+    const sums = window._lastReportSums;
+    const month = document.getElementById('report-month-m').value;
+    const year = document.getElementById('report-month-y').value;
+    
+    let txt = `Energy Usage Summary: ${month}/${year}\n`;
+    txt += `Cycle: 25th to 26th\n`;
+    txt += `------------------------------------------\n`;
+
+    const getKwh = (id, type) => {
+        const val = Object.values(sums[id][type] || {}).reduce((a, b) => a + b, 0);
+        return Math.round(val / 1000);
+    };
+
+    const solarId = EXPORT_FEEDS.find(f => f.isSolar)?.id;
+    const breakerId = EXPORT_FEEDS.find(f => f.isBreaker)?.id;
+
+    const pad = 17;
+
+    if (solarId) {
+        txt += "Solar".padEnd(pad) + `${getKwh(solarId, 'h24')} units\n`;
+    }
+    if (breakerId) {
+        txt += "Breaker".padEnd(pad) + `${getKwh(breakerId, 'h24')} units Total (${getKwh(breakerId, 'day')} units solar time)\n`;
+    }
+
+    EXPORT_FEEDS.forEach(f => {
+        if (f.isSolar || f.isBreaker) return;
+        const total = getKwh(f.id, 'h24');
+        const day = getKwh(f.id, 'day');
+        const wapda = Math.max(0, total - day);
+        
+        const col1 = f.name.padEnd(pad);
+        const col2 = (total + " units Total").padEnd(24);
+        const col3 = ("(" + day + " units solar)").padEnd(22);
+        const col4 = String(wapda).padStart(4) + " units wapda";
+        
+        txt += `${col1}${col2}${col3}${col4}\n`;
+    });
+
+    const blob = new Blob([txt], { type: 'text/plain' });
+    const a = document.createElement('a');
+    a.download = `Energy_Report_${month}_${year}.txt`;
+    a.href = URL.createObjectURL(blob);
+    a.click();
 }
 
 // ─── Main View Prediction Loop ──────────────────────────────────────────────

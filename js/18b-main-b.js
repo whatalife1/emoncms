@@ -358,6 +358,14 @@ function initApp() {
     setInterval(updateMainPredicted, 120000);
     setTimeout(updateMainPredicted, 3000);
   }
+
+  // Wake-up Refresh: Update data when app becomes visible (screen turned on)
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      if (window.addDebugLog) window.addDebugLog(`<b>System:</b> App woke up. Triggering fresh poll.`);
+      if (typeof poll === 'function') poll();
+    }
+  });
 }
 
 // Run init when DOM is ready

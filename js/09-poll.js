@@ -2,6 +2,16 @@ let _lastPollSuccess = Date.now();
 let countdownVal = autoRefreshSec;
 let countdownTimer, refreshTimer;
 
+window.addDebugLog = function(msg) {
+  const dbg = document.getElementById('debug-info');
+  const debugOn = document.getElementById('debug-toggle')?.checked;
+  if (dbg && debugOn) {
+    if (dbg.textContent.includes('Waiting for refresh')) dbg.innerHTML = '';
+    const time = new Date().toLocaleTimeString([], { hour12: false });
+    dbg.innerHTML = `<div style="margin-bottom:4px; border-bottom:1px solid var(--border); padding-bottom:4px;"><span style="color:var(--text-muted);font-size:10px;">[${time}]</span> <span style="word-break:break-word;">${msg}</span></div>` + dbg.innerHTML.substring(0, 3000);
+  }
+};
+
 window.isFetchingMonthly = false;
 
 window.backgroundFetchMonthly = async function() {
@@ -32,6 +42,8 @@ async function poll() {
   }
   if (footer) footer.textContent = 'Fetching...';
 
+  let fetchStart = Date.now();
+
   try {
     if (!window.monthlyUnits) {
        window.backgroundFetchMonthly(); 
@@ -39,6 +51,11 @@ async function poll() {
 
     const bulkData = await fetchEmonBulk();
     if (!bulkData) throw new Error("No data received");
+
+    const fetchTime = Date.now() - fetchStart;
+    if (window.addDebugLog) {
+        window.addDebugLog(`<b>Proxy Bulk:</b> OK (${fetchTime}ms, ${bulkData.size} feeds)`);
+    }
 
     // Added Fallback: If bulkData misses a feed, fetch it directly
     const results = await Promise.all(userOrderedFeeds.filter(f => f.enabled).map(async f => {
@@ -69,7 +86,7 @@ async function poll() {
   } catch (e) {
     console.error("Poll error:", e);
     if (footer) footer.textContent = 'Error: ' + e.message.substring(0, 20);
-    if (dbg) dbg.textContent = "Error: " + e.message;
+    if (window.addDebugLog) window.addDebugLog(`<b style="color:#ef4444">Poll Error:</b> ${e.message}`);
   } finally {
     if (btn) {
         btn.disabled = false;

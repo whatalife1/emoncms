@@ -1,6 +1,6 @@
-// ─── Graphs Panel - Data Layer (Grid-All Multi-Line) ────────────────────
+// ─── Graphs Panel - Data Layer ─────────────────────────────────────────────
 
-// ---- Ensure all shared variables exist (fallbacks) ----
+// ---- Ensure all shared variables exist ----
 if (typeof graphIsLoading === 'undefined') window.graphIsLoading = false;
 if (typeof graphDataCache === 'undefined') window.graphDataCache = null;
 if (typeof graphTab === 'undefined') window.graphTab = 'day';
@@ -16,7 +16,7 @@ if (typeof graphIsPanning === 'undefined') window.graphIsPanning = false;
 if (typeof window.gridAllDisabled === 'undefined') window.gridAllDisabled = new Set();
 if (typeof window.graphOverlayAc === 'undefined') window.graphOverlayAc = null;
 
-// ---- Safety nets for missing functions ----
+// ---- Safety nets ----
 if (typeof _gNavInfo !== 'function') {
     window._gNavInfo = function() {
         const now = new Date();
@@ -54,8 +54,7 @@ if (typeof _calcAvgForRange !== 'function') {
 
 // ---- Format stat line ----
 function _formatStatLine(icon, label, mainVal, accentColor, peakVal, avgVal, nightAvgVal, unit, isKwh, currentTab, isCompact = false) {
-    // FORCE: Month view always uses kWh
-    if (currentTab === 'month') {
+    if (currentTab === 'month' || currentTab === 'year') {
         unit = 'kWh';
         isKwh = true;
     }
@@ -65,12 +64,10 @@ function _formatStatLine(icon, label, mainVal, accentColor, peakVal, avgVal, nig
     const isTemp = lblLower.includes('temp') || lblLower.includes('°c');
     const isWater = lblLower.includes('water') || lblLower.includes('tank');
     const isDay = currentTab === 'day';
-    // Only hide night for Solar, Temp, and Water
     const hideNight = isSolar || isTemp || isWater || !isDay;
     const peakLabel = isDay ? "Peak" : "Max Day";
     const avgLabel  = isDay ? "Avg"  : (currentTab === 'month' ? "Daily Avg" : "Monthly Avg");
 
-    // Only show peak color highlighting for non-temp
     let peakColor = accentColor;
     if (peakVal > 1500 && isDay && !isTemp) peakColor = '#ef4444';
     else if (peakVal > 1000 && isDay && !isTemp) peakColor = '#f97316';
@@ -93,8 +90,6 @@ function _formatStatLine(icon, label, mainVal, accentColor, peakVal, avgVal, nig
     }
 
     const mainDisplay = isKwh ? `${mainVal.toFixed(1)} kWh` : `${mainVal.toFixed(1)} ${unit}`;
-
-    // For Grid-All, don't show the icon as text (already have dot)
     const iconDisplay = icon && !icon.includes('span') ? `${icon} ` : '';
 
     const peakDisp = isTemp ? peakVal.toFixed(1) : Math.round(peakVal).toLocaleString();
@@ -108,7 +103,7 @@ function _formatStatLine(icon, label, mainVal, accentColor, peakVal, avgVal, nig
     </div>`;
 }
 
-// ---- Ensure GRAPH_FEEDS exists ----
+// ---- GRAPH_FEEDS etc. ----
 if (typeof window.GRAPH_FEEDS === 'undefined') {
     window.GRAPH_FEEDS = [
         { key: 'solar',     name: 'Solar',          id: '499380', color: '#facc15', label: '☀ Solar',        isWatts: true },
@@ -151,7 +146,7 @@ if (typeof window.GRAPH_DAY_RESOLUTION_SECONDS === 'undefined') {
     window.GRAPH_DAY_RESOLUTION_SECONDS = 120;
 }
 
-// ---- Helper: fetch ----
+// ---- Fetch helper ----
 async function _gFetch(feedId, startMs, endMs, interval) {
     if (!feedId) return [];
     const url = `${PROXY_BASE}/feed/data.json?ids=${feedId}&start=${startMs}&end=${endMs}&skipmissing=0&average=1&delta=0&interval=${interval}`;
@@ -165,29 +160,60 @@ async function _gFetch(feedId, startMs, endMs, interval) {
     } catch (e) { return []; }
 }
 
-// ---- Convert points to bars ----
+// ---- Convert points to bars (with billing cycle support) ----
 function _pointsToBars(pts, nav, feedKey) {
     if (!pts || !pts.length) return [];
 
-    if (graphTab === 'month' && nav.interval === GRAPH_DAY_RESOLUTION_SECONDS) {
+    // For billing cycle (month view), sum hourly data and bin by day
+    if (nav.isMonthBilling) {
         const daily = {};
         for (const [ts, v] of pts) {
             if (v == null) continue;
-            const dt = new Date(ts);
-            const localHour = (dt.getUTCHours() + 5) % 24;
-            if (localHour >= 5 && localHour < 19) {
-                const dayKey = dt.toISOString().split('T')[0];
-                daily[dayKey] = (daily[dayKey] || 0) + v;
-            }
+            const d = new Date(ts);
+            const key = d.toISOString().slice(0,10);
+            daily[key] = (daily[key] || 0) + v / 1000;
         }
-        const intervalSeconds = GRAPH_DAY_RESOLUTION_SECONDS;
-        const sortedDays = Object.keys(daily).sort();
-        const bars = sortedDays.map(day => (daily[day] * intervalSeconds / 3600) / 1000);
-        nav.labels = sortedDays.map(d => d.slice(5));
+        const startDate = new Date(nav.startMs);
+        const days = Math.ceil((nav.endMs - nav.startMs) / 86400000);
+        const bars = [];
+        const labels = [];
+        for (let i = 0; i < days; i++) {
+            const d = new Date(startDate.getTime() + i * 86400000);
+            const key = d.toISOString().slice(0,10);
+            labels.push(`${d.getDate()}/${d.getMonth()+1}`);
+            bars.push(daily[key] || 0);
+        }
+        nav.labels = labels;
         nav.nBars = bars.length;
         return bars;
     }
 
+    // ---- Year view: billing cycle per month ----
+    if (nav.isYearly) {
+        const monthlyTotals = Array(12).fill(0);
+        for (const [ts, v] of pts) {
+            if (v == null) continue;
+            const d = new Date(ts);
+            const month = d.getMonth();
+            const day = d.getDate();
+            let cycleMonth = month;
+            if (day >= 25) {
+                cycleMonth = (month + 1) % 12;
+            }
+            // Only include data that belongs to the selected year's cycles
+            // Because our fetch range is from Dec 25 previous year to Dec 31 current year,
+            // all data in this range belongs to a cycle that ends in the current year.
+            // For cycleMonth=0, the data from Dec 25 to Dec 31 of previous year belongs to Jan cycle of current year.
+            // So we just sum everything.
+            monthlyTotals[cycleMonth] += v / 1000;
+        }
+        const labels = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        nav.labels = labels;
+        nav.nBars = 12;
+        return monthlyTotals;
+    }
+
+    // ---- Default logic for Day, Total, etc. ----
     const isAvgFeed = feedKey && (feedKey.startsWith('temp') || feedKey === 'water' || feedKey === 'acvolts' || feedKey === 'AC Volts');
     const bars = Array(nav.nBars || 1).fill(0);
     const counts = Array(nav.nBars || 1).fill(0);
@@ -203,6 +229,7 @@ function _pointsToBars(pts, nav, feedKey) {
         } else {
             const d = new Date(ts);
             if (nav.isYearly) {
+                // Already handled above, but keep for fallback
                 idx = d.getMonth();
             } else if (nav.isTotal) {
                 idx = 0;
@@ -255,7 +282,7 @@ function _pointsToBars(pts, nav, feedKey) {
     return result;
 }
 
-// ---- Calculate average for a specific hour range ----
+// ---- Average for hour range ----
 function _calcAvgForRange(bars, startHour, endHour, nav, lastIdx) {
     if (!bars || bars.length === 0) return 0;
     const isWrapping = startHour > endHour;
@@ -281,7 +308,7 @@ function _calcAvgForRange(bars, startHour, endHour, nav, lastIdx) {
     return count > 0 ? total / count : 0;
 }
 
-// ---- Main load & draw ----
+// ---- Main load and draw ----
 async function _loadAndDraw() {
     if (graphIsLoading) return;
     graphIsLoading = true;
@@ -308,29 +335,21 @@ async function _loadAndDraw() {
 
         let interval1 = nav.interval;
         let interval2 = nav.interval;
-        if (graphTab === 'month') {
-            interval1 = GRAPH_DAY_RESOLUTION_SECONDS;
-            interval2 = GRAPH_DAY_RESOLUTION_SECONDS;
+        if (graphTab === 'month' || graphTab === 'year') {
+            interval1 = 3600;
+            interval2 = 3600;
         }
 
-        // ---- Handle Grid-All Multi-Line ----
-        // Check if this is a Temperature + Humidity request
         const isTempCombined = graphFeedKey === 'temp' || graphFeedKey === 'temp2';
 
         if (isGridAll && isMultiLine) {
-            // Only fetch feeds that are NOT disabled by the toggle
-            const visibleFeeds = GRID_ALL_FEEDS.filter(
-                f => !window.gridAllDisabled.has(f.key)
-            );
-
+            const visibleFeeds = GRID_ALL_FEEDS.filter(f => !window.gridAllDisabled.has(f.key));
             multiData = [];
-            const allPromises = visibleFeeds.map(
-                f => _gFetch(f.id, nav.startMs, nav.endMs, interval1)
-            );
+            const allPromises = visibleFeeds.map(f => _gFetch(f.id, nav.startMs, nav.endMs, interval1));
             const allResults = await Promise.all(allPromises);
 
             const navForBars = { ...nav };
-            if (graphTab === 'month') navForBars.interval = GRAPH_DAY_RESOLUTION_SECONDS;
+            if (graphTab === 'month') navForBars.interval = 3600;
 
             for (let i = 0; i < visibleFeeds.length; i++) {
                 const feed = visibleFeeds[i];
@@ -365,7 +384,7 @@ async function _loadAndDraw() {
         }
 
         const navForBars = { ...nav };
-        if (graphTab === 'month') navForBars.interval = GRAPH_DAY_RESOLUTION_SECONDS;
+        if (graphTab === 'month') navForBars.interval = 3600;
 
         if (!isGridAll || !isMultiLine) {
             bars1 = _pointsToBars(pts1, navForBars, graphFeedKey);
@@ -396,8 +415,9 @@ async function _loadAndDraw() {
 
         let labels = nav.labels;
         if (graphTab === 'month') labels = navForBars.labels || labels;
+        if (graphTab === 'year') labels = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-        // ---- Stop at last available data point ----
+        // ---- Stop at last available data point (day view only) ----
         let lastIdx = bars1.length || (multiData && multiData.length > 0 ? multiData[0].data.length : 0);
         if (graphTab === 'day' && graphDateNav === 0) {
             const expectedIdx = Math.floor((Date.now() - nav.startMs) / (nav.resSeconds * 1000)) + 1;
@@ -430,7 +450,7 @@ async function _loadAndDraw() {
         const color1 = isCombined ? '#facc15' : (fA?.color || '#facc15');
         const color2 = '#ef4444';
 
-        // Calculate Y-axis range
+        // Y-axis range
         let maxV, minV;
         if (multiData && multiData.length > 0) {
             let allVals = [];
@@ -478,7 +498,7 @@ async function _loadAndDraw() {
         const isAvgFeed = isTemp || graphFeedKey === 'water' || graphFeedKey === 'acvolts' || graphFeedKey === 'AC Volts';
         let t1 = 0, t2 = 0;
 
-        if (graphTab === 'month') {
+        if (graphTab === 'month' || graphTab === 'year') {
             if (bars1.length > 0) t1 = bars1.reduce((a, b) => a + b, 0);
             if (isCombined && bars2.length > 0) t2 = bars2.reduce((a, b) => a + b, 0);
         } else {
@@ -496,7 +516,7 @@ async function _loadAndDraw() {
         let displayLabel = fA?.label || graphFeedKey;
         if (isGridAll) displayLabel = '⚡ All';
 
-        // ---- Grid-All stat: one line per visible feed with Avg and Night Avg ----
+        // ---- Stats rendering (Grid-All, Combined, Single) ----
         if (isGridAll && multiData && multiData.length > 0) {
             const dayFactor = (nav.resSeconds / 3600) / 1000;
             let statHtml = '';
@@ -511,17 +531,15 @@ async function _loadAndDraw() {
                 let validCount = 0;
                 const hourStep = nav.resSeconds / 3600;
                 
-                // Calculate totals and averages
                 for (let i = 0; i < data.length; i++) {
                     const val = data[i];
                     if (val === 0 || val === null || val === undefined) continue;
                     validCount++;
                     
-                    if (graphTab === 'month') {
+                    if (graphTab === 'month' || graphTab === 'year') {
                         total += val;
                     } else if (nav.isDayTab) {
                         total += val;
-                        // Day: 5am-5pm, Night: 5pm-8am
                         const hour = i * hourStep;
                         if (hour >= 5 && hour < 17) {
                             dayAvg += val;
@@ -542,20 +560,17 @@ async function _loadAndDraw() {
                 let displayUnit = unit;
                 let isKwh = false;
                 
-                if (graphTab === 'month') {
-                    // Month view: already in kWh from _pointsToBars
+                if (graphTab === 'month' || graphTab === 'year') {
                     displayUnit = 'kWh';
                     isKwh = true;
                     displayDayAvg = validCount > 0 ? total / validCount : 0;
                 } else if (nav.isDayTab) {
-                    // Day view: values are in Watts
                     displayUnit = 'W';
                     isKwh = true;
                     displayTotal = total * dayFactor;
                     displayDayAvg = dayCount > 0 ? (dayAvg / dayCount) : 0;
                     displayNightAvg = nightCount > 0 ? (nightAvg / nightCount) : 0;
                 } else {
-                    // Year/Total view: already in kWh
                     displayUnit = 'kWh';
                     isKwh = true;
                     displayDayAvg = validCount > 0 ? total / validCount : 0;
@@ -581,7 +596,7 @@ async function _loadAndDraw() {
             const p1 = bars1.length > 0 ? Math.max(...bars1) : 0;
             const p2 = bars2.length > 0 ? Math.max(...bars2) : 0;
             let a1, a2, n2 = null;
-            if (graphTab === 'month') {
+            if (graphTab === 'month' || graphTab === 'year') {
                 a1 = bars1.length > 0 ? t1 / bars1.length : 0;
                 a2 = bars2.length > 0 ? t2 / bars2.length : 0;
             } else {
@@ -595,13 +610,12 @@ async function _loadAndDraw() {
             const isSol = graphFeedKey === 'solar';
             const p1 = bars1.length > 0 ? Math.max(...bars1) : 0;
             let a1 = null, n1 = null;
-            if (graphTab === 'month') {
+            if (graphTab === 'month' || graphTab === 'year') {
                 a1 = bars1.length > 0 ? t1 / bars1.length : 0;
             } else {
                 if (!isTemp && bars1.length > 0) {
                     if (nav.isDayTab) {
                         a1 = _calcAvgForRange(bars1, isSol ? 5 : 0, isSol ? 17 : 24, nav, lastIdx);
-                        // Only calculate night for non-solar, non-temp, non-water
                         if (!isSol && !isAvgFeed) {
                             n1 = _calcAvgForRange(bars1, 17, 8, nav, lastIdx);
                         }

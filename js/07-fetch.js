@@ -14,9 +14,18 @@ function nativeFetch(url, retries = 2, delay = 1000) {
   return new Promise(resolve => {
     const id = Math.random().toString(36).substr(2, 9);
     
+    // Safety timeout: If no response in 10s, force a retry
+    const timeoutTimer = setTimeout(() => {
+      if (nativeCallbacks[id]) {
+        if (window.addDebugLog) window.addDebugLog(`<b style="color:#ef4444">Timeout:</b> 10s exceeded. Force-canceling.`);
+        nativeCallbacks[id]("ERROR: Timeout");
+      }
+    }, 10000);
+
     nativeCallbacks[id] = (result) => {
+      clearTimeout(timeoutTimer);
       if (typeof result === 'string' && result.startsWith('ERROR:') && retries > 0) {
-        if (window.addDebugLog) window.addDebugLog(`<b style="color:#f59e0b">Fetch Retry:</b> ${retries} left for API call`);
+        if (window.addDebugLog) window.addDebugLog(`<b style="color:#f59e0b">Retry:</b> ${result} (Attempt ${3-retries}/3)`);
         setTimeout(() => {
           resolve(nativeFetch(url, retries - 1, delay * 1.5));
         }, delay);

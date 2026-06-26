@@ -36,7 +36,12 @@ function checkAlerts(byName) {
       if (window.Android && window.Android.showNotification) {
         window.Android.showNotification(alert.label, msg);
       } else if (typeof Notification !== 'undefined' && Notification.permission === "granted") {
-        new Notification(alert.label, { body: msg });
+        try {
+          new Notification(alert.label, { body: msg });
+        } catch (e) {
+          console.warn('Notification error:', e);
+          if (window.addDebugLog) window.addDebugLog(`<b style="color:#f59e0b">Alert Warn:</b> ${e.message}`);
+        }
       }
     } else if (!triggered) {
       delete _alertFired[key];

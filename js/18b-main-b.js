@@ -146,8 +146,9 @@ function wireButtons() {
     document.body.appendChild(clone);
     html2canvas(clone, {
       backgroundColor: '#121214', 
-      scale: 2, 
+      scale: 3, 
       useCORS: true,
+      logging: false,
       width: clone.scrollWidth, 
       height: clone.scrollHeight
     }).then(canvas => {

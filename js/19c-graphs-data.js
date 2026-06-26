@@ -52,7 +52,7 @@ if (typeof _calcAvgForRange !== 'function') {
     window._calcAvgForRange = function() { return null; };
 }
 
-// ---- Format stat line ----
+// ---- Format stat line (with one‑decimal night avg) ----
 function _formatStatLine(icon, label, mainVal, accentColor, peakVal, avgVal, nightAvgVal, unit, isKwh, currentTab, isCompact = false) {
     if (currentTab === 'month' || currentTab === 'year') {
         unit = 'kWh';
@@ -83,9 +83,13 @@ function _formatStatLine(icon, label, mainVal, accentColor, peakVal, avgVal, nig
         avgHtml = ` · <span style="color:${accentColor}; ${boldStyle}">${avgLabel}: ${avgDisp} ${unit}</span>`;
     }
 
+    // ---- Night Avg (always one decimal) ----
     let nightHtml = '';
-    if (!hideNight && nightAvgVal !== null && nightAvgVal !== 0 && nightAvgVal !== undefined && !isNaN(nightAvgVal) && nightAvgVal > 0.01) {
-        const nightDisp = isTemp ? nightAvgVal.toFixed(1) : Math.round(nightAvgVal);
+    if (currentTab === 'month' && nightAvgVal !== null && nightAvgVal !== undefined && !isNaN(nightAvgVal) && nightAvgVal > 0.01) {
+        const nightDisp = nightAvgVal.toFixed(1);
+        nightHtml = ` · <span style="color:#bf7aff; ${boldStyle}">Night Avg: ${nightDisp} ${unit}</span>`;
+    } else if (!hideNight && nightAvgVal !== null && nightAvgVal !== 0 && nightAvgVal !== undefined && !isNaN(nightAvgVal) && nightAvgVal > 0.01) {
+        const nightDisp = nightAvgVal.toFixed(1);
         nightHtml = ` · <span style="color:#bf7aff; ${boldStyle}">Night Avg: ${nightDisp} ${unit}</span>`;
     }
 
@@ -160,11 +164,10 @@ async function _gFetch(feedId, startMs, endMs, interval) {
     } catch (e) { return []; }
 }
 
-// ---- Convert points to bars (with billing cycle support) ----
+// ---- Convert points to bars ----
 function _pointsToBars(pts, nav, feedKey) {
     if (!pts || !pts.length) return [];
 
-    // For billing cycle (month view), sum hourly data and bin by day
     if (nav.isMonthBilling) {
         const daily = {};
         for (const [ts, v] of pts) {
@@ -188,7 +191,6 @@ function _pointsToBars(pts, nav, feedKey) {
         return bars;
     }
 
-    // ---- Year view: billing cycle per month ----
     if (nav.isYearly) {
         const monthlyTotals = Array(12).fill(0);
         for (const [ts, v] of pts) {
@@ -200,11 +202,6 @@ function _pointsToBars(pts, nav, feedKey) {
             if (day >= 25) {
                 cycleMonth = (month + 1) % 12;
             }
-            // Only include data that belongs to the selected year's cycles
-            // Because our fetch range is from Dec 25 previous year to Dec 31 current year,
-            // all data in this range belongs to a cycle that ends in the current year.
-            // For cycleMonth=0, the data from Dec 25 to Dec 31 of previous year belongs to Jan cycle of current year.
-            // So we just sum everything.
             monthlyTotals[cycleMonth] += v / 1000;
         }
         const labels = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -213,7 +210,6 @@ function _pointsToBars(pts, nav, feedKey) {
         return monthlyTotals;
     }
 
-    // ---- Default logic for Day, Total, etc. ----
     const isAvgFeed = feedKey && (feedKey.startsWith('temp') || feedKey === 'water' || feedKey === 'acvolts' || feedKey === 'AC Volts');
     const bars = Array(nav.nBars || 1).fill(0);
     const counts = Array(nav.nBars || 1).fill(0);
@@ -229,7 +225,6 @@ function _pointsToBars(pts, nav, feedKey) {
         } else {
             const d = new Date(ts);
             if (nav.isYearly) {
-                // Already handled above, but keep for fallback
                 idx = d.getMonth();
             } else if (nav.isTotal) {
                 idx = 0;
@@ -350,6 +345,7 @@ async function _loadAndDraw() {
 
             const navForBars = { ...nav };
             if (graphTab === 'month') navForBars.interval = 3600;
+            if (graphTab === 'year') navForBars.isYearly = true;
 
             for (let i = 0; i < visibleFeeds.length; i++) {
                 const feed = visibleFeeds[i];
@@ -385,6 +381,7 @@ async function _loadAndDraw() {
 
         const navForBars = { ...nav };
         if (graphTab === 'month') navForBars.interval = 3600;
+        if (graphTab === 'year') navForBars.isYearly = true;
 
         if (!isGridAll || !isMultiLine) {
             bars1 = _pointsToBars(pts1, navForBars, graphFeedKey);
@@ -417,7 +414,6 @@ async function _loadAndDraw() {
         if (graphTab === 'month') labels = navForBars.labels || labels;
         if (graphTab === 'year') labels = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-        // ---- Stop at last available data point (day view only) ----
         let lastIdx = bars1.length || (multiData && multiData.length > 0 ? multiData[0].data.length : 0);
         if (graphTab === 'day' && graphDateNav === 0) {
             const expectedIdx = Math.floor((Date.now() - nav.startMs) / (nav.resSeconds * 1000)) + 1;
@@ -438,7 +434,6 @@ async function _loadAndDraw() {
             if (multiData && multiData.length > 0 && lastIdx > multiData[0].data.length) lastIdx = multiData[0].data.length;
         }
 
-        // ---- Unit ----
         let unit;
         const isTemp = graphFeedKey && (graphFeedKey.startsWith('temp') || graphFeedKey === 'temp' || graphFeedKey === 'temp2');
         if (graphTab === 'day') {
@@ -450,7 +445,28 @@ async function _loadAndDraw() {
         const color1 = isCombined ? '#facc15' : (fA?.color || '#facc15');
         const color2 = '#ef4444';
 
-        // Y-axis range
+        // ---- Compute night average for Month view (single feed) ----
+        let nightAvg = null;
+        if (graphTab === 'month' && !isCombined && !isGridAll && !isTempFeed) {
+            const nightHours = [17,18,19,20,21,22,23,0,1,2,3,4,5,6,7];
+            let totalNightKwh = 0;
+            let nightCount = 0;
+            for (const [ts, v] of pts1) {
+                if (v == null) continue;
+                const d = new Date(ts);
+                const hour = d.getHours();
+                if (nightHours.includes(hour)) {
+                    totalNightKwh += v / 1000;
+                    nightCount++;
+                }
+            }
+            const daysInCycle = bars1.length;
+            if (daysInCycle > 0 && nightCount > 0) {
+                nightAvg = totalNightKwh / daysInCycle;
+            }
+        }
+
+        // ---- Y-axis range ----
         let maxV, minV;
         if (multiData && multiData.length > 0) {
             let allVals = [];
@@ -498,7 +514,10 @@ async function _loadAndDraw() {
         const isAvgFeed = isTemp || graphFeedKey === 'water' || graphFeedKey === 'acvolts' || graphFeedKey === 'AC Volts';
         let t1 = 0, t2 = 0;
 
-        if (graphTab === 'month' || graphTab === 'year') {
+        if (graphTab === 'month') {
+            if (bars1.length > 0) t1 = bars1.reduce((a, b) => a + b, 0);
+            if (isCombined && bars2.length > 0) t2 = bars2.reduce((a, b) => a + b, 0);
+        } else if (graphTab === 'year') {
             if (bars1.length > 0) t1 = bars1.reduce((a, b) => a + b, 0);
             if (isCombined && bars2.length > 0) t2 = bars2.reduce((a, b) => a + b, 0);
         } else {
@@ -516,7 +535,7 @@ async function _loadAndDraw() {
         let displayLabel = fA?.label || graphFeedKey;
         if (isGridAll) displayLabel = '⚡ All';
 
-        // ---- Stats rendering (Grid-All, Combined, Single) ----
+        // ---- Stats rendering ----
         if (isGridAll && multiData && multiData.length > 0) {
             const dayFactor = (nav.resSeconds / 3600) / 1000;
             let statHtml = '';
@@ -525,7 +544,7 @@ async function _loadAndDraw() {
                 let total = 0;
                 let peak = 0;
                 let dayAvg = 0;
-                let nightAvg = 0;
+                let nightAvgLine = 0;
                 let dayCount = 0;
                 let nightCount = 0;
                 let validCount = 0;
@@ -545,7 +564,7 @@ async function _loadAndDraw() {
                             dayAvg += val;
                             dayCount++;
                         } else if (hour >= 17 || hour < 8) {
-                            nightAvg += val;
+                            nightAvgLine += val;
                             nightCount++;
                         }
                     } else {
@@ -569,7 +588,7 @@ async function _loadAndDraw() {
                     isKwh = true;
                     displayTotal = total * dayFactor;
                     displayDayAvg = dayCount > 0 ? (dayAvg / dayCount) : 0;
-                    displayNightAvg = nightCount > 0 ? (nightAvg / nightCount) : 0;
+                    displayNightAvg = nightCount > 0 ? (nightAvgLine / nightCount) : 0;
                 } else {
                     displayUnit = 'kWh';
                     isKwh = true;
@@ -610,7 +629,10 @@ async function _loadAndDraw() {
             const isSol = graphFeedKey === 'solar';
             const p1 = bars1.length > 0 ? Math.max(...bars1) : 0;
             let a1 = null, n1 = null;
-            if (graphTab === 'month' || graphTab === 'year') {
+            if (graphTab === 'month') {
+                a1 = bars1.length > 0 ? t1 / bars1.length : 0;
+                n1 = nightAvg;
+            } else if (graphTab === 'year') {
                 a1 = bars1.length > 0 ? t1 / bars1.length : 0;
             } else {
                 if (!isTemp && bars1.length > 0) {

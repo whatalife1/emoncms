@@ -340,7 +340,7 @@ function _renderGFeedTabs() {
     _renderOverlayToggles();
 }
 
-// ─── Navigation info ────────────────────────────────────────────────────────
+// ─── Navigation info (Month view uses billing cycle, Year uses billing cycles) ──
 function _gNavInfo() {
     const now = new Date();
 
@@ -381,7 +381,7 @@ function _gNavInfo() {
         };
     }
 
-    // ── MONTH VIEW: billing cycle (25th → 26th) ──────────────────────────
+    // ── MONTH VIEW: Billing cycle (25th → 26th) ──────────────────────────
     if (graphTab === 'month') {
         let base = new Date(now.getFullYear(), now.getMonth() + graphMonthNav, 1);
         let startMonth = base.getMonth() - 1;
@@ -410,14 +410,15 @@ function _gNavInfo() {
             labels: labels,
             month: start.getMonth(),
             year: start.getFullYear(),
-            isMonthBilling: true
+            isMonthBilling: true,
+            resSeconds: 3600  // for night avg calculation
         };
     }
 
-    // ── YEAR VIEW: billing cycles (Dec 25 previous year → Dec 31 current year) ──
+    // ── YEAR VIEW: fetch from Dec 25 previous year to Dec 31 this year ──
     if (graphTab === 'year') {
         const y = now.getFullYear() + graphYearNav;
-        const start = new Date(y - 1, 11, 25); // Dec 25 of previous year
+        const start = new Date(y - 1, 11, 25); // Dec 25 previous year
         const end = new Date(y, 11, 31, 23, 59, 59);
         return {
             label: String(y),
@@ -429,21 +430,14 @@ function _gNavInfo() {
             endMs: end.getTime(),
             labels: ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],
             year: y,
-            isYearBilling: true
+            isYearBilling: true,
+            resSeconds: 3600
         };
     }
 
-    // ── TOTAL ───────────────────────────────────────────────────────────────
-    return {
-        label: 'All Time',
-        sub: null,
-        interval: 86400 * 7,
-        isTotal: true,
-        nBars: 0,
-        startMs: new Date(2024, 0, 1).getTime(),
-        endMs: now.getTime(),
-        labels: []
-    };
+    // Total
+    return { label:'All Time', sub:null, interval:86400*7, isTotal:true, nBars:0,
+        startMs: new Date(2024,0,1).getTime(), endMs: now.getTime(), labels:[] };
 }
 
 // ─── Navigation bar ──────────────────────────────────────────────────────────

@@ -79,10 +79,8 @@ async function fetchLahoreWeather(force = false) {
     localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), data }));
 
     // Debug output
-    const dbg = document.getElementById('debug-info');
-    const debugOn = document.getElementById('debug-toggle')?.checked;
-    if (dbg && debugOn) {
-      dbg.innerHTML += `<br><b>Weather:</b> updated ${new Date().toLocaleTimeString()} - ${data.hourly.time.length} hrs`;
+    if (window.addDebugLog) {
+      window.addDebugLog(`<b>Weather API:</b> OK (${data.hourly.time.length} hrs)`);
     }
     return data;
   } catch(e) {

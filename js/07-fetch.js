@@ -16,10 +16,14 @@ function nativeFetch(url, retries = 2, delay = 1000) {
     
     nativeCallbacks[id] = (result) => {
       if (typeof result === 'string' && result.startsWith('ERROR:') && retries > 0) {
+        if (window.addDebugLog) window.addDebugLog(`<b style="color:#f59e0b">Fetch Retry:</b> ${retries} left for API call`);
         setTimeout(() => {
           resolve(nativeFetch(url, retries - 1, delay * 1.5));
         }, delay);
       } else {
+        if (typeof result === 'string' && result.startsWith('ERROR:')) {
+           if (window.addDebugLog) window.addDebugLog(`<b style="color:#ef4444">Fetch Failed:</b> ${result.substring(0, 60)}...`);
+        }
         resolve(result);
       }
     };

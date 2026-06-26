@@ -5,6 +5,14 @@ let tooltipPinned = false;
 let graphsAutoRefreshInterval = null;
 let graphsLastUpdate = 0;
 
+// ─── Missing constants & helpers ────────────────────────────────────────────
+const graphZoomMin = 1;
+const graphZoomMax = 60;
+
+function _getLocalMidnight(date) {
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+}
+
 // ─── Auto-refresh management ────────────────────────────────────────────────
 
 function startGraphsAutoRefresh() {
@@ -199,18 +207,15 @@ function _renderGTimeTabs() {
 
 // ─── Grid-All per-feed toggle pills ─────────────────────────────────────────
 function _renderGridAllToggles() {
-    // Remove any existing toggle row
     const existing = document.getElementById('gridall-toggles');
     if (existing) existing.remove();
 
-    // Only show when Grid-All feed is selected
     if (graphFeedKey !== 'gridall') return;
 
     const wrap = document.createElement('div');
     wrap.id = 'gridall-toggles';
     wrap.style.cssText = 'display:flex;gap:5px;flex-wrap:nowrap;overflow-x:auto;padding:6px 0 8px;scrollbar-width:none;-webkit-overflow-scrolling:touch;flex-shrink:0;align-items:center;';
     
-    // Hide scrollbar for Chrome/Safari dynamically
     if (!document.getElementById('gridall-scroll-style')) {
         const s = document.createElement('style');
         s.id = 'gridall-scroll-style';
@@ -236,15 +241,12 @@ function _renderGridAllToggles() {
             opacity:${off ? '0.4' : '1'};
             transition:opacity 0.15s, background 0.15s;
         `;
-        // Coloured dot + label so the line colour is immediately obvious
         btn.innerHTML = `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${f.color};margin-right:5px;vertical-align:middle;opacity:${off ? 0.3 : 1}"></span>${f.label}`;
 
         btn.addEventListener('click', () => {
             if (window.gridAllDisabled.has(f.key)) {
-                // Re-enable
                 window.gridAllDisabled.delete(f.key);
             } else {
-                // Disable — but keep at least one feed visible
                 const visibleCount = GRID_ALL_FEEDS.length - window.gridAllDisabled.size;
                 if (visibleCount > 1) {
                     window.gridAllDisabled.add(f.key);
@@ -256,14 +258,12 @@ function _renderGridAllToggles() {
         wrap.appendChild(btn);
     });
 
-    // Insert above the feed-tabs row
     const feedTabsWrap = document.getElementById('graph-feed-tabs');
     if (feedTabsWrap) {
         feedTabsWrap.parentNode.insertBefore(wrap, feedTabsWrap);
     }
 }
 
-// ─── AC overlay toggle buttons (only for Temp feeds) ─────────────────
 function _renderOverlayToggles() {
     const existing = document.getElementById('temp-overlay-toggles');
     if (existing) existing.remove();
@@ -281,7 +281,6 @@ function _renderOverlayToggles() {
         { key: 'k1', label: '+ Kenwood 1T', color: '#7dd3fc' }
     ];
 
-    // Clear button
     const clearBtn = document.createElement('button');
     clearBtn.textContent = 'Clear';
     clearBtn.style.cssText = 'padding:4px 10px;border-radius:20px;font-size:11px;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--text-muted);';
@@ -338,13 +337,10 @@ function _renderGFeedTabs() {
     });
 
     _renderGridAllToggles();
-    _renderOverlayToggles();   // <-- added
+    _renderOverlayToggles();
 }
 
-function _getLocalMidnight(date) {
-    return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
-}
-
+// ─── Navigation info ────────────────────────────────────────────────────────
 function _gNavInfo() {
     const now = new Date();
 
@@ -385,32 +381,80 @@ function _gNavInfo() {
         };
     }
 
+    // ── MONTH VIEW: billing cycle (25th → 26th) ──────────────────────────
     if (graphTab === 'month') {
-        const m = new Date(now.getFullYear(), now.getMonth()+graphMonthNav, 1);
-        const days = new Date(m.getFullYear(),m.getMonth()+1,0).getDate();
-        return { label: m.toLocaleDateString('en-PK',{month:'long',year:'numeric'}), sub:null,
-            interval:86400, isDayTab:false, nBars:days,
-            startMs: new Date(m.getFullYear(),m.getMonth(),1).getTime(),
-            endMs:   new Date(m.getFullYear(),m.getMonth(),days,23,59,59).getTime(),
-            labels: Array.from({length:days},(_,i)=>String(i+1)),
-            month: m.getMonth(), year: m.getFullYear() };
+        let base = new Date(now.getFullYear(), now.getMonth() + graphMonthNav, 1);
+        let startMonth = base.getMonth() - 1;
+        let startYear = base.getFullYear();
+        if (startMonth < 0) { startMonth = 11; startYear--; }
+        const start = new Date(startYear, startMonth, 25);
+        const end = new Date(start.getFullYear(), start.getMonth() + 1, 26);
+        const effectiveEnd = end > now ? now : end;
+
+        const days = Math.ceil((effectiveEnd - start) / 86400000);
+        const labels = [];
+        for (let i = 0; i < days; i++) {
+            const d = new Date(start.getTime() + i * 86400000);
+            labels.push(`${d.getDate()}/${d.getMonth()+1}`);
+        }
+
+        const rangeLabel = `${start.toLocaleDateString('en-PK', {month:'short', day:'numeric'})} – ${effectiveEnd.toLocaleDateString('en-PK', {month:'short', day:'numeric', year:'numeric'})}`;
+        return {
+            label: rangeLabel,
+            sub: null,
+            interval: 3600,
+            isDayTab: false,
+            nBars: days,
+            startMs: start.getTime(),
+            endMs: effectiveEnd.getTime(),
+            labels: labels,
+            month: start.getMonth(),
+            year: start.getFullYear(),
+            isMonthBilling: true
+        };
     }
+
+    // ── YEAR VIEW: billing cycles (Dec 25 previous year → Dec 31 current year) ──
     if (graphTab === 'year') {
-        const y = now.getFullYear()+graphYearNav;
-        return { label:String(y), sub:null, interval:86400, isYearly:true, nBars:12,
-            startMs: new Date(y,0,1).getTime(), endMs: new Date(y,11,31,23,59,59).getTime(),
-            labels:['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'], year:y };
+        const y = now.getFullYear() + graphYearNav;
+        const start = new Date(y - 1, 11, 25); // Dec 25 of previous year
+        const end = new Date(y, 11, 31, 23, 59, 59);
+        return {
+            label: String(y),
+            sub: null,
+            interval: 3600,
+            isYearly: true,
+            nBars: 12,
+            startMs: start.getTime(),
+            endMs: end.getTime(),
+            labels: ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],
+            year: y,
+            isYearBilling: true
+        };
     }
-    return { label:'All Time', sub:null, interval:86400*7, isTotal:true, nBars:0,
-        startMs: new Date(2024,0,1).getTime(), endMs: now.getTime(), labels:[] };
+
+    // ── TOTAL ───────────────────────────────────────────────────────────────
+    return {
+        label: 'All Time',
+        sub: null,
+        interval: 86400 * 7,
+        isTotal: true,
+        nBars: 0,
+        startMs: new Date(2024, 0, 1).getTime(),
+        endMs: now.getTime(),
+        labels: []
+    };
 }
 
+// ─── Navigation bar ──────────────────────────────────────────────────────────
 function _renderGNavBar() {
     const wrap = document.getElementById('graph-nav-bar');
     if (!wrap) return;
     if (graphTab === 'total') { wrap.innerHTML = ''; return; }
     const nav = _gNavInfo();
-    const canFwd = (graphTab==='day'&&graphDateNav<0)||(graphTab==='month'&&graphMonthNav<0)||(graphTab==='year'&&graphYearNav<0);
+    const canFwd = (graphTab === 'day' && graphDateNav < 0) ||
+                   (graphTab === 'month' && nav.endMs < Date.now()) ||
+                   (graphTab === 'year' && graphYearNav < 0);
     wrap.innerHTML = `
         <button class="graph-nav-btn" id="gnav-prev">‹</button>
         <div class="graph-nav-center">
@@ -423,7 +467,9 @@ function _renderGNavBar() {
     const nextBtn = document.getElementById('gnav-next');
 
     if (prevBtn) prevBtn.addEventListener('click', () => {
-        if (graphTab==='day') graphDateNav--; else if (graphTab==='month') graphMonthNav--; else graphYearNav--;
+        if (graphTab === 'day') graphDateNav--;
+        else if (graphTab === 'month') graphMonthNav--;
+        else graphYearNav--;
         graphZoomLevel = 1;
         graphPanOffset = 0;
         graphNeedsDayZoom = true;
@@ -435,7 +481,9 @@ function _renderGNavBar() {
 
     if (nextBtn) nextBtn.addEventListener('click', () => {
         if (!canFwd) return;
-        if (graphTab==='day') graphDateNav++; else if (graphTab==='month') graphMonthNav++; else graphYearNav++;
+        if (graphTab === 'day') graphDateNav++;
+        else if (graphTab === 'month') graphMonthNav++;
+        else graphYearNav++;
         graphZoomLevel = 1;
         graphPanOffset = 0;
         graphNeedsDayZoom = true;
@@ -446,6 +494,7 @@ function _renderGNavBar() {
     });
 }
 
+// ─── Tooltip ──────────────────────────────────────────────────────────────────
 function hideTooltip() {
     const tooltip = document.getElementById('graph-tooltip');
     if (tooltip) {
@@ -570,7 +619,7 @@ function renderGraphsPanel() {
     if (graphIsRendering) return;
     graphIsRendering = true;
     try {
-        _renderGFeedTabs();      // also calls _renderGridAllToggles and _renderTempOverlayToggles
+        _renderGFeedTabs();
         _renderGTimeTabs();
         _renderGNavBar();
         _renderChartTypeToggle();

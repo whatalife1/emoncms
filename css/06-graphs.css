@@ -96,19 +96,33 @@
   color: var(--text-main);
 }
 
-/* ── Feed tabs ────────────────────────────────────────────────────────────── */
-.graph-feed-tabs {
-  display: flex; gap: 5px; flex-wrap: wrap; /* Changed to wrap, removed horizontal scroll */
+/* ── Feed tabs & Sub Tabs ─────────────────────────────────────────────────── */
+.graph-feed-tabs, .graph-sub-tabs {
+  display: flex; 
+  gap: 5px; 
   padding-bottom: 12px !important;
   position: relative;
   z-index: 11;
   margin-bottom: 8px !important;
   flex-shrink: 0;
   align-items: center;
+  /* Mobile default: wrap into multiple lines */
+  flex-wrap: wrap; 
   justify-content: center;
 }
-.graph-feed-tabs::-webkit-scrollbar {
-  display: none;
+
+/* Desktop override: Single line with horizontal scroll */
+@media (min-width: 480px) {
+  .graph-feed-tabs, .graph-sub-tabs {
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .graph-feed-tabs::-webkit-scrollbar, .graph-sub-tabs::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 .gfeed-tab {
@@ -226,7 +240,7 @@
     margin-bottom: 2px !important;
     min-height: 12px !important;
   }
-  .graph-feed-tabs {
+  .graph-feed-tabs, .graph-sub-tabs {
     gap: 3px !important;
     padding-bottom: 4px !important;
     margin-bottom: 4px !important;
@@ -279,14 +293,14 @@
 
 /* ── Graph Stat Responsive Layout ── */
 .graph-stat {
-  display: block !important; /* Overriding previous flex */
+  display: block !important;
   margin-bottom: 12px !important;
-  padding-right: 0 !important; /* Give back the space used by the toggle */
+  padding-right: 0 !important;
 }
 
 .stat-row {
   display: flex;
-  flex-direction: column; /* Stack vertically on mobile */
+  flex-direction: column;
   gap: 2px;
   line-height: 1.2;
 }
@@ -304,7 +318,7 @@
 
 @media (min-width: 480px) {
   .stat-row {
-    flex-direction: row; /* Side-by-side on desktop/wider screens */
+    flex-direction: row;
     align-items: baseline;
     flex-wrap: wrap;
   }

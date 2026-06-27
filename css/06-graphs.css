@@ -98,15 +98,14 @@
 
 /* ── Feed tabs ────────────────────────────────────────────────────────────── */
 .graph-feed-tabs {
-  display: flex; gap: 5px; flex-wrap: nowrap; overflow-x: auto;
+  display: flex; gap: 5px; flex-wrap: wrap; /* Changed to wrap, removed horizontal scroll */
   padding-bottom: 12px !important;
   position: relative;
   z-index: 11;
   margin-bottom: 8px !important;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
   flex-shrink: 0;
   align-items: center;
+  justify-content: center;
 }
 .graph-feed-tabs::-webkit-scrollbar {
   display: none;

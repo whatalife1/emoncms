@@ -214,14 +214,8 @@ function _renderGridAllToggles() {
 
     const wrap = document.createElement('div');
     wrap.id = 'gridall-toggles';
-    wrap.style.cssText = 'display:flex;gap:5px;flex-wrap:nowrap;overflow-x:auto;padding:6px 0 8px;scrollbar-width:none;-webkit-overflow-scrolling:touch;flex-shrink:0;align-items:center;';
-    
-    if (!document.getElementById('gridall-scroll-style')) {
-        const s = document.createElement('style');
-        s.id = 'gridall-scroll-style';
-        s.textContent = '#gridall-toggles::-webkit-scrollbar { display: none; }';
-        document.head.appendChild(s);
-    }
+    // Removed overflow scrolling, added flex-wrap
+    wrap.style.cssText = 'display:flex;gap:5px;flex-wrap:wrap;padding:6px 0 8px;flex-shrink:0;align-items:center;justify-content:center;';
 
     GRID_ALL_FEEDS.forEach(f => {
         const off = window.gridAllDisabled.has(f.key);
@@ -273,7 +267,8 @@ function _renderOverlayToggles() {
 
     const container = document.createElement('div');
     container.id = 'temp-overlay-toggles';
-    container.style.cssText = 'display:flex;gap:5px;flex-wrap:nowrap;overflow-x:auto;padding:6px 0 8px;scrollbar-width:none;';
+    // Removed overflow scrolling, added flex-wrap
+    container.style.cssText = 'display:flex;gap:5px;flex-wrap:wrap;padding:6px 0 8px;align-items:center;justify-content:center;';
 
     const acs = [
         { key: 'haier', label: '+ Haier 1T', color: '#a5f3fc' },

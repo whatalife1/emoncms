@@ -1,422 +1,594 @@
-async function calculateDetailedReport() {
-  const out = document.getElementById('usage-report-content');
-  if (!out) return;
-  out.innerHTML = '<div class="sol-loading">Loading report... Fetching historical feed data...</div>';
+// ─── Graphs Panel - UI Rendering ────────────────────────────────────────────
 
-  const month = parseInt(document.getElementById('report-month-m').value);
-  const year = parseInt(document.getElementById('report-month-y').value);
-  if (!month || !year) {
-    out.innerHTML = '<div class="sol-loading" style="color:#f87171">Please select a valid month and year.</div>';
+let graphNeedsDayZoom = false;
+let tooltipPinned = false;
+let graphsAutoRefreshInterval = null;
+let graphsLastUpdate = 0;
+
+// ─── Missing constants & helpers ────────────────────────────────────────────
+const graphZoomMin = 1;
+const graphZoomMax = 60;
+
+function _getLocalMidnight(date) {
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+}
+
+// ─── Auto-refresh management ────────────────────────────────────────────────
+
+function startGraphsAutoRefresh() {
+    if (graphsAutoRefreshInterval) {
+        clearInterval(graphsAutoRefreshInterval);
+        graphsAutoRefreshInterval = null;
+    }
+    if (graphTab === 'day') {
+        graphsAutoRefreshInterval = setInterval(() => {
+            const panel = document.getElementById('graphs-panel');
+            if (!panel || !panel.classList.contains('open')) {
+                if (graphsAutoRefreshInterval) {
+                    clearInterval(graphsAutoRefreshInterval);
+                    graphsAutoRefreshInterval = null;
+                }
+                return;
+            }
+            if (!graphIsLoading && !graphIsPanning) {
+                console.log('🔄 Auto-refreshing graph (day view)');
+                _loadAndDraw();
+                graphsLastUpdate = Date.now();
+            }
+        }, 60000);
+    }
+}
+
+function stopGraphsAutoRefresh() {
+    if (graphsAutoRefreshInterval) {
+        clearInterval(graphsAutoRefreshInterval);
+        graphsAutoRefreshInterval = null;
+    }
+}
+
+function _addRefreshIndicator() {
+    const stat = document.getElementById('graph-stat');
+    if (!stat) return;
+    const existing = document.getElementById('graph-refresh-indicator');
+    if (existing) existing.remove();
+    if (graphTab === 'day') {
+        const indicator = document.createElement('span');
+        indicator.id = 'graph-refresh-indicator';
+        indicator.style.cssText = `
+            display: inline-block;
+            margin-left: 10px;
+            font-size: 10px;
+            color: var(--text-muted);
+            opacity: 0.7;
+            font-weight: 400;
+        `;
+        indicator.textContent = '🔄 Auto-refresh: 1m';
+        stat.appendChild(indicator);
+    }
+}
+
+function _addUpdateTimestamp() {
+    const stat = document.getElementById('graph-stat');
+    if (!stat) return;
+    let timestamp = document.getElementById('graph-timestamp');
+    if (!timestamp) {
+        timestamp = document.createElement('div');
+        timestamp.id = 'graph-timestamp';
+        timestamp.style.cssText = `
+            font-size: 9px;
+            color: var(--text-muted);
+            opacity: 0.5;
+            margin-top: 2px;
+            font-weight: 400;
+        `;
+        stat.appendChild(timestamp);
+    }
+    const now = new Date();
+    timestamp.textContent = `Updated: ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
+}
+
+function _renderZoomControls() {
+    // Zoom controls intentionally removed as requested.
+    const existing = document.getElementById('zoom-controls');
+    if (existing) existing.remove();
     return;
-  }
-
-  try {
-    loadReportCache();
-    const { startMs, endMs } = billingRangeFor(year, month);
-    const effectiveEnd = Math.min(endMs, currentHourMs());
-    
-    const fetchPromises = EXPORT_FEEDS.map(async (feed) => {
-      const data = await fetchWithCache(feed.id, startMs, effectiveEnd);
-      return { feed, data };
-    });
-    
-    const results = await Promise.all(fetchPromises);
-    saveReportCache();
-    
-    const feedData = {};
-    results.forEach(r => {
-      feedData[r.feed.id] = r.data;
-    });
-    window._lastReportData = feedData;
-    
-    const pkrRate = solarCfg?.pkrPerUnit ?? 60;
-    renderDetailedReport(feedData, startMs, endMs, pkrRate);
-    
-  } catch (e) {
-    out.innerHTML = `<div class="sol-loading" style="color:#f87171">Failed to calculate report: ${e.message}</div>`;
-  }
 }
 
-function renderDetailedReport(feedData, startMs, endMs, pkrPerKwh) {
-  const out = document.getElementById('usage-report-content');
-  if (!out) return;
+function _renderChartTypeToggle() {
+    const existing = document.getElementById('chart-type-toggle');
+    if (existing) existing.remove();
 
-  const startLocal = getKarachiDate(startMs);
-  const effectiveEndMs = Math.min(endMs, currentHourMs());
-  const effEndLocal = getKarachiDate(effectiveEndMs);
+    const card = document.querySelector('.graph-chart-card');
+    if (!card) return;
 
-  const dates = [];
-  let cursor = new Date(startMs);
-  let cursorLocal = getKarachiDate(cursor.getTime());
-  let cursorDate = new Date(Date.UTC(cursorLocal.year, cursorLocal.month - 1, cursorLocal.day));
-  const endDate = new Date(Date.UTC(effEndLocal.year, effEndLocal.month - 1, effEndLocal.day));
-  
-  while (cursorDate <= endDate) {
-    const yr = cursorDate.getUTCFullYear();
-    const mo = cursorDate.getUTCMonth() + 1;
-    const dy = cursorDate.getUTCDate();
-    dates.push(`${yr}-${String(mo).padStart(2, '0')}-${String(dy).padStart(2, '0')}`);
-    cursorDate.setUTCDate(cursorDate.getUTCDate() + 1);
-  }
+    const toggle = document.createElement('div');
+    toggle.id = 'chart-type-toggle';
+    toggle.style.cssText = `
+        position:absolute; top:8px; right:8px; z-index:15;
+        display:flex; flex-direction:column; gap:4px;
+        background: var(--bg-panel); padding: 4px; border-radius: 8px;
+        box-shadow: -2px 2px 8px rgba(0,0,0,0.4);
+    `;
 
-  const sums = {};
-  for (const feed of EXPORT_FEEDS) {
-    const ds = feed.isPc ? EXPORT_PC_DAY_START : EXPORT_DAY_START;
-    const de = feed.isPc ? EXPORT_PC_DAY_END : EXPORT_DAY_END;
-    const data = feedData[feed.id] || {};
-    sums[feed.id] = {
-      h24: sumByDay(data, 0, 24),
-      day: sumByDay(data, ds, de),
-      night: sumByDay(data, EXPORT_NIGHT_START, EXPORT_NIGHT_END)
-    };
-  }
+    const types = [
+        { type: 'line',   label: 'Line' },
+        { type: 'bar',    label: 'Bar' },
+        { type: 'hourly', label: 'Hourly' },
+    ];
 
-  const solarFeed = EXPORT_FEEDS.find(f => f.isSolar);
-  const breakerFeed = EXPORT_FEEDS.find(f => f.isBreaker);
+    types.forEach(({ type, label }) => {
+        const btn = document.createElement('button');
+        const active = graphChartType === type;
+        btn.dataset.type = type;
+        btn.title = label;
+        btn.textContent = label;
+        btn.style.cssText = `
+            padding:4px 8px; border-radius:6px; font-size:11px; cursor:pointer; width:auto;
+            background:${active ? 'var(--bg-base)' : 'rgba(0,0,0,0.45)'};
+            border:1px solid ${active ? 'var(--border)' : 'transparent'};
+            color:var(--text-main); opacity:${active ? '1' : '0.55'};
+            transition:opacity 0.15s;
+            font-weight:700;
+            letter-spacing:0.3px;
+        `;
+        btn.addEventListener('click', () => {
+            graphChartType = type;
+            _renderChartTypeToggle();
+            _loadAndDraw();
+        });
+        toggle.appendChild(btn);
+    });
 
-  const solarByDay = {};
-  const gridByDay = {};
-  dates.forEach(d => {
-    solarByDay[d] = sums[solarFeed.id].h24[d] || 0;
-    gridByDay[d] = sums[breakerFeed.id].h24[d] || 0;
-  });
-
-  const totalSolarKwh = Object.values(solarByDay).reduce((a, b) => a + b, 0) / 1000.0;
-  const gridImportKwh = Object.values(gridByDay).reduce((a, b) => a + b, 0) / 1000.0;
-  const solarSavingPkr = totalSolarKwh * pkrPerKwh;
-  const estimatedBillPkr = gridImportKwh * pkrPerKwh;
-  const withoutSolarKwh = totalSolarKwh + gridImportKwh;
-  const withoutSolarPkr = withoutSolarKwh * pkrPerKwh;
-  const daysElapsed = dates.length;
-  const coveragePct = withoutSolarKwh > 0 ? (totalSolarKwh / withoutSolarKwh * 100) : 0;
-  const daysInCycle = Math.round((endMs - startMs) / 86400000.0);
-  const elapsed = daysElapsed;
-  const avgSolar = elapsed > 0 ? (totalSolarKwh / elapsed) : 0;
-  const avgGrid = elapsed > 0 ? (gridImportKwh / elapsed) : 0;
-  const avgSavingPkrPerDay = avgSolar * pkrPerKwh;
-  const projSolarKwh = avgSolar * daysInCycle;
-  const projGridKwh = avgGrid * daysInCycle;
-  const projBillPkr = projGridKwh * pkrPerKwh;
-
-  const pkrSummaryHtml = `
-    <div class="pkr-card">
-      <div class="pkr-title">💰 PKR Financial Summary &nbsp;·&nbsp; Rate: PKR ${pkrPerKwh.toFixed(0)} / kWh</div>
-      <div class="pkr-grid">
-        <div class="pkr-item pkr-save">
-          <div class="pkr-item-label">☀ Solar savings</div>
-          <div class="pkr-item-val">PKR ${fmtPkr(solarSavingPkr)}</div>
-          <div class="pkr-item-sub">${totalSolarKwh.toFixed(1)} kWh generated by solar</div>
-        </div>
-        <div class="pkr-item pkr-bill">
-          <div class="pkr-item-label">⚡ Est. grid bill</div>
-          <div class="pkr-item-val">PKR ${fmtPkr(estimatedBillPkr)}</div>
-          <div class="pkr-item-sub">${gridImportKwh.toFixed(1)} kWh (Breaker meter)</div>
-        </div>
-        <div class="pkr-item pkr-without">
-          <div class="pkr-item-label">📊 Without solar</div>
-          <div class="pkr-item-val">PKR ${fmtPkr(withoutSolarPkr)}</div>
-          <div class="pkr-item-sub">${withoutSolarKwh.toFixed(1)} kWh total consumption</div>
-        </div>
-        <div class="pkr-item pkr-avg">
-          <div class="pkr-item-label">📅 Avg saving / day</div>
-          <div class="pkr-item-val">PKR ${fmtPkr(avgSavingPkrPerDay)}</div>
-          <div class="pkr-item-sub">${avgSolar.toFixed(1)} kWh / day (over ${daysElapsed} days)</div>
-        </div>
-      </div>
-      <div class="pkr-bar-wrap">
-        <div class="pkr-bar-label">Solar covered</div>
-        <div class="pkr-bar-track">
-          <div class="pkr-bar-fill" style="width:${Math.min(100, coveragePct).toFixed(1)}%"></div>
-        </div>
-        <div class="pkr-bar-pct">${coveragePct.toFixed(0)}%</div>
-      </div>
-      
-      <div class="pkr-proj-title">📈 Full Cycle Estimates (Projected till 26th) &nbsp;·&nbsp; Cycle: ${daysInCycle.toFixed(0)} days (elapsed: ${elapsed.toFixed(0)})</div>
-      <div class="pkr-proj-row">
-        <div class="pkr-proj-col">
-          <span class="pkr-proj-lbl">☀ Est. Solar Gen</span>
-          <span class="pkr-proj-val" style="color:#ca8a04">${projSolarKwh.toFixed(1)} kWh</span>
-          <span class="pkr-proj-val" style="color:#ca8a04;margin-top:6px;font-size:12px;font-weight:600;">Value: PKR ${fmtPkr(projSolarKwh * pkrPerKwh)}</span>
-        </div>
-        <div class="pkr-proj-col">
-          <span class="pkr-proj-lbl">⚡ Est. Grid Import</span>
-          <span class="pkr-proj-val" style="color:#B71C1C">${projGridKwh.toFixed(1)} kWh</span>
-          <span class="pkr-proj-val" style="color:#B71C1C;margin-top:6px;font-size:12px;font-weight:600;">Bill: PKR ${fmtPkr(projBillPkr)}</span>
-        </div>
-      </div>
-    </div>
-  `;
-
-  // Heatmap generation
-  const maxSolarVal = Math.max(...Object.values(solarByDay).map(v => v / 1000.0), 1.0);
-  const firstDateObj = new Date(Date.UTC(startLocal.year, startLocal.month - 1, startLocal.day));
-  const startDow = (firstDateObj.getUTCDay() + 6) % 7;
-  const DOW_HEADS = ["M", "T", "W", "T", "F", "S", "S"];
-  const dowRow = DOW_HEADS.map(d => `<th class='dh'>${d}</th>`).join("");
-  const heatBlanks = Array.from({length: startDow}).map(() => `<td class='hc hblank'></td>`).join("");
-
-  let heatRows = `<tr>${dowRow}</tr><tr>${heatBlanks}`;
-  let col = startDow;
-  for (const dt of dates) {
-    if (col === 0) heatRows += "<tr>";
-    const kwh = (solarByDay[dt] || 0) / 1000.0;
-    const ratio = maxSolarVal > 0 ? kwh / maxSolarVal : 0;
-    const dayNum = parseInt(dt.substring(8), 10);
-    const hue = Math.round(120 - ratio * 90);
-    const lum = Math.round(18 + ratio * 28);
-    const bg = kwh < 0.01 ? "#1e1e1e" : `hsl(${hue},65%,${lum}%)`;
-    const fg = ratio > 0.4 ? "#ffffff" : "#666666";
-    heatRows += `<td class='hc' style='background:${bg};color:${fg}' title='${kwh.toFixed(2)} kWh'>${dayNum}</td>`;
-    col++;
-    if (col === 7) { heatRows += "</tr>"; col = 0; }
-  }
-  if (col > 0) {
-    while (col < 7) { heatRows += `<td class='hc hblank'></td>`; col++; }
-    heatRows += "</tr>";
-  }
-
-  let heatLegend = "";
-  for (let i = 0; i <= 4; i++) {
-    const r = i / 4.0;
-    const h2 = Math.round(120 - r * 90);
-    const l2 = Math.round(18 + r * 28);
-    const bg = r === 0 ? "#1e1e1e" : `hsl(${h2},65%,${l2}%)`;
-    let lbl = "";
-    if (i === 0) lbl = "0";
-    else if (i === 2) lbl = `${(maxSolarVal / 2).toFixed(1)} kWh`;
-    else if (i === 4) lbl = `${maxSolarVal.toFixed(1)} kWh`;
-    heatLegend += `<div class='heat-legend-item'><div class='heat-legend-box' style='background:${bg}'></div><span>${lbl}</span></div>`;
-  }
-  const heatmapHtml = `<table class='heat'>${heatRows}</table><div class='heat-legend'>${heatLegend}</div>`;
-
-  // Top Table Headers
-  let headerHtml = `<tr class=h1><th rowspan=2>Date</th>`;
-  for (const feed of EXPORT_FEEDS) {
-    if (feed.isSolar) headerHtml += `<th rowspan=2 class=dv>${feed.name}</th>`;
-    else headerHtml += `<th colspan=3 class=dv>${feed.name}</th>`;
-  }
-  headerHtml += `<th rowspan=2 class=tot>Solar+Breaker${formatHeaderSplitCell("kWh", "Rs")}</th>`;
-  headerHtml += `<th rowspan=2 class=col-save>Solar Saved${formatHeaderSplitCell("kWh", "Rs")}</th>`;
-  headerHtml += `<th rowspan=2 class=col-bill>Grid Bill${formatHeaderSplitCell("kWh", "Rs")}</th></tr>`;
-
-  headerHtml += `<tr class=h2>`;
-  for (const feed of EXPORT_FEEDS) {
-    if (!feed.isSolar) {
-      const dayLabel = feed.isPc ? "Day*" : "Day";
-      headerHtml += `<th class=c24>24hr</th><th class=cday>${dayLabel}</th><th class='dv cnight'>Night</th>`;
-    }
-  }
-  headerHtml += `</tr>`;
-
-  // Bottom Table Headers (Reversed)
-  let bottomHeaderHtml = `<tr class=h2><th></th>`;
-  for (const feed of EXPORT_FEEDS) {
-    if (feed.isSolar) bottomHeaderHtml += `<th class=dv></th>`;
-    else bottomHeaderHtml += `<th class=c24>24hr</th><th class=cday>${feed.isPc ? "Day*" : "Day"}</th><th class='dv cnight'>Night</th>`;
-  }
-  bottomHeaderHtml += `<th></th><th></th><th></th></tr>`;
-  
-  bottomHeaderHtml += `<tr class=h1><th>Date</th>`;
-  for (const feed of EXPORT_FEEDS) {
-    if (feed.isSolar) bottomHeaderHtml += `<th class=dv>${feed.name}</th>`;
-    else bottomHeaderHtml += `<th colspan=3 class=dv>${feed.name}</th>`;
-  }
-  bottomHeaderHtml += `<th>Solar+Breaker</th><th>Solar Saved</th><th>Grid Bill</th></tr>`;
-
-  let tableRows = headerHtml;
-  const t24 = {}; const td = {}; const tn = {};
-  EXPORT_FEEDS.forEach(f => { t24[f.id] = 0; td[f.id] = 0; tn[f.id] = 0; });
-  window._lastReportSums = sums;
-
-  let grandSolarSaveKwh = 0;
-  let grandGridKwh = 0;
-  let grandSolarSavePkr = 0;
-  let grandBillPkr = 0;
-
-  for (const date of dates) {
-    const parts = date.split('-');
-    const formattedDate = `${parts[2]}-${parts[1]}-${parts[0]}`;
-    tableRows += `<tr><td class=dt>${formattedDate}</td>`;
-    
-    let daySolarWh = 0;
-    let dayBreakerWh = 0;
-    
-    for (const feed of EXPORT_FEEDS) {
-      const s = sums[feed.id];
-      const h24 = s.h24[date] || 0;
-      const day = s.day[date] || 0;
-      const night = s.night[date] || 0;
-      
-      t24[feed.id] += h24;
-      td[feed.id] += day;
-      tn[feed.id] += night;
-      
-      if (feed.isSolar) daySolarWh = h24;
-      if (feed.isBreaker) dayBreakerWh = h24;
-      
-      if (feed.isSolar) {
-        tableRows += `<td class='dv c24'>${fmtKwh(h24)}</td>`;
-      } else {
-        tableRows += `<td class=c24>${fmtKwh(h24)}</td><td class=cday>${fmtKwh(day)}</td><td class='dv cnight'>${fmtKwh(night)}</td>`;
-      }
-    }
-    
-    const daySaveKwh = daySolarWh / 1000.0;
-    const dayGridKwh = dayBreakerWh / 1000.0;
-    const daySavePkr = daySaveKwh * pkrPerKwh;
-    const dayBillPkr = dayGridKwh * pkrPerKwh;
-    
-    grandSolarSaveKwh += daySaveKwh;
-    grandGridKwh += dayGridKwh;
-    grandSolarSavePkr += daySavePkr;
-    grandBillPkr += dayBillPkr;
-    
-    const combinedWh = daySolarWh + dayBreakerWh;
-    const combinedKwh = combinedWh / 1000.0;
-    const combinedPkr = combinedKwh * pkrPerKwh;
-    
-    tableRows += `<td class=tot>${splitCell(fmtKwh(combinedWh), fmtPkr(combinedPkr))}</td>`;
-    
-    const displaySave = splitCell(fmtKwh(daySolarWh), fmtPkr(daySavePkr));
-    const displayBill = splitCell(fmtKwh(dayBreakerWh), fmtPkr(dayBillPkr));
-    
-    tableRows += `<td class=col-save>${displaySave}</td>`;
-    tableRows += `<td class=col-bill>${displayBill}</td></tr>`;
-  }
-
-  const numDays = dates.length || 1;
-
-  // Daily Avg Row
-  tableRows += `<tr class=tr><td class=dt>Daily Avg.</td>`;
-  let avgSolarWh = 0; let avgBreakerWh = 0;
-  
-  for (const feed of EXPORT_FEEDS) {
-    const a24 = t24[feed.id] / numDays;
-    const aDay = td[feed.id] / numDays;
-    const aNight = tn[feed.id] / numDays;
-    
-    if (feed.isSolar) avgSolarWh = a24;
-    if (feed.isBreaker) avgBreakerWh = a24;
-    
-    if (feed.isSolar) {
-      tableRows += `<td class='dv c24'>${fmtKwh(a24)}</td>`;
-    } else {
-      tableRows += `<td class=c24>${fmtKwh(a24)}</td><td class=cday>${fmtKwh(aDay)}</td><td class='dv cnight'>${fmtKwh(aNight)}</td>`;
-    }
-  }
-  
-  const avgCombinedWh = avgSolarWh + avgBreakerWh;
-  const avgCombinedKwh = avgCombinedWh / 1000.0;
-  const avgCombinedPkr = avgCombinedKwh * pkrPerKwh;
-  tableRows += `<td class=tot>${splitCell(fmtKwh(avgCombinedWh), fmtPkr(avgCombinedPkr))}</td>`;
-
-  const avgSaveKwh = grandSolarSaveKwh / numDays;
-  const avgSavePkr = grandSolarSavePkr / numDays;
-  const avgGridKwh = grandGridKwh / numDays;
-  const avgBillPkr = grandBillPkr / numDays;
-
-  tableRows += `<td class=col-save>${splitCell((avgSaveKwh < 0.005 ? "-" : avgSaveKwh.toFixed(2)), fmtPkr(avgSavePkr))}</td>`;
-  tableRows += `<td class=col-bill>${splitCell((avgGridKwh < 0.005 ? "-" : avgGridKwh.toFixed(2)), fmtPkr(avgBillPkr))}</td></tr>`;
-
-  // Total Row
-  tableRows += `<tr class=tr><td class=dt>Total</td>`;
-  let grandSolar = 0; let grandBreaker = 0;
-  for (const feed of EXPORT_FEEDS) {
-    const v24 = t24[feed.id];
-    const vd = td[feed.id];
-    const vn = tn[feed.id];
-    
-    if (feed.isSolar) grandSolar = v24;
-    if (feed.isBreaker) grandBreaker = v24;
-    
-    if (feed.isSolar) {
-      tableRows += `<td class='dv c24'>${fmtKwh(v24)}</td>`;
-    } else {
-      tableRows += `<td class=c24>${fmtKwh(v24)}</td><td class=cday>${fmtKwh(vd)}</td><td class='dv cnight'>${fmtKwh(vn)}</td>`;
-    }
-  }
-
-  const totalCombinedWh = grandSolar + grandBreaker;
-  const totalCombinedKwh = totalCombinedWh / 1000.0;
-  const totalCombinedPkr = totalCombinedKwh * pkrPerKwh;
-  tableRows += `<td class=tot>${splitCell(fmtKwh(totalCombinedWh), fmtPkr(totalCombinedPkr))}</td>`;
-  tableRows += `<td class=col-save>${splitCell((grandSolarSaveKwh < 0.005 ? "-" : grandSolarSaveKwh.toFixed(2)), fmtPkr(grandSolarSavePkr))}</td>`;
-  tableRows += `<td class=col-bill>${splitCell((grandGridKwh < 0.005 ? "-" : grandGridKwh.toFixed(2)), fmtPkr(grandBillPkr))}</td></tr>`;
-
-  tableRows += bottomHeaderHtml;
-
-  const dmy = d => `${String(d.day).padStart(2,'0')}-${String(d.month).padStart(2,'0')}-${d.year}`;
-  const rangeStr = `${dmy(startLocal)} → ${dmy(getKarachiDate(effectiveEndMs))}`;
-
-  out.innerHTML = `
-    <div class="report-wrapper">
-      <h3>Energy Usage &mdash; ${rangeStr}</h3>
-      <p class="sub-hours">Day = 7am&ndash;4pm &nbsp;|&nbsp; Night = 4pm&ndash;7am &nbsp;|&nbsp; * PC Day = 6am&ndash;5pm</p>
-      
-      ${pkrSummaryHtml}
-      
-      <h4>☀ Solar yield heatmap (kWh/day)</h4>
-      ${heatmapHtml}
-      
-      <div class="table-scroll">
-        <table>${tableRows}</table>
-      </div>
-    </div>
-  `;
+    card.appendChild(toggle);
 }
 
-async function downloadTextReport() {
-    const content = document.getElementById('usage-report-content');
-    if (!content || !window._lastReportSums) {
-        alert("Please calculate the report first.");
-        return;
+function _renderGTimeTabs() {
+    const wrap = document.getElementById('graph-time-tabs');
+    if (!wrap) return;
+    wrap.innerHTML = ['day','month','year','total'].map(t =>
+        `<button class="gtime-tab${graphTab===t?' active':''}" data-gtab="${t}">${t[0].toUpperCase()+t.slice(1)}</button>`
+    ).join('');
+
+    wrap.querySelectorAll('.gtime-tab').forEach(b => {
+        b.addEventListener('click', () => {
+            graphTab = b.dataset.gtab;
+            if (graphTab === 'day') {
+                graphChartType = 'line';
+                graphNeedsDayZoom = true;
+                startGraphsAutoRefresh();
+            } else {
+                graphChartType = 'bar';
+                stopGraphsAutoRefresh();
+            }
+            graphDateNav = 0; graphMonthNav = 0; graphYearNav = 0;
+            graphZoomLevel = 1;
+            graphPanOffset = 0;
+            tooltipPinned = false;
+            hideTooltip();
+            _renderGTimeTabs();
+            _renderGNavBar();
+            _renderChartTypeToggle();
+            _loadAndDraw();
+        });
+    });
+}
+
+// ─── Grid-All per-feed toggle pills ─────────────────────────────────────────
+function _renderGridAllToggles() {
+    const existing = document.getElementById('gridall-toggles');
+    if (existing) existing.remove();
+
+    if (graphFeedKey !== 'gridall') return;
+
+    const wrap = document.createElement('div');
+    wrap.id = 'gridall-toggles';
+    wrap.className = 'graph-sub-tabs';
+
+    GRID_ALL_FEEDS.forEach(f => {
+        const off = window.gridAllDisabled.has(f.key);
+        const btn = document.createElement('button');
+        btn.style.cssText = `
+            white-space:nowrap;
+            flex-shrink:0;
+            padding:4px 10px;
+            border-radius:20px;
+            font-size:11px;
+            font-weight:700;
+            cursor:pointer;
+            border:1.5px solid ${f.color};
+            width:auto;
+            background:${off ? 'transparent' : f.color + '33'};
+            color:${off ? 'var(--text-muted)' : f.color};
+            opacity:${off ? '0.4' : '1'};
+            transition:opacity 0.15s, background 0.15s;
+        `;
+        btn.innerHTML = `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${f.color};margin-right:5px;vertical-align:middle;opacity:${off ? 0.3 : 1}"></span>${f.label}`;
+
+        btn.addEventListener('click', () => {
+            if (window.gridAllDisabled.has(f.key)) {
+                window.gridAllDisabled.delete(f.key);
+            } else {
+                const visibleCount = GRID_ALL_FEEDS.length - window.gridAllDisabled.size;
+                if (visibleCount > 1) {
+                    window.gridAllDisabled.add(f.key);
+                }
+            }
+            _renderGridAllToggles();
+            _loadAndDraw();
+        });
+        wrap.appendChild(btn);
+    });
+
+    const feedTabsWrap = document.getElementById('graph-feed-tabs');
+    if (feedTabsWrap) {
+        feedTabsWrap.parentNode.insertBefore(wrap, feedTabsWrap);
     }
+}
 
-    const sums = window._lastReportSums;
-    const month = document.getElementById('report-month-m').value;
-    const year = document.getElementById('report-month-y').value;
-    
-    let txt = `Energy Usage Summary: ${month}/${year}\n`;
-    txt += `Cycle: 25th to 26th\n`;
-    txt += `------------------------------------------\n`;
+function _renderOverlayToggles() {
+    const existing = document.getElementById('temp-overlay-toggles');
+    if (existing) existing.remove();
 
-    const getKwh = (id, type) => {
-        const val = Object.values(sums[id][type] || {}).reduce((a, b) => a + b, 0);
-        return Math.round(val / 1000);
+    const tempKeys = ['temp', 'temp2'];
+    if (!tempKeys.includes(graphFeedKey)) return;
+
+    const container = document.createElement('div');
+    container.id = 'temp-overlay-toggles';
+    container.className = 'graph-sub-tabs';
+
+    const acs = [
+        { key: 'haier', label: '+ Haier 1T', color: '#a5f3fc' },
+        { key: 'k15', label: '+ Kenwood 1.5T', color: '#38bdf8' },
+        { key: 'k1', label: '+ Kenwood 1T', color: '#7dd3fc' }
+    ];
+
+    const clearBtn = document.createElement('button');
+    clearBtn.textContent = 'Clear';
+    clearBtn.style.cssText = 'padding:4px 10px;border-radius:20px;font-size:11px;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--text-muted);';
+    clearBtn.addEventListener('click', () => {
+        window.graphOverlayAc = null;
+        _renderOverlayToggles();
+        _loadAndDraw();
+    });
+    container.appendChild(clearBtn);
+
+    acs.forEach(t => {
+        const active = window.graphOverlayAc === t.key;
+        const btn = document.createElement('button');
+        btn.style.cssText = `
+            padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;cursor:pointer;
+            border:1.5px solid ${t.color};background:${active ? t.color+'33' : 'transparent'};
+            color:${active ? t.color : 'var(--text-muted)'};opacity:${active ? '1' : '0.5'};
+        `;
+        btn.textContent = t.label;
+        btn.addEventListener('click', () => {
+            window.graphOverlayAc = t.key;
+            _renderOverlayToggles();
+            _loadAndDraw();
+        });
+        container.appendChild(btn);
+    });
+
+    const feedTabsWrap = document.getElementById('graph-feed-tabs');
+    if (feedTabsWrap) {
+        feedTabsWrap.parentNode.insertBefore(container, feedTabsWrap.nextSibling);
+    }
+}
+
+function _renderGFeedTabs() {
+    const wrap = document.getElementById('graph-feed-tabs');
+    if (!wrap) return;
+    const all = [GRAPH_COMBINED, ...GRAPH_FEEDS];
+    wrap.innerHTML = all.map(f =>
+        `<button class="gfeed-tab${graphFeedKey===f.key?' active':''}" data-gkey="${f.key}"
+            style="${graphFeedKey===f.key?`border-color:${f.color};color:${f.color}`:''}">${f.label}</button>`
+    ).join('');
+
+    wrap.querySelectorAll('.gfeed-tab').forEach(b => {
+        b.addEventListener('click', () => {
+            graphFeedKey = b.dataset.gkey;
+            graphZoomLevel = 1;
+            graphPanOffset = 0;
+            graphNeedsDayZoom = true;
+            tooltipPinned = false;
+            hideTooltip();
+            _renderGFeedTabs();
+            _loadAndDraw();
+        });
+    });
+
+    _renderGridAllToggles();
+    _renderOverlayToggles();
+}
+
+// ─── Navigation info (Month view uses billing cycle, Year uses billing cycles) ──
+function _gNavInfo() {
+    const now = new Date();
+
+    const to12hr = (h, m, s) => {
+        const ampm = h >= 12 ? 'pm' : 'am';
+        const hh = h % 12 || 12;
+        const mm = (m === 0 && s === 0) ? '' : `:${String(m).padStart(2, '0')}`;
+        const ss = s === 0 ? '' : `:${String(s).padStart(2, '0')}`;
+        return `${hh}${mm}${ss}${ampm}`;
     };
 
-    const solarId = EXPORT_FEEDS.find(f => f.isSolar)?.id;
-    const breakerId = EXPORT_FEEDS.find(f => f.isBreaker)?.id;
+    if (graphTab === 'day') {
+        const d = new Date(now);
+        d.setDate(d.getDate() + graphDateNav);
 
-    const pad = 17;
+        const lbl = graphDateNav === 0 ? 'Today' : graphDateNav === -1 ? 'Yesterday' :
+            d.toLocaleDateString('en-PK', { day: 'numeric', month: 'short', year: 'numeric' });
+        const sub = d.toLocaleDateString('en-PK', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
-    if (solarId) {
-        txt += "Solar".padEnd(pad) + `${getKwh(solarId, 'h24')} units\n`;
+        const centreDayStart = _getLocalMidnight(d);
+        const startMs = centreDayStart;
+        const endMs = centreDayStart + 24 * 3600 * 1000 - 1;
+
+        const isHourlyView = (graphChartType === 'hourly');
+        const resSeconds = isHourlyView ? 3600 : GRAPH_DAY_RESOLUTION_SECONDS;
+        const nBars = Math.ceil((24 * 3600) / resSeconds);
+
+        const labels = [];
+        for (let i = 0; i < nBars; i++) {
+            const ms = startMs + i * resSeconds * 1000;
+            const date = new Date(ms);
+            labels.push(to12hr(date.getHours(), date.getMinutes(), date.getSeconds()));
+        }
+
+        return {
+            label: lbl, sub, interval: resSeconds, startMs, endMs,
+            isDayTab: true, nBars, labels, centreDateMs: centreDayStart, resSeconds
+        };
     }
-    if (breakerId) {
-        txt += "Breaker".padEnd(pad) + `${getKwh(breakerId, 'h24')} units Total (${getKwh(breakerId, 'day')} units solar time)\n`;
+
+    // ── MONTH VIEW: Billing cycle (25th → 26th) ──────────────────────────
+    if (graphTab === 'month') {
+        let base = new Date(now.getFullYear(), now.getMonth() + graphMonthNav, 1);
+        let startMonth = base.getMonth() - 1;
+        let startYear = base.getFullYear();
+        if (startMonth < 0) { startMonth = 11; startYear--; }
+        const start = new Date(startYear, startMonth, 25);
+        const end = new Date(start.getFullYear(), start.getMonth() + 1, 26);
+        const effectiveEnd = end > now ? now : end;
+
+        const days = Math.ceil((effectiveEnd - start) / 86400000);
+        const labels = [];
+        for (let i = 0; i < days; i++) {
+            const d = new Date(start.getTime() + i * 86400000);
+            labels.push(`${d.getDate()}/${d.getMonth()+1}`);
+        }
+
+        const rangeLabel = `${start.toLocaleDateString('en-PK', {month:'short', day:'numeric'})} – ${effectiveEnd.toLocaleDateString('en-PK', {month:'short', day:'numeric', year:'numeric'})}`;
+        return {
+            label: rangeLabel,
+            sub: null,
+            interval: 3600,
+            isDayTab: false,
+            nBars: days,
+            startMs: start.getTime(),
+            endMs: effectiveEnd.getTime(),
+            labels: labels,
+            month: start.getMonth(),
+            year: start.getFullYear(),
+            isMonthBilling: true,
+            resSeconds: 3600  // for night avg calculation
+        };
     }
 
-    EXPORT_FEEDS.forEach(f => {
-        if (f.isSolar || f.isBreaker) return;
-        const total = getKwh(f.id, 'h24');
-        const day = getKwh(f.id, 'day');
-        const wapda = Math.max(0, total - day);
-        
-        const col1 = f.name.padEnd(pad);
-        const col2 = (total + " units Total").padEnd(24);
-        const col3 = ("(" + day + " units solar)").padEnd(22);
-        const col4 = String(wapda).padStart(4) + " units wapda";
-        
-        txt += `${col1}${col2}${col3}${col4}\n`;
-    });
+    // ── YEAR VIEW: fetch from Dec 25 previous year to Dec 31 this year ──
+    if (graphTab === 'year') {
+        const y = now.getFullYear() + graphYearNav;
+        const start = new Date(y - 1, 11, 25); // Dec 25 previous year
+        const end = new Date(y, 11, 31, 23, 59, 59);
+        return {
+            label: String(y),
+            sub: null,
+            interval: 3600,
+            isYearly: true,
+            nBars: 12,
+            startMs: start.getTime(),
+            endMs: end.getTime(),
+            labels: ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],
+            year: y,
+            isYearBilling: true,
+            resSeconds: 3600
+        };
+    }
 
-    const blob = new Blob([txt], { type: 'text/plain' });
-    const a = document.createElement('a');
-    a.download = `Energy_Report_${month}_${year}.txt`;
-    a.href = URL.createObjectURL(blob);
-    a.click();
+    // Total
+    return { label:'All Time', sub:null, interval:86400*7, isTotal:true, nBars:0,
+        startMs: new Date(2024,0,1).getTime(), endMs: now.getTime(), labels:[] };
 }
 
-// ─── Main View Prediction Loop ──────────────────────────────────────────────
-window.lastSolarActual = window.lastSolarActual || 0;
+// ─── Navigation bar ──────────────────────────────────────────────────────────
+function _renderGNavBar() {
+    const wrap = document.getElementById('graph-nav-bar');
+    if (!wrap) return;
+    if (graphTab === 'total') { wrap.innerHTML = ''; return; }
+    const nav = _gNavInfo();
+    const canFwd = (graphTab === 'day' && graphDateNav < 0) ||
+                   (graphTab === 'month' && nav.endMs < Date.now()) ||
+                   (graphTab === 'year' && graphYearNav < 0);
+    wrap.innerHTML = `
+        <button class="graph-nav-btn" id="gnav-prev">‹</button>
+        <div class="graph-nav-center">
+            <div class="graph-nav-label">${nav.label}</div>
+            ${nav.sub?`<div class="graph-nav-sub">${nav.sub}</div>`:''}
+        </div>
+        <button class="graph-nav-btn" id="gnav-next" style="opacity:${canFwd?1:0.3}">›</button>`;
+
+    const prevBtn = document.getElementById('gnav-prev');
+    const nextBtn = document.getElementById('gnav-next');
+
+    if (prevBtn) prevBtn.addEventListener('click', () => {
+        if (graphTab === 'day') graphDateNav--;
+        else if (graphTab === 'month') graphMonthNav--;
+        else graphYearNav--;
+        graphZoomLevel = 1;
+        graphPanOffset = 0;
+        graphNeedsDayZoom = true;
+        tooltipPinned = false;
+        hideTooltip();
+        _renderGNavBar();
+        _loadAndDraw();
+    });
+
+    if (nextBtn) nextBtn.addEventListener('click', () => {
+        if (!canFwd) return;
+        if (graphTab === 'day') graphDateNav++;
+        else if (graphTab === 'month') graphMonthNav++;
+        else graphYearNav++;
+        graphZoomLevel = 1;
+        graphPanOffset = 0;
+        graphNeedsDayZoom = true;
+        tooltipPinned = false;
+        hideTooltip();
+        _renderGNavBar();
+        _loadAndDraw();
+    });
+}
+
+// ─── Tooltip ──────────────────────────────────────────────────────────────────
+function hideTooltip() {
+    const tooltip = document.getElementById('graph-tooltip');
+    if (tooltip) {
+        tooltip.style.display = 'none';
+        tooltip.classList.remove('pinned');
+    }
+    tooltipPinned = false;
+}
+
+function showTooltip(e, label, value1, value2, color1, color2, isCombined, pinned = false, label1 = null, label2 = null, highlightIdx = 0, tempLabel = null, tempValue = null, tempColor = null) {
+    let tooltip = document.getElementById('graph-tooltip');
+
+    if (!tooltip) {
+        tooltip = document.createElement('div');
+        tooltip.id = 'graph-tooltip';
+        document.body.appendChild(tooltip);
+    } else if (tooltip.parentElement !== document.body) {
+        document.body.appendChild(tooltip);
+    }
+
+    const L1 = label1 || (isCombined ? 'Solar' : graphFeedKey);
+    const L2 = label2 || 'Grid';
+
+    let closeBtn = pinned ? `<span class="close-btn" onclick="hideTooltip();">✕</span>` : '';
+    let html = `<div style="font-weight:700;font-size:11px;color:var(--text-muted);margin-bottom:4px">${label} ${closeBtn}</div>`;
+    
+    const style1 = highlightIdx === 1 ? 'font-weight:900;font-size:13px;filter:brightness(1.2);' : 'opacity:0.6;';
+    const style2 = highlightIdx === 2 ? 'font-weight:900;font-size:13px;filter:brightness(1.2);' : 'opacity:0.6;';
+
+    html += `<div style="color:${color1};${style1}">${highlightIdx === 1 ? '* ' : ''}● ${L1}: ${value1}</div>`;
+    if (isCombined) {
+        html += `<div style="color:${color2};${style2}">${highlightIdx === 2 ? '* ' : ''}● ${L2}: ${value2}</div>`;
+    }
+    if (tempValue !== null) {
+        html += `<div style="color:${tempColor};margin:2px 0;">
+            <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${tempColor};margin-right:5px;"></span>
+            <b>${tempLabel}:</b> ${tempValue}
+        </div>`;
+    }
+
+    tooltip.innerHTML = html;
+    tooltip.style.display = 'block';
+    tooltip.classList.toggle('pinned', pinned);
+
+    let left = e.clientX + 15;
+    let top = e.clientY - 15;
+
+    const rect = tooltip.getBoundingClientRect();
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+
+    if (left + rect.width > vw - 10) left = e.clientX - rect.width - 15;
+    if (top + rect.height > vh - 10) top = e.clientY - rect.height - 15;
+    if (top < 10) top = 10;
+    if (left < 10) left = 10;
+
+    tooltip.style.left = left + 'px';
+    tooltip.style.top = top + 'px';
+}
+
+function _showGraphLoading(show) {
+    const card = document.querySelector('.graph-chart-card');
+    if (!card) return;
+    let overlay = document.getElementById('graph-loading-overlay');
+    if (show) {
+        if (!overlay) {
+            overlay = document.createElement('div');
+            overlay.id = 'graph-loading-overlay';
+            overlay.style.cssText = `
+                position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+                background: rgba(0,0,0,0.4); z-index: 20;
+                display: flex; align-items: center; justify-content: center;
+                border-radius: 10px;
+                pointer-events: none;
+            `;
+            overlay.innerHTML = `<div style="color:var(--text-main);font-size:14px;font-weight:700;">⏳ Loading...</div>`;
+            card.style.position = 'relative';
+            card.appendChild(overlay);
+        }
+        overlay.style.display = 'flex';
+    } else {
+        if (overlay) overlay.style.display = 'none';
+    }
+}
+
+// ─── Open/Close Panel Functions ─────────────────────────────────────────────
+
+function openGraphsPanel() {
+    const p = document.getElementById('graphs-panel');
+    if (!p) return;
+    const isWin = navigator.userAgent.toLowerCase().includes('windows') || navigator.platform.toLowerCase().includes('win');
+    if (isWin) {
+        p.classList.add('fullscreen');
+    } else {
+        p.classList.remove('fullscreen');
+    }
+    p.classList.add('open');
+    setTimeout(() => {
+        renderGraphsPanel();
+        if (graphTab === 'day') {
+            startGraphsAutoRefresh();
+        }
+    }, 50);
+}
+
+function closeGraphsPanel() {
+    const p = document.getElementById('graphs-panel');
+    if (p) {
+        p.classList.remove('open');
+        const isWin = navigator.userAgent.toLowerCase().includes('windows') || navigator.platform.toLowerCase().includes('win');
+        if (!isWin) {
+            p.classList.remove('fullscreen');
+        }
+    }
+    hideTooltip();
+    graphZoomLevel = 1;
+    graphPanOffset = 0;
+    stopGraphsAutoRefresh();
+}
+
+function renderGraphsPanel() {
+    if (graphIsRendering) return;
+    graphIsRendering = true;
+    try {
+        _renderGFeedTabs();
+        _renderGTimeTabs();
+        _renderGNavBar();
+        _renderChartTypeToggle();
+        _renderZoomControls();
+
+        if (graphTab === 'day') {
+            graphNeedsDayZoom = true;
+            startGraphsAutoRefresh();
+        }
+
+        _loadAndDraw();
+    } catch(e) {
+        console.warn('Graph render error:', e);
+    } finally {
+        graphIsRendering = false;
+    }
+}

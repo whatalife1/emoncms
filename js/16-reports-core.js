@@ -142,3 +142,7 @@ function splitCell(units, pkr) {
   if (units === "-" && pkr === "-") return "-";
   return `<div class='cell-split'><span class='cell-left'>${units}</span><span class='cell-slash'>/</span><span class='cell-right'>${pkr}</span></div>`;
 }
+
+function formatHeaderSplitCell(leftLabel, rightLabel) {
+  return `<div class='cell-split' style='color:var(--text-muted);font-size:11px;font-weight:normal;margin-top:6px; font-family: system-ui, sans-serif;'><span class='cell-left'>${leftLabel}</span><span class='cell-slash'>/</span><span class='cell-right'>${rightLabel}</span></div>`;
+}

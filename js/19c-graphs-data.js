@@ -52,7 +52,7 @@ if (typeof _calcAvgForRange !== 'function') {
     window._calcAvgForRange = function() { return null; };
 }
 
-// ---- Format stat line (with one‑decimal night avg) ----
+// ---- Format stat line ----
 function _formatStatLine(icon, label, mainVal, accentColor, peakVal, avgVal, nightAvgVal, unit, isKwh, currentTab, isCompact = false) {
     if (currentTab === 'month' || currentTab === 'year') {
         unit = 'kWh';
@@ -64,7 +64,10 @@ function _formatStatLine(icon, label, mainVal, accentColor, peakVal, avgVal, nig
     const isTemp = lblLower.includes('temp') || lblLower.includes('°c');
     const isWater = lblLower.includes('water') || lblLower.includes('tank');
     const isDay = currentTab === 'day';
-    const hideNight = isSolar || isTemp || isWater || !isDay;
+    
+    // We want to hide Night Avg for Solar, Temp, Water, and any view that isn't Day or Month
+    const hideNight = isSolar || isTemp || isWater || (currentTab !== 'day' && currentTab !== 'month');
+    
     const peakLabel = isDay ? "Peak" : "Max Day";
     const avgLabel  = isDay ? "Avg"  : (currentTab === 'month' ? "Daily Avg" : "Monthly Avg");
 
@@ -72,33 +75,30 @@ function _formatStatLine(icon, label, mainVal, accentColor, peakVal, avgVal, nig
     if (peakVal > 1500 && isDay && !isTemp) peakColor = '#ef4444';
     else if (peakVal > 1000 && isDay && !isTemp) peakColor = '#f97316';
 
-    const fsMain = isCompact ? '13px' : '17px';
-    const fsLabel = isCompact ? '12px' : '14px';
-    const fsSub = isCompact ? '11px' : '13px';
-    const boldStyle = `font-size: ${isCompact ? '11px' : '15.5px'}; font-weight: 900;`;
+    // Slightly reduced font sizes to prevent wrapping weirdness around the toggle button
+    const fsMain = isCompact ? '12px' : '15px';
+    const fsLabel = isCompact ? '11px' : '13px';
+    const fsSub = isCompact ? '10px' : '11.5px';
+    const boldStyle = `font-size: ${isCompact ? '10px' : '12px'}; font-weight: 900;`;
 
     let avgHtml = '';
     if (avgVal !== null && avgVal !== 0 && avgVal !== undefined && !isNaN(avgVal) && avgVal > 0.01) {
-        const avgDisp = isTemp ? avgVal.toFixed(1) : Math.round(avgVal);
-        avgHtml = ` · <span style="color:${accentColor}; ${boldStyle}">${avgLabel}: ${avgDisp} ${unit}</span>`;
+        const avgDisp = isTemp ? avgVal.toFixed(1) : (isDay ? Math.round(avgVal) : avgVal.toFixed(1));
+        avgHtml = ` <span style="color:var(--border)">·</span> <span style="color:${accentColor}; ${boldStyle}">${avgLabel}: ${avgDisp} ${unit}</span>`;
     }
 
-    // ---- Night Avg (always one decimal) ----
     let nightHtml = '';
-    if (currentTab === 'month' && nightAvgVal !== null && nightAvgVal !== undefined && !isNaN(nightAvgVal) && nightAvgVal > 0.01) {
+    if (!hideNight && nightAvgVal !== null && nightAvgVal !== undefined && !isNaN(nightAvgVal) && nightAvgVal > 0.01) {
         const nightDisp = nightAvgVal.toFixed(1);
-        nightHtml = ` · <span style="color:#bf7aff; ${boldStyle}">Night Avg: ${nightDisp} ${unit}</span>`;
-    } else if (!hideNight && nightAvgVal !== null && nightAvgVal !== 0 && nightAvgVal !== undefined && !isNaN(nightAvgVal) && nightAvgVal > 0.01) {
-        const nightDisp = nightAvgVal.toFixed(1);
-        nightHtml = ` · <span style="color:#bf7aff; ${boldStyle}">Night Avg: ${nightDisp} ${unit}</span>`;
+        nightHtml = ` <span style="color:var(--border)">·</span> <span style="color:#c084fc; ${boldStyle}">Night Avg: ${nightDisp} ${unit}</span>`;
     }
 
     const mainDisplay = isKwh ? `${mainVal.toFixed(1)} kWh` : `${mainVal.toFixed(1)} ${unit}`;
     const iconDisplay = icon && !icon.includes('span') ? `${icon} ` : '';
 
-    const peakDisp = isTemp ? peakVal.toFixed(1) : Math.round(peakVal).toLocaleString();
+    const peakDisp = isTemp ? peakVal.toFixed(1) : (isDay ? Math.round(peakVal).toLocaleString() : peakVal.toFixed(1));
 
-    return `<div style="display:flex; align-items:center; gap:4px; font-size:${fsLabel}; font-weight:700; margin-bottom:${isCompact ? '0' : '5px'}; flex-wrap:wrap; line-height:1.2;">
+    return `<div style="display:flex; align-items:center; gap:4px; font-size:${fsLabel}; font-weight:700; margin-bottom: 3px; flex-wrap:wrap; line-height:1.3;">
         ${icon ? `<span style="color:${accentColor}">${iconDisplay}${label}:</span>` : `<span style="color:${accentColor}">${label}:</span>`}
         <span style="color:var(--text-main); font-size:${fsMain}; font-weight:900;">${mainDisplay}</span>
         <span style="color:var(--text-muted); font-size:${fsSub}; font-weight:600; margin-left:2px;">
@@ -445,24 +445,30 @@ async function _loadAndDraw() {
         const color1 = isCombined ? '#facc15' : (fA?.color || '#facc15');
         const color2 = '#ef4444';
 
-        // ---- Compute night average for Month view (single feed) ----
-        let nightAvg = null;
-        if (graphTab === 'month' && !isCombined && !isGridAll && !isTempFeed) {
-            const nightHours = [17,18,19,20,21,22,23,0,1,2,3,4,5,6,7];
-            let totalNightKwh = 0;
-            let nightCount = 0;
-            for (const [ts, v] of pts1) {
-                if (v == null) continue;
-                const d = new Date(ts);
-                const hour = d.getHours();
-                if (nightHours.includes(hour)) {
-                    totalNightKwh += v / 1000;
-                    nightCount++;
+        // ---- Compute night average for Month view ----
+        let nightAvg1 = null;
+        let nightAvg2 = null;
+
+        if (graphTab === 'month') {
+            const calcNightAvg = (pts) => {
+                const nightHours = [17,18,19,20,21,22,23,0,1,2,3,4,5,6,7];
+                let totalNightKwh = 0;
+                for (const [ts, v] of pts) {
+                    if (v == null) continue;
+                    const d = new Date(ts);
+                    if (nightHours.includes(d.getHours())) {
+                        totalNightKwh += v / 1000;
+                    }
                 }
+                const daysInCycle = nav.nBars || 1;
+                return totalNightKwh / daysInCycle;
+            };
+
+            if (!isGridAll && !isTempFeed && graphFeedKey !== 'solar') {
+                nightAvg1 = calcNightAvg(pts1);
             }
-            const daysInCycle = bars1.length;
-            if (daysInCycle > 0 && nightCount > 0) {
-                nightAvg = totalNightKwh / daysInCycle;
+            if (isCombined) {
+                nightAvg2 = calcNightAvg(pts2);
             }
         }
 
@@ -615,7 +621,11 @@ async function _loadAndDraw() {
             const p1 = bars1.length > 0 ? Math.max(...bars1) : 0;
             const p2 = bars2.length > 0 ? Math.max(...bars2) : 0;
             let a1, a2, n2 = null;
-            if (graphTab === 'month' || graphTab === 'year') {
+            if (graphTab === 'month') {
+                a1 = bars1.length > 0 ? t1 / bars1.length : 0;
+                a2 = bars2.length > 0 ? t2 / bars2.length : 0;
+                n2 = nightAvg2;
+            } else if (graphTab === 'year') {
                 a1 = bars1.length > 0 ? t1 / bars1.length : 0;
                 a2 = bars2.length > 0 ? t2 / bars2.length : 0;
             } else {
@@ -631,7 +641,7 @@ async function _loadAndDraw() {
             let a1 = null, n1 = null;
             if (graphTab === 'month') {
                 a1 = bars1.length > 0 ? t1 / bars1.length : 0;
-                n1 = nightAvg;
+                n1 = nightAvg1;
             } else if (graphTab === 'year') {
                 a1 = bars1.length > 0 ? t1 / bars1.length : 0;
             } else {

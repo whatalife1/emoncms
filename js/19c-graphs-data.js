@@ -90,7 +90,7 @@ function _formatStatLine(icon, label, mainVal, accentColor, peakVal, avgVal, nig
     let nightHtml = '';
     if (!hideNight && nightAvgVal !== null && nightAvgVal !== undefined && !isNaN(nightAvgVal) && nightAvgVal > 0.01) {
         const nightDisp = nightAvgVal.toFixed(1);
-        nightHtml = ` <span style="color:var(--border)">·</span> <span style="color:#c084fc; ${boldStyle}">Night Avg: ${nightDisp} ${unit}</span>`;
+        nightHtml = `<br><span style="color:#c084fc; ${boldStyle}">Night Avg: ${nightDisp} ${unit}</span>`;
     }
 
     const mainDisplay = isKwh ? `${mainVal.toFixed(1)} kWh` : `${mainVal.toFixed(1)} ${unit}`;
@@ -589,6 +589,16 @@ async function _loadAndDraw() {
                     displayUnit = 'kWh';
                     isKwh = true;
                     displayDayAvg = validCount > 0 ? total / validCount : 0;
+                    if (graphTab === 'month' && pts.length > 0) {
+                        const nightHours = [17,18,19,20,21,22,23,0,1,2,3,4,5,6,7];
+                        let totalNightWh = 0;
+                        for (const [ts, v] of pts) {
+                            if (v != null && nightHours.includes(new Date(ts).getHours())) {
+                                totalNightWh += v;
+                            }
+                        }
+                        displayNightAvg = (totalNightWh / 1000) / (nav.nBars || 1);
+                    }
                 } else if (nav.isDayTab) {
                     displayUnit = 'W';
                     isKwh = true;

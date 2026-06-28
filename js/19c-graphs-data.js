@@ -352,10 +352,11 @@ async function _loadAndDraw() {
                 const pts = allResults[i] || [];
                 const bars = _pointsToBars(pts, navForBars, feed.key);
                 multiData.push({
-                    key:   feed.key,
-                    label: feed.label,
-                    color: feed.color,
-                    data:  bars
+                    key:    feed.key,
+                    label:  feed.label,
+                    color:  feed.color,
+                    data:   bars,
+                    rawPts: pts
                 });
             }
 
@@ -589,10 +590,10 @@ async function _loadAndDraw() {
                     displayUnit = 'kWh';
                     isKwh = true;
                     displayDayAvg = validCount > 0 ? total / validCount : 0;
-                    if (graphTab === 'month' && pts.length > 0) {
+                    if (graphTab === 'month' && line.rawPts && line.rawPts.length > 0) {
                         const nightHours = [17,18,19,20,21,22,23,0,1,2,3,4,5,6,7];
                         let totalNightWh = 0;
-                        for (const [ts, v] of pts) {
+                        for (const [ts, v] of line.rawPts) {
                             if (v != null && nightHours.includes(new Date(ts).getHours())) {
                                 totalNightWh += v;
                             }

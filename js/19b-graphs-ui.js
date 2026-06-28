@@ -88,14 +88,12 @@ function _addUpdateTimestamp() {
 }
 
 function _renderZoomControls() {
+    // Zoom controls disabled: use pinch-to-zoom or mouse wheel
     const wrap = document.getElementById('graph-time-tabs');
     if (!wrap) return;
     const existing = document.getElementById('zoom-controls');
     if (existing) existing.remove();
-
-    const isDesktop = /Win/i.test(navigator.platform) ||
-                      window.matchMedia('(min-width: 1024px)').matches;
-    if (isDesktop) return;
+    return;
 
     const controls = document.createElement('div');
     controls.id = 'zoom-controls';

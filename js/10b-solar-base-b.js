@@ -51,7 +51,7 @@ async function applySolarConfig() {
   }
 
   // --- FORCE FRESH WEATHER ---
-  localStorage.removeItem('lhr_weather_v1');
+  localStorage.removeItem('lhr_weather_v2');
   await fetchLahoreWeather(true);
 
   const activeTab = document.querySelector('.sol-tab.active')?.dataset.tab || 'today';
@@ -61,7 +61,7 @@ async function applySolarConfig() {
 }
 
 async function fetchLahoreWeather(force = false) {
-  const CACHE_KEY = 'lhr_weather_v1';
+  const CACHE_KEY = 'lhr_weather_v2';
   if (!force) {
     const cached = localStorage.getItem(CACHE_KEY);
     if (cached) {
@@ -71,7 +71,7 @@ async function fetchLahoreWeather(force = false) {
     }
   }
   // Added past_days=7 & forecast_days=7 for history + week ahead
-  const url = `https://api.open-meteo.com/v1/forecast?latitude=${SOL_LAT}&longitude=${SOL_LON}&hourly=cloudcover,shortwave_radiation,precipitation_probability&daily=sunrise,sunset&timezone=Asia/Karachi&past_days=7&forecast_days=7`;
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${SOL_LAT}&longitude=${SOL_LON}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code&hourly=cloudcover,shortwave_radiation,precipitation_probability&daily=sunrise,sunset&timezone=Asia/Karachi&past_days=7&forecast_days=7`;
   try {
     const text = await nativeFetch(url);
     if (text.startsWith('ERROR')) return null;

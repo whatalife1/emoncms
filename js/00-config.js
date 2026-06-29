@@ -4,7 +4,8 @@ let autoRefreshSec = 30;
 
 const FEEDS_BASE = [
   { id: "499431", name: "Water Tank",           unit: "%",   type: "env"   },
-  { id: "499374", name: "Breaker",              unit: "W",   type: "watts" },
+//  { id: "499374", name: "Breaker",              unit: "W",   type: "watts" },
+  { id: "499403", name: "Breaker",              unit: "W",   type: "watts" },
   { id: "499383", name: "AC Volts",             unit: "V",   type: "env"   },
   { id: "499413", name: "Breaker Today",        unit: "kWh", type: "units" },
   { id: "499412", name: "Breaker Total",        unit: "kWh", type: "units" },

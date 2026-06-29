@@ -41,7 +41,7 @@
   padding: 10px;
   margin-bottom: 2px;
   box-shadow: var(--shadow);
-  min-height: auto !important; /* Allow layout container height to dynamically shape with the SVG aspect ratio dimensions */
+  min-height: auto !important;
   display: flex;
   flex-direction: column;
 }
@@ -67,10 +67,15 @@
   animation: grid-off-flash 1.5s infinite ease-in-out;
 }
 
-/* Ensure flow text exactly matches the editor's styling and dimensions */
+/* ── SVG FLOW TEXT OVERRIDES ── */
 .flow-text {
-  font-family: system-ui, -apple-system, sans-serif;
+  /* Use a wider font stack and maximum weight to match the editor exactly */
+  font-family: "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-weight: 900; 
   dominant-baseline: central;
+  alignment-baseline: central;
   text-anchor: middle;
-  font-weight: 700;
+  shape-rendering: geometricPrecision;
+  text-rendering: geometricPrecision;
+  letter-spacing: 0.01em; 
 }

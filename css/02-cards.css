@@ -33,21 +33,47 @@
 .sparkline-wrap { margin-top: 4px; height: 28px; position: relative; overflow: hidden; }
 .sparkline-wrap svg { width: 100%; height: 28px; display: block; }
 
-/* ── Power Flow Diagram ───────────────────────────────────────────────── */
+/* ── Power Flow Wrapper — flush against header, no side gaps ─────────── */
+#flow-wrap {
+  width: 100%;
+  padding: 0;
+  margin: 0;
+  display: block;
+}
+
+/* ── Power Flow Card — edge to edge, no border-radius on sides ───────── */
 #flow-card {
   background: var(--bg-panel);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 10px;
-  margin-bottom: 2px;
-  box-shadow: var(--shadow);
-  min-height: auto !important;
+  border: none;                        /* ← removed all borders         */
+  border-top: 1px solid var(--border); /* ← keep top separator only     */
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;                    /* ← flush sides                  */
+  padding: 8px 10px 6px;              /* ← small top/bottom only        */
+  margin: 0;
   display: flex;
   flex-direction: column;
+  box-shadow: none;
 }
-#flow-card .flow-title { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 8px; }
-#flow-svg-wrap { width: 100%; overflow: visible !important; }
-#flow-svg-wrap svg { width: 100% !important; height: auto !important; display: block; }
+
+#flow-card .flow-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  margin-bottom: 6px;
+}
+
+#flow-svg-wrap {
+  width: 100%;
+  overflow: visible !important;
+}
+
+#flow-svg-wrap svg {
+  width: 100% !important;
+  height: auto !important;
+  display: block;
+}
 
 /* ── GLOW PULSE ANIMATION ── */
 @keyframes glow-pulse {
@@ -65,17 +91,4 @@
 }
 .grid-off-anim {
   animation: grid-off-flash 1.5s infinite ease-in-out;
-}
-
-/* ── SVG FLOW TEXT OVERRIDES ── */
-.flow-text {
-  /* Use a wider font stack and maximum weight to match the editor exactly */
-  font-family: "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  font-weight: 900; 
-  dominant-baseline: central;
-  alignment-baseline: central;
-  text-anchor: middle;
-  shape-rendering: geometricPrecision;
-  text-rendering: geometricPrecision;
-  letter-spacing: 0.01em; 
 }

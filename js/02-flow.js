@@ -1,5 +1,5 @@
 const LAYOUT = {
- weather: { x:5, y:10, w:708, h:49, color:'#0ea5e9', label:'Weather', ly1:25, fs:30, c1:'#ffffff',  },
+ weather: { x:5, y:10, w:708, h:49, color:'#0ea5e9', label:'Weather', ly1:25, fs:25, c1:'#ffffff',  },
  solar: { x:7, y:64, w:321, h:365, color:'#f59e0b', label:'Solar', ly1:42, fs:47, c1:'#ffff00', ly2:106, fs2:46, c2:'#2c8758', ly3:166, fs3:38, c3:'#b4b635', ly4:219, fs4:22, c4:'#21c442', ly5:279, fs5:24, c5:'#3de31c', ly6:317, fs6:22, c6:'#38bdf8',  },
  grid: { x:330, y:64, w:245, h:365, color:'#ef4444', label:'Grid', ly1:48, fs:38, c1:'#ef4444', ly2:154, fs2:28, c2:'#35c0b7', ly3:278, fs3:22, c3:'#3de3e4', ly4:317, fs4:22, c4:'#38bdf8',  },
  water: { x:585, y:64, w:140, h:365, color:'#0ea5e9', label:'Water', ly1:48, fs:46, c1:'#0ea5e9', ly2:158, fs2:56, c2:'#25f447', ly3:251, fs3:25, c3:'#9ca3af', ly4:315, fs4:20, c4:'#0ce4e0',  },
@@ -11,8 +11,6 @@ const LAYOUT = {
  temp: { x:255, y:649, w:236, h:40, color:'#22c55e', label:'temp', ly1:20, fs:27, c1:'#25f447',  },
  temp2: { x:13, y:654, w:228, h:35, color:'#22c55e', label:'temp2', ly1:16, fs:27, c1:'#25f447',  },
 };
-
-
 
 function renderFlowDiagram(byName) {
   if (!byName) return;
@@ -84,8 +82,9 @@ function renderFlowDiagram(byName) {
   if (o) {
     const sFs = Math.round(o.fs * 0.78);
     const mFs = Math.round(o.fs * 0.72);
+    const timeNow = new Date().toLocaleTimeString('en-PK', { hour: 'numeric', minute: '2-digit', hour12: true }).toLowerCase().replace(' ', '');
     svg += `<rect x="${o.x}" y="${o.y}" width="${o.w}" height="${o.h}" rx="10" fill="#0f172a" stroke="${o.color}" stroke-width="2"/>`;
-    svg += `<text x="${cx(o)}" y="${o.y+o.ly1}" ${tpProps} font-size="${o.fs}" fill="${o.c1}">${wIcon} ${tW}°C <tspan fill="#334155" font-size="${mFs}">|</tspan> <tspan fill="#f59e0b" font-size="${sFs}">Feels: ${feels}°C</tspan> <tspan fill="#334155" font-size="${mFs}">|</tspan> <tspan fill="#38bdf8" font-size="${sFs}">Hum: ${humW}%</tspan> <tspan fill="#334155" font-size="${mFs}">|</tspan> <tspan fill="#cbd5e1" font-size="${sFs}">☁ ${cl}%</tspan> <tspan fill="#334155" font-size="${mFs}">|</tspan> <tspan fill="#60a5fa" font-size="${sFs}">🌧 ${rn}%</tspan></text>`;
+    svg += `<text x="${cx(o)}" y="${o.y+o.ly1}" ${tpProps} font-size="${o.fs}" fill="${o.c1}"><tspan fill="#a1a1aa" font-size="${sFs}">${timeNow}</tspan> <tspan fill="#334155" font-size="${mFs}">|</tspan> ${wIcon} ${tW}°C <tspan fill="#334155" font-size="${mFs}">|</tspan> <tspan fill="#f59e0b" font-size="${sFs}">Feels: ${feels}°C</tspan> <tspan fill="#334155" font-size="${mFs}">|</tspan> <tspan fill="#38bdf8" font-size="${sFs}">Hum: ${humW}%</tspan> <tspan fill="#334155" font-size="${mFs}">|</tspan> <tspan fill="#cbd5e1" font-size="${sFs}">☁ ${cl}%</tspan> <tspan fill="#334155" font-size="${mFs}">|</tspan> <tspan fill="#60a5fa" font-size="${sFs}">🌧 ${rn}%</tspan></text>`;
   }
 
   // 1. SOLAR

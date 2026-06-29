@@ -66,3 +66,11 @@
 .grid-off-anim {
   animation: grid-off-flash 1.5s infinite ease-in-out;
 }
+
+/* Ensure flow text exactly matches the editor's styling and dimensions */
+.flow-text {
+  font-family: system-ui, -apple-system, sans-serif;
+  dominant-baseline: central;
+  text-anchor: middle;
+  font-weight: 700;
+}

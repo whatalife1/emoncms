@@ -55,7 +55,7 @@ function _formatStatLine(icon, label, mainVal, accentColor, peakVal, avgVal, nig
         const nightAvgDisp = isDay ? Math.round(nightAvgVal) : nightAvgVal.toFixed(1);
         const nKwhDisp = nightTotalVal ? nightTotalVal.toFixed(1) + ' kWh ' : '';
         const nAvgStr = isDay ? `(Avg: ${nightAvgDisp} W)` : `(Avg: ${nightAvgDisp} kWh/d)`;
-        nightHtml = `<br><span style="color:#c084fc; ${boldStyle}">Night: ${nKwhDisp}${nAvgStr}</span>`;
+        nightHtml = `<span style="color:#c084fc; ${boldStyle}">Night: ${nKwhDisp}${nAvgStr}</span>`;
     }
 
     const mainDisplay = isKwh ? `${mainVal.toFixed(1)} kWh` : `${mainVal.toFixed(1)} ${unit}`;
@@ -63,12 +63,15 @@ function _formatStatLine(icon, label, mainVal, accentColor, peakVal, avgVal, nig
 
     const peakDisp = isTemp ? peakVal.toFixed(1) : (isDay ? Math.round(peakVal).toLocaleString() : peakVal.toFixed(1));
 
-    return `<div style="display:flex; align-items:center; gap:4px; font-size:${fsLabel}; font-weight:700; margin-bottom: 3px; flex-wrap:wrap; line-height:1.3;">
-        ${icon ? `<span style="color:${accentColor}">${iconDisplay}${label}:</span>` : `<span style="color:${accentColor}">${label}:</span>`}
-        <span style="color:var(--text-main); font-size:${fsMain}; font-weight:900;">${mainDisplay}</span>
-        <span style="color:var(--text-muted); font-size:${fsSub}; font-weight:600; margin-left:2px;">
-            (<span style="font-size:${fsSub}">${peakLabel}:</span> <span style="color:${peakColor}; ${boldStyle}">${peakDisp}</span> ${unit}${avgHtml}${nightHtml})
-        </span>
+    return `<div style="margin-bottom: 6px; line-height:1.2;">
+        <div style="display:flex; align-items:center; gap:6px;">
+            ${icon ? `<span style="color:${accentColor}; font-size:${fsLabel}; font-weight:700;">${iconDisplay}${label}:</span>` : `<span style="color:${accentColor}; font-size:${fsLabel}; font-weight:700;">${label}:</span>`}
+            <span style="color:var(--text-main); font-size:${fsMain}; font-weight:900;">${mainDisplay}</span>
+        </div>
+        <div style="color:var(--text-muted); font-size:${fsSub}; font-weight:600; margin-left: 1px; margin-top: 2px;">
+            <div>(<span style="font-size:${fsSub}">${peakLabel}:</span> <span style="color:${peakColor}; ${boldStyle}">${peakDisp}</span> ${unit}${avgHtml})</div>
+            ${nightHtml ? `<div style="margin-top: 2px;">${nightHtml}</div>` : ''}
+        </div>
     </div>`;
 }
 

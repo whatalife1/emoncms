@@ -34,19 +34,16 @@ function getKarachiDate(ms) {
 }
 
 function billingRangeFor(year, month) {
-  const endLocal = new Date(Date.UTC(year, month - 1, 26, 0, 0, 0));
-  const endMs = endLocal.getTime() - 5 * 3600 * 1000;
-  const startLocal = new Date(Date.UTC(year, month - 2, 25, 0, 0, 0));
-  const startMs = startLocal.getTime() - 5 * 3600 * 1000;
+  // Karachi is UTC+5. To get 00:00 PKT on the 26th, we need 19:00 UTC on the 25th.
+  const endMs = new Date(year, month - 1, 26, 0, 0, 0).getTime();
+  const startMs = new Date(year, month - 2, 25, 0, 0, 0).getTime();
   return { startMs, endMs };
 }
 
 function currentHourMs() {
   const now = new Date();
-  const local = getKarachiDate(now.getTime());
-  const truncatedUtc = Date.UTC(local.year, local.month - 1, local.day, local.hour, 0, 0);
-  const truncatedMs = truncatedUtc - 5 * 3600 * 1000;
-  return truncatedMs + 3600 * 1000;
+  now.setMinutes(0, 0, 0);
+  return now.getTime() + 3600 * 1000;
 }
 
 let reportCache = {};
@@ -114,16 +111,12 @@ function sumByDay(data, startHour, endHour) {
     const timestamp = parseInt(timestampStr);
     const local = getKarachiDate(timestamp);
     const hour = local.hour;
+    // Check if hour is in the defined range
     const inPeriod = allDay || (wrapsMidnight ? (hour >= startHour || hour < endHour) : (hour >= startHour && hour < endHour));
     if (!inPeriod) continue;
-    let effectiveYear = local.year, effectiveMonth = local.month, effectiveDay = local.day;
-    if (wrapsMidnight && hour < endHour) {
-      const d = new Date(timestamp);
-      const prev = new Date(d.getTime() - 24 * 3600 * 1000);
-      const prevLocal = getKarachiDate(prev.getTime());
-      effectiveYear = prevLocal.year; effectiveMonth = prevLocal.month; effectiveDay = prevLocal.day;
-    }
-    const key = `${effectiveYear}-${String(effectiveMonth).padStart(2, '0')}-${String(effectiveDay).padStart(2, '0')}`;
+    
+    // We group by the calendar date of the record so that 24hr = Day + Night
+    const key = `${local.year}-${String(local.month).padStart(2, '0')}-${String(local.day).padStart(2, '0')}`;
     result[key] = (result[key] || 0) + watts;
   }
   return result;

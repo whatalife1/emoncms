@@ -206,6 +206,7 @@ function _pointsToBars(pts, nav, feedKey) {
                 'k1':    'Kenwood 1Ton Today',
                 'k15':   'Kenwood 1.5Ton Today',
                 'pc':    'PC Today',
+                'motor': 'Water Motor Today',
                 'fridge1': 'Fridge Today',
                 'fridge2': 'Fridge2 Today'
             };

@@ -19,6 +19,7 @@ const FEEDS_BASE = [
   { id: "499420", name: "Utility Total",        unit: "kWh", type: "units" },
   { id: "499373", name: "Fridge",               unit: "W",   type: "watts" },
   { id: "541348", name: "Fridge2",              unit: "W",   type: "watts" },
+  { id: "542850", name: "Water Motor",          unit: "W",   type: "watts" },
   { id: "499411", name: "Fridge Today",         unit: "kWh", type: "units" },
   { id: "541350", name: "Fridge2 Today",        unit: "kWh", type: "units" },
   { id: "499362", name: "Kenwood 1.5Ton",       unit: "W",   type: "watts" },

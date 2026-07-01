@@ -5,75 +5,87 @@ let tooltipPinned = false;
 let graphsAutoRefreshInterval = null;
 let graphsLastUpdate = 0;
 
-window.downloadDayGraphReport = async function() {
+window.generateDayGraphReportText = async function() {
     if (graphTab !== 'day') {
-        alert("Please switch to 'Day' view to generate a daily report.");
-        return;
+        return "Please switch to 'Day' view to generate a daily report.";
     }
     const nav = _gNavInfo();
     const local = getKarachiDate(nav.startMs);
     const dateKey = `${local.year}-${String(local.month).padStart(2, '0')}-${String(local.day).padStart(2, '0')}`;
     const dateDisplay = `${local.day}/${local.month}/${local.year}`;
 
+    const fetchPromises = EXPORT_FEEDS.map(async (feed) => {
+        const data = await fetchWithCache(feed.id, nav.startMs, nav.endMs);
+        return { feed, data };
+    });
+
+    const results = await Promise.all(fetchPromises);
+    const sums = {};
+    results.forEach(r => {
+        const ds = r.feed.isPc ? EXPORT_PC_DAY_START : EXPORT_DAY_START;
+        const de = r.feed.isPc ? EXPORT_PC_DAY_END : EXPORT_DAY_END;
+        sums[r.feed.id] = {
+            h24: sumByDay(r.data, 0, 24),
+            day: sumByDay(r.data, ds, de),
+            night: sumByDay(r.data, EXPORT_NIGHT_START, EXPORT_NIGHT_END)
+        };
+    });
+
+    const getK = (id, type) => (sums[id][type][dateKey] || 0) / 1000;
+    const padVal = (v) => v.toFixed(2).padStart(6);
+    const toW = (kwh, h) => Math.round((kwh * 1000) / h);
+
+    let txt = `Daily Energy Usage Report: ${dateDisplay}\n`;
+    txt += `Generated: ${new Date().toLocaleString()}\n`;
+    txt += `--------------------------------------------------------------------------------\n`;
+
+    const solarF = EXPORT_FEEDS.find(f => f.isSolar);
+    const breakerF = EXPORT_FEEDS.find(f => f.isBreaker);
+
+    if (solarF) {
+        const val = getK(solarF.id, 'h24');
+        txt += `Solar`.padEnd(16) + `${padVal(val)} units (Avg: ${toW(val, 24)}W)\n`;
+    }
+    if (breakerF) {
+        const total = getK(breakerF.id, 'h24');
+        const day = getK(breakerF.id, 'day');
+        const night = getK(breakerF.id, 'night');
+        txt += `Breaker`.padEnd(16) + `${padVal(total)} units (Avg: ${toW(total, 24)}W) | Day: ${padVal(day)} | Night: ${padVal(night)} (Avg: ${toW(night, 15)}W)\n`;
+    }
+    txt += `--------------------------------------------------------------------------------\n`;
+
+    EXPORT_FEEDS.forEach(f => {
+        if (f.isSolar || f.isBreaker) return;
+        const total = getK(f.id, 'h24');
+        const day = getK(f.id, 'day');
+        const night = getK(f.id, 'night');
+        const nHours = f.isPc ? 13 : 15;
+        
+        txt += f.name.substring(0,15).padEnd(16) + 
+               `${padVal(total)} units (${toW(total, 24)}W)`.padEnd(25) + 
+               `| Day: ${padVal(day)}`.padEnd(16) + 
+               `| Night: ${padVal(night)} (Avg: ${toW(night, nHours)}W)\n`;
+    });
+
+    return txt;
+};
+
+window.downloadDayGraphReport = async function() {
     const btn = document.getElementById('btn-graphs-report');
     const oldTxt = btn.textContent;
     btn.textContent = '...';
     btn.disabled = true;
 
     try {
-        const fetchPromises = EXPORT_FEEDS.map(async (feed) => {
-            const data = await fetchWithCache(feed.id, nav.startMs, nav.endMs);
-            return { feed, data };
-        });
-
-        const results = await Promise.all(fetchPromises);
-        const sums = {};
-        results.forEach(r => {
-            const ds = r.feed.isPc ? EXPORT_PC_DAY_START : EXPORT_DAY_START;
-            const de = r.feed.isPc ? EXPORT_PC_DAY_END : EXPORT_DAY_END;
-            sums[r.feed.id] = {
-                h24: sumByDay(r.data, 0, 24),
-                day: sumByDay(r.data, ds, de),
-                night: sumByDay(r.data, EXPORT_NIGHT_START, EXPORT_NIGHT_END)
-            };
-        });
-
-        const getK = (id, type) => (sums[id][type][dateKey] || 0) / 1000;
-        const padVal = (v) => v.toFixed(2).padStart(6);
-        const toW = (kwh, h) => Math.round((kwh * 1000) / h);
-
-        let txt = `Daily Energy Usage Report: ${dateDisplay}\n`;
-        txt += `Generated: ${new Date().toLocaleString()}\n`;
-        txt += `--------------------------------------------------------------------------------\n`;
-
-        const solarF = EXPORT_FEEDS.find(f => f.isSolar);
-        const breakerF = EXPORT_FEEDS.find(f => f.isBreaker);
-
-        if (solarF) {
-            const val = getK(solarF.id, 'h24');
-            txt += `Solar`.padEnd(16) + `${padVal(val)} units (Avg: ${toW(val, 24)}W)\n`;
+        const txt = await window.generateDayGraphReportText();
+        if (txt.startsWith("Please switch")) {
+            alert(txt);
+            return;
         }
-        if (breakerF) {
-            const total = getK(breakerF.id, 'h24');
-            const day = getK(breakerF.id, 'day');
-            const night = getK(breakerF.id, 'night');
-            txt += `Breaker`.padEnd(16) + `${padVal(total)} units (Avg: ${toW(total, 24)}W) | Day: ${padVal(day)} | Night: ${padVal(night)} (Avg: ${toW(night, 15)}W)\n`;
-        }
-        txt += `--------------------------------------------------------------------------------\n`;
-
-        EXPORT_FEEDS.forEach(f => {
-            if (f.isSolar || f.isBreaker) return;
-            const total = getK(f.id, 'h24');
-            const day = getK(f.id, 'day');
-            const night = getK(f.id, 'night');
-            const nHours = f.isPc ? 13 : 15;
-            
-            txt += f.name.substring(0,15).padEnd(16) + 
-                   `${padVal(total)} units (${toW(total, 24)}W)`.padEnd(25) + 
-                   `| Day: ${padVal(day)}`.padEnd(16) + 
-                   `| Night: ${padVal(night)} (Avg: ${toW(night, nHours)}W)\n`;
-        });
-
+        const nav = _gNavInfo();
+        const local = getKarachiDate(nav.startMs);
+        const dateKey = `${local.year}-${String(local.month).padStart(2, '0')}-${String(local.day).padStart(2, '0')}`;
+        
         const blob = new Blob([txt], { type: 'text/plain' });
         const a = document.createElement('a');
         a.download = `Emon_Report_${dateKey}.txt`;
@@ -397,7 +409,7 @@ function _renderGFeedTabs() {
     wrap.innerHTML = all.map(f =>
         `<button class="gfeed-tab${graphFeedKey===f.key?' active':''}" data-gkey="${f.key}"
             style="${graphFeedKey===f.key?`border-color:${f.color};color:${f.color}`:''}">${f.label}</button>`
-    ).join('');
+    ).join('') + `<button class="gfeed-tab${graphFeedKey==='report'?' active':''}" data-gkey="report" style="${graphFeedKey==='report'?'border-color:#10b981;color:#10b981':''}">📄 Report</button>`;
 
     wrap.querySelectorAll('.gfeed-tab').forEach(b => {
         b.addEventListener('click', () => {

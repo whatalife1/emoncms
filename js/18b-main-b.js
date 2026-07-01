@@ -198,6 +198,9 @@ function wireButtons() {
   });
 
   // Graph buttons
+  _btn('btn-graphs-report', () => {
+    if (window.downloadDayGraphReport) window.downloadDayGraphReport();
+  });
 _btn('btn-graphs', () => {
   if (typeof openGraphsPanel === 'function') {
     openGraphsPanel();

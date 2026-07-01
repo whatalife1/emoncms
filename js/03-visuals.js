@@ -37,7 +37,8 @@ async function fetchMonthlyUnits() {
     { key: 'haier', id: '499409' }, { key: 'k1', id: '499407' }, 
     { key: 'k15', id: '499405' }, { key: 'pc', id: '499424' }, 
     { key: 'f1', id: '499411' }, { key: 'f2', id: '541350' },
-    { key: 'solar', id: '499415' }, { key: 'grid', id: '499413' }
+    { key: 'solar', id: '499415' }, { key: 'grid', id: '499413' },
+    { key: 'motor', id: '542851' }
   ];
 
   const results = { haier:0, k1:0, k15:0, pc:0, f1:0, f2:0, solar:0, grid:0 };
@@ -69,6 +70,9 @@ async function fetchMonthlyUnits() {
     k15:   results.k15,
     pc:    results.pc,
     fridge: results.f1 + results.f2,
+    f1: results.f1,
+    f2: results.f2,
+    motor: results.motor,
     solar: results.solar,
     grid:  results.grid
   };

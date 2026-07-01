@@ -5,6 +5,89 @@ let tooltipPinned = false;
 let graphsAutoRefreshInterval = null;
 let graphsLastUpdate = 0;
 
+window.downloadDayGraphReport = async function() {
+    if (graphTab !== 'day') {
+        alert("Please switch to 'Day' view to generate a daily report.");
+        return;
+    }
+    const nav = _gNavInfo();
+    const local = getKarachiDate(nav.startMs);
+    const dateKey = `${local.year}-${String(local.month).padStart(2, '0')}-${String(local.day).padStart(2, '0')}`;
+    const dateDisplay = `${local.day}/${local.month}/${local.year}`;
+
+    const btn = document.getElementById('btn-graphs-report');
+    const oldTxt = btn.textContent;
+    btn.textContent = '...';
+    btn.disabled = true;
+
+    try {
+        const fetchPromises = EXPORT_FEEDS.map(async (feed) => {
+            const data = await fetchWithCache(feed.id, nav.startMs, nav.endMs);
+            return { feed, data };
+        });
+
+        const results = await Promise.all(fetchPromises);
+        const sums = {};
+        results.forEach(r => {
+            const ds = r.feed.isPc ? EXPORT_PC_DAY_START : EXPORT_DAY_START;
+            const de = r.feed.isPc ? EXPORT_PC_DAY_END : EXPORT_DAY_END;
+            sums[r.feed.id] = {
+                h24: sumByDay(r.data, 0, 24),
+                day: sumByDay(r.data, ds, de),
+                night: sumByDay(r.data, EXPORT_NIGHT_START, EXPORT_NIGHT_END)
+            };
+        });
+
+        const getK = (id, type) => (sums[id][type][dateKey] || 0) / 1000;
+        const padVal = (v) => v.toFixed(2).padStart(6);
+        const toW = (kwh, h) => Math.round((kwh * 1000) / h);
+
+        let txt = `Daily Energy Usage Report: ${dateDisplay}\n`;
+        txt += `Generated: ${new Date().toLocaleString()}\n`;
+        txt += `--------------------------------------------------------------------------------\n`;
+
+        const solarF = EXPORT_FEEDS.find(f => f.isSolar);
+        const breakerF = EXPORT_FEEDS.find(f => f.isBreaker);
+
+        if (solarF) {
+            const val = getK(solarF.id, 'h24');
+            txt += `Solar`.padEnd(16) + `${padVal(val)} units (Avg: ${toW(val, 24)}W)\n`;
+        }
+        if (breakerF) {
+            const total = getK(breakerF.id, 'h24');
+            const day = getK(breakerF.id, 'day');
+            const night = getK(breakerF.id, 'night');
+            txt += `Breaker`.padEnd(16) + `${padVal(total)} units (Avg: ${toW(total, 24)}W) | Day: ${padVal(day)} | Night: ${padVal(night)} (Avg: ${toW(night, 15)}W)\n`;
+        }
+        txt += `--------------------------------------------------------------------------------\n`;
+
+        EXPORT_FEEDS.forEach(f => {
+            if (f.isSolar || f.isBreaker) return;
+            const total = getK(f.id, 'h24');
+            const day = getK(f.id, 'day');
+            const night = getK(f.id, 'night');
+            const nHours = f.isPc ? 13 : 15;
+            
+            txt += f.name.substring(0,15).padEnd(16) + 
+                   `${padVal(total)} units (${toW(total, 24)}W)`.padEnd(25) + 
+                   `| Day: ${padVal(day)}`.padEnd(16) + 
+                   `| Night: ${padVal(night)} (Avg: ${toW(night, nHours)}W)\n`;
+        });
+
+        const blob = new Blob([txt], { type: 'text/plain' });
+        const a = document.createElement('a');
+        a.download = `Emon_Report_${dateKey}.txt`;
+        a.href = URL.createObjectURL(blob);
+        a.click();
+    } catch (e) {
+        console.error(e);
+        alert("Report Error: " + e.message);
+    } finally {
+        btn.textContent = oldTxt;
+        btn.disabled = false;
+    }
+};
+
 // ─── Missing constants & helpers ────────────────────────────────────────────
 const graphZoomMin = 1;
 const graphZoomMax = 60;
@@ -382,16 +465,15 @@ function _gNavInfo() {
         if (startMonth < 0) { startMonth = 11; startYear--; }
         const start = new Date(startYear, startMonth, 25);
         const end = new Date(start.getFullYear(), start.getMonth() + 1, 26);
-        const effectiveEnd = end > now ? now : end;
 
-        const days = Math.ceil((effectiveEnd - start) / 86400000);
+        const days = Math.ceil((end - start) / 86400000);
         const labels = [];
         for (let i = 0; i < days; i++) {
             const d = new Date(start.getTime() + i * 86400000);
             labels.push(`${d.getDate()}/${d.getMonth()+1}`);
         }
 
-        const rangeLabel = `${start.toLocaleDateString('en-PK', {month:'short', day:'numeric'})} – ${effectiveEnd.toLocaleDateString('en-PK', {month:'short', day:'numeric', year:'numeric'})}`;
+        const rangeLabel = `${start.toLocaleDateString('en-PK', {month:'short', day:'numeric'})} – ${end.toLocaleDateString('en-PK', {month:'short', day:'numeric', year:'numeric'})}`;
         return {
             label: rangeLabel,
             sub: null,
@@ -399,7 +481,7 @@ function _gNavInfo() {
             isDayTab: false,
             nBars: days,
             startMs: start.getTime(),
-            endMs: effectiveEnd.getTime(),
+            endMs: end.getTime(),
             labels: labels,
             month: start.getMonth(),
             year: start.getFullYear(),

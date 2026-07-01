@@ -7,7 +7,7 @@ let graphsLastUpdate = 0;
 
 window.generateDayGraphReportText = async function() {
     if (graphTab !== 'day') {
-        return "Please switch to 'Day' view to generate a daily report.";
+        return { text: "Please switch to 'Day' view to generate a daily report.", html: "" };
     }
     const nav = _gNavInfo();
     const local = getKarachiDate(nav.startMs);
@@ -21,6 +21,8 @@ window.generateDayGraphReportText = async function() {
 
     const results = await Promise.all(fetchPromises);
     const sums = {};
+    const hourly = {};
+    
     results.forEach(r => {
         const ds = r.feed.isPc ? EXPORT_PC_DAY_START : EXPORT_DAY_START;
         const de = r.feed.isPc ? EXPORT_PC_DAY_END : EXPORT_DAY_END;
@@ -29,14 +31,51 @@ window.generateDayGraphReportText = async function() {
             day: sumByDay(r.data, ds, de),
             night: sumByDay(r.data, EXPORT_NIGHT_START, EXPORT_NIGHT_END)
         };
+        
+        const hSum = new Array(24).fill(0);
+        const hCnt = new Array(24).fill(0);
+        for (const [tsStr, val] of Object.entries(r.data)) {
+            const ts = parseInt(tsStr);
+            const l = getKarachiDate(ts);
+            if (l.year === local.year && l.month === local.month && l.day === local.day) {
+                hSum[l.hour] += val;
+                hCnt[l.hour]++;
+            }
+        }
+        const hArr = new Array(24).fill(0);
+        let maxW = 0;
+        for(let i=0; i<24; i++) {
+            hArr[i] = hCnt[i] ? hSum[i]/hCnt[i] : 0;
+            if (hArr[i] > maxW) maxW = hArr[i];
+        }
+        hourly[r.feed.id] = { arr: hArr, max: maxW };
     });
 
     const getK = (id, type) => (sums[id][type][dateKey] || 0) / 1000;
     const padVal = (v) => v.toFixed(2).padStart(6);
     const toW = (kwh, h) => Math.round((kwh * 1000) / h);
 
+    const blocks = ['_', '\u2581', '\u2582', '\u2583', '\u2584', '\u2585', '\u2586', '\u2587', '\u2588'];
+    function makeSparkline(id) {
+        const hData = hourly[id];
+        if (!hData || hData.max === 0) return ''.padEnd(24, '_') + '] max: 0W';
+        let str = '';
+        for(let i=0; i<24; i++) {
+            let v = hData.arr[i];
+            if (v <= 0) str += '_';
+            else {
+                let idx = Math.ceil((v / hData.max) * 8);
+                if (idx < 1) idx = 1;
+                if (idx > 8) idx = 8;
+                str += blocks[idx];
+            }
+        }
+        return `${str}] max: ${Math.round(hData.max)}W`;
+    }
+
     let txt = `Daily Energy Usage Report: ${dateDisplay}\n`;
     txt += `Generated: ${new Date().toLocaleString()}\n`;
+    txt += `Hourly scale: 00:00 to 23:59 (each block = 1 hour)\n`;
     txt += `--------------------------------------------------------------------------------\n`;
 
     const solarF = EXPORT_FEEDS.find(f => f.isSolar);
@@ -45,12 +84,14 @@ window.generateDayGraphReportText = async function() {
     if (solarF) {
         const val = getK(solarF.id, 'h24');
         txt += `Solar`.padEnd(16) + `${padVal(val)} units (Avg: ${toW(val, 24)}W)\n`;
+        txt += `                 [${makeSparkline(solarF.id)}\n`;
     }
     if (breakerF) {
         const total = getK(breakerF.id, 'h24');
         const day = getK(breakerF.id, 'day');
         const night = getK(breakerF.id, 'night');
         txt += `Breaker`.padEnd(16) + `${padVal(total)} units (Avg: ${toW(total, 24)}W) | Day: ${padVal(day)} | Night: ${padVal(night)} (Avg: ${toW(night, 15)}W)\n`;
+        txt += `                 [${makeSparkline(breakerF.id)}\n`;
     }
     txt += `--------------------------------------------------------------------------------\n`;
 
@@ -65,9 +106,37 @@ window.generateDayGraphReportText = async function() {
                `${padVal(total)} units (${toW(total, 24)}W)`.padEnd(25) + 
                `| Day: ${padVal(day)}`.padEnd(16) + 
                `| Night: ${padVal(night)} (Avg: ${toW(night, nHours)}W)\n`;
+        txt += `                 [${makeSparkline(f.id)}\n`;
     });
 
-    return txt;
+    // --- Generate HTML Table (Original Detailed Style) ---
+    let html = `<div class="report-wrapper" style="background:var(--bg-panel); color:var(--text-main); border:1px solid var(--border); border-radius:10px; padding:10px; margin-top:20px;">`;
+    html += `<h4 style="margin:0 0 10px 0; font-size:14px; border-bottom:1px solid var(--border); padding-bottom:5px;">Daily Consumption Breakdown</h4>`;
+    html += `<div class="table-scroll" style="overflow-x:auto;"><table style="width:100%; border-collapse:collapse; font-size:11px; font-family:monospace;">`;
+    
+    html += `<tr style="background:var(--bg-card);">
+        <th style="border:1px solid var(--border); padding:6px; text-align:left;">Appliance</th>
+        <th style="border:1px solid var(--border); padding:6px; text-align:right;">24hr (kWh)</th>
+        <th style="border:1px solid var(--border); padding:6px; text-align:right;">Day (kWh)</th>
+        <th style="border:1px solid var(--border); padding:6px; text-align:right;">Night (kWh)</th>
+    </tr>`;
+
+    EXPORT_FEEDS.forEach(f => {
+        const val24 = getK(f.id, 'h24');
+        const valDay = f.isSolar ? '-' : getK(f.id, 'day');
+        const valNight = f.isSolar ? '-' : getK(f.id, 'night');
+        
+        html += `<tr>
+            <td style="border:1px solid var(--border); padding:6px; font-weight:bold;">${f.name}</td>
+            <td style="border:1px solid var(--border); padding:6px; text-align:right; color:var(--accent-kwh);">${val24 === 0 ? '-' : val24.toFixed(2)}</td>
+            <td style="border:1px solid var(--border); padding:6px; text-align:right; color:var(--accent-solar);">${valDay === '-' ? '-' : (valDay === 0 ? '-' : valDay.toFixed(2))}</td>
+            <td style="border:1px solid var(--border); padding:6px; text-align:right; color:#c084fc;">${valNight === '-' ? '-' : (valNight === 0 ? '-' : valNight.toFixed(2))}</td>
+        </tr>`;
+    });
+    
+    html += `</table></div></div>`;
+
+    return { text: txt, html: html };
 };
 
 window.downloadDayGraphReport = async function() {
@@ -77,8 +146,9 @@ window.downloadDayGraphReport = async function() {
     btn.disabled = true;
 
     try {
-        const txt = await window.generateDayGraphReportText();
-        if (txt.startsWith("Please switch")) {
+        const report = await window.generateDayGraphReportText();
+        const txt = report.text || report;
+        if (typeof txt === 'string' && txt.startsWith("Please switch")) {
             alert(txt);
             return;
         }
@@ -100,15 +170,9 @@ window.downloadDayGraphReport = async function() {
     }
 };
 
-// ─── Missing constants & helpers ────────────────────────────────────────────
-const graphZoomMin = 1;
-const graphZoomMax = 60;
-
 function _getLocalMidnight(date) {
     return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
 }
-
-// ─── Auto-refresh management ────────────────────────────────────────────────
 
 function startGraphsAutoRefresh() {
     if (graphsAutoRefreshInterval) {
@@ -126,7 +190,6 @@ function startGraphsAutoRefresh() {
                 return;
             }
             if (!graphIsLoading && !graphIsPanning) {
-                console.log('🔄 Auto-refreshing graph (day view)');
                 _loadAndDraw();
                 graphsLastUpdate = Date.now();
             }
@@ -141,121 +204,21 @@ function stopGraphsAutoRefresh() {
     }
 }
 
-function _addRefreshIndicator() {
-    const stat = document.getElementById('graph-stat');
-    if (!stat) return;
-    const existing = document.getElementById('graph-refresh-indicator');
-    if (existing) existing.remove();
-    if (graphTab === 'day') {
-        const indicator = document.createElement('span');
-        indicator.id = 'graph-refresh-indicator';
-        indicator.style.cssText = `
-            display: inline-block;
-            margin-left: 10px;
-            font-size: 10px;
-            color: var(--text-muted);
-            opacity: 0.7;
-            font-weight: 400;
-        `;
-        indicator.textContent = '🔄 Auto-refresh: 1m';
-        stat.appendChild(indicator);
-    }
-}
-
-function _addUpdateTimestamp() {
-    const stat = document.getElementById('graph-stat');
-    if (!stat) return;
-    let timestamp = document.getElementById('graph-timestamp');
-    if (!timestamp) {
-        timestamp = document.createElement('div');
-        timestamp.id = 'graph-timestamp';
-        timestamp.style.cssText = `
-            font-size: 9px;
-            color: var(--text-muted);
-            opacity: 0.5;
-            margin-top: 2px;
-            font-weight: 400;
-        `;
-        stat.appendChild(timestamp);
-    }
-    const now = new Date();
-    timestamp.textContent = `Updated: ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
-}
-
-function _renderZoomControls() {
-    // Zoom controls disabled: use pinch-to-zoom or mouse wheel
-    const wrap = document.getElementById('graph-time-tabs');
-    if (!wrap) return;
-    const existing = document.getElementById('zoom-controls');
-    if (existing) existing.remove();
-    return;
-
-    const controls = document.createElement('div');
-    controls.id = 'zoom-controls';
-    controls.style.cssText = 'display:flex;gap:4px;margin-top:6px;align-items:center;justify-content:center;';
-    controls.innerHTML = `
-        <button class="zoom-btn" id="zoom-out" style="padding:4px 10px;border-radius:6px;font-size:14px;font-weight:700;background:var(--bg-card);border:1px solid var(--border);color:var(--text-main);cursor:pointer;width:auto;">🔍−</button>
-        <span id="zoom-level" style="font-size:11px;color:var(--text-muted);min-width:50px;text-align:center;">${Math.round(graphZoomLevel * 100)}%</span>
-        <button class="zoom-btn" id="zoom-in" style="padding:4px 10px;border-radius:6px;font-size:14px;font-weight:700;background:var(--bg-card);border:1px solid var(--border);color:var(--text-main);cursor:pointer;width:auto;">🔍+</button>
-        <button class="zoom-btn" id="zoom-reset" style="padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700;background:var(--bg-card);border:1px solid var(--border);color:var(--text-muted);cursor:pointer;width:auto;">↺ Reset</button>
-    `;
-    wrap.parentNode.insertBefore(controls, wrap.nextSibling);
-
-    document.getElementById('zoom-in').addEventListener('click', () => {
-        graphZoomLevel = Math.min(graphZoomMax, graphZoomLevel * 1.3);
-        document.getElementById('zoom-level').textContent = Math.round(graphZoomLevel * 100) + '%';
-        _loadAndDraw();
-    });
-    document.getElementById('zoom-out').addEventListener('click', () => {
-        graphZoomLevel = Math.max(graphZoomMin, graphZoomLevel / 1.3);
-        document.getElementById('zoom-level').textContent = Math.round(graphZoomLevel * 100) + '%';
-        _loadAndDraw();
-    });
-    document.getElementById('zoom-reset').addEventListener('click', () => {
-        graphZoomLevel = 1;
-        graphPanOffset = 0;
-        document.getElementById('zoom-level').textContent = '100%';
-        _loadAndDraw();
-    });
-}
-
 function _renderChartTypeToggle() {
     const existing = document.getElementById('chart-type-toggle');
     if (existing) existing.remove();
-
     const card = document.querySelector('.graph-chart-card');
     if (!card) return;
-
     const toggle = document.createElement('div');
     toggle.id = 'chart-type-toggle';
-    toggle.style.cssText = `
-        position:absolute; top:8px; right:8px; z-index:15;
-        display:flex; flex-direction:column; gap:4px;
-        background: var(--bg-panel); padding: 4px; border-radius: 8px;
-        box-shadow: -2px 2px 8px rgba(0,0,0,0.4);
-    `;
-
-    const types = [
-        { type: 'line',   label: 'Line' },
-        { type: 'bar',    label: 'Bar' },
-        { type: 'hourly', label: 'Hourly' },
-    ];
-
+    toggle.style.cssText = `position:absolute; top:8px; right:8px; z-index:15; display:flex; flex-direction:column; gap:4px; background: var(--bg-panel); padding: 4px; border-radius: 8px; box-shadow: -2px 2px 8px rgba(0,0,0,0.4);`;
+    const types = [{ type: 'line', label: 'Line' }, { type: 'bar', label: 'Bar' }, { type: 'hourly', label: 'Hourly' }];
     types.forEach(({ type, label }) => {
         const btn = document.createElement('button');
         const active = graphChartType === type;
         btn.dataset.type = type;
-        btn.title = label;
         btn.textContent = label;
-        btn.style.cssText = `
-            padding:4px 8px; border-radius:6px; font-size:11px; cursor:pointer; width:auto;
-            background:${active ? 'var(--bg-base)' : 'rgba(0,0,0,0.45)'};
-            border:1px solid ${active ? 'var(--border)' : 'transparent'};
-            color:var(--text-main); opacity:${active ? '1' : '0.55'};
-            transition:opacity 0.15s;
-            font-weight:700;
-            letter-spacing:0.3px;
-        `;
+        btn.style.cssText = `padding:4px 8px; border-radius:6px; font-size:11px; cursor:pointer; width:auto; background:${active ? 'var(--bg-base)' : 'rgba(0,0,0,0.45)'}; border:1px solid ${active ? 'var(--border)' : 'transparent'}; color:var(--text-main); opacity:${active ? '1' : '0.55'}; font-weight:700;`;
         btn.addEventListener('click', () => {
             graphChartType = type;
             _renderChartTypeToggle();
@@ -263,458 +226,145 @@ function _renderChartTypeToggle() {
         });
         toggle.appendChild(btn);
     });
-
     card.appendChild(toggle);
 }
 
 function _renderGTimeTabs() {
     const wrap = document.getElementById('graph-time-tabs');
     if (!wrap) return;
-    wrap.innerHTML = ['day','month','year','total'].map(t =>
-        `<button class="gtime-tab${graphTab===t?' active':''}" data-gtab="${t}">${t[0].toUpperCase()+t.slice(1)}</button>`
-    ).join('');
-
+    wrap.innerHTML = ['day','month','year','total'].map(t => `<button class="gtime-tab${graphTab===t?' active':''}" data-gtab="${t}">${t[0].toUpperCase()+t.slice(1)}</button>`).join('');
     wrap.querySelectorAll('.gtime-tab').forEach(b => {
         b.addEventListener('click', () => {
             graphTab = b.dataset.gtab;
             if (graphTab === 'day') {
                 graphChartType = 'line';
-                graphNeedsDayZoom = true;
                 startGraphsAutoRefresh();
             } else {
                 graphChartType = 'bar';
                 stopGraphsAutoRefresh();
             }
             graphDateNav = 0; graphMonthNav = 0; graphYearNav = 0;
-            graphZoomLevel = 1;
-            graphPanOffset = 0;
-            tooltipPinned = false;
+            graphZoomLevel = 1; graphPanOffset = 0; tooltipPinned = false;
             hideTooltip();
-            _renderGTimeTabs();
-            _renderGNavBar();
-            _renderChartTypeToggle();
+            _renderGTimeTabs(); _renderGNavBar(); _renderChartTypeToggle();
             _loadAndDraw();
         });
     });
 }
 
-// ─── Grid-All per-feed toggle pills ─────────────────────────────────────────
 function _renderGridAllToggles() {
     const existing = document.getElementById('gridall-toggles');
     if (existing) existing.remove();
-
     if (graphFeedKey !== 'gridall') return;
-
     const wrap = document.createElement('div');
     wrap.id = 'gridall-toggles';
-    // Removed overflow scrolling, added flex-wrap
     wrap.style.cssText = 'display:flex;gap:5px;flex-wrap:wrap;padding:6px 0 8px;flex-shrink:0;align-items:center;justify-content:center;';
-
     GRID_ALL_FEEDS.forEach(f => {
         const off = window.gridAllDisabled.has(f.key);
         const btn = document.createElement('button');
-        btn.style.cssText = `
-            white-space:nowrap;
-            flex-shrink:0;
-            padding:4px 10px;
-            border-radius:20px;
-            font-size:11px;
-            font-weight:700;
-            cursor:pointer;
-            border:1.5px solid ${f.color};
-            width:auto;
-            background:${off ? 'transparent' : f.color + '33'};
-            color:${off ? 'var(--text-muted)' : f.color};
-            opacity:${off ? '0.4' : '1'};
-            transition:opacity 0.15s, background 0.15s;
-        `;
+        btn.style.cssText = `white-space:nowrap; flex-shrink:0; padding:4px 10px; border-radius:20px; font-size:11px; font-weight:700; cursor:pointer; border:1.5px solid ${f.color}; width:auto; background:${off ? 'transparent' : f.color + '33'}; color:${off ? 'var(--text-muted)' : f.color}; opacity:${off ? '0.4' : '1'}; transition:opacity 0.15s, background 0.15s;`;
         btn.innerHTML = `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${f.color};margin-right:5px;vertical-align:middle;opacity:${off ? 0.3 : 1}"></span>${f.label}`;
-
         btn.addEventListener('click', () => {
-            if (window.gridAllDisabled.has(f.key)) {
-                window.gridAllDisabled.delete(f.key);
-            } else {
-                const visibleCount = GRID_ALL_FEEDS.length - window.gridAllDisabled.size;
-                if (visibleCount > 1) {
-                    window.gridAllDisabled.add(f.key);
-                }
-            }
-            _renderGridAllToggles();
-            _loadAndDraw();
+            if (window.gridAllDisabled.has(f.key)) window.gridAllDisabled.delete(f.key);
+            else { if ((GRID_ALL_FEEDS.length - window.gridAllDisabled.size) > 1) window.gridAllDisabled.add(f.key); }
+            _renderGridAllToggles(); _loadAndDraw();
         });
         wrap.appendChild(btn);
     });
-
     const feedTabsWrap = document.getElementById('graph-feed-tabs');
-    if (feedTabsWrap) {
-        feedTabsWrap.parentNode.insertBefore(wrap, feedTabsWrap);
-    }
+    if (feedTabsWrap) feedTabsWrap.parentNode.insertBefore(wrap, feedTabsWrap);
 }
 
 function _renderOverlayToggles() {
     const existing = document.getElementById('temp-overlay-toggles');
     if (existing) existing.remove();
-
     const tempKeys = ['temp', 'temp2'];
     if (!tempKeys.includes(graphFeedKey)) return;
-
     const container = document.createElement('div');
     container.id = 'temp-overlay-toggles';
-    // Removed overflow scrolling, added flex-wrap
     container.style.cssText = 'display:flex;gap:5px;flex-wrap:wrap;padding:6px 0 8px;align-items:center;justify-content:center;';
-
-    const acs = [
-        { key: 'haier', label: '+ Haier 1T', color: '#a5f3fc' },
-        { key: 'k15', label: '+ Kenwood 1.5T', color: '#38bdf8' },
-        { key: 'k1', label: '+ Kenwood 1T', color: '#7dd3fc' }
-    ];
-
+    const acs = [{ key: 'haier', label: '+ Haier 1T', color: '#a5f3fc' }, { key: 'k15', label: '+ Kenwood 1.5T', color: '#38bdf8' }, { key: 'k1', label: '+ Kenwood 1T', color: '#7dd3fc' }];
     const clearBtn = document.createElement('button');
     clearBtn.textContent = 'Clear';
     clearBtn.style.cssText = 'padding:4px 10px;border-radius:20px;font-size:11px;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--text-muted);';
-    clearBtn.addEventListener('click', () => {
-        window.graphOverlayAc = null;
-        _renderOverlayToggles();
-        _loadAndDraw();
-    });
+    clearBtn.addEventListener('click', () => { window.graphOverlayAc = null; _renderOverlayToggles(); _loadAndDraw(); });
     container.appendChild(clearBtn);
-
     acs.forEach(t => {
         const active = window.graphOverlayAc === t.key;
         const btn = document.createElement('button');
-        btn.style.cssText = `
-            padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;cursor:pointer;
-            border:1.5px solid ${t.color};background:${active ? t.color+'33' : 'transparent'};
-            color:${active ? t.color : 'var(--text-muted)'};opacity:${active ? '1' : '0.5'};
-        `;
+        btn.style.cssText = `padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;cursor:pointer; border:1.5px solid ${t.color};background:${active ? t.color+'33' : 'transparent'}; color:${active ? t.color : 'var(--text-muted)'};opacity:${active ? '1' : '0.5'};`;
         btn.textContent = t.label;
-        btn.addEventListener('click', () => {
-            window.graphOverlayAc = t.key;
-            _renderOverlayToggles();
-            _loadAndDraw();
-        });
+        btn.addEventListener('click', () => { window.graphOverlayAc = t.key; _renderOverlayToggles(); _loadAndDraw(); });
         container.appendChild(btn);
     });
-
     const feedTabsWrap = document.getElementById('graph-feed-tabs');
-    if (feedTabsWrap) {
-        feedTabsWrap.parentNode.insertBefore(container, feedTabsWrap.nextSibling);
-    }
+    if (feedTabsWrap) feedTabsWrap.parentNode.insertBefore(container, feedTabsWrap.nextSibling);
 }
 
 function _renderGFeedTabs() {
     const wrap = document.getElementById('graph-feed-tabs');
     if (!wrap) return;
     const all = [GRAPH_COMBINED, ...GRAPH_FEEDS];
-    wrap.innerHTML = all.map(f =>
-        `<button class="gfeed-tab${graphFeedKey===f.key?' active':''}" data-gkey="${f.key}"
-            style="${graphFeedKey===f.key?`border-color:${f.color};color:${f.color}`:''}">${f.label}</button>`
-    ).join('') + `<button class="gfeed-tab${graphFeedKey==='report'?' active':''}" data-gkey="report" style="${graphFeedKey==='report'?'border-color:#10b981;color:#10b981':''}">📄 Report</button>`;
-
+    wrap.innerHTML = all.map(f => `<button class="gfeed-tab${graphFeedKey===f.key?' active':''}" data-gkey="${f.key}" style="${graphFeedKey===f.key?`border-color:${f.color};color:${f.color}`:''}">${f.label}</button>`).join('') + `<button class="gfeed-tab${graphFeedKey==='report'?' active':''}" data-gkey="report" style="${graphFeedKey==='report'?'border-color:#10b981;color:#10b981':''}">📄 Report</button>`;
     wrap.querySelectorAll('.gfeed-tab').forEach(b => {
         b.addEventListener('click', () => {
-            graphFeedKey = b.dataset.gkey;
-            graphZoomLevel = 1;
-            graphPanOffset = 0;
-            graphNeedsDayZoom = true;
-            tooltipPinned = false;
-            hideTooltip();
-            _renderGFeedTabs();
-            _loadAndDraw();
+            graphFeedKey = b.dataset.gkey; graphZoomLevel = 1; graphPanOffset = 0; tooltipPinned = false; hideTooltip(); _renderGFeedTabs(); _loadAndDraw();
         });
     });
-
-    _renderGridAllToggles();
-    _renderOverlayToggles();
+    _renderGridAllToggles(); _renderOverlayToggles();
 }
 
-// ─── Navigation info (Month view uses billing cycle, Year uses billing cycles) ──
 function _gNavInfo() {
     const now = new Date();
-
-    const to12hr = (h, m, s) => {
-        const ampm = h >= 12 ? 'pm' : 'am';
-        const hh = h % 12 || 12;
-        const mm = (m === 0 && s === 0) ? '' : `:${String(m).padStart(2, '0')}`;
-        const ss = s === 0 ? '' : `:${String(s).padStart(2, '0')}`;
-        return `${hh}${mm}${ss}${ampm}`;
-    };
-
+    const to12hr = (h, m, s) => { const ampm = h >= 12 ? 'pm' : 'am'; const hh = h % 12 || 12; const mm = (m === 0 && s === 0) ? '' : `:${String(m).padStart(2, '0')}`; return `${hh}${mm}${ampm}`; };
     if (graphTab === 'day') {
-        const d = new Date(now);
-        d.setDate(d.getDate() + graphDateNav);
-
-        const lbl = graphDateNav === 0 ? 'Today' : graphDateNav === -1 ? 'Yesterday' :
-            d.toLocaleDateString('en-PK', { day: 'numeric', month: 'short', year: 'numeric' });
-        const sub = d.toLocaleDateString('en-PK', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-
-        const centreDayStart = _getLocalMidnight(d);
-        const startMs = centreDayStart;
-        const endMs = centreDayStart + 24 * 3600 * 1000 - 1;
-
-        const isHourlyView = (graphChartType === 'hourly');
-        const resSeconds = isHourlyView ? 3600 : GRAPH_DAY_RESOLUTION_SECONDS;
+        const d = new Date(now); d.setDate(d.getDate() + graphDateNav);
+        const lbl = graphDateNav === 0 ? 'Today' : graphDateNav === -1 ? 'Yesterday' : d.toLocaleDateString('en-PK', { day: 'numeric', month: 'short', year: 'numeric' });
+        const startMs = _getLocalMidnight(d); const endMs = startMs + 24 * 3600 * 1000 - 1;
+        const resSeconds = (graphChartType === 'hourly') ? 3600 : GRAPH_DAY_RESOLUTION_SECONDS;
         const nBars = Math.ceil((24 * 3600) / resSeconds);
-
         const labels = [];
-        for (let i = 0; i < nBars; i++) {
-            const ms = startMs + i * resSeconds * 1000;
-            const date = new Date(ms);
-            labels.push(to12hr(date.getHours(), date.getMinutes(), date.getSeconds()));
-        }
-
-        return {
-            label: lbl, sub, interval: resSeconds, startMs, endMs,
-            isDayTab: true, nBars, labels, centreDateMs: centreDayStart, resSeconds
-        };
+        for (let i = 0; i < nBars; i++) { const ms = startMs + i * resSeconds * 1000; const date = new Date(ms); labels.push(to12hr(date.getHours(), date.getMinutes(), date.getSeconds())); }
+        return { label: lbl, sub: d.toLocaleDateString('en-PK', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }), interval: resSeconds, startMs, endMs, isDayTab: true, nBars, labels, resSeconds };
     }
-
-    // ── MONTH VIEW: Billing cycle (25th → 26th) ──────────────────────────
     if (graphTab === 'month') {
         let base = new Date(now.getFullYear(), now.getMonth() + graphMonthNav, 1);
-        let startMonth = base.getMonth() - 1;
-        let startYear = base.getFullYear();
-        if (startMonth < 0) { startMonth = 11; startYear--; }
-        const start = new Date(startYear, startMonth, 25);
-        const end = new Date(start.getFullYear(), start.getMonth() + 1, 26);
-
-        const days = Math.ceil((end - start) / 86400000);
-        const labels = [];
-        for (let i = 0; i < days; i++) {
-            const d = new Date(start.getTime() + i * 86400000);
-            labels.push(`${d.getDate()}/${d.getMonth()+1}`);
-        }
-
-        const rangeLabel = `${start.toLocaleDateString('en-PK', {month:'short', day:'numeric'})} – ${end.toLocaleDateString('en-PK', {month:'short', day:'numeric', year:'numeric'})}`;
-        return {
-            label: rangeLabel,
-            sub: null,
-            interval: 3600,
-            isDayTab: false,
-            nBars: days,
-            startMs: start.getTime(),
-            endMs: end.getTime(),
-            labels: labels,
-            month: start.getMonth(),
-            year: start.getFullYear(),
-            isMonthBilling: true,
-            resSeconds: 3600  // for night avg calculation
-        };
+        let startMonth = base.getMonth() - 1; let startYear = base.getFullYear(); if (startMonth < 0) { startMonth = 11; startYear--; }
+        const start = new Date(startYear, startMonth, 25); const end = new Date(start.getFullYear(), start.getMonth() + 1, 26);
+        const days = Math.ceil((end - start) / 86400000); const labels = []; for (let i = 0; i < days; i++) { const d = new Date(start.getTime() + i * 86400000); labels.push(`${d.getDate()}/${d.getMonth()+1}`); }
+        return { label: `${start.toLocaleDateString('en-PK', {month:'short', day:'numeric'})} \u2013 ${end.toLocaleDateString('en-PK', {month:'short', day:'numeric', year:'numeric'})}`, interval: 3600, isDayTab: false, nBars: days, startMs: start.getTime(), endMs: end.getTime(), labels: labels, month: start.getMonth(), year: start.getFullYear(), isMonthBilling: true, resSeconds: 3600 };
     }
-
-    // ── YEAR VIEW: fetch from Dec 25 previous year to Dec 31 this year ──
     if (graphTab === 'year') {
-        const y = now.getFullYear() + graphYearNav;
-        const start = new Date(y - 1, 11, 25); // Dec 25 previous year
-        const end = new Date(y, 11, 31, 23, 59, 59);
-        return {
-            label: String(y),
-            sub: null,
-            interval: 3600,
-            isYearly: true,
-            nBars: 12,
-            startMs: start.getTime(),
-            endMs: end.getTime(),
-            labels: ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],
-            year: y,
-            isYearBilling: true,
-            resSeconds: 3600
-        };
+        const y = now.getFullYear() + graphYearNav; const start = new Date(y - 1, 11, 25); const end = new Date(y, 11, 31, 23, 59, 59);
+        return { label: String(y), interval: 3600, isYearly: true, nBars: 12, startMs: start.getTime(), endMs: end.getTime(), labels: ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'], year: y, isYearBilling: true, resSeconds: 3600 };
     }
-
-    // Total
-    return { label:'All Time', sub:null, interval:86400*7, isTotal:true, nBars:0,
-        startMs: new Date(2024,0,1).getTime(), endMs: now.getTime(), labels:[] };
+    return { label:'All Time', sub:null, interval:86400*7, isTotal:true, nBars:0, startMs: new Date(2024,0,1).getTime(), endMs: now.getTime(), labels:[] };
 }
 
-// ─── Navigation bar ──────────────────────────────────────────────────────────
 function _renderGNavBar() {
-    const wrap = document.getElementById('graph-nav-bar');
-    if (!wrap) return;
-    if (graphTab === 'total') { wrap.innerHTML = ''; return; }
-    const nav = _gNavInfo();
-    const canFwd = (graphTab === 'day' && graphDateNav < 0) ||
-                   (graphTab === 'month' && nav.endMs < Date.now()) ||
-                   (graphTab === 'year' && graphYearNav < 0);
-    wrap.innerHTML = `
-        <button class="graph-nav-btn" id="gnav-prev">‹</button>
-        <div class="graph-nav-center">
-            <div class="graph-nav-label">${nav.label}</div>
-            ${nav.sub?`<div class="graph-nav-sub">${nav.sub}</div>`:''}
-        </div>
-        <button class="graph-nav-btn" id="gnav-next" style="opacity:${canFwd?1:0.3}">›</button>`;
-
-    const prevBtn = document.getElementById('gnav-prev');
-    const nextBtn = document.getElementById('gnav-next');
-
-    if (prevBtn) prevBtn.addEventListener('click', () => {
-        if (graphTab === 'day') graphDateNav--;
-        else if (graphTab === 'month') graphMonthNav--;
-        else graphYearNav--;
-        graphZoomLevel = 1;
-        graphPanOffset = 0;
-        graphNeedsDayZoom = true;
-        tooltipPinned = false;
-        hideTooltip();
-        _renderGNavBar();
-        _loadAndDraw();
-    });
-
-    if (nextBtn) nextBtn.addEventListener('click', () => {
-        if (!canFwd) return;
-        if (graphTab === 'day') graphDateNav++;
-        else if (graphTab === 'month') graphMonthNav++;
-        else graphYearNav++;
-        graphZoomLevel = 1;
-        graphPanOffset = 0;
-        graphNeedsDayZoom = true;
-        tooltipPinned = false;
-        hideTooltip();
-        _renderGNavBar();
-        _loadAndDraw();
-    });
+    const wrap = document.getElementById('graph-nav-bar'); if (!wrap) return; if (graphTab === 'total') { wrap.innerHTML = ''; return; }
+    const nav = _gNavInfo(); const canFwd = (graphTab === 'day' && graphDateNav < 0) || (graphTab === 'month' && nav.endMs < Date.now()) || (graphTab === 'year' && graphYearNav < 0);
+    wrap.innerHTML = `<button class="graph-nav-btn" id="gnav-prev">\u2039</button><div class="graph-nav-center"><div class="graph-nav-label">${nav.label}</div>${nav.sub?`<div class="graph-nav-sub">${nav.sub}</div>`:''}</div><button class="graph-nav-btn" id="gnav-next" style="opacity:${canFwd?1:0.3}">\u203a</button>`;
+    document.getElementById('gnav-prev').addEventListener('click', () => { if (graphTab === 'day') graphDateNav--; else if (graphTab === 'month') graphMonthNav--; else graphYearNav--; graphZoomLevel = 1; graphPanOffset = 0; hideTooltip(); _renderGNavBar(); _loadAndDraw(); });
+    document.getElementById('gnav-next').addEventListener('click', () => { if (!canFwd) return; if (graphTab === 'day') graphDateNav++; else if (graphTab === 'month') graphMonthNav++; else graphYearNav++; graphZoomLevel = 1; graphPanOffset = 0; hideTooltip(); _renderGNavBar(); _loadAndDraw(); });
 }
 
-// ─── Tooltip ──────────────────────────────────────────────────────────────────
-function hideTooltip() {
-    const tooltip = document.getElementById('graph-tooltip');
-    if (tooltip) {
-        tooltip.style.display = 'none';
-        tooltip.classList.remove('pinned');
-    }
-    tooltipPinned = false;
-}
-
-function showTooltip(e, label, value1, value2, color1, color2, isCombined, pinned = false, label1 = null, label2 = null, highlightIdx = 0, tempLabel = null, tempValue = null, tempColor = null) {
-    let tooltip = document.getElementById('graph-tooltip');
-
-    if (!tooltip) {
-        tooltip = document.createElement('div');
-        tooltip.id = 'graph-tooltip';
-        document.body.appendChild(tooltip);
-    } else if (tooltip.parentElement !== document.body) {
-        document.body.appendChild(tooltip);
-    }
-
-    const L1 = label1 || (isCombined ? 'Solar' : graphFeedKey);
-    const L2 = label2 || 'Grid';
-
-    let closeBtn = pinned ? `<span class="close-btn" onclick="hideTooltip();">✕</span>` : '';
-    let html = `<div style="font-weight:700;font-size:11px;color:var(--text-muted);margin-bottom:4px">${label} ${closeBtn}</div>`;
-    
-    const style1 = highlightIdx === 1 ? 'font-weight:900;font-size:13px;filter:brightness(1.2);' : 'opacity:0.6;';
-    const style2 = highlightIdx === 2 ? 'font-weight:900;font-size:13px;filter:brightness(1.2);' : 'opacity:0.6;';
-
-    html += `<div style="color:${color1};${style1}">${highlightIdx === 1 ? '* ' : ''}● ${L1}: ${value1}</div>`;
-    if (isCombined) {
-        html += `<div style="color:${color2};${style2}">${highlightIdx === 2 ? '* ' : ''}● ${L2}: ${value2}</div>`;
-    }
-    if (tempValue !== null) {
-        html += `<div style="color:${tempColor};margin:2px 0;">
-            <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${tempColor};margin-right:5px;"></span>
-            <b>${tempLabel}:</b> ${tempValue}
-        </div>`;
-    }
-
-    tooltip.innerHTML = html;
-    tooltip.style.display = 'block';
-    tooltip.classList.toggle('pinned', pinned);
-
-    let left = e.clientX + 15;
-    let top = e.clientY - 15;
-
-    const rect = tooltip.getBoundingClientRect();
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
-
-    if (left + rect.width > vw - 10) left = e.clientX - rect.width - 15;
-    if (top + rect.height > vh - 10) top = e.clientY - rect.height - 15;
-    if (top < 10) top = 10;
-    if (left < 10) left = 10;
-
-    tooltip.style.left = left + 'px';
-    tooltip.style.top = top + 'px';
-}
-
-function _showGraphLoading(show) {
-    const card = document.querySelector('.graph-chart-card');
-    if (!card) return;
-    let overlay = document.getElementById('graph-loading-overlay');
-    if (show) {
-        if (!overlay) {
-            overlay = document.createElement('div');
-            overlay.id = 'graph-loading-overlay';
-            overlay.style.cssText = `
-                position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-                background: rgba(0,0,0,0.4); z-index: 20;
-                display: flex; align-items: center; justify-content: center;
-                border-radius: 10px;
-                pointer-events: none;
-            `;
-            overlay.innerHTML = `<div style="color:var(--text-main);font-size:14px;font-weight:700;">⏳ Loading...</div>`;
-            card.style.position = 'relative';
-            card.appendChild(overlay);
-        }
-        overlay.style.display = 'flex';
-    } else {
-        if (overlay) overlay.style.display = 'none';
-    }
-}
-
-// ─── Open/Close Panel Functions ─────────────────────────────────────────────
+function hideTooltip() { const tooltip = document.getElementById('graph-tooltip'); if (tooltip) { tooltip.style.display = 'none'; tooltip.classList.remove('pinned'); } tooltipPinned = false; }
 
 function openGraphsPanel() {
-    const p = document.getElementById('graphs-panel');
-    if (!p) return;
-    const isWin = navigator.userAgent.toLowerCase().includes('windows') || navigator.platform.toLowerCase().includes('win');
-    if (isWin) {
-        p.classList.add('fullscreen');
-    } else {
-        p.classList.remove('fullscreen');
-    }
+    const p = document.getElementById('graphs-panel'); if (!p) return;
+    if (navigator.userAgent.toLowerCase().includes('windows')) p.classList.add('fullscreen');
     p.classList.add('open');
-    setTimeout(() => {
-        renderGraphsPanel();
-        if (graphTab === 'day') {
-            startGraphsAutoRefresh();
-        }
-    }, 50);
+    setTimeout(() => { renderGraphsPanel(); if (graphTab === 'day') startGraphsAutoRefresh(); }, 50);
 }
 
 function closeGraphsPanel() {
-    const p = document.getElementById('graphs-panel');
-    if (p) {
-        p.classList.remove('open');
-        const isWin = navigator.userAgent.toLowerCase().includes('windows') || navigator.platform.toLowerCase().includes('win');
-        if (!isWin) {
-            p.classList.remove('fullscreen');
-        }
-    }
-    hideTooltip();
-    graphZoomLevel = 1;
-    graphPanOffset = 0;
-    stopGraphsAutoRefresh();
+    const p = document.getElementById('graphs-panel'); if (p) p.classList.remove('open');
+    hideTooltip(); graphZoomLevel = 1; graphPanOffset = 0; stopGraphsAutoRefresh();
 }
 
 function renderGraphsPanel() {
-    if (graphIsRendering) return;
-    graphIsRendering = true;
-    try {
-        _renderGFeedTabs();
-        _renderGTimeTabs();
-        _renderGNavBar();
-        _renderChartTypeToggle();
-        _renderZoomControls();
-
-        if (graphTab === 'day') {
-            graphNeedsDayZoom = true;
-            startGraphsAutoRefresh();
-        }
-
-        _loadAndDraw();
-    } catch(e) {
-        console.warn('Graph render error:', e);
-    } finally {
-        graphIsRendering = false;
-    }
+    if (graphIsRendering) return; graphIsRendering = true;
+    try { _renderGFeedTabs(); _renderGTimeTabs(); _renderGNavBar(); _renderChartTypeToggle(); _loadAndDraw(); }
+    catch(e) { console.warn('Graph render error:', e); } finally { graphIsRendering = false; }
 }

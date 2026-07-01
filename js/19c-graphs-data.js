@@ -234,6 +234,35 @@ async function _loadAndDraw() {
     stat.textContent = 'Loading…';
     hideTooltip();
 
+    const toggle = document.getElementById('chart-type-toggle');
+    if (toggle) toggle.style.display = graphFeedKey === 'report' ? 'none' : 'flex';
+
+    if (graphFeedKey === 'report') {
+        canvas.style.display = 'none';
+        let reportDiv = document.getElementById('graph-report-view');
+        if (!reportDiv) {
+            reportDiv = document.createElement('div');
+            reportDiv.id = 'graph-report-view';
+            canvas.parentNode.insertBefore(reportDiv, canvas.nextSibling);
+        }
+        reportDiv.style.display = 'block';
+        stat.innerHTML = `<span style="color:#10b981;font-weight:700;font-size:13px;">📄 Daily Energy Usage Report</span>`;
+        try {
+            const reportText = await window.generateDayGraphReportText();
+            reportDiv.textContent = reportText;
+        } catch(e) {
+            reportDiv.textContent = "Error generating report: " + e.message;
+        }
+        _showGraphLoading(false);
+        graphIsLoading = false;
+        graphIsRendering = false;
+        return;
+    } else {
+        canvas.style.display = 'block';
+        const reportDiv = document.getElementById('graph-report-view');
+        if (reportDiv) reportDiv.style.display = 'none';
+    }
+
     try {
         const nav = _gNavInfo();
         const fA = GRAPH_FEEDS.find(f => f.key === graphFeedKey);

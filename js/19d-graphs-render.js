@@ -352,7 +352,7 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
                 for (let i = 0; i < lastIdx; i++) {
                     if (i >= data.length) break;
                     const val = data[i];
-                    if (val === 0 || val === null || val === undefined) continue;
+                    if (val === null || val === undefined) continue;
                     const x = mapX(PL + (i / n) * cW) - barWidth / 2;
                     const y = PT + cH - ((val - minV) / range) * cH;
                     const h = PT + cH - y;
@@ -373,7 +373,7 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
                 for (let i = 0; i < lastIdx; i++) {
                     if (i >= data.length) break;
                     const val = data[i];
-                    if (val === 0 || val === null || val === undefined) { started = false; continue; }
+                    if (val === null || val === undefined) { started = false; continue; }
                     const x = mapX(PL + (i / n) * cW);
                     const y = PT + cH - ((val - minV) / range) * cH;
                     if (!started) { ctx.moveTo(x, y); started = true; }
@@ -409,7 +409,7 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
                 for (let i = 0; i < lastIdx; i++) {
                     if (i >= data.length) break;
                     const val = data[i];
-                    if (val === 0 || val === null || val === undefined) continue;
+                    if (val === null || val === undefined) continue;
                     const x = mapX(PL + (i / n) * cW) - barWidth / 2 + offset;
                     const y = PT + cH - ((val - minV) / range) * cH;
                     const h = PT + cH - y;
@@ -428,7 +428,7 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
                 for (let i = 0; i < lastIdx; i++) {
                     if (i >= data.length) break;
                     const val = data[i];
-                    if (val === 0 || val === null || val === undefined) { started = false; continue; }
+                    if (val === null || val === undefined) { started = false; continue; }
                     const x = mapX(PL + (i / n) * cW);
                     const y = PT + cH - ((val - minV) / range) * cH;
                     if (!started) { ctx.moveTo(x, y); started = true; }
@@ -455,7 +455,7 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
         for (let i = 0; i < lastIdx; i++) {
             if (i >= barsTemp.length) break;
             const val = barsTemp[i];
-            if (val === 0 || val === null || val === undefined) { started = false; continue; }
+            if (val === null || val === undefined) { started = false; continue; }
             const x = mapX(PL + (i / n) * cW);
             const y = PT + cH - ((val - tempMinV) / tempRange) * cH;
             if (!started) { ctx.moveTo(x, y); started = true; }

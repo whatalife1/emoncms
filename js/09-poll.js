@@ -35,6 +35,7 @@ async function poll() {
   const btn = document.getElementById('btn-refresh');
   const footer = document.getElementById('footer');
   const dbg = document.getElementById('debug-info');
+  const startOfToday = new Date().setHours(0,0,0,0) / 1000;
   
   if (btn) {
     btn.disabled = true;
@@ -62,9 +63,27 @@ async function poll() {
       const entry = bulkData.get(String(f.id));
       let val = entry ? entry.v : null;
       let time = entry ? entry.t : null;
+
       if (val === null) {
         try { val = await fetchEmon(f.id); } catch(err) {}
       }
+
+      // Handle 'Today' cumulative reset (both seconds and milliseconds timestamps)
+      if (f.name.toLowerCase().includes('today') && val !== null) {
+        if (time) {
+          const timestampMs = time < 2000000000 ? time * 1000 : time;
+          if (timestampMs < (startOfToday * 1000)) {
+            val = 0;
+            if (window.addDebugLog) window.addDebugLog(`<b style="color:var(--accent-solar)">Reset:</b> ${f.name} (stale value from yesterday)`);
+          }
+        } else if (!entry) {
+          // If the feed is missing from the bulk list summary, it hasn't updated recently.
+          // For 'Today' feeds, this almost certainly means no usage today yet.
+          val = 0;
+          if (window.addDebugLog) window.addDebugLog(`<b style="color:var(--accent-solar)">Reset:</b> ${f.name} (missing from bulk, assumed stale)`);
+        }
+      }
+
       return { ...f, value: val ?? null, time: time ?? null };
     }));
 

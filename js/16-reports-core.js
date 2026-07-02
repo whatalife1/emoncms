@@ -11,10 +11,10 @@ const EXPORT_FEEDS = [
   { id: FEEDS_BASE.find(f => f.name === "Water Motor")?.id, name: "Motor" }
 ].filter(f => f.id); 
 
-const EXPORT_DAY_START   = 7;
-const EXPORT_DAY_END     = 16;
-const EXPORT_NIGHT_START = 16;
-const EXPORT_NIGHT_END   = 7;
+const EXPORT_DAY_START   = 8;
+const EXPORT_DAY_END     = 17;
+const EXPORT_NIGHT_START = 17;
+const EXPORT_NIGHT_END   = 8;
 const EXPORT_PC_DAY_START = 6;
 const EXPORT_PC_DAY_END   = 17;
 

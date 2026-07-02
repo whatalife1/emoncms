@@ -35,42 +35,6 @@ function _formatStatLine(icon, label, mainVal, accentColor, peakVal, avgVal, nig
     return `<div style="margin-bottom: 6px; line-height:1.2;"><div style="display:flex; align-items:center; gap:6px;"><span style="color:${accentColor}; font-size:${fsLabel}; font-weight:700;">${icon?icon+' ':''}${label}:</span><span style="color:var(--text-main); font-size:${fsMain}; font-weight:900;">${mainDisplay}</span></div><div style="color:var(--text-muted); font-size:11px; font-weight:600; margin-left: 1px; margin-top: 2px;"><div>(${peakLabel}: <span style="color:${peakColor}; ${boldStyle}">${peakDisp}</span> ${unit}${avgHtml})</div>${nightHtml?`<div style="margin-top:2px;">${nightHtml}</div>`:''}</div></div>`;
 }
 
-function _calcStatsForRange(bars, startHour, endHour, nav, lastIdx) {
-    if (!bars || bars.length === 0) return { avg: 0, total: 0 };
-    const isWrapping = startHour > endHour; let sum = 0, count = 0; const hourStep = nav.resSeconds / 3600;
-    for (let i = 0; i < Math.min(bars.length, lastIdx || bars.length); i++) {
-        const val = bars[i]; if (val === 0 || val === null) continue; const hour = i * hourStep;
-        if (isWrapping ? (hour >= startHour || hour < endHour) : (hour >= startHour && hour < endHour)) { sum += val; count++; }
-    }
-    return { avg: count > 0 ? sum / count : 0, total: (sum * nav.resSeconds / 3600) / 1000 };
-}
-
-async function _gFetch(feedId, startMs, endMs, interval) {
-    if (!feedId) return []; const url = `${PROXY_BASE}/feed/data.json?ids=${feedId}&start=${startMs}&end=${endMs}&skipmissing=0&average=1&delta=0&interval=${interval}`;
-    try { const text = await nativeFetch(url); if (!text || text.startsWith('ERROR')) return []; const root = JSON.parse(text); const data = root[0]?.data || root; return data.filter(p => p && p[1] != null); } catch (e) { return []; }
-}
-
-function _pointsToBars(pts, nav, feedKey) {
-    if (!pts || !pts.length) return [];
-    if (nav.isMonthBilling) {
-        const daily = {}; for (const [ts, v] of pts) { if (v == null) continue; const d = new Date(ts); const key = d.toISOString().slice(0,10); daily[key] = (daily[key] || 0) + v / 1000; }
-        const start = new Date(nav.startMs); const days = Math.ceil((nav.endMs - nav.startMs) / 86400000); const bars = [], labels = [];
-        for (let i = 0; i < days; i++) { const d = new Date(start.getTime() + i * 86400000); const key = d.toISOString().slice(0,10); labels.push(`${d.getDate()}/${d.getMonth()+1}`); bars.push(daily[key] || 0); }
-        nav.labels = labels; nav.nBars = bars.length; return bars;
-    }
-    if (nav.isYearly) {
-        const totals = Array(12).fill(0); for (const [ts, v] of pts) { if (v == null) continue; const d = new Date(ts); const m = d.getMonth(); if (d.getDate() >= 25) totals[(m+1)%12] += v/1000; else totals[m] += v/1000; }
-        return totals;
-    }
-    const isAvg = feedKey && (feedKey.startsWith('temp') || feedKey === 'water' || feedKey === 'acvolts');
-    const bars = Array(nav.nBars || 1).fill(0), counts = Array(nav.nBars || 1).fill(0);
-    for (const [ts, v] of pts) {
-        let idx = nav.isDayTab ? Math.floor((ts - nav.startMs) / (nav.resSeconds * 1000)) : (nav.isYearly ? new Date(ts).getMonth() : new Date(ts).getDate() - 1);
-        if (idx >= 0 && idx < bars.length) { bars[idx] += isAvg ? v : (v * (nav.isDayTab ? 1 : (nav.interval/3600/1000))); counts[idx]++; }
-    }
-    return isAvg ? bars.map((v, i) => counts[i] > 0 ? v / counts[i] : 0) : bars;
-}
-
 async function _loadAndDraw() {
     if (graphIsLoading) return; graphIsLoading = true; _showGraphLoading(true);
     const stat = document.getElementById('graph-stat'), canvas = document.getElementById('graph-canvas');
@@ -82,11 +46,10 @@ async function _loadAndDraw() {
         let reportDiv = document.getElementById('graph-report-view');
         if (!reportDiv) { reportDiv = document.createElement('div'); reportDiv.id = 'graph-report-view'; canvas.parentNode.insertBefore(reportDiv, canvas.nextSibling); }
         reportDiv.style.display = 'block';
-        stat.innerHTML = `<span style="color:#10b981;font-weight:700;font-size:13px;">\ud83d\udcc4 Daily Energy Usage Report</span>`;
+        stat.innerHTML = `<span style="color:#10b981;font-weight:700;font-size:13px;">\ud83d\udcc4 Energy Usage Report</span>`;
         try {
-            const report = await window.generateDayGraphReportText();
-            const txt = report.text || report; const html = report.html || "";
-            // Table first, then ASCII Sparklines at the bottom
+            const report = await window.generateGraphReport();
+            const txt = report.text || ""; const html = report.html || "";
             reportDiv.innerHTML = html + `<pre style="white-space:pre; margin:20px 0 0 0; font-family:monospace; border-top:1px dashed var(--border); padding-top:20px; color:var(--text-muted); opacity:0.8;">${txt}</pre>`;
         } catch(e) { reportDiv.textContent = "Error: " + e.message; }
         _showGraphLoading(false); graphIsLoading = false; return;
@@ -133,3 +96,25 @@ async function _loadAndDraw() {
 }
 
 function _showGraphLoading(s) { const c = document.querySelector('.graph-chart-card'); if (!c) return; let o = document.getElementById('graph-loading-overlay'); if (s) { if (!o) { o = document.createElement('div'); o.id = 'graph-loading-overlay'; o.style.cssText = `position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.4);z-index:20;display:flex;align-items:center;justify-content:center;border-radius:10px;pointer-events:none;`; o.innerHTML = `<div style="color:#fff;font-size:14px;font-weight:700;">\u23f3 Loading...</div>`; c.appendChild(o); } o.style.display = 'flex'; } else if (o) o.style.display = 'none'; }
+
+function _pointsToBars(pts, nav, feedKey) {
+    if (!pts || !pts.length) return [];
+    if (nav.isMonthBilling) {
+        const daily = {}; for (const [ts, v] of pts) { if (v == null) continue; const d = new Date(ts); const key = d.toISOString().slice(0,10); daily[key] = (daily[key] || 0) + v / 1000; }
+        const start = new Date(nav.startMs); const days = Math.ceil((nav.endMs - nav.startMs) / 86400000); const bars = [], labels = [];
+        for (let i = 0; i < days; i++) { const d = new Date(start.getTime() + i * 86400000); const key = d.toISOString().slice(0,10); labels.push(`${d.getDate()}/${d.getMonth()+1}`); bars.push(daily[key] || 0); }
+        nav.labels = labels; nav.nBars = bars.length; return bars;
+    }
+    const isAvg = feedKey && (feedKey.startsWith('temp') || feedKey === 'water' || feedKey === 'acvolts');
+    const bars = Array(nav.nBars || 1).fill(0), counts = Array(nav.nBars || 1).fill(0);
+    for (const [ts, v] of pts) {
+        let idx = nav.isDayTab ? Math.floor((ts - nav.startMs) / (nav.resSeconds * 1000)) : (nav.isYearly ? new Date(ts).getMonth() : new Date(ts).getDate() - 1);
+        if (idx >= 0 && idx < bars.length) { bars[idx] += isAvg ? v : (v * (nav.isDayTab ? 1 : (nav.interval/3600/1000))); counts[idx]++; }
+    }
+    return isAvg ? bars.map((v, i) => counts[i] > 0 ? v / counts[i] : 0) : bars;
+}
+
+async function _gFetch(feedId, startMs, endMs, interval) {
+    if (!feedId) return []; const url = `${PROXY_BASE}/feed/data.json?ids=${feedId}&start=${startMs}&end=${endMs}&skipmissing=0&average=1&delta=0&interval=${interval}`;
+    try { const text = await nativeFetch(url); if (!text || text.startsWith('ERROR')) return []; const root = JSON.parse(text); const data = root[0]?.data || root; return data.filter(p => p && p[1] != null); } catch (e) { return []; }
+}

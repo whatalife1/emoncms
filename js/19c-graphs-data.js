@@ -46,7 +46,20 @@ async function _loadAndDraw() {
         let reportDiv = document.getElementById('graph-report-view');
         if (!reportDiv) { reportDiv = document.createElement('div'); reportDiv.id = 'graph-report-view'; canvas.parentNode.insertBefore(reportDiv, canvas.nextSibling); }
         reportDiv.style.display = 'block';
-        stat.innerHTML = `<span style="color:#10b981;font-weight:700;font-size:13px;">\ud83d\udcc4 Energy Usage Report</span>`;
+        
+        const nav = _gNavInfo();
+        const displayLabel = (graphTab === 'day' && nav.sub) ? nav.sub : nav.label;
+        stat.innerHTML = `
+          <div style="display:flex; justify-content:space-between; align-items:center; width:100%; padding-right:4px;">
+            <span style="color:#10b981;font-weight:700;font-size:13px;">📄 Energy Usage Report &nbsp; <span style="color:var(--text-muted); font-weight:normal; font-size:11px;">${displayLabel}</span></span>
+            <button id="btn-graph-report-txt" style="background:#10b981; color:#000; border:none; padding:3px 10px; border-radius:6px; font-size:10px; font-weight:800; cursor:pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">Save TXT</button>
+          </div>
+        `;
+        setTimeout(() => {
+          const b = document.getElementById('btn-graph-report-txt');
+          if (b) b.onclick = () => { if(window.downloadDayGraphReport) window.downloadDayGraphReport(); };
+        }, 50);
+
         try {
             const report = await window.generateGraphReport();
             const txt = report.text || ""; const html = report.html || "";
@@ -69,7 +82,7 @@ async function _loadAndDraw() {
             const visible = GRID_ALL_FEEDS.filter(f => !window.gridAllDisabled.has(f.key));
             multiData = [];
             const results = await Promise.all(visible.map(f => _gFetch(f.id, nav.startMs, nav.endMs, nav.interval)));
-            visible.forEach((f, i) => multiData.push({ label: f.label, color: f.color, data: _pointsToBars(results[i], nav, f.key) }));
+            visible.forEach((f, i) => multiData.push({ label: f.label, color: f.color, data: _pointsToBars(results[i], nav, f.key), rawPts: results[i] }));
         } else if (isCombined) {
             pts1 = await _gFetch(GRAPH_FEEDS.find(f => f.key === 'solar').id, nav.startMs, nav.endMs, nav.interval);
             pts2 = await _gFetch(GRAPH_FEEDS.find(f => f.key === 'grid').id, nav.startMs, nav.endMs, nav.interval);
@@ -97,23 +110,35 @@ async function _loadAndDraw() {
             for (const [ts, v] of pts) { if (v != null && hrs.includes(new Date(ts).getHours())) tot += v / 1000; }
             return { avg: tot / Math.max(1, nav.nBars || 1), total: tot };
         };
+        const df = (graphTab === 'month' || graphTab === 'year') ? 1 : (nav.resSeconds/3600)/1000;
         if (isGridAll) {
             stat.innerHTML = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;">${multiData.map(m => {
-                const pk = Math.max(...m.data); const t = m.data.reduce((a,b)=>a+b,0); const av = t/m.data.length;
-                let nAv = null, nTt = null; if(graphTab==='month') { const n = calcNgt(m.rawPts||[]); nAv = n.avg; nTt = n.total; }
+                const t = m.data.reduce((a,b,i)=>i<lastIdx?a+b:a,0) * df; 
+                const pk = Math.max(...m.data, 0); 
+                let av = null, nAv = null, nTt = null;
+                const isSolar = m.label.toLowerCase() === 'solar';
+                if (graphTab === 'month') { 
+                    av = m.data.length > 0 ? t / m.data.length : 0; 
+                    if (!isSolar) { const n = calcNgt(m.rawPts||[]); nAv = n.avg; nTt = n.total; } 
+                } else if (graphTab === 'day') { 
+                    av = _calcStatsForRange(m.data, (isSolar?5:0), (isSolar?17:24), nav, lastIdx).avg; 
+                    if (!isSolar) { const n = _calcStatsForRange(m.data, 17, 8, nav, lastIdx); nAv = n.avg; nTt = n.total; } 
+                } else { 
+                    av = m.data.filter(v=>v>0).length > 0 ? t / m.data.filter(v=>v>0).length : 0; 
+                }
                 return _formatStatLine(null, m.label, t, m.color, pk, av, nAv, nTt, graphDataCache.unit, true, graphTab, true);
             }).join('')}</div>`;
         } else if (isCombined) {
-            const df = (nav.resSeconds/3600)/1000; const t1 = bars1.reduce((a,b,i)=>i<lastIdx?a+b:a,0)*df, t2 = bars2.reduce((a,b,i)=>i<lastIdx?a+b:a,0)*df;
+            const t1 = bars1.reduce((a,b,i)=>i<lastIdx?a+b:a,0)*df, t2 = bars2.reduce((a,b,i)=>i<lastIdx?a+b:a,0)*df;
             const p1 = Math.max(...bars1), p2 = Math.max(...bars2); let a1, a2, n2 = null, nt2 = null;
             if (graphTab === 'month') { a1 = t1/bars1.length; a2 = t2/bars2.length; const n = calcNgt(pts2); n2 = n.avg; nt2 = n.total; }
             else if (graphTab === 'day') { a1 = _calcStatsForRange(bars1, 5, 17, nav, lastIdx).avg; const s2 = _calcStatsForRange(bars2, 0, 24, nav, lastIdx); a2 = s2.avg; const sn2 = _calcStatsForRange(bars2, 17, 8, nav, lastIdx); n2 = sn2.avg; nt2 = sn2.total; }
             else { a1 = t1/bars1.filter(v=>v>0).length; a2 = t2/bars2.filter(v=>v>0).length; }
             stat.innerHTML = _formatStatLine('☀', 'Solar', t1, color1, p1, a1, null, null, unit, true, graphTab) + _formatStatLine('⚡', 'Grid', t2, color2, p2, a2, n2, nt2, unit, true, graphTab);
         } else {
-            const df = (nav.resSeconds/3600)/1000; const t1 = isAvgF ? (bars1.slice(0,lastIdx).reduce((a,b)=>a+b,0)/lastIdx) : (bars1.reduce((a,b,i)=>i<lastIdx?a+b:a,0)*df);
+            const t1 = isAvgF ? (bars1.slice(0,lastIdx).reduce((a,b)=>a+b,0)/lastIdx) : (bars1.reduce((a,b,i)=>i<lastIdx?a+b:a,0)*df);
             const pk = Math.max(...bars1,0); let av = null, nAv = null, nTt = null;
-            if (graphTab === 'month') { av = bars1.length>0?t1/bars1.length:0; if(graphFeedKey!=='solar') { const n = calcNgt(pts1); nAv = n.avg; nTt = n.total; } }
+            if (graphTab === 'month') { av = bars1.length>0?t1/bars1.length:0; if(graphFeedKey!=='solar' && !isAvgF) { const n = calcNgt(pts1); nAv = n.avg; nTt = n.total; } }
             else if (graphTab === 'day' && !isTemp) { av = _calcStatsForRange(bars1, (graphFeedKey==='solar'?5:0), (graphFeedKey==='solar'?17:24), nav, lastIdx).avg; if(graphFeedKey!=='solar'&&!isAvgF) { const n = _calcStatsForRange(bars1,17,8,nav,lastIdx); nAv = n.avg; nTt = n.total; } }
             else { av = bars1.filter(v=>v>0).length>0?t1/bars1.filter(v=>v>0).length:0; }
             stat.innerHTML = _formatStatLine('', fA?.label||graphFeedKey, t1, color1, pk, av, nAv, nTt, unit, !isAvgF, graphTab);

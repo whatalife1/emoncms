@@ -61,10 +61,23 @@ function renderResults(results) {
       const pct = f.value;
       const pctColor = pct > 60 ? '#38bdf8' : pct > 30 ? '#f59e0b' : '#f87171';
       const status   = pct > 80 ? 'Full' : pct > 50 ? 'Good' : pct > 25 ? 'Low' : '⚠️ Critical';
+      const mtrW = byName.get('Water Motor')?.value || 0;
+      const flowRate = window.waterFlowRate || 0;
+      const lastFlow = window.lastFlowRate || 0;
+      const lastOnTime = window.lastMotorOnTime || 0;
+      const showFlow = (mtrW > 20 && flowRate > 0.1) || (lastOnTime > 0 && (Date.now() - lastOnTime < 30 * 60 * 1000) && lastFlow > 0.1);
+      
+      let flowStr = '';
+      if (showFlow) {
+        const displayFlow = mtrW > 20 ? (flowRate > 0.1 ? flowRate : lastFlow) : lastFlow;
+        const prefix = mtrW > 20 ? '▲ ' : 'Last: ';
+        flowStr = ` · ${prefix}${displayFlow.toFixed(1)} L/min`;
+      }
+      
       if (isCompact) {
         return `<div class="card card-env"><div class="card-header">
           <span class="card-name">Water Tank</span>
-          <span style="font-weight:700;color:${pctColor}">${pct != null ? Math.round(pct) : '--'}% · ${status}</span>
+          <span style="font-weight:700;color:${pctColor}">${pct != null ? Math.round(pct) : '--'}% · ${status}${flowStr}</span>
         </div></div>`;
       }
       return `<div class="card card-env"><div class="card-header">
@@ -73,7 +86,7 @@ function renderResults(results) {
           <div class="tank-info">
             <span class="card-name">Water Tank</span>
             <span class="tank-pct" style="color:${pctColor}">${pct != null ? Math.round(pct) : '--'}%</span>
-            <span class="tank-label">${status}</span>
+            <span class="tank-label">${status}${flowStr}</span>
             ${sparkSvg(f.id, pctColor)}
           </div>
         </div>

@@ -31,7 +31,7 @@ function renderFlowDiagram(byName) {
   const tp2 = getV('Temperature 2');
   const hm2 = getV('Humidity 2');
   const solar_t = getV('Solar Today');
-  const grid_t = getV('Grid Today') || getV('Breaker Today');
+  const grid_t = getV('Utility Today') || getV('Breaker Today') || getV('Grid Today');
   
   const mU = window.monthlyUnits || {};
   const rate = window.pkrRate || 60;

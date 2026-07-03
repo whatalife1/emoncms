@@ -93,7 +93,12 @@ async function _loadAndDraw() {
             if (['temp','temp2'].includes(graphFeedKey)) bars2 = _pointsToBars(await _gFetch(graphFeedKey==='temp'?'499429':'512474', nav.startMs, nav.endMs, nav.interval), nav, 'humidity');
         }
 
-        let barsTemp = []; if (['temp','temp2'].includes(graphFeedKey) && window.graphOverlayAc) barsTemp = _pointsToBars(await _gFetch(GRAPH_FEEDS.find(f => f.key === window.graphOverlayAc).id, nav.startMs, nav.endMs, nav.interval), nav, window.graphOverlayAc);
+        let barsTemp = []; 
+        let ovAc = null;
+        if (['temp','temp2'].includes(graphFeedKey) && window.graphOverlayAc) {
+            ovAc = GRAPH_FEEDS.find(f => f.key === window.graphOverlayAc);
+            barsTemp = _pointsToBars(await _gFetch(ovAc.id, nav.startMs, nav.endMs, nav.interval), nav, window.graphOverlayAc);
+        }
 
         let lastIdx = bars1.length || multiData?.[0]?.data?.length || 0;
         if (graphTab === 'day' && graphDateNav === 0) {
@@ -105,8 +110,13 @@ async function _loadAndDraw() {
         let maxV = 1, minV = 0; const all = (multiData?multiData.flatMap(m=>m.data):[...bars1,...bars2]).filter(v=>v>0);
         if (all.length) { maxV = Math.max(...all)*1.1; if(isTemp){ minV = Math.max(0, Math.min(...all)-5); maxV = Math.max(maxV, minV+10); } }
 
-        graphDataCache = { bars1, bars2, labels: nav.labels, color1, color2, unit, isCombined, nav, lastIdx, multiData, minV, maxV, range: maxV-minV, barsTemp, tempMinV: 0, tempMaxV: Math.max(...barsTemp,1)*1.1, tempRange: Math.max(...barsTemp,1)*1.1, tempUnit: 'W', tempColor: '#38bdf8', overlayLabel: 'AC' };
-        _drawChart(canvas, bars1, bars2, nav.labels, color1, color2, unit, isCombined, nav, lastIdx, multiData, minV, maxV, maxV-minV, barsTemp, graphDataCache.tempMinV, graphDataCache.tempMaxV, graphDataCache.tempRange, 'W', '#38bdf8', 'AC');
+        const maxBT = barsTemp.length > 0 ? Math.max(...barsTemp, 1) : 1;
+        graphDataCache = { 
+            bars1, bars2, labels: nav.labels, color1, color2, unit, isCombined, nav, lastIdx, multiData, minV, maxV, range: maxV-minV, 
+            barsTemp, tempMinV: 0, tempMaxV: maxBT * 1.1, tempRange: maxBT * 1.1, 
+            tempUnit: 'W', tempColor: ovAc ? ovAc.color : '#38bdf8', overlayLabel: ovAc ? ovAc.label : 'AC', isDualY: barsTemp.length > 0 
+        };
+        _drawChart(canvas, bars1, bars2, nav.labels, color1, color2, unit, isCombined, nav, lastIdx, multiData, minV, maxV, maxV-minV, barsTemp, graphDataCache.tempMinV, graphDataCache.tempMaxV, graphDataCache.tempRange, graphDataCache.tempUnit, graphDataCache.tempColor, graphDataCache.overlayLabel);
 
         const isAvgF = isTemp || graphFeedKey === 'water' || graphFeedKey === 'acvolts';
         const calcNgt = (pts) => {

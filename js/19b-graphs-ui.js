@@ -257,10 +257,10 @@ function _renderGFeedTabs() {
 }
 
 function _gNavInfo() {
-    const now = new Date(); const to12hr = (h, m) => { const ampm = h >= 12 ? 'pm' : 'am'; const hh = h % 12 || 12; return `${hh}${ampm}`; };
+    const now = new Date(); const to12hr = (h, m) => { const ampm = h >= 12 ? 'pm' : 'am'; const hh = h % 12 || 12; const mm = String(m).padStart(2, '0'); return `${hh}:${mm}${ampm}`; };
     if (graphTab === 'day') {
         const d = new Date(now); d.setDate(d.getDate() + graphDateNav); const startMs = _getLocalMidnight(d); const res = (graphChartType === 'hourly') ? 3600 : GRAPH_DAY_RESOLUTION_SECONDS;
-        const labels = []; for (let i = 0; i < Math.ceil((24*3600)/res); i++) { const date = new Date(startMs + i*res*1000); labels.push(to12hr(date.getHours(), 0)); }
+        const labels = []; for (let i = 0; i < Math.ceil((24*3600)/res); i++) { const date = new Date(startMs + i*res*1000); labels.push(to12hr(date.getHours(), date.getMinutes())); }
         return { label: graphDateNav === 0 ? 'Today' : d.toLocaleDateString('en-PK', { day: 'numeric', month: 'short' }), sub: d.toLocaleDateString('en-PK', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }), interval: res, startMs, endMs: startMs + 24*3600*1000-1, isDayTab: true, nBars: Math.ceil((24*3600)/res), labels, resSeconds: res };
     }
     if (graphTab === 'month') {

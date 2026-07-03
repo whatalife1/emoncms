@@ -53,6 +53,33 @@ async function poll() {
     const bulkData = await fetchEmonBulk();
     if (!bulkData) throw new Error("No data received");
 
+    // --- Water Flow Rate Calculation ---
+    const tankEntry = bulkData.get("499431");
+    const mtrW = bulkData.get("542850")?.v || 0;
+    if (tankEntry && tankEntry.v != null) {
+      const curTank = tankEntry.v;
+      const now = Date.now();
+      if (window.prevTankLevel !== undefined && window.prevTankTime !== undefined) {
+        const timeDiffMin = (now - window.prevTankTime) / 60000;
+        if (timeDiffMin >= 0.25) { // 15s interval for smoothing
+          const pctDiff = curTank - window.prevTankLevel;
+          // If motor is ON and level is rising, calc L/min (assuming 1000L tank, 1% = 10L)
+          if (mtrW > 20 && pctDiff > 0) {
+            window.waterFlowRate = (pctDiff * 10) / timeDiffMin;
+          } else {
+            window.waterFlowRate = 0;
+          }
+          window.prevTankLevel = curTank;
+          window.prevTankTime = now;
+        }
+      } else {
+        window.prevTankLevel = curTank;
+        window.prevTankTime = now;
+      }
+    } else {
+      window.waterFlowRate = 0;
+    }
+
     const fetchTime = Date.now() - fetchStart;
     if (window.addDebugLog) {
         window.addDebugLog(`<b>Proxy Bulk:</b> OK (${fetchTime}ms, ${bulkData.size} feeds)`);

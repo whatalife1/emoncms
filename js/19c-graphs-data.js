@@ -121,8 +121,13 @@ async function _loadAndDraw() {
                     av = m.data.length > 0 ? t / m.data.length : 0; 
                     if (!isSolar) { const n = calcNgt(m.rawPts||[]); nAv = n.avg; nTt = n.total; } 
                 } else if (graphTab === 'day') { 
-                    av = _calcStatsForRange(m.data, (isSolar?5:0), (isSolar?17:24), nav, lastIdx).avg; 
-                    if (!isSolar) { const n = _calcStatsForRange(m.data, 17, 8, nav, lastIdx); nAv = n.avg; nTt = n.total; } 
+                    const stats = _calcStatsForRange(m.data, (isSolar?5:0), (isSolar?17:24), nav, lastIdx);
+                    av = isSolar ? stats.avg : stats.activeAvg;
+                    if (!isSolar) { 
+                        const n = _calcStatsForRange(m.data, 17, 8, nav, lastIdx); 
+                        nAv = n.activeAvg; 
+                        nTt = n.total; 
+                    } 
                 } else { 
                     av = m.data.filter(v=>v>0).length > 0 ? t / m.data.filter(v=>v>0).length : 0; 
                 }
@@ -132,14 +137,29 @@ async function _loadAndDraw() {
             const t1 = bars1.reduce((a,b,i)=>i<lastIdx?a+b:a,0)*df, t2 = bars2.reduce((a,b,i)=>i<lastIdx?a+b:a,0)*df;
             const p1 = Math.max(...bars1), p2 = Math.max(...bars2); let a1, a2, n2 = null, nt2 = null;
             if (graphTab === 'month') { a1 = t1/bars1.length; a2 = t2/bars2.length; const n = calcNgt(pts2); n2 = n.avg; nt2 = n.total; }
-            else if (graphTab === 'day') { a1 = _calcStatsForRange(bars1, 5, 17, nav, lastIdx).avg; const s2 = _calcStatsForRange(bars2, 0, 24, nav, lastIdx); a2 = s2.avg; const sn2 = _calcStatsForRange(bars2, 17, 8, nav, lastIdx); n2 = sn2.avg; nt2 = sn2.total; }
+            else if (graphTab === 'day') { 
+                a1 = _calcStatsForRange(bars1, 5, 17, nav, lastIdx).avg; 
+                const s2 = _calcStatsForRange(bars2, 0, 24, nav, lastIdx); 
+                a2 = s2.activeAvg; 
+                const sn2 = _calcStatsForRange(bars2, 17, 8, nav, lastIdx); 
+                n2 = sn2.activeAvg; 
+                nt2 = sn2.total; 
+            }
             else { a1 = t1/bars1.filter(v=>v>0).length; a2 = t2/bars2.filter(v=>v>0).length; }
             stat.innerHTML = _formatStatLine('☀', 'Solar', t1, color1, p1, a1, null, null, unit, true, graphTab) + _formatStatLine('⚡', 'Grid', t2, color2, p2, a2, n2, nt2, unit, true, graphTab);
         } else {
             const t1 = isAvgF ? (bars1.slice(0,lastIdx).reduce((a,b)=>a+b,0)/lastIdx) : (bars1.reduce((a,b,i)=>i<lastIdx?a+b:a,0)*df);
             const pk = Math.max(...bars1,0); let av = null, nAv = null, nTt = null;
             if (graphTab === 'month') { av = bars1.length>0?t1/bars1.length:0; if(graphFeedKey!=='solar' && !isAvgF) { const n = calcNgt(pts1); nAv = n.avg; nTt = n.total; } }
-            else if (graphTab === 'day' && !isTemp) { av = _calcStatsForRange(bars1, (graphFeedKey==='solar'?5:0), (graphFeedKey==='solar'?17:24), nav, lastIdx).avg; if(graphFeedKey!=='solar'&&!isAvgF) { const n = _calcStatsForRange(bars1,17,8,nav,lastIdx); nAv = n.avg; nTt = n.total; } }
+            else if (graphTab === 'day' && !isTemp) { 
+                const stats = _calcStatsForRange(bars1, (graphFeedKey==='solar'?5:0), (graphFeedKey==='solar'?17:24), nav, lastIdx);
+                av = (graphFeedKey==='solar') ? stats.avg : stats.activeAvg;
+                if(graphFeedKey!=='solar'&&!isAvgF) { 
+                    const n = _calcStatsForRange(bars1,17,8,nav,lastIdx); 
+                    nAv = n.activeAvg; 
+                    nTt = n.total; 
+                } 
+            }
             else { av = bars1.filter(v=>v>0).length>0?t1/bars1.filter(v=>v>0).length:0; }
             stat.innerHTML = _formatStatLine('', fA?.label||graphFeedKey, t1, color1, pk, av, nAv, nTt, unit, !isAvgF, graphTab);
         }
@@ -172,11 +192,23 @@ async function _gFetch(feedId, startMs, endMs, interval) {
 }
 
 function _calcStatsForRange(bars, startHour, endHour, nav, lastIdx) {
-    if (!bars || bars.length === 0) return { avg: 0, total: 0 };
-    const isWrapping = startHour > endHour; let sum = 0, count = 0; const step = nav.resSeconds / 3600;
+    if (!bars || bars.length === 0) return { avg: 0, activeAvg: 0, total: 0 };
+    const isWrapping = startHour > endHour;
+    let sum = 0, count = 0, activeCount = 0;
+    const step = nav.resSeconds / 3600;
     for (let i = 0; i < Math.min(bars.length, lastIdx || bars.length); i++) {
-        const val = bars[i]; if (val === null || val === undefined) continue;
-        const h = i * step; if (isWrapping ? (h >= startHour || h < endHour) : (h >= startHour && h < endHour)) { sum += val; count++; }
+        const val = bars[i];
+        if (val === null || val === undefined) continue;
+        const h = i * step;
+        if (isWrapping ? (h >= startHour || h < endHour) : (h >= startHour && h < endHour)) {
+            sum += val;
+            count++;
+            if (val > 10) activeCount++;
+        }
     }
-    return { avg: count > 0 ? sum / count : 0, total: (sum * nav.resSeconds / 3600) / 1000 };
+    return {
+        avg: count > 0 ? sum / count : 0,
+        activeAvg: activeCount > 0 ? sum / activeCount : (count > 0 ? sum / count : 0),
+        total: (sum * nav.resSeconds / 3600) / 1000
+    };
 }

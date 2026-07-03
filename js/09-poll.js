@@ -65,9 +65,15 @@ async function poll() {
           const pctDiff = curTank - window.prevTankLevel;
           // If motor is ON and level is rising, calc L/min (assuming 1000L tank, 1% = 10L)
           if (mtrW > 20 && pctDiff > 0) {
-            window.waterFlowRate = (pctDiff * 10) / timeDiffMin;
+            const calculatedFlow = (pctDiff * 10) / timeDiffMin;
+            window.waterFlowRate = calculatedFlow;
+            window.lastFlowRate = calculatedFlow;
+            window.lastMotorOnTime = now;
           } else {
             window.waterFlowRate = 0;
+            if (mtrW > 20) {
+              window.lastMotorOnTime = now;
+            }
           }
           window.prevTankLevel = curTank;
           window.prevTankTime = now;

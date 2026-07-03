@@ -73,17 +73,19 @@ async function poll() {
         if (time) {
           const timestampMs = time < 2000000000 ? time * 1000 : time;
           if (timestampMs < (startOfToday * 1000)) {
+            if (window.addDebugLog) window.addDebugLog(`<b style="color:#ef4444">Stale:</b> ${f.name} (recorded ${new Date(timestampMs).toLocaleTimeString()})`);
             val = 0;
             if (window.addDebugLog) window.addDebugLog(`<b style="color:var(--accent-solar)">Reset:</b> ${f.name} (stale value from yesterday)`);
           }
-        } else if (!entry) {
-          // If the feed is missing from the bulk list summary, it hasn't updated recently.
-          // For 'Today' feeds, this almost certainly means no usage today yet.
+        } else if (!entry && val === null) {
+          // Only assume 0 if the feed is missing from bulk AND we failed to fetch it individually.
+          // If we just fetched a value via fallback (fetchEmon), trust it.
           val = 0;
-          if (window.addDebugLog) window.addDebugLog(`<b style="color:var(--accent-solar)">Reset:</b> ${f.name} (missing from bulk, assumed stale)`);
+          if (window.addDebugLog) window.addDebugLog(`<b style="color:var(--accent-solar)">Reset:</b> ${f.name} (missing from bulk and fetch failed)`);
         }
       }
 
+      if (f.id === "541350" && window.addDebugLog) window.addDebugLog(`<b>Debug 541350:</b> bulk=${!!entry}, val=${val}`);
       return { ...f, value: val ?? null, time: time ?? null };
     }));
 

@@ -64,7 +64,7 @@ window.generateGraphReport = async function() {
             }
         });
         const unit = isDay ? 'W' : 'kWh';
-        return `${str}] max: ${Math.round(isDay ? d.max : d.max/1000)}\${unit}`;
+        return `${str}] max: ${Math.round(isDay ? d.max : d.max/1000)}${unit}`;
     }
 
     const solarF = EXPORT_FEEDS.find(f => f.isSolar);

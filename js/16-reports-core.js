@@ -60,18 +60,30 @@ function saveReportCache() {
 }
 
 async function fetchWithCache(feedId, startMs, endMs) {
-  const safeThresholdMs = endMs - (3 * 3600 * 1000);
-  let fetchStartMs = startMs;
   if (!reportCache[feedId]) reportCache[feedId] = {};
   const feedCache = reportCache[feedId];
-  let maxSafe = -1;
-  for (const tsStr of Object.keys(feedCache)) {
-    const ts = parseInt(tsStr);
-    if (ts >= startMs && ts < safeThresholdMs && ts > maxSafe) maxSafe = ts;
+  
+  const timestamps = Object.keys(feedCache).map(Number).sort((a,b)=>a-b);
+  // Check if start of range is actually covered by cache
+  const startExists = timestamps.length > 0 && timestamps[0] <= startMs + 3600000;
+  
+  let fetchStartMs = startMs;
+  if (startExists) {
+    const safeThresholdMs = endMs - (3 * 3600 * 1000);
+    let maxSafe = -1;
+    for (const ts of timestamps) {
+      if (ts >= startMs && ts < safeThresholdMs && ts > maxSafe) maxSafe = ts;
+    }
+    if (maxSafe !== -1) fetchStartMs = maxSafe;
   }
-  if (maxSafe !== -1) fetchStartMs = maxSafe;
-  const freshData = await fetchHourly(feedId, fetchStartMs, endMs);
-  for (const [ts, val] of Object.entries(freshData)) feedCache[ts] = val;
+
+  // Only fetch if we have a gap or need live data
+  if (fetchStartMs < endMs - 60000) {
+    const freshData = await fetchHourly(feedId, fetchStartMs, endMs);
+    for (const [ts, val] of Object.entries(freshData)) feedCache[ts] = val;
+    saveReportCache();
+  }
+  
   const result = {};
   for (const [tsStr, val] of Object.entries(feedCache)) {
     const ts = parseInt(tsStr);

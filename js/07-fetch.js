@@ -79,6 +79,7 @@ async function fetchEmon(id) {
   try {
     const text = await nativeFetch(url);
     if (typeof text === 'string' && text.startsWith('ERROR:')) throw new Error(text);
+    if (window.addDebugLog) window.addDebugLog(`<b style="color:var(--accent-kwh)">Fetch:</b> ID ${id} = ${String(text).substring(0,15)}`);
     const val = parseFloat(text.replace(/['"]/g, ''));
     return isNaN(val) ? null : val;
   } catch (e) {

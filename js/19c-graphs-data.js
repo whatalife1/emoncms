@@ -96,7 +96,11 @@ async function _loadAndDraw() {
         let barsTemp = []; if (['temp','temp2'].includes(graphFeedKey) && window.graphOverlayAc) barsTemp = _pointsToBars(await _gFetch(GRAPH_FEEDS.find(f => f.key === window.graphOverlayAc).id, nav.startMs, nav.endMs, nav.interval), nav, window.graphOverlayAc);
 
         let lastIdx = bars1.length || multiData?.[0]?.data?.length || 0;
-        if (graphTab === 'day' && graphDateNav === 0) lastIdx = Math.floor((Date.now() - nav.startMs) / (nav.resSeconds * 1000)) + 1;
+        if (graphTab === 'day' && graphDateNav === 0) {
+            // Subtract 60s buffer to avoid showing the 'current' incomplete bucket as 0 Watts
+            // if the new data hasn't arrived at the server yet.
+            lastIdx = Math.floor((Date.now() - 60000 - nav.startMs) / (nav.resSeconds * 1000)) + 1;
+        }
 
         let maxV = 1, minV = 0; const all = (multiData?multiData.flatMap(m=>m.data):[...bars1,...bars2]).filter(v=>v>0);
         if (all.length) { maxV = Math.max(...all)*1.1; if(isTemp){ minV = Math.max(0, Math.min(...all)-5); maxV = Math.max(maxV, minV+10); } }

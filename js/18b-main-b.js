@@ -278,6 +278,10 @@ _btn('btn-graphs-fullscreen', () => {
 // Initialize everything when DOM is ready
 function initApp() {
   try { 
+    if (typeof loadReportCache === 'function') loadReportCache();
+  } catch(e) { console.error('loadReportCache', e); }
+
+  try { 
     if (typeof buildWidgetPanel === 'function') buildWidgetPanel(); 
   } catch(e) { console.error('buildWidgetPanel',e); }
   

@@ -198,9 +198,7 @@ function wireButtons() {
   });
 
   // Graph buttons
-  _btn('btn-graphs-report', () => {
-    if (window.downloadDayGraphReport) window.downloadDayGraphReport();
-  });
+  // Graph buttons
 _btn('btn-graphs', () => {
   if (typeof openGraphsPanel === 'function') {
     openGraphsPanel();

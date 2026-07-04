@@ -63,6 +63,18 @@ async function poll() {
     if (window.waterFlowRate === undefined) {
       window.waterFlowRate = 0;
     }
+    if (window.fillSessionStartLevel === undefined) {
+      const savedLvl = localStorage.getItem('water_session_start_level');
+      window.fillSessionStartLevel = savedLvl ? parseFloat(savedLvl) : null;
+    }
+    if (window.fillSessionStartTime === undefined) {
+      const savedTime = localStorage.getItem('water_session_start_time');
+      window.fillSessionStartTime = savedTime ? parseInt(savedTime) : null;
+    }
+    if (window.waterAvgFlowRate === undefined) {
+      const savedAvg = localStorage.getItem('water_session_avg_flow');
+      window.waterAvgFlowRate = savedAvg ? parseFloat(savedAvg) : 0;
+    }
 
     const tankEntry = bulkData.get("499431");
     
@@ -88,6 +100,28 @@ async function poll() {
               window.lastMotorOnTime = now;
               localStorage.setItem('water_last_flow_rate', calculatedFlow.toString());
               localStorage.setItem('water_last_motor_on_time', now.toString());
+              
+              // Start of session check
+              if (window.fillSessionStartTime === null || window.fillSessionStartLevel === null) {
+                window.fillSessionStartTime = window.prevTankTime;
+                window.fillSessionStartLevel = window.prevTankLevel;
+                localStorage.setItem('water_session_start_time', window.fillSessionStartTime.toString());
+                localStorage.setItem('water_session_start_level', window.fillSessionStartLevel.toString());
+              }
+              
+              // Calculate Session Average Flow
+              const totalElapsedMin = (now - window.fillSessionStartTime) / 60000;
+              if (totalElapsedMin > 0.1) {
+                const totalPctDiff = curTank - window.fillSessionStartLevel;
+                if (totalPctDiff > 0) {
+                  const avgFlow = (totalPctDiff * 10) / totalElapsedMin;
+                  if (avgFlow > 0.5 && avgFlow < 150) {
+                    window.waterAvgFlowRate = avgFlow;
+                    localStorage.setItem('water_session_avg_flow', avgFlow.toString());
+                  }
+                }
+              }
+
               window.prevTankLevel = curTank;
               window.prevTankTime = now;
             }
@@ -102,6 +136,12 @@ async function poll() {
           // If no increase has been detected for > 15 mins, assume filling has stopped.
           if (now - window.prevTankTime > 15 * 60 * 1000) {
             window.waterFlowRate = 0;
+            window.fillSessionStartTime = null;
+            window.fillSessionStartLevel = null;
+            window.waterAvgFlowRate = 0;
+            localStorage.removeItem('water_session_start_time');
+            localStorage.removeItem('water_session_start_level');
+            localStorage.removeItem('water_session_avg_flow');
           }
         }
       }

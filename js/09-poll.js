@@ -65,50 +65,43 @@ async function poll() {
     }
 
     const tankEntry = bulkData.get("499431");
-    const mtrW = bulkData.get("542850")?.v || 0;
     
     if (tankEntry && tankEntry.v != null) {
       const curTank = tankEntry.v;
       const now = Date.now();
       
-      if (mtrW <= 20) {
-        // Motor is OFF, reset active flow rate but maintain baseline & last known values
-        window.waterFlowRate = 0;
+      if (window.prevTankLevel === undefined || window.prevTankTime === undefined) {
         window.prevTankLevel = curTank;
         window.prevTankTime = now;
+        window.waterFlowRate = 0;
       } else {
-        // Motor is ON
-        if (window.prevTankLevel === undefined || window.prevTankTime === undefined) {
+        const pctDiff = curTank - window.prevTankLevel;
+        
+        if (pctDiff > 0) {
+          const timeDiffMin = (now - window.prevTankTime) / 60000;
+          if (timeDiffMin > 0.1) {
+            const calculatedFlow = (pctDiff * 10) / timeDiffMin;
+            // Filter out extreme noise / telemetry glitches
+            if (calculatedFlow > 0.5 && calculatedFlow < 150) {
+              window.waterFlowRate = calculatedFlow;
+              window.lastFlowRate = calculatedFlow;
+              window.lastMotorOnTime = now;
+              localStorage.setItem('water_last_flow_rate', calculatedFlow.toString());
+              localStorage.setItem('water_last_motor_on_time', now.toString());
+              window.prevTankLevel = curTank;
+              window.prevTankTime = now;
+            }
+          }
+        } else if (pctDiff < 0) {
+          // Drop in level (noise or usage), reset baseline to avoid carrying over negative diff
+          window.waterFlowRate = 0;
           window.prevTankLevel = curTank;
           window.prevTankTime = now;
         } else {
-          const pctDiff = curTank - window.prevTankLevel;
-          
-          if (pctDiff > 0) {
-            const timeDiffMin = (now - window.prevTankTime) / 60000;
-            if (timeDiffMin > 0.1) {
-              const calculatedFlow = (pctDiff * 10) / timeDiffMin;
-              // Filter out extreme noise / telemetry glitches
-              if (calculatedFlow > 0.5 && calculatedFlow < 150) {
-                window.waterFlowRate = calculatedFlow;
-                window.lastFlowRate = calculatedFlow;
-                window.lastMotorOnTime = now;
-                localStorage.setItem('water_last_flow_rate', calculatedFlow.toString());
-                localStorage.setItem('water_last_motor_on_time', now.toString());
-                window.prevTankLevel = curTank;
-                window.prevTankTime = now;
-              }
-            }
-          } else if (pctDiff < 0) {
-            // Drop in level (noise or usage), reset baseline to avoid carrying over negative diff
-            window.prevTankLevel = curTank;
-            window.prevTankTime = now;
-          } else {
-            // pctDiff === 0: level hasn't changed yet. Do NOT reset baseline or flow rate!
-            // If the motor is ON for > 15 mins without any increase, fallback to 0
-            if (now - window.prevTankTime > 15 * 60 * 1000) {
-              window.waterFlowRate = 0;
-            }
+          // pctDiff === 0: level hasn't changed yet. Do NOT reset baseline or flow rate!
+          // If no increase has been detected for > 15 mins, assume filling has stopped.
+          if (now - window.prevTankTime > 15 * 60 * 1000) {
+            window.waterFlowRate = 0;
           }
         }
       }

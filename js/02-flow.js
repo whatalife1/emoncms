@@ -2,7 +2,7 @@ const LAYOUT = {
  weather: { x:5, y:10, w:708, h:49, color:'#0ea5e9', label:'Weather', ly1:25, fs:25, c1:'#ffffff',  },
  solar: { x:7, y:64, w:321, h:365, color:'#f59e0b', label:'Solar', ly1:42, fs:47, c1:'#ffff00', ly2:106, fs2:46, c2:'#2c8758', ly3:166, fs3:38, c3:'#b4b635', ly4:219, fs4:22, c4:'#21c442', ly5:279, fs5:24, c5:'#3de31c', ly6:317, fs6:22, c6:'#38bdf8',  },
  grid: { x:330, y:64, w:245, h:365, color:'#ef4444', label:'Grid', ly1:48, fs:38, c1:'#ef4444', ly2:154, fs2:28, c2:'#35c0b7', ly3:278, fs3:22, c3:'#3de3e4', ly4:317, fs4:22, c4:'#38bdf8',  },
- water: { x:585, y:64, w:140, h:365, color:'#0ea5e9', label:'Water', ly1:48, fs:46, c1:'#0ea5e9', ly2:158, fs2:56, c2:'#25f447', ly3:251, fs3:25, c3:'#9ca3af', ly4:307, fs4:20, c4:'#0ce4e0', ly5:345, fs5:20, c5:'#38bdf8',  },
+ water: { x:585, y:64, w:140, h:365, color:'#0ea5e9', label:'Water', ly1:48, fs:46, c1:'#0ea5e9', ly2:158, fs2:56, c2:'#25f447', ly3:251, fs3:25, c3:'#9ca3af', ly4:295, fs4:20, c4:'#0ce4e0', ly5:320, fs5:19, c5:'#38bdf8', ly6:342, fs6:18, c6:'#a1a1aa',  },
  haier: { x:7, y:436, w:238, h:199, color:'#38bdf8', label:'Haier 1T', ly1:25, fs:34, c1:'#38bdf8', ly2:75, fs2:63, c2:'#25f447', ly3:137, fs3:25, c3:'#00c8f0', ly4:173, fs4:25, c4:'#518e35',  },
  k15: { x:252, y:436, w:238, h:199, color:'#38bdf8', label:'Kenwood 1.5T', ly1:21, fs:33, c1:'#38bdf8', ly2:68, fs2:60, c2:'#25f447', ly3:137, fs3:25, c3:'#00c8f0', ly4:173, fs4:25, c4:'#518e35',  },
  k1: { x:497, y:435, w:230, h:192, color:'#38bdf8', label:'Kenwood 1T', ly1:27, fs:34, c1:'#38bdf8', ly2:75, fs2:61, c2:'#25f447', ly3:137, fs3:25, c3:'#00c8f0', ly4:173, fs4:25, c4:'#518e35',  },
@@ -12,6 +12,7 @@ const LAYOUT = {
  temp: { x:500, y:631, w:225, h:40, color:'#22c55e', label:'temp', ly1:20, fs:27, c1:'#25f447',  },
  temp2: { x:8, y:639, w:238, h:35, color:'#22c55e', label:'temp2', ly1:16, fs:27, c1:'#25f447',  },
 };
+
 
 function renderFlowDiagram(byName) {
   if (!byName) return;
@@ -140,10 +141,16 @@ function renderFlowDiagram(byName) {
   const lastOnTime = window.lastMotorOnTime || 0;
   const showFlow = flowRate > 0.1 || (lastOnTime > 0 && (Date.now() - lastOnTime < 15 * 60 * 1000) && lastFlow > 0.1);
 
+  const avgFlow = window.waterAvgFlowRate || 0;
+
   if (showFlow && o.ly5) {
     const displayFlow = flowRate > 0.1 ? flowRate : lastFlow;
     const prefix = flowRate > 0.1 ? '▲ ' : 'Last: ';
     svg += `<text x="${cx(o)}" y="${o.y+o.ly5}" ${tpProps} font-size="${o.fs5}" fill="${o.c5}">${prefix}${displayFlow.toFixed(1)} L/min</text>`;
+  }
+
+  if (showFlow && avgFlow > 0.1 && o.ly6) {
+    svg += `<text x="${cx(o)}" y="${o.y+o.ly6}" ${tpProps} font-size="${o.fs6}" fill="${o.c6 || '#a1a1aa'}">Ø ${avgFlow.toFixed(1)} L/min</text>`;
   }
 
   // 4. APPLIANCES

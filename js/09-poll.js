@@ -54,33 +54,63 @@ async function poll() {
     if (!bulkData) throw new Error("No data received");
 
     // --- Water Flow Rate Calculation ---
+    if (window.lastFlowRate === undefined) {
+      window.lastFlowRate = parseFloat(localStorage.getItem('water_last_flow_rate')) || 0;
+    }
+    if (window.lastMotorOnTime === undefined) {
+      window.lastMotorOnTime = parseInt(localStorage.getItem('water_last_motor_on_time')) || 0;
+    }
+    if (window.waterFlowRate === undefined) {
+      window.waterFlowRate = 0;
+    }
+
     const tankEntry = bulkData.get("499431");
     const mtrW = bulkData.get("542850")?.v || 0;
+    
     if (tankEntry && tankEntry.v != null) {
       const curTank = tankEntry.v;
       const now = Date.now();
-      if (window.prevTankLevel !== undefined && window.prevTankTime !== undefined) {
-        const timeDiffMin = (now - window.prevTankTime) / 60000;
-        if (timeDiffMin >= 0.25) { // 15s interval for smoothing
-          const pctDiff = curTank - window.prevTankLevel;
-          // If motor is ON and level is rising, calc L/min (assuming 1000L tank, 1% = 10L)
-          if (mtrW > 20 && pctDiff > 0) {
-            const calculatedFlow = (pctDiff * 10) / timeDiffMin;
-            window.waterFlowRate = calculatedFlow;
-            window.lastFlowRate = calculatedFlow;
-            window.lastMotorOnTime = now;
-          } else {
-            window.waterFlowRate = 0;
-            if (mtrW > 20) {
-              window.lastMotorOnTime = now;
-            }
-          }
-          window.prevTankLevel = curTank;
-          window.prevTankTime = now;
-        }
-      } else {
+      
+      if (mtrW <= 20) {
+        // Motor is OFF, reset active flow rate but maintain baseline & last known values
+        window.waterFlowRate = 0;
         window.prevTankLevel = curTank;
         window.prevTankTime = now;
+      } else {
+        // Motor is ON
+        if (window.prevTankLevel === undefined || window.prevTankTime === undefined) {
+          window.prevTankLevel = curTank;
+          window.prevTankTime = now;
+        } else {
+          const pctDiff = curTank - window.prevTankLevel;
+          
+          if (pctDiff > 0) {
+            const timeDiffMin = (now - window.prevTankTime) / 60000;
+            if (timeDiffMin > 0.1) {
+              const calculatedFlow = (pctDiff * 10) / timeDiffMin;
+              // Filter out extreme noise / telemetry glitches
+              if (calculatedFlow > 0.5 && calculatedFlow < 150) {
+                window.waterFlowRate = calculatedFlow;
+                window.lastFlowRate = calculatedFlow;
+                window.lastMotorOnTime = now;
+                localStorage.setItem('water_last_flow_rate', calculatedFlow.toString());
+                localStorage.setItem('water_last_motor_on_time', now.toString());
+                window.prevTankLevel = curTank;
+                window.prevTankTime = now;
+              }
+            }
+          } else if (pctDiff < 0) {
+            // Drop in level (noise or usage), reset baseline to avoid carrying over negative diff
+            window.prevTankLevel = curTank;
+            window.prevTankTime = now;
+          } else {
+            // pctDiff === 0: level hasn't changed yet. Do NOT reset baseline or flow rate!
+            // If the motor is ON for > 15 mins without any increase, fallback to 0
+            if (now - window.prevTankTime > 15 * 60 * 1000) {
+              window.waterFlowRate = 0;
+            }
+          }
+        }
       }
     } else {
       window.waterFlowRate = 0;

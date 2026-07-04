@@ -71,6 +71,10 @@ function renderResults(results) {
         const displayFlow = flowRate > 0.1 ? flowRate : lastFlow;
         const prefix = flowRate > 0.1 ? '▲ ' : 'Last: ';
         flowStr = ` · ${prefix}${displayFlow.toFixed(1)} L/min`;
+        const avgFlow = window.waterAvgFlowRate || 0;
+        if (avgFlow > 0.1) {
+          flowStr += ` · Ø ${avgFlow.toFixed(1)}`;
+        }
       }
       
       if (isCompact) {

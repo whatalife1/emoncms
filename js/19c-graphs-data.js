@@ -29,7 +29,12 @@ function _formatStatLine(icon, label, mainVal, accentColor, peakVal, avgVal, nig
     const fsMain = isCompact ? '12px' : '15px'; const fsLabel = isCompact ? '11px' : '13px';
     const boldStyle = `font-size: ${isCompact ? '10px' : '12px'}; font-weight: 900;`;
     let avgHtml = ''; if (avgVal && avgVal > 0.01) { const avgDisp = isTemp ? avgVal.toFixed(1) : (isDay ? Math.round(avgVal) : avgVal.toFixed(1)); avgHtml = ` <span style="color:var(--border)">\u00b7</span> <span style="color:${accentColor}; ${boldStyle}">${avgLabel}: ${avgDisp} ${unit}</span>`; }
-    let nightHtml = ''; if (!hideNight && (nightAvgVal > 0.01 || (nightTotalVal && nightTotalVal > 0.01))) { const nightAvgDisp = isDay ? Math.round(nightAvgVal) : nightAvgVal.toFixed(1); const nKwhDisp = nightTotalVal ? nightTotalVal.toFixed(1) + ' kWh ' : ''; const nAvgUnit = isDay ? 'W' : 'kWh/d'; nightHtml = `<span style="color:#c084fc; ${boldStyle}">Night: ${nKwhDisp}(Avg: ${nightAvgDisp} ${nAvgUnit})</span>`; }
+    let nightHtml = ''; if (!hideNight && (nightAvgVal > 0.01 || (nightTotalVal && nightTotalVal > 0.01))) { 
+        const nightAvgDisp = isDay ? Math.round(nightAvgVal) : nightAvgVal.toFixed(1); 
+        const nKwhDisp = nightTotalVal ? nightTotalVal.toFixed(1) + ' kWh ' : ''; 
+        const nAvgUnit = isDay ? 'W' : 'kWh/d'; 
+        nightHtml = `<span style="color:#c084fc; ${boldStyle}">Night: ${nKwhDisp}(Avg: ${nightAvgDisp} ${nAvgUnit})</span>`; 
+    }
     const mainDisplay = isKwh ? `${mainVal.toFixed(1)} kWh` : `${mainVal.toFixed(1)} ${unit}`;
     const peakDisp = isTemp ? peakVal.toFixed(1) : (isDay ? Math.round(peakVal).toLocaleString() : peakVal.toFixed(1));
     return `<div style="margin-bottom: 6px; line-height:1.2;"><div style="display:flex; align-items:center; gap:6px;"><span style="color:${accentColor}; font-size:${fsLabel}; font-weight:700;">${icon?icon+' ':''}${label}:</span><span style="color:var(--text-main); font-size:${fsMain}; font-weight:900;">${mainDisplay}</span></div><div style="color:var(--text-muted); font-size:11px; font-weight:600; margin-left: 1px; margin-top: 2px;"><div>(${peakLabel}: <span style="color:${peakColor}; ${boldStyle}">${peakDisp}</span> ${unit}${avgHtml})</div>${nightHtml?`<div style="margin-top:2px;">${nightHtml}</div>`:''}</div></div>`;
@@ -121,10 +126,12 @@ async function _loadAndDraw() {
         const isAvgF = isTemp || graphFeedKey === 'water' || graphFeedKey === 'acvolts';
         const calcNgt = (pts) => {
             const hrs = [17,18,19,20,21,22,23,0,1,2,3,4,5,6,7]; let tot = 0;
-            for (const [ts, v] of pts) { if (v != null && hrs.includes(new Date(ts).getHours())) tot += v / 1000; }
+            for (const [ts, v] of pts) { if (v != null && hrs.includes(new Date(ts).getHours())) tot += v; }
             return { avg: tot / Math.max(1, nav.nBars || 1), total: tot };
         };
-        const df = (graphTab === 'month' || graphTab === 'year') ? 1 : (nav.resSeconds/3600)/1000;
+        // For month/year, bars are already in kWh, so df = 1
+        // For day, bars are in Watts, convert to kWh by dividing by 1000
+        const df = (graphTab === 'month' || graphTab === 'year') ? 1 : (nav.resSeconds / 3600) / 1000;
         if (isGridAll) {
             stat.innerHTML = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;">${multiData.map(m => {
                 const t = m.data.reduce((a,b,i)=>i<lastIdx?a+b:a,0) * df; 
@@ -164,7 +171,15 @@ async function _loadAndDraw() {
         } else {
             const t1 = isAvgF ? (bars1.slice(0,lastIdx).reduce((a,b)=>a+b,0)/lastIdx) : (bars1.reduce((a,b,i)=>i<lastIdx?a+b:a,0)*df);
             const pk = Math.max(...bars1,0); let av = null, nAv = null, nTt = null;
-            if (graphTab === 'month') { av = bars1.length>0?t1/bars1.length:0; if(graphFeedKey!=='solar' && !isAvgF) { const n = calcNgt(pts1); nAv = n.avg; nTt = n.total; } }
+            if (graphTab === 'month') { 
+                av = bars1.length>0?t1/bars1.length:0; 
+                // For non-solar, non-temp feeds, calculate night stats from raw pts
+                if(graphFeedKey!=='solar' && !isAvgF) { 
+                    const n = calcNgt(pts1); 
+                    nAv = n.avg; 
+                    nTt = n.total; 
+                } 
+            }
             else if (graphTab === 'day' && !isTemp) { 
                 const stats = _calcStatsForRange(bars1, (graphFeedKey==='solar'?5:0), (graphFeedKey==='solar'?17:24), nav, lastIdx);
                 av = (graphFeedKey==='solar') ? stats.avg : stats.activeAvg;
@@ -181,28 +196,79 @@ async function _loadAndDraw() {
     finally { graphIsLoading = false; _showGraphLoading(false); }
 }
 
-function _showGraphLoading(s) { const c = document.querySelector('.graph-chart-card'); if (!c) return; let o = document.getElementById('graph-loading-overlay'); if (s) { if (!o) { o = document.createElement('div'); o.id = 'graph-loading-overlay'; o.style.cssText = `position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.4);z-index:20;display:flex;align-items:center;justify-content:center;border-radius:10px;pointer-events:none;`; o.innerHTML = `<div style="color:#fff;font-size:14px;font-weight:700;">\u23f3 Loading...</div>`; c.appendChild(o); } o.style.display = 'flex'; } else if (o) o.style.display = 'none'; }
+function _showGraphLoading(s) { 
+    const c = document.querySelector('.graph-chart-card'); 
+    if (!c) return; 
+    let o = document.getElementById('graph-loading-overlay'); 
+    if (s) { 
+        if (!o) { 
+            o = document.createElement('div'); 
+            o.id = 'graph-loading-overlay'; 
+            o.style.cssText = `position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.4);z-index:20;display:flex;align-items:center;justify-content:center;border-radius:10px;pointer-events:none;`; 
+            o.innerHTML = `<div style="color:#fff;font-size:14px;font-weight:700;">\u23f3 Loading...</div>`; 
+            c.appendChild(o); 
+        } 
+        o.style.display = 'flex'; 
+    } else if (o) o.style.display = 'none'; 
+}
 
+/**
+ * Convert raw API data points to bar chart values
+ * - For Month/Year (billing view): aggregate daily kWh (convert Wh → kWh)
+ * - For Day view: keep in Watts for display
+ * - For Temp/Water/AC Volts: average the values per time slot
+ */
 function _pointsToBars(pts, nav, feedKey) {
     if (!pts || !pts.length) return [];
-    if (nav.isMonthBilling) {
-        const daily = {}; for (const [ts, v] of pts) { if (v == null) continue; const d = new Date(ts); const key = d.toISOString().slice(0,10); daily[key] = (daily[key] || 0) + v / 1000; }
-        const start = new Date(nav.startMs); const days = Math.ceil((nav.endMs - nav.startMs) / 86400000); const bars = [], labels = [];
-        for (let i = 0; i < days; i++) { const d = new Date(start.getTime() + i * 86400000); const key = d.toISOString().slice(0,10); labels.push(`${d.getDate()}/${d.getMonth()+1}`); bars.push(daily[key] || 0); }
-        nav.labels = labels; nav.nBars = bars.length; return bars;
+    
+    // MONTH/BILLING VIEW: Aggregate daily totals in kWh
+    if (nav.isMonthBilling || nav.isYearBilling) {
+        const daily = {}; 
+        for (const [ts, v] of pts) { 
+            if (v == null) continue; 
+            const d = new Date(ts); 
+            const key = d.toISOString().slice(0,10); 
+            // CRITICAL: Convert Wh to kWh by dividing by 1000
+            daily[key] = (daily[key] || 0) + (v / 1000); 
+        }
+        const start = new Date(nav.startMs); 
+        const days = Math.ceil((nav.endMs - nav.startMs) / 86400000); 
+        const bars = [], labels = [];
+        for (let i = 0; i < days; i++) { 
+            const d = new Date(start.getTime() + i * 86400000); 
+            const key = d.toISOString().slice(0,10); 
+            labels.push(`${d.getDate()}/${d.getMonth()+1}`); 
+            bars.push(daily[key] || 0); 
+        }
+        nav.labels = labels; 
+        nav.nBars = bars.length; 
+        return bars;
     }
+    
+    // DAY VIEW: Keep in Watts, or average for sensor-type feeds
     const isAvg = feedKey && (feedKey.startsWith('temp') || feedKey === 'water' || feedKey === 'acvolts');
     const bars = Array(nav.nBars || 1).fill(0), counts = Array(nav.nBars || 1).fill(0);
     for (const [ts, v] of pts) {
         let idx = nav.isDayTab ? Math.floor((ts - nav.startMs) / (nav.resSeconds * 1000)) : (nav.isYearly ? new Date(ts).getMonth() : new Date(ts).getDate() - 1);
-        if (idx >= 0 && idx < bars.length) { bars[idx] += isAvg ? v : (v * (nav.isDayTab ? 1 : (nav.interval/3600/1000))); counts[idx]++; }
+        if (idx >= 0 && idx < bars.length) { 
+            bars[idx] += isAvg ? v : (v * (nav.isDayTab ? 1 : (nav.interval/3600/1000))); 
+            counts[idx]++; 
+        }
     }
     return isAvg ? bars.map((v, i) => counts[i] > 0 ? v / counts[i] : 0) : bars;
 }
 
 async function _gFetch(feedId, startMs, endMs, interval) {
-    if (!feedId) return []; const url = `${PROXY_BASE}/feed/data.json?ids=${feedId}&start=${startMs}&end=${endMs}&skipmissing=0&average=1&delta=0&interval=${interval}`;
-    try { const text = await nativeFetch(url); if (!text || text.startsWith('ERROR')) return []; const root = JSON.parse(text); const data = root[0]?.data || root; return data.filter(p => p && p[1] != null); } catch (e) { return []; }
+    if (!feedId) return []; 
+    const useDelta = (window.graphTab !== "day") ? 1 : 0;
+    const url = `${PROXY_BASE}/feed/data.json?ids=${feedId}&start=${startMs}&end=${endMs}&skipmissing=0&average=1&delta=${useDelta}&interval=${interval}`;
+    try { 
+        const text = await nativeFetch(url); 
+        if (!text || text.startsWith('ERROR')) return []; 
+        const root = JSON.parse(text); 
+        const data = root[0]?.data || root; 
+        return data.filter(p => p && p[1] != null); 
+    } catch (e) { return []; }
 }
 
 function _calcStatsForRange(bars, startHour, endHour, nav, lastIdx) {

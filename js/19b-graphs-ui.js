@@ -328,11 +328,41 @@ function _gNavInfo() {
         return { label: `${start.toLocaleDateString('en-PK',{month:'short',day:'numeric'})} - ${end.toLocaleDateString('en-PK',{month:'short',day:'numeric',year:'numeric'})}`, interval: 3600, isDayTab: false, nBars: days, startMs: start.getTime(), endMs: end.getTime(), labels, month: start.getMonth(), year: start.getFullYear(), isMonthBilling: true, resSeconds: 3600 };
     }
     if (graphTab === 'year') {
-        const y = now.getFullYear() + graphYearNav; const start = new Date(y - 1, 11, 25); const end = new Date(y, 11, 31, 23, 59, 59);
-        return { label: String(y), interval: 3600, isYearly: true, nBars: 12, startMs: start.getTime(), endMs: end.getTime(), labels: ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'], year: y, isYearBilling: true, resSeconds: 3600 };
+        const y = now.getFullYear() + graphYearNav;
+        // For Year view, we want 12 bars (Jan to Dec)
+        // Show from Jan 1 to Dec 31 of the selected year
+        const start = new Date(y, 0, 1);
+        const end = new Date(y, 11, 31, 23, 59, 59);
+        // Monthly labels: Jan, Feb, Mar, etc.
+        const labels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        // Calculate days in each month for proper aggregation
+        const daysInMonth = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+        // Adjust for leap year
+        if ((y % 4 === 0 && y % 100 !== 0) || (y % 400 === 0)) {
+            daysInMonth[1] = 29;
+        }
+        return { 
+            label: String(y), 
+            interval: 3600, 
+            isYearly: true, 
+            nBars: 12, 
+            startMs: start.getTime(), 
+            endMs: end.getTime(), 
+            labels: labels,
+            daysInMonth: daysInMonth,
+            year: y, 
+            isYearBilling: true, 
+            resSeconds: 3600,
+            isYearView: true
+        };
     }
     return { label:'All Time', startMs: new Date(2024,0,1).getTime(), endMs: now.getTime(), labels:[] };
 }
+
+
+
+
+
 
 function _renderGNavBar() {
     const wrap = document.getElementById('graph-nav-bar'); if (!wrap || graphTab === 'total') return;

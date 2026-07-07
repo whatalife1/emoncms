@@ -132,6 +132,7 @@ async function _loadAndDraw() {
         // For month/year, bars are already in kWh, so df = 1
         // For day, bars are in Watts, convert to kWh by dividing by 1000
         const df = (graphTab === 'month' || graphTab === 'year') ? 1 : (nav.resSeconds / 3600) / 1000;
+        
         if (isGridAll) {
             stat.innerHTML = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;">${multiData.map(m => {
                 const t = m.data.reduce((a,b,i)=>i<lastIdx?a+b:a,0) * df; 
@@ -141,6 +142,10 @@ async function _loadAndDraw() {
                 if (graphTab === 'month') { 
                     av = m.data.length > 0 ? t / m.data.length : 0; 
                     if (!isSolar) { const n = calcNgt(m.rawPts||[]); nAv = n.avg; nTt = n.total; } 
+                } else if (graphTab === 'year') {
+                    // Year view: t is sum of monthly totals, av = average monthly
+                    av = m.data.length > 0 ? t / m.data.length : 0;
+                    if (!isSolar) { const n = calcNgt(m.rawPts||[]); nAv = n.avg; nTt = n.total; }
                 } else if (graphTab === 'day') { 
                     const stats = _calcStatsForRange(m.data, (isSolar?5:0), (isSolar?17:24), nav, lastIdx);
                     av = isSolar ? stats.avg : stats.activeAvg;
@@ -157,42 +162,68 @@ async function _loadAndDraw() {
         } else if (isCombined) {
             const t1 = bars1.reduce((a,b,i)=>i<lastIdx?a+b:a,0)*df, t2 = bars2.reduce((a,b,i)=>i<lastIdx?a+b:a,0)*df;
             const p1 = Math.max(...bars1), p2 = Math.max(...bars2); let a1, a2, n2 = null, nt2 = null;
-            if (graphTab === 'month') { a1 = t1/bars1.length; a2 = t2/bars2.length; const n = calcNgt(pts2); n2 = n.avg; nt2 = n.total; }
-            else if (graphTab === 'day') { 
+            if (graphTab === 'month') { 
+                a1 = t1/bars1.length; 
+                a2 = t2/bars2.length; 
+                const n = calcNgt(pts2); 
+                n2 = n.avg; 
+                nt2 = n.total; 
+            } else if (graphTab === 'year') {
+                // Year view: t1 and t2 are sums of monthly totals, a1/a2 = average monthly
+                a1 = bars1.length > 0 ? t1 / bars1.length : 0;
+                a2 = bars2.length > 0 ? t2 / bars2.length : 0;
+                const n = calcNgt(pts2);
+                n2 = n.avg;
+                nt2 = n.total;
+            } else if (graphTab === 'day') { 
                 a1 = _calcStatsForRange(bars1, 5, 17, nav, lastIdx).avg; 
                 const s2 = _calcStatsForRange(bars2, 0, 24, nav, lastIdx); 
                 a2 = s2.activeAvg; 
                 const sn2 = _calcStatsForRange(bars2, 17, 8, nav, lastIdx); 
                 n2 = sn2.activeAvg; 
                 nt2 = sn2.total; 
+            } else { 
+                a1 = t1/bars1.filter(v=>v>0).length; 
+                a2 = t2/bars2.filter(v=>v>0).length; 
             }
-            else { a1 = t1/bars1.filter(v=>v>0).length; a2 = t2/bars2.filter(v=>v>0).length; }
             stat.innerHTML = _formatStatLine('☀', 'Solar', t1, color1, p1, a1, null, null, unit, true, graphTab) + _formatStatLine('⚡', 'Grid', t2, color2, p2, a2, n2, nt2, unit, true, graphTab);
         } else {
             const t1 = isAvgF ? (bars1.slice(0,lastIdx).reduce((a,b)=>a+b,0)/lastIdx) : (bars1.reduce((a,b,i)=>i<lastIdx?a+b:a,0)*df);
-            const pk = Math.max(...bars1,0); let av = null, nAv = null, nTt = null;
+            const pk = Math.max(...bars1,0); 
+            let av = null, nAv = null, nTt = null;
+            
             if (graphTab === 'month') { 
-                av = bars1.length>0?t1/bars1.length:0; 
-                // For non-solar, non-temp feeds, calculate night stats from raw pts
-                if(graphFeedKey!=='solar' && !isAvgF) { 
+                av = bars1.length > 0 ? t1 / bars1.length : 0; 
+                if(graphFeedKey !== 'solar' && !isAvgF) { 
                     const n = calcNgt(pts1); 
                     nAv = n.avg; 
                     nTt = n.total; 
                 } 
-            }
-            else if (graphTab === 'day' && !isTemp) { 
+            } else if (graphTab === 'year') {
+                // Year view: t1 is sum of monthly totals, av = average monthly
+                av = bars1.length > 0 ? t1 / bars1.length : 0;
+                if(graphFeedKey !== 'solar' && !isAvgF) { 
+                    const n = calcNgt(pts1); 
+                    nAv = n.avg; 
+                    nTt = n.total; 
+                } 
+            } else if (graphTab === 'day' && !isTemp) { 
                 const stats = _calcStatsForRange(bars1, (graphFeedKey==='solar'?5:0), (graphFeedKey==='solar'?17:24), nav, lastIdx);
                 av = (graphFeedKey==='solar') ? stats.avg : stats.activeAvg;
-                if(graphFeedKey!=='solar'&&!isAvgF) { 
+                if(graphFeedKey !== 'solar' && !isAvgF) { 
                     const n = _calcStatsForRange(bars1,17,8,nav,lastIdx); 
                     nAv = n.activeAvg; 
                     nTt = n.total; 
                 } 
+            } else { 
+                av = bars1.filter(v=>v>0).length > 0 ? t1 / bars1.filter(v=>v>0).length : 0; 
             }
-            else { av = bars1.filter(v=>v>0).length>0?t1/bars1.filter(v=>v>0).length:0; }
             stat.innerHTML = _formatStatLine('', fA?.label||graphFeedKey, t1, color1, pk, av, nAv, nTt, unit, !isAvgF, graphTab);
         }
-    } catch (e) { stat.textContent = 'Error: ' + e.message; }
+    } catch (e) { 
+        stat.textContent = 'Error: ' + e.message; 
+        console.error('Graph error:', e);
+    }
     finally { graphIsLoading = false; _showGraphLoading(false); }
 }
 
@@ -214,15 +245,16 @@ function _showGraphLoading(s) {
 
 /**
  * Convert raw API data points to bar chart values
- * - For Month/Year (billing view): aggregate daily kWh (convert Wh → kWh)
+ * - For Month view: aggregate daily totals in kWh (Wh → kWh conversion)
+ * - For Year view: aggregate monthly totals in kWh
  * - For Day view: keep in Watts for display
  * - For Temp/Water/AC Volts: average the values per time slot
  */
 function _pointsToBars(pts, nav, feedKey) {
     if (!pts || !pts.length) return [];
     
-    // MONTH/BILLING VIEW: Aggregate daily totals in kWh
-    if (nav.isMonthBilling || nav.isYearBilling) {
+    // MONTH VIEW: Aggregate daily totals in kWh
+    if (nav.isMonthBilling) {
         const daily = {}; 
         for (const [ts, v] of pts) { 
             if (v == null) continue; 
@@ -243,6 +275,23 @@ function _pointsToBars(pts, nav, feedKey) {
         nav.labels = labels; 
         nav.nBars = bars.length; 
         return bars;
+    }
+    
+    // YEAR VIEW: Aggregate monthly totals in kWh (not average per day)
+    if (nav.isYearBilling) {
+        const monthly = new Array(12).fill(0);
+        
+        for (const [ts, v] of pts) { 
+            if (v == null) continue; 
+            const d = new Date(ts); 
+            const month = d.getMonth();
+            // Convert Wh to kWh and add to monthly total
+            monthly[month] = (monthly[month] || 0) + (v / 1000);
+        }
+        
+        // Return monthly totals directly (not averaged per day)
+        nav.nBars = 12;
+        return monthly;
     }
     
     // DAY VIEW: Keep in Watts, or average for sensor-type feeds

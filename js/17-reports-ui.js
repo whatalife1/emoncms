@@ -24,8 +24,23 @@ function renderDetailedReport(feedData, startMs, endMs, pkrPerKwh) {
   });
 
   const solarF = EXPORT_FEEDS.find(f => f.isSolar), breakerF = EXPORT_FEEDS.find(f => f.isBreaker);
+  
+  // Track totals for the footer summary
+  const colTotals = {};
+  EXPORT_FEEDS.forEach(f => {
+    colTotals[f.id] = { h24: 0, day: 0, night: 0 };
+  });
+
   let sumSolarWh = 0, sumGridWh = 0;
-  dates.forEach(d => { sumSolarWh += (sums[solarF.id].h24[d]||0); sumGridWh += (sums[breakerF.id].h24[d]||0); });
+  dates.forEach(d => { 
+    sumSolarWh += (sums[solarF.id].h24[d]||0); 
+    sumGridWh += (sums[breakerF.id].h24[d]||0); 
+    EXPORT_FEEDS.forEach(f => {
+      colTotals[f.id].h24 += (sums[f.id].h24[d] || 0);
+      colTotals[f.id].day += (sums[f.id].day[d] || 0);
+      colTotals[f.id].night += (sums[f.id].night[d] || 0);
+    });
+  });
 
   const totalSolarKwh = sumSolarWh / 1000.0, gridImportKwh = sumGridWh / 1000.0;
   const withoutSolarKwh = totalSolarKwh + gridImportKwh, coveragePct = withoutSolarKwh > 0 ? (totalSolarKwh / withoutSolarKwh * 100) : 0;
@@ -52,13 +67,61 @@ function renderDetailedReport(feedData, startMs, endMs, pkrPerKwh) {
     tableRows += `<td class=tot>${splitCell(combKwh.toFixed(2), fmtPkr(combKwh * pkrPerKwh))}</td><td class=col-save>${splitCell(saveKwh.toFixed(2), fmtPkr(saveKwh * pkrPerKwh))}</td><td class=col-bill>${splitCell(billKwh.toFixed(2), fmtPkr(billKwh * pkrPerKwh))}</td></tr>`;
   });
 
+  // Generate Summary Rows: Daily Avg and Total
+  const dayCount = dates.length || 1;
+  ['Daily Avg.', 'Total'].forEach(rowLabel => {
+    const isAvg = rowLabel === 'Daily Avg.';
+    const divisor = isAvg ? dayCount : 1;
+    
+    tableRows += `<tr class="tr"><td class="dt">${rowLabel}</td>`;
+    
+    // 1. Solar column
+    const solKwh = (colTotals[solarF.id].h24 / 1000) / divisor;
+    tableRows += `<td class="dv c24">${solKwh.toFixed(2)}</td>`;
+
+    // 2. Main Appliance columns
+    EXPORT_FEEDS.forEach(f => {
+      if (f.isSolar) return;
+      const h24 = (colTotals[f.id].h24 / 1000) / divisor;
+      const day = (colTotals[f.id].day / 1000) / divisor;
+      const night = (colTotals[f.id].night / 1000) / divisor;
+      tableRows += `<td class="c24">${h24.toFixed(2)}</td><td class="cday">${day.toFixed(2)}</td><td class="dv cnight">${night.toFixed(2)}</td>`;
+    });
+
+    // 3. Financial/Summary columns
+    const finalSolarKwh = totalSolarKwh / divisor;
+    const finalGridKwh = gridImportKwh / divisor;
+    const finalCombKwh = finalSolarKwh + finalGridKwh;
+
+    tableRows += `
+      <td class="tot">${splitCell(finalCombKwh.toFixed(2), fmtPkr(finalCombKwh * pkrPerKwh))}</td>
+      <td class="col-save">${splitCell(finalSolarKwh.toFixed(2), fmtPkr(finalSolarKwh * pkrPerKwh))}</td>
+      <td class="col-bill">${splitCell(finalGridKwh.toFixed(2), fmtPkr(finalGridKwh * pkrPerKwh))}</td>
+    </tr>`;
+  });
+
+  // Append Bottom Headers for readability
+  tableRows += `<tr class="h2"><td></td><td></td>`;
+  EXPORT_FEEDS.forEach(f => { if (!f.isSolar) tableRows += `<td class="c24">24hr</td><td class="cday">Day</td><td class="dv cnight">Night</td>`; });
+  tableRows += `<td></td><td></td><td></td></tr>`;
+  
+  tableRows += `<tr class="h1"><td class="dt">Date</td><td class="dv">Solar</td>`;
+  EXPORT_FEEDS.forEach(f => { if (!f.isSolar) tableRows += `<td colspan="3" class="dv">${f.name}</td>`; });
+  tableRows += `<td class="tot">Solar+Breaker</td><td class="col-save">Solar Saved</td><td class="col-bill">Grid Bill</td></tr>`;
+
   // --- Visual Sparkline Report Section ---
   const blocks = ['_', '\u2581', '\u2582', '\u2583', '\u2584', '\u2585', '\u2586', '\u2587', '\u2588'];
   let sparkTxt = `\nVisual Daily Summary (Scale: ${dates.length} days)\n--------------------------------------------------------------------------------\n`;
   EXPORT_FEEDS.forEach(f => {
-      const dArr = dates.map(d => sums[f.id].h24[d]);
-      const maxVal = Math.max(...dArr, 1);
-      let spark = ''; dArr.forEach(v => spark += blocks[Math.max(0, Math.min(8, Math.ceil((v/maxVal)*8)))]);
+      // Handle recently added feeds where data might be undefined for older dates
+      const dArr = dates.map(d => sums[f.id].h24[d] || 0);
+      const maxVal = Math.max(...dArr, 0.001); 
+      let spark = ''; 
+      dArr.forEach(v => {
+          const val = v || 0;
+          const idx = Math.max(0, Math.min(8, Math.ceil((val / maxVal) * 8)));
+          spark += blocks[idx] || '_';
+      });
       sparkTxt += f.name.padEnd(16) + ` [${spark}] max: ${(maxVal/1000).toFixed(1)}kWh\n`;
   });
 
@@ -77,4 +140,46 @@ function renderDetailedReport(feedData, startMs, endMs, pkrPerKwh) {
       <div class="table-scroll"><table>${tableRows}</table></div>
       <pre style="white-space:pre; margin:20px 0 0 0; font-family:monospace; border-top:1px dashed #d4d4d8; padding-top:20px; color:#71717a;">${sparkTxt}</pre>
     </div>`;
+}
+
+/**
+ * Controller to fetch data and render the detailed billing report.
+ */
+async function calculateDetailedReport() {
+  const out = document.getElementById('usage-report-content');
+  if (out) out.innerHTML = '<div class="sol-loading">Fetching billing history...</div>';
+
+  const m = parseInt(document.getElementById('report-month-m').value);
+  const y = parseInt(document.getElementById('report-month-y').value);
+  const { startMs, endMs } = billingRangeFor(y, m);
+  const pkrRate = (typeof solarCfg !== 'undefined') ? solarCfg.pkrPerUnit : 60;
+
+  const feedData = {};
+  try {
+    const promises = EXPORT_FEEDS.map(async (f) => {
+      feedData[f.id] = await fetchWithCache(f.id, startMs, endMs);
+    });
+    await Promise.all(promises);
+    renderDetailedReport(feedData, startMs, endMs, pkrRate);
+  } catch (e) {
+    console.error("Report Calc Failed:", e);
+    if (out) out.innerHTML = `<div class="sol-loading" style="color:#ef4444">Error: ${e.message}</div>`;
+  }
+}
+
+/**
+ * Helper to download the text portion of the calculated report.
+ */
+function downloadTextReport() {
+  const pre = document.querySelector('#usage-report-content pre');
+  if (!pre) {
+    alert('Calculate a report first.');
+    return;
+  }
+  const content = pre.textContent;
+  const blob = new Blob([content], { type: 'text/plain' });
+  const a = document.createElement('a');
+  a.download = `Usage_Report_${new Date().toISOString().split('T')[0]}.txt`;
+  a.href = URL.createObjectURL(blob);
+  a.click();
 }

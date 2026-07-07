@@ -319,6 +319,9 @@ function _handleGraphHover(e, pin) {
     tooltip.style.top  = top  + 'px';
 }
 
+
+
+
 // ---- _drawChart with Multi-Line support + dual Y-axis for overlay ----
 function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombined, nav, lastIdx, multiData,
                    minV, maxV, range, barsTemp = [], tempMinV = 0, tempMaxV = 100, tempRange = 100, tempUnit = '°C', tempColor = '#10b981', overlayLabel = '') {

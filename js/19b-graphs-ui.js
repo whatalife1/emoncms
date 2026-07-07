@@ -71,7 +71,12 @@ window.generateGraphReport = async function() {
     const breakerF = EXPORT_FEEDS.find(f => f.isBreaker);
     const reportDates = Object.keys(sums[solarF.id].h24).sort();
     const nightHoursPerDay = 15; // 5 PM to 8 AM
-    const totalKwhCombined = (Object.values(sums[solarF.id].h24).reduce((a,b)=>a+b,0) + Object.values(sums[breakerF.id].h24).reduce((a,b)=>a+b,0)) / 1000;
+    
+    // Calculate Total consumption (excluding Solar)
+    const totalKwhCombined = EXPORT_FEEDS.reduce((sum, f) => {
+        if (f.isSolar) return sum;
+        return sum + (Object.values(sums[f.id].h24).reduce((a,b)=>a+b,0) / 1000);
+    }, 0);
     
     // Calculate Day and Night totals for percentage calculations
     const totalDayKwh = EXPORT_FEEDS.reduce((sum, f) => {
@@ -116,14 +121,14 @@ window.generateGraphReport = async function() {
         const nightKwh = nightWh / 1000;
         const avg = totalKwh / reportDates.length;
         const avgNightW = nightWh / (reportDates.length * nightHoursPerDay);
-        const pct = totalKwhCombined > 0 ? (totalKwh / totalKwhCombined * 100).toFixed(1) : 0;
         
-        // Calculate Day and Night percentages
-        const dayPct = (f.isSolar || totalDayKwh === 0) ? '-' : (dayKwh / totalDayKwh * 100).toFixed(1);
-        const nightPct = (f.isSolar || totalNightKwh === 0) ? '-' : (nightKwh / totalNightKwh * 100).toFixed(1);
+        // Calculate percentages based on TOTAL consumption (excluding Solar)
+        const totalPct = totalKwhCombined > 0 ? (totalKwh / totalKwhCombined * 100).toFixed(1) : 0;
+        const dayPct = (f.isSolar || totalKwhCombined === 0) ? '-' : (dayKwh / totalKwhCombined * 100).toFixed(1);
+        const nightPct = (f.isSolar || totalKwhCombined === 0) ? '-' : (nightKwh / totalKwhCombined * 100).toFixed(1);
         
         // Tabular part for TXT
-        txt += `${f.name}\t${totalKwh.toFixed(2)}\t${f.isSolar?'-':dayKwh.toFixed(2)}\t${f.isSolar?'-':dayPct + '%'}\t${f.isSolar?'-':nightKwh.toFixed(2)}\t${f.isSolar?'-':nightPct + '%'}\t${f.isSolar?'-':Math.round(avgNightW) + ' W'}\t${avg.toFixed(2)}\t${pct}%\n`;
+        txt += `${f.name}\t${totalKwh.toFixed(2)}\t${f.isSolar?'-':dayKwh.toFixed(2)}\t${f.isSolar?'-':dayPct + '%'}\t${f.isSolar?'-':nightKwh.toFixed(2)}\t${f.isSolar?'-':nightPct + '%'}\t${f.isSolar?'-':Math.round(avgNightW) + ' W'}\t${avg.toFixed(2)}\t${totalPct}%\n`;
 
         // Populate HTML Table
         let color = "var(--text-main)";
@@ -139,18 +144,18 @@ window.generateGraphReport = async function() {
             <td style="border:1px solid var(--border); padding:6px; text-align:right; color:#c084fc;">${f.isSolar?'-':nightPct + '%'}</td>
             <td style="border:1px solid var(--border); padding:6px; text-align:right; color:#c084fc;">${f.isSolar?'-':Math.round(avgNightW) + ' W'}</td>
             <td style="border:1px solid var(--border); padding:6px; text-align:right;">${avg.toFixed(2)}</td>
-            <td style="border:1px solid var(--border); padding:6px; text-align:right;">${pct}%</td>
+            <td style="border:1px solid var(--border); padding:6px; text-align:right;">${totalPct}%</td>
         </tr>`;
     });
 
-    // Add a summary row showing total Day/Night percentages
+    // Add a summary row showing totals
     html += `<tr style="background:var(--bg-card); font-weight:bold;">
         <td style="border:1px solid var(--border); padding:6px;">TOTAL</td>
         <td style="border:1px solid var(--border); padding:6px; text-align:right;">${totalKwhCombined.toFixed(2)}</td>
         <td style="border:1px solid var(--border); padding:6px; text-align:right; color:var(--accent-solar);">${totalDayKwh.toFixed(2)}</td>
-        <td style="border:1px solid var(--border); padding:6px; text-align:right; color:var(--accent-solar);">100%</td>
+        <td style="border:1px solid var(--border); padding:6px; text-align:right; color:var(--accent-solar);">${(totalDayKwh / totalKwhCombined * 100).toFixed(1)}%</td>
         <td style="border:1px solid var(--border); padding:6px; text-align:right; color:#c084fc;">${totalNightKwh.toFixed(2)}</td>
-        <td style="border:1px solid var(--border); padding:6px; text-align:right; color:#c084fc;">100%</td>
+        <td style="border:1px solid var(--border); padding:6px; text-align:right; color:#c084fc;">${(totalNightKwh / totalKwhCombined * 100).toFixed(1)}%</td>
         <td style="border:1px solid var(--border); padding:6px; text-align:right;">-</td>
         <td style="border:1px solid var(--border); padding:6px; text-align:right;">${(totalKwhCombined / reportDates.length).toFixed(2)}</td>
         <td style="border:1px solid var(--border); padding:6px; text-align:right;">100%</td>
@@ -186,10 +191,9 @@ window.generateGraphReport = async function() {
         const nightKwh = nightWh / 1000;
         const avg = totalKwh / reportDates.length;
         const avgNightW = nightWh / (reportDates.length * nightHoursPerDay);
-        const pct = totalKwhCombined > 0 ? (totalKwh / totalKwhCombined * 100).toFixed(1) : 0;
-        
-        const dayPct = (f.isSolar || totalDayKwh === 0) ? '-' : (dayKwh / totalDayKwh * 100).toFixed(1);
-        const nightPct = (f.isSolar || totalNightKwh === 0) ? '-' : (nightKwh / totalNightKwh * 100).toFixed(1);
+        const totalPct = totalKwhCombined > 0 ? (totalKwh / totalKwhCombined * 100).toFixed(1) : 0;
+        const dayPct = (f.isSolar || totalKwhCombined === 0) ? '-' : (dayKwh / totalKwhCombined * 100).toFixed(1);
+        const nightPct = (f.isSolar || totalKwhCombined === 0) ? '-' : (nightKwh / totalKwhCombined * 100).toFixed(1);
         
         const rowName = f.name.substring(0,15).padEnd(16);
         const rowTot  = totalKwh.toFixed(2).padStart(8);
@@ -199,7 +203,7 @@ window.generateGraphReport = async function() {
         const rowNgtP = (f.isSolar ? "-" : nightPct + "%").padStart(8);
         const rowAnW  = (f.isSolar ? "-" : Math.round(avgNightW)).toString().padStart(8);
         const rowAvgD = avg.toFixed(2).padStart(8);
-        const rowPct  = (pct + "%").padStart(8);
+        const rowPct  = (totalPct + "%").padStart(8);
         
         txt += `${rowName}${rowTot}${rowDay}${rowDayP}${rowNgt}${rowNgtP}${rowAnW}${rowAvgD}${rowPct}\n`;
         txt += `                 [${makeSparkline(f.id)}\n`;

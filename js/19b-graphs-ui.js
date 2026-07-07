@@ -330,14 +330,10 @@ function _gNavInfo() {
     if (graphTab === 'year') {
         const y = now.getFullYear() + graphYearNav;
         // For Year view, we want 12 bars (Jan to Dec)
-        // Show from Jan 1 to Dec 31 of the selected year
         const start = new Date(y, 0, 1);
         const end = new Date(y, 11, 31, 23, 59, 59);
-        // Monthly labels: Jan, Feb, Mar, etc.
         const labels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-        // Calculate days in each month for proper aggregation
         const daysInMonth = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-        // Adjust for leap year
         if ((y % 4 === 0 && y % 100 !== 0) || (y % 400 === 0)) {
             daysInMonth[1] = 29;
         }

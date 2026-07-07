@@ -22,8 +22,9 @@ function _formatStatLine(icon, label, mainVal, accentColor, peakVal, avgVal, nig
     const isTemp = lblLower.includes('temp') || lblLower.includes('\u00b0c');
     const isWater = lblLower.includes('water') || lblLower.includes('tank');
     const isDay = currentTab === 'day';
-    const hideNight = isSolar || isTemp || isWater || (currentTab !== 'day' && currentTab !== 'month');
-    const peakLabel = isDay ? "Peak" : "Max Day";
+    // Only hide night for solar, temp, water in day view, or for month view
+    const hideNight = isSolar || isTemp || isWater || (currentTab === 'month');
+    const peakLabel = isDay ? "Peak" : (currentTab === 'year' ? "Max Month" : "Max Day");
     const avgLabel  = isDay ? "Avg"  : (currentTab === 'month' ? "Daily Avg" : "Monthly Avg");
     let peakColor = accentColor; if (peakVal > 1500 && isDay && !isTemp) peakColor = '#ef4444';
     const fsMain = isCompact ? '12px' : '15px'; const fsLabel = isCompact ? '11px' : '13px';
@@ -124,11 +125,20 @@ async function _loadAndDraw() {
         _drawChart(canvas, bars1, bars2, nav.labels, color1, color2, unit, isCombined, nav, lastIdx, multiData, minV, maxV, maxV-minV, barsTemp, graphDataCache.tempMinV, graphDataCache.tempMaxV, graphDataCache.tempRange, graphDataCache.tempUnit, graphDataCache.tempColor, graphDataCache.overlayLabel);
 
         const isAvgF = isTemp || graphFeedKey === 'water' || graphFeedKey === 'acvolts';
+        
+        // CRITICAL FIX: Convert Wh to kWh for night calculations in month/year view
         const calcNgt = (pts) => {
-            const hrs = [17,18,19,20,21,22,23,0,1,2,3,4,5,6,7]; let tot = 0;
-            for (const [ts, v] of pts) { if (v != null && hrs.includes(new Date(ts).getHours())) tot += v; }
+            const hrs = [17,18,19,20,21,22,23,0,1,2,3,4,5,6,7]; 
+            let tot = 0;
+            for (const [ts, v] of pts) { 
+                if (v != null && hrs.includes(new Date(ts).getHours())) {
+                    // Convert Wh to kWh by dividing by 1000
+                    tot += v / 1000;
+                }
+            }
             return { avg: tot / Math.max(1, nav.nBars || 1), total: tot };
         };
+        
         // For month/year, bars are already in kWh, so df = 1
         // For day, bars are in Watts, convert to kWh by dividing by 1000
         const df = (graphTab === 'month' || graphTab === 'year') ? 1 : (nav.resSeconds / 3600) / 1000;
@@ -141,11 +151,18 @@ async function _loadAndDraw() {
                 const isSolar = m.label.toLowerCase() === 'solar';
                 if (graphTab === 'month') { 
                     av = m.data.length > 0 ? t / m.data.length : 0; 
-                    if (!isSolar) { const n = calcNgt(m.rawPts||[]); nAv = n.avg; nTt = n.total; } 
+                    if (!isSolar) { 
+                        const n = calcNgt(m.rawPts||[]); 
+                        nAv = n.avg; 
+                        nTt = n.total; 
+                    } 
                 } else if (graphTab === 'year') {
-                    // Year view: t is sum of monthly totals, av = average monthly
                     av = m.data.length > 0 ? t / m.data.length : 0;
-                    if (!isSolar) { const n = calcNgt(m.rawPts||[]); nAv = n.avg; nTt = n.total; }
+                    if (!isSolar) { 
+                        const n = calcNgt(m.rawPts||[]); 
+                        nAv = n.avg; 
+                        nTt = n.total; 
+                    }
                 } else if (graphTab === 'day') { 
                     const stats = _calcStatsForRange(m.data, (isSolar?5:0), (isSolar?17:24), nav, lastIdx);
                     av = isSolar ? stats.avg : stats.activeAvg;
@@ -169,7 +186,6 @@ async function _loadAndDraw() {
                 n2 = n.avg; 
                 nt2 = n.total; 
             } else if (graphTab === 'year') {
-                // Year view: t1 and t2 are sums of monthly totals, a1/a2 = average monthly
                 a1 = bars1.length > 0 ? t1 / bars1.length : 0;
                 a2 = bars2.length > 0 ? t2 / bars2.length : 0;
                 const n = calcNgt(pts2);
@@ -200,7 +216,6 @@ async function _loadAndDraw() {
                     nTt = n.total; 
                 } 
             } else if (graphTab === 'year') {
-                // Year view: t1 is sum of monthly totals, av = average monthly
                 av = bars1.length > 0 ? t1 / bars1.length : 0;
                 if(graphFeedKey !== 'solar' && !isAvgF) { 
                     const n = calcNgt(pts1); 
@@ -309,7 +324,8 @@ function _pointsToBars(pts, nav, feedKey) {
 
 async function _gFetch(feedId, startMs, endMs, interval) {
     if (!feedId) return []; 
-    const useDelta = (window.graphTab !== "day") ? 1 : 0;
+    // Use delta=1 for month view (cumulative totals), delta=0 for day/year (incremental)
+    const useDelta = (window.graphTab === "month") ? 1 : 0;
     const url = `${PROXY_BASE}/feed/data.json?ids=${feedId}&start=${startMs}&end=${endMs}&skipmissing=0&average=1&delta=${useDelta}&interval=${interval}`;
     try { 
         const text = await nativeFetch(url); 

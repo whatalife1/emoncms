@@ -167,6 +167,11 @@ function _handleGraphHover(e, pin) {
     const closeBtn = pin ? `<span class="close-btn" onclick="hideTooltip();">✕</span>` : '';
     let html = `<div style="font-weight:700;font-size:11px;color:var(--text-muted);margin-bottom:4px">${labels[idx] || ''} ${closeBtn}</div>`;
 
+    // Determine if we're in month/year view (kWh) or day view (W)
+    const isMonthOrYear = graphTab === 'month' || graphTab === 'year';
+    const isDayView = graphTab === 'day';
+    const isKwhView = isMonthOrYear;
+
     if (multiData && multiData.length > 0) {
         let minDist = 999;
         for (let i = 0; i < multiData.length; i++) {
@@ -180,7 +185,18 @@ function _handleGraphHover(e, pin) {
         multiData.forEach((line, i) => {
             const val = (line.data[idx] ?? 0);
             const isTemp = unit === '°C';
-            const valStr = graphTab === 'day' ? (isTemp ? val.toFixed(1) : Math.round(val)) + ' ' + unit : val.toFixed(2) + ' ' + unit;
+            // Format based on view: kWh for month/year, W for day
+            let valStr;
+            if (isKwhView) {
+                // Month/Year: show as kWh
+                valStr = val.toFixed(2) + ' kWh';
+            } else if (isDayView) {
+                // Day: show as Watts (or °C for temp)
+                valStr = isTemp ? val.toFixed(1) + ' °C' : Math.round(val) + ' W';
+            } else {
+                // Fallback
+                valStr = isTemp ? val.toFixed(1) + ' °C' : val.toFixed(2) + ' ' + unit;
+            }
             const isFocused = (closestLineIdx === i + 1);
             const focusStyle = isFocused ? 'font-weight:900;font-size:13px;filter:brightness(1.2);' : 'opacity:0.6;';
             html += `<div style="color:${line.color};margin:2px 0;${focusStyle}">
@@ -193,7 +209,14 @@ function _handleGraphHover(e, pin) {
         if (isDualY && barsTemp && idx < barsTemp.length) {
             const tempVal = barsTemp[idx] ?? 0;
             const isOvTemp = tempUnit === '°C';
-            const tempValStr = isOvTemp ? tempVal.toFixed(1) + ' °C' : Math.round(tempVal) + ' W';
+            let tempValStr;
+            if (isKwhView) {
+                tempValStr = tempVal.toFixed(2) + ' kWh';
+            } else if (isDayView) {
+                tempValStr = isOvTemp ? tempVal.toFixed(1) + ' °C' : Math.round(tempVal) + ' W';
+            } else {
+                tempValStr = isOvTemp ? tempVal.toFixed(1) + ' °C' : Math.round(tempVal) + ' W';
+            }
             const labelStr = overlayLabel || (isOvTemp ? 'Temp' : 'AC');
             html += `<div style="color:${tempColor};margin:2px 0;">
                 <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${tempColor};margin-right:5px;"></span>
@@ -204,12 +227,38 @@ function _handleGraphHover(e, pin) {
         // Single/combined line
         const isTempCombined = graphFeedKey === 'temp' || graphFeedKey === 'temp2';
         const isTemp = unit === '°C' || isTempCombined;
-        const val1 = (isTemp ? bars1[idx].toFixed(1) : Math.round(bars1[idx])) + ' ' + (isTempCombined ? '°C' : unit);
+        
+        // Format based on view: kWh for month/year, W for day
+        let val1;
+        if (isKwhView) {
+            // Month/Year: show as kWh
+            val1 = (isTemp ? bars1[idx].toFixed(1) : bars1[idx].toFixed(2)) + ' kWh';
+        } else if (isDayView) {
+            // Day: show as Watts (or °C for temp)
+            val1 = (isTemp ? bars1[idx].toFixed(1) : Math.round(bars1[idx])) + ' ' + (isTempCombined ? '°C' : unit);
+        } else {
+            val1 = (isTemp ? bars1[idx].toFixed(1) : bars1[idx].toFixed(2)) + ' ' + (isTempCombined ? '°C' : unit);
+        }
+        
         let val2 = '';
         let c2 = color2;
-        if (isCombined) val2 = Math.round(bars2[idx]) + ' ' + unit;
+        if (isCombined) {
+            if (isKwhView) {
+                val2 = bars2[idx].toFixed(2) + ' kWh';
+            } else if (isDayView) {
+                val2 = Math.round(bars2[idx]) + ' ' + unit;
+            } else {
+                val2 = bars2[idx].toFixed(2) + ' ' + unit;
+            }
+        }
         if (isTempCombined) { 
-            val2 = Math.round(bars2[idx]) + ' %';
+            if (isKwhView) {
+                val2 = bars2[idx].toFixed(2) + ' kWh';
+            } else if (isDayView) {
+                val2 = Math.round(bars2[idx]) + ' %';
+            } else {
+                val2 = bars2[idx].toFixed(2) + ' %';
+            }
             c2 = '#6366f1';
         }
         
@@ -224,11 +273,18 @@ function _handleGraphHover(e, pin) {
         const l1 = isTempCombined ? 'Temp' : (isCombined ? 'Solar' : null);
         const l2 = isTempCombined ? 'Hum' : (isCombined ? 'Grid' : null);
 
-        // showTooltip function needs to handle the overlay data too, so we directly set html
+        // Show tooltip with overlay data if present
         if (isDualY && barsTemp && idx < barsTemp.length) {
             const tempVal = barsTemp[idx] ?? 0;
             const isOvTemp = tempUnit === '°C';
-            const tempValStr = isOvTemp ? tempVal.toFixed(1) + ' °C' : Math.round(tempVal) + ' W';
+            let tempValStr;
+            if (isKwhView) {
+                tempValStr = tempVal.toFixed(2) + ' kWh';
+            } else if (isDayView) {
+                tempValStr = isOvTemp ? tempVal.toFixed(1) + ' °C' : Math.round(tempVal) + ' W';
+            } else {
+                tempValStr = isOvTemp ? tempVal.toFixed(1) + ' °C' : Math.round(tempVal) + ' W';
+            }
             const labelStr = overlayLabel || (isOvTemp ? 'Temp' : 'AC');
             html += `<div style="color:${tempColor};margin:2px 0;">
                 <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${tempColor};margin-right:5px;"></span>
@@ -294,6 +350,12 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
 
     ctx.clearRect(0, 0, rect.width, rect.height);
 
+    // Determine if we're in month/year view (kWh) or day view (W)
+    const isMonthOrYear = graphTab === 'month' || graphTab === 'year';
+    const isKwhView = isMonthOrYear;
+    const displayUnit = isKwhView ? 'kWh' : unit;
+    const isKwhForDisplay = displayUnit === 'kWh';
+
     // ---- Left Y-axis grid ----
     ctx.fillStyle = '#71717a';
     ctx.font = '9px system-ui';
@@ -302,13 +364,33 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
     for (let i = 0; i <= numGridLines; i++) {
         const val = minV + (i / numGridLines) * range;
         const y   = PT + cH - (i / numGridLines) * cH;
-        const lbl = isTemp ? val.toFixed(1) + '°' : Math.round(val).toLocaleString();
+        let lbl;
+        if (isKwhView) {
+            // Month/Year: show as kWh
+            lbl = val.toFixed(1);
+        } else if (isTemp) {
+            lbl = val.toFixed(1) + '°';
+        } else {
+            lbl = Math.round(val).toLocaleString();
+        }
         ctx.fillText(lbl, PL - 5, y + 3);
         ctx.strokeStyle = 'rgba(255,255,255,0.05)';
         ctx.beginPath();
         ctx.moveTo(PL, y);
         ctx.lineTo(PL + cW, y);
         ctx.stroke();
+    }
+
+    // Add unit label to Y-axis
+    ctx.fillStyle = '#71717a';
+    ctx.font = '8px system-ui';
+    ctx.textAlign = 'center';
+    if (isKwhView) {
+        ctx.fillText('kWh', 10, PT + 8);
+    } else if (isTemp) {
+        ctx.fillText('°C', 10, PT + 8);
+    } else {
+        ctx.fillText('W', 10, PT + 8);
     }
 
     // ---- Right Y-axis grid for overlay ----
@@ -321,13 +403,30 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
         for (let i = 0; i <= 4; i++) {
             const val = tempMinV + (i / 4) * tempRange;
             const y = PT + cH - (i / 4) * cH;
-            const lbl = isOvTemp ? val.toFixed(1) + '°' : Math.round(val).toLocaleString();
+            let lbl;
+            if (isKwhView) {
+                lbl = val.toFixed(1);
+            } else if (isOvTemp) {
+                lbl = val.toFixed(1) + '°';
+            } else {
+                lbl = Math.round(val).toLocaleString();
+            }
             ctx.fillText(lbl, rightX, y + 3);
         }
         ctx.strokeStyle = 'rgba(255,255,255,0.05)';
         for (let i = 0; i <= 4; i++) {
             const y = PT + cH - (i / 4) * cH;
             ctx.beginPath(); ctx.moveTo(PL, y); ctx.lineTo(PL + cW, y); ctx.stroke();
+        }
+        
+        // Add unit label for right Y-axis
+        ctx.fillStyle = '#71717a';
+        ctx.font = '8px system-ui';
+        ctx.textAlign = 'center';
+        if (isKwhView) {
+            ctx.fillText('kWh', rect.width - 10, PT + 8);
+        } else {
+            ctx.fillText('W', rect.width - 10, PT + 8);
         }
     }
 

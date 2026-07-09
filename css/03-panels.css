@@ -123,7 +123,6 @@ input[type=number], input[type=text], input[type=date], select {
     max-width: 448px;
   }
   
-  /* Constrain pop-ups to the centered mobile layout on desktop */
   .slide-panel, #solar-panel, #settings, #widgets-panel, #alerts-panel {
     max-width: 450px;
     left: 0 !important;
@@ -135,7 +134,6 @@ input[type=number], input[type=text], input[type=date], select {
     box-shadow: 0 -4px 20px rgba(0,0,0,0.5);
   }
 
-  /* Specific override ONLY for the detailed usage report panel so it stays full screen */
   #usage-report-panel {
     max-width: 100% !important;
     left: 0 !important;

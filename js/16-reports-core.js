@@ -1,4 +1,3 @@
-// Map feeds from Config so IDs are always in sync
 const EXPORT_FEEDS = [
   { id: FEEDS_BASE.find(f => f.name === "Solar")?.id,       name: "Solar",        isSolar:   true },
   { id: FEEDS_BASE.find(f => f.name === "Breaker")?.id,     name: "Breaker",      isBreaker: true },
@@ -19,32 +18,32 @@ const EXPORT_PC_DAY_START = 6;
 const EXPORT_PC_DAY_END   = 17;
 
 function getKarachiDate(ms) {
-  const date = new Date(ms);
-  const formatter = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'Asia/Karachi', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', hour12: false
-  });
-  const parts = formatter.formatToParts(date);
-  const map = {};
-  for (const part of parts) map[part.type] = part.value;
-  return {
-    year: parseInt(map.year) || date.getUTCFullYear(),
-    month: parseInt(map.month) || (date.getUTCMonth() + 1),
-    day: parseInt(map.day) || date.getUTCDate(),
-    hour: parseInt(map.hour) || date.getUTCHours()
-  };
+    // Determine if device is native GMT+5
+    const isPkt = (new Date().getTimezoneOffset() === -300);
+    const d = isPkt ? new Date(ms) : new Date(ms + 18000000);
+    
+    return {
+        year: isPkt ? d.getFullYear() : d.getUTCFullYear(),
+        month: (isPkt ? d.getMonth() : d.getUTCMonth()) + 1,
+        day: isPkt ? d.getDate() : d.getUTCDate(),
+        hour: isPkt ? d.getHours() : d.getUTCHours()
+    };
 }
 
 function billingRangeFor(year, month) {
-  // Karachi is UTC+5. To get 00:00 PKT on the 26th, we need 19:00 UTC on the 25th.
-  const endMs = new Date(year, month - 1, 26, 0, 0, 0).getTime();
-  const startMs = new Date(year, month - 2, 25, 0, 0, 0).getTime();
-  return { startMs, endMs };
+    // Always calculate using UTC and offset to ensure stability
+    const start = new Date(Date.UTC(year, month - 1, 25, 0, 0, 0));
+    const end = new Date(Date.UTC(year, month, 26, 0, 0, 0));
+    return { 
+        startMs: start.getTime() - 18000000, 
+        endMs: end.getTime() - 18000000 
+    };
 }
 
 function currentHourMs() {
-  const now = new Date();
-  now.setMinutes(0, 0, 0);
-  return now.getTime() + 3600 * 1000;
+    const now = getPktNow();
+    now.setMinutes(0, 0, 0);
+    return now.getTime() + 3600 * 1000;
 }
 
 let reportCache = {};
@@ -64,7 +63,6 @@ async function fetchWithCache(feedId, startMs, endMs) {
   const feedCache = reportCache[feedId];
   
   const timestamps = Object.keys(feedCache).map(Number).sort((a,b)=>a-b);
-  // Check if start of range is actually covered by cache
   const startExists = timestamps.length > 0 && timestamps[0] <= startMs + 3600000;
   
   let fetchStartMs = startMs;
@@ -77,11 +75,10 @@ async function fetchWithCache(feedId, startMs, endMs) {
     if (maxSafe !== -1) fetchStartMs = maxSafe;
   }
 
-  // Only fetch if we have a gap or need live data
   if (fetchStartMs < endMs - 60000) {
     const freshData = await fetchHourly(feedId, fetchStartMs, endMs);
     for (const [ts, val] of Object.entries(freshData)) feedCache[ts] = val;
-    saveReportCache();
+    // Removed saveReportCache() from here to speed up parallel fetches
   }
   
   const result = {};
@@ -124,11 +121,9 @@ function sumByDay(data, startHour, endHour) {
     const timestamp = parseInt(timestampStr);
     const local = getKarachiDate(timestamp);
     const hour = local.hour;
-    // Check if hour is in the defined range
     const inPeriod = allDay || (wrapsMidnight ? (hour >= startHour || hour < endHour) : (hour >= startHour && hour < endHour));
     if (!inPeriod) continue;
     
-    // We group by the calendar date of the record so that 24hr = Day + Night
     const key = `${local.year}-${String(local.month).padStart(2, '0')}-${String(local.day).padStart(2, '0')}`;
     result[key] = (result[key] || 0) + watts;
   }

@@ -25,7 +25,6 @@ function renderDetailedReport(feedData, startMs, endMs, pkrPerKwh) {
 
   const solarF = EXPORT_FEEDS.find(f => f.isSolar), breakerF = EXPORT_FEEDS.find(f => f.isBreaker);
   
-  // Track totals for the footer summary
   const colTotals = {};
   EXPORT_FEEDS.forEach(f => {
     colTotals[f.id] = { h24: 0, day: 0, night: 0 };
@@ -67,7 +66,6 @@ function renderDetailedReport(feedData, startMs, endMs, pkrPerKwh) {
     tableRows += `<td class=tot>${splitCell(combKwh.toFixed(2), fmtPkr(combKwh * pkrPerKwh))}</td><td class=col-save>${splitCell(saveKwh.toFixed(2), fmtPkr(saveKwh * pkrPerKwh))}</td><td class=col-bill>${splitCell(billKwh.toFixed(2), fmtPkr(billKwh * pkrPerKwh))}</td></tr>`;
   });
 
-  // Generate Summary Rows: Daily Avg and Total
   const dayCount = dates.length || 1;
   ['Daily Avg.', 'Total'].forEach(rowLabel => {
     const isAvg = rowLabel === 'Daily Avg.';
@@ -75,11 +73,9 @@ function renderDetailedReport(feedData, startMs, endMs, pkrPerKwh) {
     
     tableRows += `<tr class="tr"><td class="dt">${rowLabel}</td>`;
     
-    // 1. Solar column
     const solKwh = (colTotals[solarF.id].h24 / 1000) / divisor;
     tableRows += `<td class="dv c24">${solKwh.toFixed(2)}</td>`;
 
-    // 2. Main Appliance columns
     EXPORT_FEEDS.forEach(f => {
       if (f.isSolar) return;
       const h24 = (colTotals[f.id].h24 / 1000) / divisor;
@@ -88,7 +84,6 @@ function renderDetailedReport(feedData, startMs, endMs, pkrPerKwh) {
       tableRows += `<td class="c24">${h24.toFixed(2)}</td><td class="cday">${day.toFixed(2)}</td><td class="dv cnight">${night.toFixed(2)}</td>`;
     });
 
-    // 3. Financial/Summary columns
     const finalSolarKwh = totalSolarKwh / divisor;
     const finalGridKwh = gridImportKwh / divisor;
     const finalCombKwh = finalSolarKwh + finalGridKwh;
@@ -100,20 +95,17 @@ function renderDetailedReport(feedData, startMs, endMs, pkrPerKwh) {
     </tr>`;
   });
 
-  // Append Bottom Headers for readability
   tableRows += `<tr class="h2"><td></td><td></td>`;
   EXPORT_FEEDS.forEach(f => { if (!f.isSolar) tableRows += `<td class="c24">24hr</td><td class="cday">Day</td><td class="dv cnight">Night</td>`; });
   tableRows += `<td></td><td></td><td></td></tr>`;
   
-  tableRows += `<tr class="h1"><td class="dt">Date</td><td class="dv">Solar</td>`;
+  tableRows += `<tr class="h1"><td class="dt">Date (PKT)</td><td class="dv">Solar</td>`;
   EXPORT_FEEDS.forEach(f => { if (!f.isSolar) tableRows += `<td colspan="3" class="dv">${f.name}</td>`; });
   tableRows += `<td class="tot">Solar+Breaker</td><td class="col-save">Solar Saved</td><td class="col-bill">Grid Bill</td></tr>`;
 
-  // --- Visual Sparkline Report Section ---
   const blocks = ['_', '\u2581', '\u2582', '\u2583', '\u2584', '\u2585', '\u2586', '\u2587', '\u2588'];
   let sparkTxt = `\nVisual Daily Summary (Scale: ${dates.length} days)\n--------------------------------------------------------------------------------\n`;
   EXPORT_FEEDS.forEach(f => {
-      // Handle recently added feeds where data might be undefined for older dates
       const dArr = dates.map(d => sums[f.id].h24[d] || 0);
       const maxVal = Math.max(...dArr, 0.001); 
       let spark = ''; 
@@ -142,9 +134,6 @@ function renderDetailedReport(feedData, startMs, endMs, pkrPerKwh) {
     </div>`;
 }
 
-/**
- * Controller to fetch data and render the detailed billing report.
- */
 async function calculateDetailedReport() {
   const out = document.getElementById('usage-report-content');
   if (out) out.innerHTML = '<div class="sol-loading">Fetching billing history...</div>';
@@ -167,9 +156,6 @@ async function calculateDetailedReport() {
   }
 }
 
-/**
- * Helper to download the text portion of the calculated report.
- */
 function downloadTextReport() {
   const pre = document.querySelector('#usage-report-content pre');
   if (!pre) {
@@ -179,7 +165,7 @@ function downloadTextReport() {
   const content = pre.textContent;
   const blob = new Blob([content], { type: 'text/plain' });
   const a = document.createElement('a');
-  a.download = `Usage_Report_${new Date().toISOString().split('T')[0]}.txt`;
+  a.download = `Usage_Report_${new Date().toISOString().split('T')[0]}_PKT.txt`;
   a.href = URL.createObjectURL(blob);
   a.click();
 }

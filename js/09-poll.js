@@ -7,7 +7,7 @@ window.addDebugLog = function(msg) {
   const debugOn = document.getElementById('debug-toggle')?.checked;
   if (dbg && debugOn) {
     if (dbg.textContent.includes('Waiting for refresh')) dbg.innerHTML = '';
-    const time = new Date().toLocaleTimeString([], { hour12: false });
+    const time = formatPktTime(Date.now(), 'time');
     dbg.innerHTML = `<div style="margin-bottom:4px; border-bottom:1px solid var(--border); padding-bottom:4px;"><span style="color:var(--text-muted);font-size:10px;">[${time}]</span> <span style="word-break:break-word;">${msg}</span></div>` + dbg.innerHTML.substring(0, 3000);
   }
 };
@@ -35,7 +35,9 @@ async function poll() {
   const btn = document.getElementById('btn-refresh');
   const footer = document.getElementById('footer');
   const dbg = document.getElementById('debug-info');
-  const startOfToday = new Date().setHours(0,0,0,0) / 1000;
+  
+  const pktNow = getPktNow();
+  const startOfToday = new Date(pktNow.getFullYear(), pktNow.getMonth(), pktNow.getDate()).getTime() / 1000;
   
   if (btn) {
     btn.disabled = true;
@@ -53,7 +55,6 @@ async function poll() {
     const bulkData = await fetchEmonBulk();
     if (!bulkData) throw new Error("No data received");
 
-    // --- Water Flow Rate Calculation ---
     if (window.lastFlowRate === undefined) {
       window.lastFlowRate = parseFloat(localStorage.getItem('water_last_flow_rate')) || 0;
     }
@@ -93,7 +94,6 @@ async function poll() {
           const timeDiffMin = (now - window.prevTankTime) / 60000;
           if (timeDiffMin > 0.1) {
             const calculatedFlow = (pctDiff * 10) / timeDiffMin;
-            // Filter out extreme noise / telemetry glitches
             if (calculatedFlow > 0.5 && calculatedFlow < 150) {
               window.waterFlowRate = calculatedFlow;
               window.lastFlowRate = calculatedFlow;
@@ -101,7 +101,6 @@ async function poll() {
               localStorage.setItem('water_last_flow_rate', calculatedFlow.toString());
               localStorage.setItem('water_last_motor_on_time', now.toString());
               
-              // Start of session check
               if (window.fillSessionStartTime === null || window.fillSessionStartLevel === null) {
                 window.fillSessionStartTime = window.prevTankTime;
                 window.fillSessionStartLevel = window.prevTankLevel;
@@ -109,7 +108,6 @@ async function poll() {
                 localStorage.setItem('water_session_start_level', window.fillSessionStartLevel.toString());
               }
               
-              // Calculate Session Average Flow
               const totalElapsedMin = (now - window.fillSessionStartTime) / 60000;
               if (totalElapsedMin > 0.1) {
                 const totalPctDiff = curTank - window.fillSessionStartLevel;
@@ -127,13 +125,10 @@ async function poll() {
             }
           }
         } else if (pctDiff < 0) {
-          // Drop in level (noise or usage), reset baseline to avoid carrying over negative diff
           window.waterFlowRate = 0;
           window.prevTankLevel = curTank;
           window.prevTankTime = now;
         } else {
-          // pctDiff === 0: level hasn't changed yet. Do NOT reset baseline or flow rate!
-          // If no increase has been detected for > 15 mins, assume filling has stopped.
           if (now - window.prevTankTime > 15 * 60 * 1000) {
             window.waterFlowRate = 0;
             window.fillSessionStartTime = null;
@@ -154,7 +149,6 @@ async function poll() {
         window.addDebugLog(`<b>Proxy Bulk:</b> OK (${fetchTime}ms, ${bulkData.size} feeds)`);
     }
 
-    // Added Fallback: If bulkData misses a feed, fetch it directly
     const results = await Promise.all(userOrderedFeeds.filter(f => f.enabled).map(async f => {
       const entry = bulkData.get(String(f.id));
       let val = entry ? entry.v : null;
@@ -164,18 +158,15 @@ async function poll() {
         try { val = await fetchEmon(f.id); } catch(err) {}
       }
 
-      // Handle 'Today' cumulative reset (both seconds and milliseconds timestamps)
       if (f.name.toLowerCase().includes('today') && val !== null) {
         if (time) {
           const timestampMs = time < 2000000000 ? time * 1000 : time;
           if (timestampMs < (startOfToday * 1000)) {
-            if (window.addDebugLog) window.addDebugLog(`<b style="color:#ef4444">Stale:</b> ${f.name} (recorded ${new Date(timestampMs).toLocaleTimeString()})`);
+            if (window.addDebugLog) window.addDebugLog(`<b style="color:#ef4444">Stale:</b> ${f.name} (recorded ${formatPktTime(timestampMs, 'time')} PKT)`);
             val = 0;
-            if (window.addDebugLog) window.addDebugLog(`<b style="color:var(--accent-solar)">Reset:</b> ${f.name} (stale value from yesterday)`);
+            if (window.addDebugLog) window.addDebugLog(`<b style="color:var(--accent-solar)">Reset:</b> ${f.name} (stale value from yesterday PKT)`);
           }
         } else if (!entry && val === null) {
-          // Only assume 0 if the feed is missing from bulk AND we failed to fetch it individually.
-          // If we just fetched a value via fallback (fetchEmon), trust it.
           val = 0;
           if (window.addDebugLog) window.addDebugLog(`<b style="color:var(--accent-solar)">Reset:</b> ${f.name} (missing from bulk and fetch failed)`);
         }
@@ -197,7 +188,8 @@ async function poll() {
     if (typeof updateMainPredicted === 'function') updateMainPredicted();
     
     if (footer) {
-      footer.textContent = 'Updated ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const localTime = formatPktTime(Date.now(), 'time');
+      footer.textContent = 'Updated ' + localTime;
     }
     _lastPollSuccess = Date.now();
   } catch (e) {

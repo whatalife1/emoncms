@@ -1,13 +1,7 @@
-// ─── Graphs Panel - UI Rendering ────────────────────────────────────────────
-
 let graphNeedsDayZoom = false;
 let tooltipPinned = false;
 let graphsAutoRefreshInterval = null;
 let graphsLastUpdate = 0;
-
-// --- FIXED generateGraphReport with correct appliance percentages ---
-
-
 
 window.generateGraphReport = async function() {
     const nav = _gNavInfo();
@@ -19,7 +13,6 @@ window.generateGraphReport = async function() {
         return { text: "Report only available for Day, Month or Year view.", html: "" };
     }
 
-    // Fetch data for all feeds
     const fetchPromises = EXPORT_FEEDS.map(async (feed) => {
         const data = await fetchWithCache(feed.id, nav.startMs, nav.endMs);
         return { feed, data };
@@ -29,7 +22,31 @@ window.generateGraphReport = async function() {
     const sums = {};
     const visualData = {}; 
     
+    // Single-pass optimization for fast reports
     results.forEach(r => {
+        const fId = r.feed.id;
+        const ds = r.feed.isPc ? EXPORT_PC_DAY_START : EXPORT_DAY_START;
+        const de = r.feed.isPc ? EXPORT_PC_DAY_END : EXPORT_DAY_END;
+        const dWh = {}, nWh = {}, h24 = {}, hArr = isDay ? new Array(24).fill(0) : [], hCnt = isDay ? new Array(24).fill(0) : [];
+        for (const tsStr in r.data) {
+            const ts = parseInt(tsStr), val = r.data[tsStr], p = getKarachiDate(ts);
+            const dKey = `${p.year}-${String(p.month).padStart(2,'0')}-${String(p.day).padStart(2,'0')}`;
+            h24[dKey] = (h24[dKey] || 0) + val;
+            if (p.hour >= ds && p.hour < de) dWh[dKey] = (dWh[dKey] || 0) + val;
+            if (p.hour >= 17 || p.hour < 8) nWh[dKey] = (nWh[dKey] || 0) + val;
+            if (isDay) { hArr[p.hour] += val; hCnt[p.hour]++; }
+        }
+        sums[fId] = { h24, day: dWh, night: nWh };
+        if (isDay) {
+            const proc = hArr.map((s, i) => hCnt[i] ? s/hCnt[i] : 0);
+            visualData[fId] = { arr: proc, max: Math.max(...proc, 0.1) };
+        } else {
+            const sorted = Object.keys(h24).sort(), dArr = sorted.map(d => h24[d]);
+            visualData[fId] = { arr: dArr, max: Math.max(...dArr, 0.1) };
+        }
+    });
+    const skip_old_loop = false;
+    if (skip_old_loop) results.forEach(r => {
         const ds = r.feed.isPc ? EXPORT_PC_DAY_START : EXPORT_DAY_START;
         const de = r.feed.isPc ? EXPORT_PC_DAY_END : EXPORT_DAY_END;
         sums[r.feed.id] = {
@@ -56,12 +73,10 @@ window.generateGraphReport = async function() {
         }
     });
 
-    // Identify Solar and Breaker feeds
     const solarF = EXPORT_FEEDS.find(f => f.isSolar);
     const breakerF = EXPORT_FEEDS.find(f => f.isBreaker);
     const loadFeeds = EXPORT_FEEDS.filter(f => !f.isSolar && !f.isBreaker);
 
-    // Compute total load consumption
     let totalLoadKwh = 0, totalDayLoadKwh = 0, totalNightLoadKwh = 0;
     loadFeeds.forEach(f => {
         const totalWh = Object.values(sums[f.id].h24).reduce((a,b)=>a+b, 0);
@@ -75,12 +90,11 @@ window.generateGraphReport = async function() {
     const reportDates = Object.keys(sums[solarF.id].h24).sort();
     const numDays = reportDates.length || 1;
     const nightHoursPerDay = (isDay && graphTab === 'day' && graphDateNav === 0) ? 
-        (() => { const now = new Date(); const h = now.getHours() + now.getMinutes()/60; return (h >= EXPORT_NIGHT_START) ? (h - EXPORT_NIGHT_START) : ((24 - EXPORT_NIGHT_START) + h); })() :
+        (() => { const now = getPktNow(); const h = now.getHours() + now.getMinutes()/60; return (h >= EXPORT_NIGHT_START) ? (h - EXPORT_NIGHT_START) : ((24 - EXPORT_NIGHT_START) + h); })() :
         (24 - EXPORT_NIGHT_START) + EXPORT_NIGHT_END;
 
     const blocks = ['_', '\u2581', '\u2582', '\u2583', '\u2584', '\u2585', '\u2586', '\u2587', '\u2588'];
 
-    // Helper: generate a 24-hour sparkline string
     function makeSparkline24(arr) {
         if (!arr || arr.length < 24) return '_'.repeat(24);
         const maxVal = Math.max(...arr, 0.1);
@@ -96,7 +110,6 @@ window.generateGraphReport = async function() {
         return str;
     }
 
-    // Helper: generate a night-only sparkline (hours 0-7, 18-23)
     function makeSparklineNight(arr) {
         if (!arr || arr.length < 24) return '_'.repeat(14);
         const nightIndices = [0,1,2,3,4,5,6,7,18,19,20,21,22,23];
@@ -114,7 +127,6 @@ window.generateGraphReport = async function() {
         return str;
     }
 
-    // Column widths for main table (adjusted)
     const colWidths = {
         name: 18,
         total: 12,
@@ -129,7 +141,6 @@ window.generateGraphReport = async function() {
         totalPct: 12
     };
 
-    // Build main table header
     const headerParts = [
         'Appliance'.padEnd(colWidths.name),
         'Total (kWh)'.padStart(colWidths.total),
@@ -178,7 +189,6 @@ window.generateGraphReport = async function() {
         return parts.join(' ');
     }
 
-    // Main table
     EXPORT_FEEDS.forEach(f => {
         const totalWh = Object.values(sums[f.id].h24).reduce((a,b)=>a+b,0);
         const dayWh = Object.values(sums[f.id].day).reduce((a,b)=>a+b,0);
@@ -211,14 +221,10 @@ window.generateGraphReport = async function() {
     ];
     txt += totalParts.join(' ') + '\n';
 
-    // --------------------------------------------------------------------
-    //  VISUAL SUMMARY - DAY (full 24-hour sparkline, original format)
-    // --------------------------------------------------------------------
     if (isDay) {
         txt += '\n' + '='.repeat(header.length) + '\n';
         txt += 'VISUAL SUMMARY (Full 24-hour Profile)  Day = 8:00-17:00  Night = 0:00-7:00, 18:00-23:00\n';
         txt += '='.repeat(header.length) + '\n';
-        // Header: Appliance, Total, Day, Night, Avg Night, Sparkline, Max
         txt += 'Appliance'.padEnd(18) + ' Total(kWh)  Day(kWh)  Night(kWh)  AvgNight(W)   Sparkline (24h)                           Max(W)\n';
         txt += '-'.repeat(header.length) + '\n';
 
@@ -243,12 +249,9 @@ window.generateGraphReport = async function() {
         });
     }
 
-    // --------------------------------------------------------------------
-    //  VISUAL SUMMARY - NIGHT (night-only sparkline)
-    // --------------------------------------------------------------------
     if (isDay) {
         txt += '\n' + '='.repeat(header.length) + '\n';
-        txt += 'VISUAL SUMMARY (Night Profile)  Night = 0:00-7:00, 18:00-23:00\n';
+        txt += 'VISUAL SUMMARY (Night Profile)  Night = 0:00-7:00, 18:00-23:00 (PKT)\n';
         txt += '='.repeat(header.length) + '\n';
         txt += 'Appliance'.padEnd(18) + ' Night(kWh)  AvgNight(W)   Sparkline (Night)                    Max(W)\n';
         txt += '-'.repeat(header.length) + '\n';
@@ -269,7 +272,6 @@ window.generateGraphReport = async function() {
         });
     }
 
-    // For Month/Year, keep a simpler summary
     if (!isDay) {
         txt += '\n' + '='.repeat(header.length) + '\n';
         txt += 'VISUAL SUMMARY (Daily/Monthly Totals)\n';
@@ -285,10 +287,6 @@ window.generateGraphReport = async function() {
             const totalWh = Object.values(sums[f.id].h24).reduce((a,b)=>a+b,0);
             const totalKwh = totalWh / 1000;
             const maxKwh = d.max / 1000;
-            const spark = makeSparkline24(d.arr.map(v => v/1000)); // but we need to scale differently? For monthly, use daily values
-            // For month/year, we need a separate sparkline based on daily sums
-            // We'll reuse the existing visualData which for month/year contains daily totals in Wh
-            // Convert to kWh for display
             const sparkStr = makeSparkline24(d.arr.map(v => v/1000));
             const name = f.name.length > 16 ? f.name.substring(0,15)+'…' : f.name;
             txt += name.padEnd(18) + 
@@ -298,7 +296,6 @@ window.generateGraphReport = async function() {
         });
     }
 
-    // Daily log for month/year
     if (!isDay) {
         txt += '\n' + '='.repeat(header.length) + '\n';
         txt += 'DAILY LOG (Solar / Grid)\n';
@@ -313,9 +310,6 @@ window.generateGraphReport = async function() {
         });
     }
 
-    // --------------------------------------------------------------------
-    //  HTML REPORT (unchanged)
-    // --------------------------------------------------------------------
     let html = `<div class="report-wrapper" style="background:var(--bg-panel); color:var(--text-main); border:1px solid var(--border); border-radius:10px; padding:10px; margin-top:20px;">`;
     html += `<h4 style="margin:0 0 10px 0; font-size:14px; border-bottom:1px solid var(--border); padding-bottom:5px;">Consumption Breakdown</h4>`;
     html += `<div style="font-size:11px; color:var(--text-muted); margin-bottom:12px; padding:8px 12px; background:var(--bg-card); border-radius:6px; border-left:3px solid var(--accent-solar);">`;
@@ -386,46 +380,11 @@ window.generateGraphReport = async function() {
         <td style="border:1px solid var(--border); padding:6px; text-align:right;">100%</td>
     </tr>`;
     html += `</table></div>`;
-
     html += `</div>`;
     return { text: txt, html: html };
 };
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 window.downloadDayGraphReport = async function() {
-    // Try to get feedback button, fallback to report-txt button if header button is removed
     const btn = document.getElementById('btn-graph-report-txt') || document.getElementById('btn-graphs-report');
     const oldTxt = btn ? btn.textContent : ''; 
     if (btn) { btn.textContent = '...'; btn.disabled = true; }
@@ -434,7 +393,7 @@ window.downloadDayGraphReport = async function() {
         const report = await window.generateGraphReport();
         const blob = new Blob([report.text], { type: 'text/plain' });
         const a = document.createElement('a');
-        a.download = `Emon_Report_${graphTab}_${new Date().getTime()}.txt`;
+        a.download = `Emon_Report_${graphTab}_${new Date().getTime()}_PKT.txt`;
         a.href = URL.createObjectURL(blob); a.click();
     } catch (e) { alert("Error: " + e.message); } 
     finally { if (btn) { btn.textContent = oldTxt; btn.disabled = false; } }
@@ -525,22 +484,46 @@ function _renderGFeedTabs() {
 }
 
 function _gNavInfo() {
-    const now = new Date(); const to12hr = (h, m) => { const ampm = h >= 12 ? 'pm' : 'am'; const hh = h % 12 || 12; const mm = String(m).padStart(2, '0'); return `${hh}:${mm}${ampm}`; };
+    const now = getPktNow();
+    const to12hr = (h, m) => { const ampm = h >= 12 ? 'pm' : 'am'; const hh = h % 12 || 12; const mm = String(m).padStart(2, '0'); return `${hh}:${mm}${ampm}`; };
     if (graphTab === 'day') {
-        const d = new Date(now); d.setDate(d.getDate() + graphDateNav); const startMs = _getLocalMidnight(d); const res = (graphChartType === 'hourly') ? 3600 : GRAPH_DAY_RESOLUTION_SECONDS;
-        const labels = []; for (let i = 0; i < Math.ceil((24*3600)/res); i++) { const date = new Date(startMs + i*res*1000); labels.push(to12hr(date.getHours(), date.getMinutes())); }
-        return { label: graphDateNav === 0 ? 'Today' : d.toLocaleDateString('en-PK', { day: 'numeric', month: 'short' }), sub: d.toLocaleDateString('en-PK', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }), interval: res, startMs, endMs: startMs + 24*3600*1000-1, isDayTab: true, nBars: Math.ceil((24*3600)/res), labels, resSeconds: res };
+        const d = new Date(now);
+        d.setDate(d.getDate() + graphDateNav);
+        const startMs = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+        const res = (graphChartType === 'hourly') ? 3600 : GRAPH_DAY_RESOLUTION_SECONDS;
+        const labels = []; 
+        for (let i = 0; i < Math.ceil((24*3600)/res); i++) { 
+            const date = new Date(startMs + i*res*1000);
+            const pktDate = getKarachiDate(date.getTime());
+            labels.push(to12hr(pktDate.hour, 0)); 
+        }
+        const dateStr = d.toLocaleDateString('en-PK', { day:'numeric', month:'short' });
+        return { 
+            label: graphDateNav === 0 ? 'Today' : dateStr, 
+            sub: d.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }),
+            interval: res, startMs, endMs: startMs + 24*3600*1000-1, isDayTab: true, nBars: Math.ceil((24*3600)/res), labels, resSeconds: res 
+        };
     }
     if (graphTab === 'month') {
         let base = new Date(now.getFullYear(), now.getMonth() + graphMonthNav, 1);
         let sM = base.getMonth() - 1; let sY = base.getFullYear(); if (sM < 0) { sM = 11; sY--; }
-        const start = new Date(sY, sM, 25); const end = new Date(start.getFullYear(), start.getMonth() + 1, 26);
-        const days = Math.ceil((end - start) / 86400000); const labels = []; for (let i = 0; i < days; i++) { const d = new Date(start.getTime() + i*86400000); labels.push(`${d.getDate()}/${d.getMonth()+1}`); }
-        return { label: `${start.toLocaleDateString('en-PK',{month:'short',day:'numeric'})} - ${end.toLocaleDateString('en-PK',{month:'short',day:'numeric',year:'numeric'})}`, interval: 3600, isDayTab: false, nBars: days, startMs: start.getTime(), endMs: end.getTime(), labels, month: start.getMonth(), year: start.getFullYear(), isMonthBilling: true, resSeconds: 3600 };
+        const start = new Date(sY, sM, 25);
+        const end = new Date(start.getFullYear(), start.getMonth() + 1, 26);
+        const days = Math.ceil((end - start) / 86400000);
+        const labels = []; 
+        for (let i = 0; i < days; i++) { 
+            const d = new Date(start.getTime() + i*86400000);
+            const pktDate = getKarachiDate(d.getTime());
+            labels.push(`${pktDate.day}/${pktDate.month}`); 
+        }
+        return { 
+            label: `${start.toLocaleDateString(undefined,{month:'short',day:'numeric'})} - ${end.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'})}`,
+            interval: 3600, isDayTab: false, nBars: days, startMs: start.getTime(), endMs: end.getTime(), 
+            labels, month: start.getMonth(), year: start.getFullYear(), isMonthBilling: true, resSeconds: 3600 
+        };
     }
     if (graphTab === 'year') {
         const y = now.getFullYear() + graphYearNav;
-        // For Year view, we want 12 bars (Jan to Dec)
         const start = new Date(y, 0, 1);
         const end = new Date(y, 11, 31, 23, 59, 59);
         const labels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -549,7 +532,7 @@ function _gNavInfo() {
             daysInMonth[1] = 29;
         }
         return { 
-            label: String(y), 
+            label: `${y}`, 
             interval: 3600, 
             isYearly: true, 
             nBars: 12, 
@@ -566,14 +549,10 @@ function _gNavInfo() {
     return { label:'All Time', startMs: new Date(2024,0,1).getTime(), endMs: now.getTime(), labels:[] };
 }
 
-
-
-
-
-
 function _renderGNavBar() {
     const wrap = document.getElementById('graph-nav-bar'); if (!wrap || graphTab === 'total') return;
-    const nav = _gNavInfo(); const canFwd = (graphTab === 'day' && graphDateNav < 0) || (graphTab === 'month' && nav.endMs < Date.now()) || (graphTab === 'year' && graphYearNav < 0);
+    const nav = _gNavInfo(); 
+    const canFwd = (graphTab === 'day' && graphDateNav < 0) || (graphTab === 'month' && nav.endMs < Date.now()) || (graphTab === 'year' && graphYearNav < 0);
     wrap.innerHTML = `<button class="graph-nav-btn" id="gnav-prev">\u2039</button><div class="graph-nav-center"><div class="graph-nav-label">${nav.label}</div>${nav.sub?`<div class="graph-nav-sub">${nav.sub}</div>`:''}</div><button class="graph-nav-btn" id="gnav-next" style="opacity:${canFwd?1:0.3}">\u203a</button>`;
     document.getElementById('gnav-prev').addEventListener('click', () => { if (graphTab === 'day') graphDateNav--; else if (graphTab === 'month') graphMonthNav--; else graphYearNav--; graphZoomLevel = 1; graphPanOffset = 0; hideTooltip(); _renderGNavBar(); _loadAndDraw(); });
     document.getElementById('gnav-next').addEventListener('click', () => { if (canFwd) { if (graphTab === 'day') graphDateNav++; else if (graphTab === 'month') graphMonthNav++; else graphYearNav++; graphZoomLevel = 1; graphPanOffset = 0; hideTooltip(); _renderGNavBar(); _loadAndDraw(); } });

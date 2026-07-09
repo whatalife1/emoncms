@@ -33,7 +33,7 @@
 .sparkline-wrap { margin-top: 4px; height: 28px; position: relative; overflow: hidden; }
 .sparkline-wrap svg { width: 100%; height: 28px; display: block; }
 
-/* ── Power Flow Wrapper — flush against header, no side gaps ─────────── */
+/* ── Power Flow Wrapper ────────────────────────────────────────────────── */
 #flow-wrap {
   width: 100%;
   padding: 0;
@@ -41,14 +41,13 @@
   display: block;
 }
 
-/* ── Power Flow Card — edge to edge, no border-radius on sides ───────── */
 #flow-card {
   background: var(--bg-panel);
-  border: none;                        /* ← removed all borders         */
-  border-top: 1px solid var(--border); /* ← keep top separator only     */
+  border: none;
+  border-top: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
-  border-radius: 0;                    /* ← flush sides                  */
-  padding: 8px 10px 6px;              /* ← small top/bottom only        */
+  border-radius: 0;
+  padding: 8px 10px 6px;
   margin: 0;
   display: flex;
   flex-direction: column;
@@ -75,7 +74,6 @@
   display: block;
 }
 
-/* ── GLOW PULSE ANIMATION ── */
 @keyframes glow-pulse {
   0% { stroke-width: 2; filter: drop-shadow(0 0 1px var(--pulse-clr)); }
   50% { stroke-width: 3; filter: drop-shadow(0 0 6px var(--pulse-clr)); }

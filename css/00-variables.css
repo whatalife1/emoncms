@@ -47,7 +47,7 @@ body { background: var(--bg-base); color: var(--text-main); font-family: system-
 /* ── Override desktop constraints for the Detailed Usage Report ── */
 @media (min-width: 480px) {
   body {
-    background: #040406; /* Slightly darker surrounding margin on desktop */
+    background: #040406;
     display: flex;
     justify-content: center;
     align-items: flex-start;
@@ -59,7 +59,7 @@ body { background: var(--bg-base); color: var(--text-main); font-family: system-
     border-right: 1px solid var(--border);
   }
   .header {
-    max-width: 448px; /* Keeps header contained within center app layout */
+    max-width: 448px;
   }
   .footer {
     position: absolute;
@@ -69,7 +69,6 @@ body { background: var(--bg-base); color: var(--text-main); font-family: system-
     max-width: 448px;
   }
   
-  /* Constrain pop-ups (Solar, Settings, Widgets, Alerts) to the centered mobile layout on desktop */
   .slide-panel, #solar-panel, #settings, #widgets-panel, #alerts-panel {
     max-width: 450px;
     left: 50% !important;
@@ -80,7 +79,6 @@ body { background: var(--bg-base); color: var(--text-main); font-family: system-
     box-shadow: 0 -4px 20px rgba(0,0,0,0.5);
   }
 
-  /* Specific override ONLY for the detailed usage report panel so it stays full screen */
   #usage-report-panel {
     max-width: 100% !important;
     left: 0 !important;

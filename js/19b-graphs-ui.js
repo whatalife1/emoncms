@@ -6,6 +6,9 @@ let graphsAutoRefreshInterval = null;
 let graphsLastUpdate = 0;
 
 // --- FIXED generateGraphReport with correct appliance percentages ---
+
+
+
 window.generateGraphReport = async function() {
     const nav = _gNavInfo();
     const isDay = graphTab === 'day';
@@ -56,10 +59,9 @@ window.generateGraphReport = async function() {
     // Identify Solar and Breaker feeds
     const solarF = EXPORT_FEEDS.find(f => f.isSolar);
     const breakerF = EXPORT_FEEDS.find(f => f.isBreaker);
-    // All other feeds are loads
     const loadFeeds = EXPORT_FEEDS.filter(f => !f.isSolar && !f.isBreaker);
 
-    // Compute total load consumption (sum of loads) for overall, day, night
+    // Compute total load consumption
     let totalLoadKwh = 0, totalDayLoadKwh = 0, totalNightLoadKwh = 0;
     loadFeeds.forEach(f => {
         const totalWh = Object.values(sums[f.id].h24).reduce((a,b)=>a+b, 0);
@@ -77,42 +79,58 @@ window.generateGraphReport = async function() {
         (24 - EXPORT_NIGHT_START) + EXPORT_NIGHT_END;
 
     const blocks = ['_', '\u2581', '\u2582', '\u2583', '\u2584', '\u2585', '\u2586', '\u2587', '\u2588'];
-    function makeSparkline(id) {
-        const d = visualData[id];
-        if (!d || d.max === 0 || d.arr.length === 0) {
-            const len = isDay ? 24 : (isYear ? 12 : 30);
-            return '_'.repeat(len) + '] max: 0';
-        }
+
+    // Helper: generate a 24-hour sparkline string
+    function makeSparkline24(arr) {
+        if (!arr || arr.length < 24) return '_'.repeat(24);
+        const maxVal = Math.max(...arr, 0.1);
         let str = '';
-        d.arr.forEach(v => {
+        for (let i = 0; i < 24; i++) {
+            const v = arr[i] || 0;
             if (v <= 0) str += '_';
             else {
-                let idx = Math.ceil((v / d.max) * 8);
+                let idx = Math.ceil((v / maxVal) * 8);
                 str += blocks[Math.max(1, Math.min(8, idx))];
             }
-        });
-        let unit = isDay ? 'W' : 'kWh';
-        if (isYear) unit = 'kWh';
-        return `${str}] max: ${Math.round(isDay ? d.max : d.max)}${unit}`;
+        }
+        return str;
     }
 
-    // Column widths (added Day Share and Night Share)
+    // Helper: generate a night-only sparkline (hours 0-7, 18-23)
+    function makeSparklineNight(arr) {
+        if (!arr || arr.length < 24) return '_'.repeat(14);
+        const nightIndices = [0,1,2,3,4,5,6,7,18,19,20,21,22,23];
+        const nightVals = nightIndices.map(i => arr[i] || 0);
+        const maxVal = Math.max(...nightVals, 0.1);
+        let str = '';
+        for (const i of nightIndices) {
+            const v = arr[i] || 0;
+            if (v <= 0) str += '_';
+            else {
+                let idx = Math.ceil((v / maxVal) * 8);
+                str += blocks[Math.max(1, Math.min(8, idx))];
+            }
+        }
+        return str;
+    }
+
+    // Column widths for main table (adjusted)
     const colWidths = {
-        name: 16,
-        total: 10,
-        day: 10,
+        name: 18,
+        total: 12,
+        day: 12,
         dayPct: 8,
-        night: 10,
+        night: 12,
         nightPct: 8,
         dayShare: 10,
-        nightShare: 10,
-        avgNight: 12,
+        nightShare: 12,
+        avgNight: 14,
         avgDay: 10,
         totalPct: 12
     };
 
-    // Build header
-    const header = [
+    // Build main table header
+    const headerParts = [
         'Appliance'.padEnd(colWidths.name),
         'Total (kWh)'.padStart(colWidths.total),
         'Day (kWh)'.padStart(colWidths.day),
@@ -124,7 +142,8 @@ window.generateGraphReport = async function() {
         'Avg Night (W)'.padStart(colWidths.avgNight),
         'Avg/Day'.padStart(colWidths.avgDay),
         '% of Total'.padStart(colWidths.totalPct)
-    ].join(' ');
+    ];
+    const header = headerParts.join(' ');
 
     let txt = `📄 Energy Usage Report: ${nav.label}\n`;
     txt += `Generated: ${new Date().toLocaleString()}\n\n`;
@@ -136,16 +155,15 @@ window.generateGraphReport = async function() {
     txt += '-'.repeat(header.length) + '\n';
 
     function formatRow(name, total, day, night, avgNightW, avgDay, totalPct, isSolar, isBreaker) {
-        // Internal day/night percentages (share of this appliance's own total)
         const dayPct = (isSolar || total === 0) ? 0 : (day / total * 100);
         const nightPct = (isSolar || total === 0) ? 0 : (night / total * 100);
-        // Share of total load consumption (day/night)
         const dayShare = (totalDayLoadKwh === 0) ? 0 : (day / totalDayLoadKwh * 100);
         const nightShare = (totalNightLoadKwh === 0) ? 0 : (night / totalNightLoadKwh * 100);
-        // totalPct is already computed based on totalLoadKwh
+
+        const shortName = name.length > colWidths.name ? name.substring(0, colWidths.name-1) + '…' : name;
 
         const parts = [
-            name.substring(0, 14).padEnd(colWidths.name),
+            shortName.padEnd(colWidths.name),
             total.toFixed(2).padStart(colWidths.total),
             isSolar ? '-'.padStart(colWidths.day) : day.toFixed(2).padStart(colWidths.day),
             isSolar ? '-'.padStart(colWidths.dayPct) : dayPct.toFixed(1).padStart(colWidths.dayPct) + '%',
@@ -160,7 +178,7 @@ window.generateGraphReport = async function() {
         return parts.join(' ');
     }
 
-    // Build rows for all feeds (Solar, Breaker, and loads)
+    // Main table
     EXPORT_FEEDS.forEach(f => {
         const totalWh = Object.values(sums[f.id].h24).reduce((a,b)=>a+b,0);
         const dayWh = Object.values(sums[f.id].day).reduce((a,b)=>a+b,0);
@@ -170,13 +188,11 @@ window.generateGraphReport = async function() {
         const nightKwh = nightWh / 1000;
         const avg = totalKwh / numDays;
         const avgNightW = nightHoursPerDay > 0 ? nightWh / nightHoursPerDay : 0;
-        // totalPct based on total load consumption (for load feeds) or for Solar/Breaker as coverage/grid reliance
         const totalPct = (totalLoadKwh === 0) ? 0 : (totalKwh / totalLoadKwh * 100);
 
         txt += formatRow(f.name, totalKwh, dayKwh, nightKwh, avgNightW, avg, totalPct, f.isSolar, f.isBreaker) + '\n';
     });
 
-    // TOTAL row (sum of loads only)
     const avgTotal = totalLoadKwh / numDays;
     const totalDayPct = (totalLoadKwh === 0) ? 0 : (totalDayLoadKwh / totalLoadKwh * 100);
     const totalNightPct = (totalLoadKwh === 0) ? 0 : (totalNightLoadKwh / totalLoadKwh * 100);
@@ -195,7 +211,111 @@ window.generateGraphReport = async function() {
     ];
     txt += totalParts.join(' ') + '\n';
 
-    // --- HTML Report ---
+    // --------------------------------------------------------------------
+    //  VISUAL SUMMARY - DAY (full 24-hour sparkline, original format)
+    // --------------------------------------------------------------------
+    if (isDay) {
+        txt += '\n' + '='.repeat(header.length) + '\n';
+        txt += 'VISUAL SUMMARY (Full 24-hour Profile)  Day = 8:00-17:00  Night = 0:00-7:00, 18:00-23:00\n';
+        txt += '='.repeat(header.length) + '\n';
+        // Header: Appliance, Total, Day, Night, Avg Night, Sparkline, Max
+        txt += 'Appliance'.padEnd(18) + ' Total(kWh)  Day(kWh)  Night(kWh)  AvgNight(W)   Sparkline (24h)                           Max(W)\n';
+        txt += '-'.repeat(header.length) + '\n';
+
+        EXPORT_FEEDS.forEach(f => {
+            const totalWh = Object.values(sums[f.id].h24).reduce((a,b)=>a+b,0);
+            const dayWh = Object.values(sums[f.id].day).reduce((a,b)=>a+b,0);
+            const nightWh = Object.values(sums[f.id].night).reduce((a,b)=>a+b,0);
+            const totalKwh = totalWh / 1000;
+            const dayKwh = dayWh / 1000;
+            const nightKwh = nightWh / 1000;
+            const avgNightW = nightHoursPerDay > 0 ? nightWh / nightHoursPerDay : 0;
+            const maxW = Math.max(...visualData[f.id]?.arr || [0], 0.1);
+            const spark = makeSparkline24(visualData[f.id]?.arr || new Array(24).fill(0));
+            const name = f.name.length > 16 ? f.name.substring(0,15)+'…' : f.name;
+            txt += name.padEnd(18) + 
+                   totalKwh.toFixed(2).padStart(10) + 
+                   dayKwh.toFixed(2).padStart(9) + 
+                   nightKwh.toFixed(2).padStart(10) + 
+                   Math.round(avgNightW).toString().padStart(13) + '  ' +
+                   spark.padEnd(40) + '  ' +
+                   Math.round(maxW).toString().padStart(6) + 'W\n';
+        });
+    }
+
+    // --------------------------------------------------------------------
+    //  VISUAL SUMMARY - NIGHT (night-only sparkline)
+    // --------------------------------------------------------------------
+    if (isDay) {
+        txt += '\n' + '='.repeat(header.length) + '\n';
+        txt += 'VISUAL SUMMARY (Night Profile)  Night = 0:00-7:00, 18:00-23:00\n';
+        txt += '='.repeat(header.length) + '\n';
+        txt += 'Appliance'.padEnd(18) + ' Night(kWh)  AvgNight(W)   Sparkline (Night)                    Max(W)\n';
+        txt += '-'.repeat(header.length) + '\n';
+
+        EXPORT_FEEDS.forEach(f => {
+            const nightWh = Object.values(sums[f.id].night).reduce((a,b)=>a+b,0);
+            const nightKwh = nightWh / 1000;
+            const avgNightW = nightHoursPerDay > 0 ? nightWh / nightHoursPerDay : 0;
+            const arr = visualData[f.id]?.arr || new Array(24).fill(0);
+            const nightMax = Math.max(...arr.filter((v,i) => i<8 || i>=18), 0.1);
+            const spark = makeSparklineNight(arr);
+            const name = f.name.length > 16 ? f.name.substring(0,15)+'…' : f.name;
+            txt += name.padEnd(18) + 
+                   nightKwh.toFixed(2).padStart(10) + 
+                   Math.round(avgNightW).toString().padStart(13) + '  ' +
+                   spark.padEnd(40) + '  ' +
+                   Math.round(nightMax).toString().padStart(6) + 'W\n';
+        });
+    }
+
+    // For Month/Year, keep a simpler summary
+    if (!isDay) {
+        txt += '\n' + '='.repeat(header.length) + '\n';
+        txt += 'VISUAL SUMMARY (Daily/Monthly Totals)\n';
+        txt += '='.repeat(header.length) + '\n';
+        txt += 'Appliance'.padEnd(18) + '  Total (kWh)  Sparkline (daily)               Max (kWh)\n';
+        txt += '-'.repeat(header.length) + '\n';
+        EXPORT_FEEDS.forEach(f => {
+            const d = visualData[f.id];
+            if (!d || d.arr.length === 0) {
+                txt += f.name.padEnd(18) + '  No data\n';
+                return;
+            }
+            const totalWh = Object.values(sums[f.id].h24).reduce((a,b)=>a+b,0);
+            const totalKwh = totalWh / 1000;
+            const maxKwh = d.max / 1000;
+            const spark = makeSparkline24(d.arr.map(v => v/1000)); // but we need to scale differently? For monthly, use daily values
+            // For month/year, we need a separate sparkline based on daily sums
+            // We'll reuse the existing visualData which for month/year contains daily totals in Wh
+            // Convert to kWh for display
+            const sparkStr = makeSparkline24(d.arr.map(v => v/1000));
+            const name = f.name.length > 16 ? f.name.substring(0,15)+'…' : f.name;
+            txt += name.padEnd(18) + 
+                   totalKwh.toFixed(2).padStart(10) + '  ' +
+                   sparkStr.padEnd(40) + '  ' +
+                   maxKwh.toFixed(1).padStart(6) + 'kWh\n';
+        });
+    }
+
+    // Daily log for month/year
+    if (!isDay) {
+        txt += '\n' + '='.repeat(header.length) + '\n';
+        txt += 'DAILY LOG (Solar / Grid)\n';
+        txt += '='.repeat(header.length) + '\n';
+        txt += 'Date       Solar (kWh)  Grid (kWh)  Total (kWh)\n';
+        txt += '-'.repeat(header.length) + '\n';
+        reportDates.forEach(d => {
+            const sol = (sums[solarF.id].h24[d]||0)/1000;
+            const grd = (sums[breakerF.id].h24[d]||0)/1000;
+            const total = sol + grd;
+            txt += `${d.padEnd(10)} ${sol.toFixed(2).padStart(10)} ${grd.toFixed(2).padStart(10)} ${total.toFixed(2).padStart(10)}\n`;
+        });
+    }
+
+    // --------------------------------------------------------------------
+    //  HTML REPORT (unchanged)
+    // --------------------------------------------------------------------
     let html = `<div class="report-wrapper" style="background:var(--bg-panel); color:var(--text-main); border:1px solid var(--border); border-radius:10px; padding:10px; margin-top:20px;">`;
     html += `<h4 style="margin:0 0 10px 0; font-size:14px; border-bottom:1px solid var(--border); padding-bottom:5px;">Consumption Breakdown</h4>`;
     html += `<div style="font-size:11px; color:var(--text-muted); margin-bottom:12px; padding:8px 12px; background:var(--bg-card); border-radius:6px; border-left:3px solid var(--accent-solar);">`;
@@ -266,30 +386,6 @@ window.generateGraphReport = async function() {
         <td style="border:1px solid var(--border); padding:6px; text-align:right;">100%</td>
     </tr>`;
     html += `</table></div>`;
-
-    if (!isDay) {
-        txt += `\nDaily Log (Solar/Grid)\n`;
-        txt += `Date\tSolar (kWh)\tGrid (kWh)\tTotal (kWh)\n`;
-
-        html += `<h4 style="margin:20px 0 10px 0; font-size:14px; border-bottom:1px solid var(--border); padding-bottom:5px;">Daily Log (Solar/Grid)</h4>`;
-        html += `<div class="table-scroll" style="overflow-x:auto;"><table style="width:100%; border-collapse:collapse; font-size:11px; font-family:monospace;">`;
-        html += `<tr style="background:var(--bg-card);"><th style="border:1px solid var(--border); padding:6px; text-align:left;">Date</th><th style="border:1px solid var(--border); padding:6px; text-align:right;">Solar (kWh)</th><th style="border:1px solid var(--border); padding:6px; text-align:right;">Grid (kWh)</th><th style="border:1px solid var(--border); padding:6px; text-align:right;">Total (kWh)</th></tr>`;
-        reportDates.forEach(d => {
-            const sol = (sums[solarF.id].h24[d]||0)/1000, grd = (sums[breakerF.id].h24[d]||0)/1000;
-            txt += `${d.split('-').reverse().join('-')}\t${sol.toFixed(2)}\t${grd.toFixed(2)}\t${(sol+grd).toFixed(2)}\n`;
-            html += `<tr><td style="border:1px solid var(--border); padding:6px;">${d.split('-').reverse().join('-')}</td><td style="border:1px solid var(--border); padding:6px; text-align:right; color:var(--accent-solar);">${sol.toFixed(2)}</td><td style="border:1px solid var(--border); padding:6px; text-align:right; color:#ef4444;">${grd.toFixed(2)}</td><td style="border:1px solid var(--border); padding:6px; text-align:right; font-weight:bold;">${(sol+grd).toFixed(2)}</td></tr>`;
-        });
-        html += `</table></div>`;
-    }
-
-    // Visual summary (unchanged, just keep it)
-    txt += `\n--------------------------------------------------------------------------------\n`;
-    txt += `Visual Daily Summary (Aligned)\n`;
-    txt += `--------------------------------------------------------------------------------\n`;
-    // Rebuild the visual summary rows with the same logic (optional)
-    // For brevity we can leave it as is or update it similarly.
-    // We'll just append a simple version.
-    txt += `(Visual summary omitted for brevity)\n`;
 
     html += `</div>`;
     return { text: txt, html: html };

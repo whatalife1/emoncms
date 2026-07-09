@@ -50,7 +50,6 @@ async function applySolarConfig() {
     window.Android.savePkrRate(solarCfg.pkrPerUnit);
   }
 
-  // --- FORCE FRESH WEATHER ---
   localStorage.removeItem('lhr_weather_v2');
   await fetchLahoreWeather(true);
 
@@ -66,19 +65,17 @@ async function fetchLahoreWeather(force = false) {
     const cached = localStorage.getItem(CACHE_KEY);
     if (cached) {
       const obj = JSON.parse(cached);
-      // 10 minute cache (was 30)
-      if (Date.now() - obj.ts < 10 * 60 * 1000) return obj.data;
+      const now = getPktNow();
+      if (now.getTime() - obj.ts < 10 * 60 * 1000) return obj.data;
     }
   }
-  // Added past_days=7 & forecast_days=7 for history + week ahead
-  const url = `https://api.open-meteo.com/v1/forecast?latitude=${SOL_LAT}&longitude=${SOL_LON}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code&hourly=cloudcover,shortwave_radiation,precipitation_probability&daily=sunrise,sunset&timezone=Asia/Karachi&past_days=7&forecast_days=7`;
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${SOL_LAT}&longitude=${SOL_LON}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code&hourly=cloudcover,shortwave_radiation,precipitation_probability&daily=sunrise,sunset&timezone=auto&past_days=7&forecast_days=7`;
   try {
     const text = await nativeFetch(url);
     if (text.startsWith('ERROR')) return null;
     const data = JSON.parse(text);
     localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), data }));
 
-    // Debug output
     if (window.addDebugLog) {
       window.addDebugLog(`<b>Weather API:</b> OK (${data.hourly.time.length} hrs)`);
     }

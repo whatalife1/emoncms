@@ -4,7 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>EmonCMS Monitor</title>
-  <!-- Link to external CSS stylesheets -->
   <link rel="stylesheet" href="css/00-variables.css">
   <link rel="stylesheet" href="css/01-layout.css">
   <link rel="stylesheet" href="css/02-cards.css">
@@ -15,7 +14,6 @@
 </head>
 <body>
 
-  <!-- Floating app boundary container -->
   <div class="main-shell">
 
     <div class="header">
@@ -33,15 +31,9 @@
       </div>
     </div>
 
-    <!-- 
-      Note: Prediction and Cost containers are hidden. 
-      The logic remains in JS to calculate values, but they are 
-      now displayed inside the Flow Chart.
-    -->
     <div id="pred-wrap" style="display:none;"></div>
     <div id="cost-wrap" style="display:none;"></div>
 
-    <!-- Power flow diagram - flush, no outer padding -->
     <div id="flow-wrap">
       <div id="flow-card">
         <div class="flow-title">⚡ Live power flow</div>
@@ -51,9 +43,7 @@
       </div>
     </div>
 
-    <!-- Feed cards list -->
     <div class="container" id="list">
-      <!-- Skeleton Loading State -->
       <div class="skel-card" style="border-left:3px solid var(--accent-solar)">
         <div class="skel-row" style="gap:8px">
           <div style="flex:1;display:flex;flex-direction:column;gap:6px;align-items:flex-start">
@@ -80,9 +70,8 @@
       </div>
     </div>
 
-  </div> <!-- End main-shell -->
+  </div>
 
-  <!-- Settings panel -->
   <div id="settings">
     <div class="settings-header">
       <span style="font-weight:700">Display Settings</span>
@@ -104,7 +93,6 @@
     </div>
   </div>
 
-  <!-- Widgets panel -->
   <div id="widgets-panel">
     <div class="widgets-header">
       <span style="font-weight:700">📦 Available Widgets</span>
@@ -113,7 +101,6 @@
     <div id="widgets-body"></div>
   </div>
 
-  <!-- Alerts panel -->
   <div id="alerts-panel">
     <div class="alerts-header">
       <span style="font-weight:700">🔔 Alert Thresholds</span>
@@ -123,7 +110,6 @@
     <button class="btn-add-alert" id="btn-alert-add">+ Add Alert</button>
   </div>
 
-  <!-- Solar Prediction Panel -->
   <div id="solar-panel">
     <div class="solar-header">
       <span style="font-weight:700">☼ Solar Prediction</span>
@@ -213,7 +199,6 @@
     </div>
   </div>
 
-  <!-- Detailed Usage Report Panel -->
   <div id="usage-report-panel" class="slide-panel">
     <div class="panel-header">
       <span style="font-weight:700">📊 Detailed Usage Report</span>
@@ -238,7 +223,6 @@
     </div>
   </div>
 
-  <!-- Graphs Panel -->
   <div id="graphs-panel" class="slide-panel">
     <div class="graphs-header">
       <span style="font-weight:700">📈 Graphs</span>
@@ -258,7 +242,6 @@
     </div>
   </div>
 
-  <!-- Scripts -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script src="js/00-config.js" defer></script>
   <script src="js/01-sparkline.js" defer></script>
@@ -283,7 +266,6 @@
   <script src="js/17-reports-ui.js" defer></script>
   <script src="js/18-main-a.js" defer></script>
   <script src="js/18b-main-b.js" defer></script>
-  <!-- Graphs Panel Scripts (split into 4 parts) -->
   <script src="js/19a-graphs-core.js" defer></script>
   <script src="js/19b-graphs-ui.js" defer></script>
   <script src="js/19c-graphs-data.js" defer></script>

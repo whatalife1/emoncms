@@ -5,7 +5,6 @@ let autoRefreshSec = 30;
 const FEEDS_BASE = [
   { id: "499431", name: "Water Tank",           unit: "%",   type: "env"   },
   { id: "499374", name: "Breaker",              unit: "W",   type: "watts" },
-//  { id: "499403", name: "Breaker",              unit: "W",   type: "watts" },
   { id: "499383", name: "AC Volts",             unit: "V",   type: "env"   },
   { id: "499413", name: "Breaker Today",        unit: "kWh", type: "units" },
   { id: "499412", name: "Breaker Total",        unit: "kWh", type: "units" },
@@ -99,3 +98,72 @@ const WIDGET_CATALOG = [
 let userOrderedFeeds = [];
 let isCompact = false;
 window.lastSolarActual = 0;
+
+// ─── Fast Timezone Detection ────────────────────────────────────────────────
+// PKT is UTC+5. offset is -300 minutes.
+const IS_PKT_ZONE = (new Date().getTimezoneOffset() === -300);
+
+function getPktNow() {
+    if (IS_PKT_ZONE) return new Date();
+    // Fallback for non-PKT devices: Adjust UTC to PKT
+    const now = new Date();
+    const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+    return new Date(utc + 18000000);
+}
+
+function getPktTodayStart() {
+    const now = getPktNow();
+    if (IS_PKT_ZONE) {
+        return new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    }
+    // For non-PKT devices, use the shifted date components
+    return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).getTime();
+}
+
+function getPktDayStart(year, month, day) {
+    if (IS_PKT_ZONE) return new Date(year, month - 1, day).getTime();
+    return new Date(Date.UTC(year, month - 1, day)).getTime();
+}
+
+function formatPktTime(timestamp, format = 'datetime') {
+    const ts = timestamp < 10000000000 ? timestamp * 1000 : timestamp;
+    
+    // Shift the date for non-PKT devices so we can use UTC methods to get PKT parts
+    const date = IS_PKT_ZONE ? new Date(ts) : new Date(ts + 18000000);
+    
+    const yr = IS_PKT_ZONE ? date.getFullYear() : date.getUTCFullYear();
+    const mo = String((IS_PKT_ZONE ? date.getMonth() : date.getUTCMonth()) + 1).padStart(2, '0');
+    const dy = String(IS_PKT_ZONE ? date.getDate() : date.getUTCDate()).padStart(2, '0');
+    const hr = IS_PKT_ZONE ? date.getHours() : date.getUTCHours();
+    const mn = String(IS_PKT_ZONE ? date.getMinutes() : date.getUTCMinutes()).padStart(2, '0');
+    
+    const ampm = hr >= 12 ? 'PM' : 'AM';
+    const hr12 = hr % 12 || 12;
+
+    if (format === 'date') return `${dy}/${mo}/${yr}`;
+    if (format === 'time') return `${hr12}:${mn} ${ampm}`;
+    return `${dy}/${mo}/${yr} ${hr12}:${mn} ${ampm}`;
+}
+
+function isPktToday(timestamp) {
+    const ts = timestamp < 10000000000 ? timestamp * 1000 : timestamp;
+    const now = getPktNow();
+    const d = new Date(ts + (IS_PKT_ZONE ? 0 : 18000000));
+    
+    const d_day = IS_PKT_ZONE ? d.getDate() : d.getUTCDate();
+    const n_day = IS_PKT_ZONE ? now.getDate() : now.getUTCDate();
+    if (d_day !== n_day) return false;
+    
+    const d_mo = IS_PKT_ZONE ? d.getMonth() : d.getUTCMonth();
+    const n_mo = IS_PKT_ZONE ? now.getMonth() : now.getUTCMonth();
+    return d_mo === n_mo;
+}
+
+function getPktBillingRange(year, month) {
+    const start = new Date(Date.UTC(year, month - 1, 25, 0, 0, 0));
+    const end = new Date(Date.UTC(year, month, 26, 0, 0, 0));
+    return {
+        startMs: start.getTime() - 18000000,
+        endMs: end.getTime() - 18000000
+    };
+}

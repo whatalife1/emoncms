@@ -1,5 +1,27 @@
-// Initialize global nav offset
 window._navOffset = 0;
+
+function _navDate() {
+    const now = getPktNow();
+    const offset = window._navOffset || 0;
+    const d = new Date(now);
+    d.setDate(d.getDate() + offset);
+    return { y: d.getFullYear(), mo: d.getMonth() + 1, d: d.getDate(), date: d };
+}
+
+function _updateNavLabel() {
+    const { date } = _navDate();
+    const lbl = document.getElementById('sol-nav-label');
+    const sub = document.getElementById('sol-nav-sub');
+    if (!lbl) return;
+    const offset = window._navOffset || 0;
+    if (offset === 0)      lbl.textContent = 'Today';
+    else if (offset === -1) lbl.textContent = 'Yesterday';
+    else if (offset === 1)  lbl.textContent = 'Tomorrow';
+    else lbl.textContent = date.toLocaleDateString(undefined, { weekday:'short', day:'numeric', month:'short' });
+    if (sub) sub.textContent = date.toLocaleDateString(undefined, { day:'numeric', month:'long', year:'numeric' });
+    const nextBtn = document.getElementById('sol-next-day');
+    if (nextBtn) nextBtn.style.opacity = offset >= 7 ? '0.3' : '1';
+}
 
 async function solRenderToday() {
   const { y, mo, d, date } = _navDate();
@@ -16,7 +38,6 @@ async function solRenderToday() {
     const arcWrap   = document.getElementById('sol-arc-today');
     if (arcWrap) _renderSunArc(y, mo, d, arcWrap);
 
-    // Calculate cloud and rain
     const hourlyLen = hourly.length || 1;
     const avgCloud  = Math.round(hourly.reduce((s,x)=>s+(x.cloud||0),0) / hourlyLen);
     const maxRain   = Math.round(Math.max(...hourly.map(x=>x.rain||0)));
@@ -28,8 +49,8 @@ async function solRenderToday() {
 
     const weatherLabel = weatherAvailable? '· Live weather' : '· Clear-sky estimate'; 
     const titleHtml = isToday
-      ? `Today · ${date.toLocaleDateString('en-PK',{day:'numeric',month:'short',year:'numeric'})} ${weatherLabel}`
-      : `${date.toLocaleDateString('en-PK',{weekday:'long',day:'numeric',month:'short',year:'numeric'})} ${weatherLabel}`;
+      ? `Today · ${date.toLocaleDateString(undefined,{day:'numeric',month:'short',year:'numeric'})} ${weatherLabel}`
+      : `${date.toLocaleDateString(undefined,{weekday:'long',day:'numeric',month:'short',year:'numeric'})} ${weatherLabel}`;
 
     const nowCard = '<div class="sol-now-card" style="background:var(--bg-panel);border:1px solid var(--border);border-left:3px solid var(--accent-solar);border-radius:10px;padding:10px 14px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center"><div><div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;font-weight:700">Now · Predicted Solar</div><div style="font-size:28px;font-weight:800;color:var(--accent-solar);line-height:1.1"><span id="sol-now-watt">---</span> <span style="font-size:14px;font-weight:600">W</span></div></div><div style="text-align:right"><div style="font-size:10px;color:var(--text-muted)">Auto-updates 2 min</div><div id="sol-now-time" style="font-size:13px;font-weight:700;color:var(--text-main);margin-top:2px">--:--</div><div id="sol-now-cloud" style="font-size:10px;color:var(--text-muted);margin-top:2px"></div></div></div>';
     
@@ -41,7 +62,6 @@ async function solRenderToday() {
     _renderHourlyBars(hourly, document.getElementById('sol-today-bars'), null);
     if (isToday) _renderBatteryCard(hourly);
 
-    // Concurrent fetching for performance
     const actualsPromise = (isToday || isPast) ? _fetchTodayActuals(y, mo, d) : Promise.resolve(null);
     const breakerPromise = _getBreakerKwh(y, mo, d, isToday);
 
@@ -106,9 +126,9 @@ async function solRenderToday() {
             <span class="sol-savings-label"> Est. month savings est.</span>
             <span class="sol-savings-val" style="color:#4ade80">PKR ${monthlySavings}</span>
           </div>` : ''}
-          <div style="font-size:11px;color:var(--text-muted);margin-top:6px">🌤 Live: ${avgCloud}% clouds · 🌧 ${maxRain}% rain — Open-Meteo</div>`;
+          <div style="font-size:11px;color:var(--text-muted);margin-top:6px">🌤 Live: ${avgCloud}% clouds · 🌧 ${maxRain}% rain — Open-Meteo (PKT)</div>`;
       } else {
-        rowsHtml += `<div style="font-size:11px;color:var(--text-muted);margin-top:6px">🌤 Live: ${avgCloud}% clouds · 🌧 ${maxRain}% rain — Open-Meteo</div>`;
+        rowsHtml += `<div style="font-size:11px;color:var(--text-muted);margin-top:6px">🌤 Live: ${avgCloud}% clouds · 🌧 ${maxRain}% rain — Open-Meteo (PKT)</div>`;
       }
 
       rowsContainer.innerHTML = rowsHtml;
@@ -117,4 +137,44 @@ async function solRenderToday() {
     console.error(err);
     out.innerHTML = `<div class="sol-loading" style="color:#f87171">Error calculating: ${err.message}</div>`;
   }
+}
+
+function updateSolarNow(hourly) {
+    try {
+        const elW = document.getElementById('sol-now-watt');
+        if (!elW) return;
+        const now = getPktNow();
+        const cur = now.getHours() + now.getMinutes()/60;
+        let watt = 0, cloud = 0;
+
+        const firstHour = hourly[0]?.h ?? 5;
+        const lastHour = hourly[hourly.length - 1]?.h ?? 18;
+
+        if (cur >= lastHour + 1 || cur < firstHour) {
+            watt = 0;
+            cloud = hourly[hourly.length - 1]?.cloud ?? 0;
+        } else {
+            for (let i=0; i<hourly.length; i++) {
+                const h0 = hourly[i], h1 = hourly[i+1];
+                if (h0.h <= cur && (!h1 || h1.h > cur)) {
+                    if (h1) {
+                        const t = Math.max(0, Math.min(1, (cur - h0.h)/(h1.h - h0.h)));
+                        watt = h0.watt + t*(h1.watt - h0.watt);
+                        cloud = (h0.cloud||0) + t*((h1.cloud||0)-(h0.cloud||0));
+                    } else { 
+                        const t = Math.max(0, Math.min(1, cur - h0.h));
+                        watt = h0.watt * (1 - t);
+                        cloud = h0.cloud||0; 
+                    }
+                    break;
+                }
+            }
+        }
+
+        elW.textContent = Math.round(watt);
+        const elT = document.getElementById('sol-now-time');
+        const elC = document.getElementById('sol-now-cloud');
+        if (elT) elT.textContent = now.toLocaleTimeString('en-PK', {hour:'2-digit', minute:'2-digit'});
+        if (elC) elC.textContent = '☁ ' + Math.round(cloud) + '%';
+    } catch(e){}
 }

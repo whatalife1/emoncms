@@ -1,5 +1,3 @@
-// ─── Graphs Panel - Data Layer ─────────────────────────────────────────────
-
 if (typeof graphIsLoading === 'undefined') window.graphIsLoading = false;
 if (typeof graphDataCache === 'undefined') window.graphDataCache = null;
 if (typeof graphTab === 'undefined') window.graphTab = 'day';
@@ -22,7 +20,6 @@ function _formatStatLine(icon, label, mainVal, accentColor, peakVal, avgVal, nig
     const isTemp = lblLower.includes('temp') || lblLower.includes('\u00b0c');
     const isWater = lblLower.includes('water') || lblLower.includes('tank');
     const isDay = currentTab === 'day';
-    // Only hide night for solar, temp, water in day view, or for month view
     const hideNight = isSolar || isTemp || isWater || (currentTab === 'month');
     const peakLabel = isDay ? "Peak" : (currentTab === 'year' ? "Max Month" : "Max Day");
     const avgLabel  = isDay ? "Avg"  : (currentTab === 'month' ? "Daily Avg" : "Monthly Avg");
@@ -39,6 +36,111 @@ function _formatStatLine(icon, label, mainVal, accentColor, peakVal, avgVal, nig
     const mainDisplay = isKwh ? `${mainVal.toFixed(1)} kWh` : `${mainVal.toFixed(1)} ${unit}`;
     const peakDisp = isTemp ? peakVal.toFixed(1) : (isDay ? Math.round(peakVal).toLocaleString() : peakVal.toFixed(1));
     return `<div style="margin-bottom: 6px; line-height:1.2;"><div style="display:flex; align-items:center; gap:6px;"><span style="color:${accentColor}; font-size:${fsLabel}; font-weight:700;">${icon?icon+' ':''}${label}:</span><span style="color:var(--text-main); font-size:${fsMain}; font-weight:900;">${mainDisplay}</span></div><div style="color:var(--text-muted); font-size:11px; font-weight:600; margin-left: 1px; margin-top: 2px;"><div>(${peakLabel}: <span style="color:${peakColor}; ${boldStyle}">${peakDisp}</span> ${unit}${avgHtml})</div>${nightHtml?`<div style="margin-top:2px;">${nightHtml}</div>`:''}</div></div>`;
+}
+
+function _pointsToBars(pts, nav, feedKey) {
+    if (!pts || !pts.length) return [];
+    
+    if (nav.isMonthBilling) {
+        const daily = {}; 
+        for (let i = 0; i < pts.length; i++) { 
+            const p = pts[i];
+            if (p[1] == null) continue; 
+            const pktDate = getKarachiDate(p[0]);
+            const key = `${pktDate.year}-${String(pktDate.month).padStart(2,'0')}-${String(pktDate.day).padStart(2,'0')}`;
+            daily[key] = (daily[key] || 0) + (p[1] / 1000); 
+        }
+        const start = new Date(nav.startMs); 
+        const days = Math.ceil((nav.endMs - nav.startMs) / 86400000); 
+        const bars = [], labels = [];
+        for (let i = 0; i < days; i++) { 
+            const d = new Date(start.getTime() + i * 86400000); 
+            const pktDate = getKarachiDate(d.getTime());
+            labels.push(`${pktDate.day}/${pktDate.month}`); 
+            const key = `${pktDate.year}-${String(pktDate.month).padStart(2,'0')}-${String(pktDate.day).padStart(2,'0')}`;
+            bars.push(daily[key] || 0); 
+        }
+        nav.labels = labels; 
+        nav.nBars = bars.length; 
+        return bars;
+    }
+    
+    if (nav.isYearBilling) {
+        const monthly = new Array(12).fill(0);
+        for (let i = 0; i < pts.length; i++) { 
+            const p = pts[i];
+            if (p[1] == null) continue; 
+            const pktDate = getKarachiDate(p[0]);
+            const month = pktDate.month - 1;
+            monthly[month] = (monthly[month] || 0) + (p[1] / 1000);
+        }
+        nav.nBars = 12;
+        return monthly;
+    }
+    
+    const isAvg = feedKey && (feedKey.startsWith('temp') || feedKey === 'water' || feedKey === 'acvolts');
+    const bars = Array(nav.nBars || 1).fill(0), counts = Array(nav.nBars || 1).fill(0);
+    const resMs = nav.resSeconds * 1000;
+    
+    for (let i = 0; i < pts.length; i++) {
+        const p = pts[i];
+        let idx;
+        if (nav.isDayTab) {
+            idx = Math.floor((p[0] - nav.startMs) / resMs);
+        } else {
+            const pktDate = getKarachiDate(p[0]);
+            idx = nav.isYearly ? (pktDate.month - 1) : (pktDate.day - 1);
+        }
+        if (idx >= 0 && idx < bars.length) { 
+            bars[idx] += isAvg ? p[1] : (p[1] * (nav.isDayTab ? 1 : (nav.interval/3600/1000))); 
+            counts[idx]++; 
+        }
+    }
+    return isAvg ? bars.map((v, i) => counts[i] > 0 ? v / counts[i] : 0) : bars;
+}
+
+async function _gFetch(feedId, startMs, endMs, interval) {
+    if (!feedId) return []; 
+    const useDelta = (window.graphTab === "month") ? 1 : 0;
+    const url = `${PROXY_BASE}/feed/data.json?ids=${feedId}&start=${startMs}&end=${endMs}&skipmissing=0&average=1&delta=${useDelta}&interval=${interval}`;
+    try { 
+        const text = await nativeFetch(url); 
+        if (!text || text.startsWith('ERROR')) return []; 
+        const root = JSON.parse(text); 
+        const data = root[0]?.data || root; 
+        return data.filter(p => p && p[1] != null); 
+    } catch (e) { return []; }
+}
+
+function _calcStatsForRange(bars, startHour, endHour, nav, lastIdx) {
+    if (!bars || bars.length === 0) return { avg: 0, activeAvg: 0, total: 0 };
+    const isWrapping = startHour > endHour;
+    let sum = 0, count = 0, activeCount = 0;
+    const step = nav.resSeconds / 3600;
+    for (let i = 0; i < Math.min(bars.length, lastIdx || bars.length); i++) {
+        const val = bars[i];
+        if (val === null || val === undefined) continue;
+        const h = i * step;
+        if (isWrapping ? (h >= startHour || h < endHour) : (h >= startHour && h < endHour)) {
+            sum += val;
+            count++;
+            if (val > 10) activeCount++;
+        }
+    }
+    
+    const isKwhView = nav && (nav.isMonthBilling || nav.isYearly);
+    let totalKwh = 0;
+    if (isKwhView) {
+        totalKwh = sum;
+    } else {
+        totalKwh = (sum * nav.resSeconds / 3600) / 1000;
+    }
+
+    return {
+        avg: count > 0 ? sum / count : 0,
+        activeAvg: activeCount > 0 ? sum / activeCount : (count > 0 ? sum / count : 0),
+        total: totalKwh
+    };
 }
 
 async function _loadAndDraw() {
@@ -108,8 +210,6 @@ async function _loadAndDraw() {
 
         let lastIdx = bars1.length || multiData?.[0]?.data?.length || 0;
         if (graphTab === 'day' && graphDateNav === 0) {
-            // Subtract 60s buffer to avoid showing the 'current' incomplete bucket as 0 Watts
-            // if the new data hasn't arrived at the server yet.
             lastIdx = Math.floor((Date.now() - 60000 - nav.startMs) / (nav.resSeconds * 1000)) + 1;
         }
 
@@ -126,21 +226,20 @@ async function _loadAndDraw() {
 
         const isAvgF = isTemp || graphFeedKey === 'water' || graphFeedKey === 'acvolts';
         
-        // CRITICAL FIX: Convert Wh to kWh for night calculations in month/year view
         const calcNgt = (pts) => {
             const hrs = [17,18,19,20,21,22,23,0,1,2,3,4,5,6,7]; 
             let tot = 0;
             for (const [ts, v] of pts) { 
-                if (v != null && hrs.includes(new Date(ts).getHours())) {
-                    // Convert Wh to kWh by dividing by 1000
-                    tot += v / 1000;
+                if (v != null) {
+                    const pktDate = getKarachiDate(ts);
+                    if (hrs.includes(pktDate.hour)) {
+                        tot += v / 1000;
+                    }
                 }
             }
             return { avg: tot / Math.max(1, nav.nBars || 1), total: tot };
         };
         
-        // For month/year, bars are already in kWh, so df = 1
-        // For day, bars are in Watts, convert to kWh by dividing by 1000
         const df = (graphTab === 'month' || graphTab === 'year') ? 1 : (nav.resSeconds / 3600) / 1000;
         
         if (isGridAll) {
@@ -177,7 +276,16 @@ async function _loadAndDraw() {
                 return _formatStatLine(null, m.label, t, m.color, pk, av, nAv, nTt, graphDataCache.unit, true, graphTab, true);
             }).join('')}</div>`;
         } else if (isCombined) {
-            const t1 = bars1.reduce((a,b,i)=>i<lastIdx?a+b:a,0)*df, t2 = bars2.reduce((a,b,i)=>i<lastIdx?a+b:a,0)*df;
+            const isKwhView = nav && (nav.isMonthBilling || nav.isYearly);
+            let total1, total2;
+            if (isKwhView) {
+                total1 = bars1.reduce((a, b) => a + b, 0);
+                total2 = bars2.reduce((a, b) => a + b, 0);
+            } else {
+                total1 = bars1.reduce((a, b, i) => i < lastIdx ? a + b : a, 0) * (nav.resSeconds / 3600) / 1000;
+                total2 = bars2.reduce((a, b, i) => i < lastIdx ? a + b : a, 0) * (nav.resSeconds / 3600) / 1000;
+            }
+            const t1 = total1, t2 = total2;
             const p1 = Math.max(...bars1), p2 = Math.max(...bars2); let a1, a2, n2 = null, nt2 = null;
             if (graphTab === 'month') { 
                 a1 = t1/bars1.length; 
@@ -204,7 +312,14 @@ async function _loadAndDraw() {
             }
             stat.innerHTML = _formatStatLine('☀', 'Solar', t1, color1, p1, a1, null, null, unit, true, graphTab) + _formatStatLine('⚡', 'Grid', t2, color2, p2, a2, n2, nt2, unit, true, graphTab);
         } else {
-            const t1 = isAvgF ? (bars1.slice(0,lastIdx).reduce((a,b)=>a+b,0)/lastIdx) : (bars1.reduce((a,b,i)=>i<lastIdx?a+b:a,0)*df);
+            const isKwhView = nav && (nav.isMonthBilling || nav.isYearly);
+            let total1;
+            if (isKwhView) {
+                total1 = bars1.reduce((a, b) => a + b, 0);
+            } else {
+                total1 = bars1.reduce((a, b, i) => i < lastIdx ? a + b : a, 0) * (nav.resSeconds / 3600) / 1000;
+            }
+            const t1 = total1;
             const pk = Math.max(...bars1,0); 
             let av = null, nAv = null, nTt = null;
             
@@ -256,104 +371,4 @@ function _showGraphLoading(s) {
         } 
         o.style.display = 'flex'; 
     } else if (o) o.style.display = 'none'; 
-}
-
-/**
- * Convert raw API data points to bar chart values
- * - For Month view: aggregate daily totals in kWh (Wh → kWh conversion)
- * - For Year view: aggregate monthly totals in kWh
- * - For Day view: keep in Watts for display
- * - For Temp/Water/AC Volts: average the values per time slot
- */
-function _pointsToBars(pts, nav, feedKey) {
-    if (!pts || !pts.length) return [];
-    
-    // MONTH VIEW: Aggregate daily totals in kWh
-    if (nav.isMonthBilling) {
-        const daily = {}; 
-        for (const [ts, v] of pts) { 
-            if (v == null) continue; 
-            const d = new Date(ts); 
-            const key = d.toISOString().slice(0,10); 
-            // CRITICAL: Convert Wh to kWh by dividing by 1000
-            daily[key] = (daily[key] || 0) + (v / 1000); 
-        }
-        const start = new Date(nav.startMs); 
-        const days = Math.ceil((nav.endMs - nav.startMs) / 86400000); 
-        const bars = [], labels = [];
-        for (let i = 0; i < days; i++) { 
-            const d = new Date(start.getTime() + i * 86400000); 
-            const key = d.toISOString().slice(0,10); 
-            labels.push(`${d.getDate()}/${d.getMonth()+1}`); 
-            bars.push(daily[key] || 0); 
-        }
-        nav.labels = labels; 
-        nav.nBars = bars.length; 
-        return bars;
-    }
-    
-    // YEAR VIEW: Aggregate monthly totals in kWh (not average per day)
-    if (nav.isYearBilling) {
-        const monthly = new Array(12).fill(0);
-        
-        for (const [ts, v] of pts) { 
-            if (v == null) continue; 
-            const d = new Date(ts); 
-            const month = d.getMonth();
-            // Convert Wh to kWh and add to monthly total
-            monthly[month] = (monthly[month] || 0) + (v / 1000);
-        }
-        
-        // Return monthly totals directly (not averaged per day)
-        nav.nBars = 12;
-        return monthly;
-    }
-    
-    // DAY VIEW: Keep in Watts, or average for sensor-type feeds
-    const isAvg = feedKey && (feedKey.startsWith('temp') || feedKey === 'water' || feedKey === 'acvolts');
-    const bars = Array(nav.nBars || 1).fill(0), counts = Array(nav.nBars || 1).fill(0);
-    for (const [ts, v] of pts) {
-        let idx = nav.isDayTab ? Math.floor((ts - nav.startMs) / (nav.resSeconds * 1000)) : (nav.isYearly ? new Date(ts).getMonth() : new Date(ts).getDate() - 1);
-        if (idx >= 0 && idx < bars.length) { 
-            bars[idx] += isAvg ? v : (v * (nav.isDayTab ? 1 : (nav.interval/3600/1000))); 
-            counts[idx]++; 
-        }
-    }
-    return isAvg ? bars.map((v, i) => counts[i] > 0 ? v / counts[i] : 0) : bars;
-}
-
-async function _gFetch(feedId, startMs, endMs, interval) {
-    if (!feedId) return []; 
-    // Use delta=1 for month view (cumulative totals), delta=0 for day/year (incremental)
-    const useDelta = (window.graphTab === "month") ? 1 : 0;
-    const url = `${PROXY_BASE}/feed/data.json?ids=${feedId}&start=${startMs}&end=${endMs}&skipmissing=0&average=1&delta=${useDelta}&interval=${interval}`;
-    try { 
-        const text = await nativeFetch(url); 
-        if (!text || text.startsWith('ERROR')) return []; 
-        const root = JSON.parse(text); 
-        const data = root[0]?.data || root; 
-        return data.filter(p => p && p[1] != null); 
-    } catch (e) { return []; }
-}
-
-function _calcStatsForRange(bars, startHour, endHour, nav, lastIdx) {
-    if (!bars || bars.length === 0) return { avg: 0, activeAvg: 0, total: 0 };
-    const isWrapping = startHour > endHour;
-    let sum = 0, count = 0, activeCount = 0;
-    const step = nav.resSeconds / 3600;
-    for (let i = 0; i < Math.min(bars.length, lastIdx || bars.length); i++) {
-        const val = bars[i];
-        if (val === null || val === undefined) continue;
-        const h = i * step;
-        if (isWrapping ? (h >= startHour || h < endHour) : (h >= startHour && h < endHour)) {
-            sum += val;
-            count++;
-            if (val > 10) activeCount++;
-        }
-    }
-    return {
-        avg: count > 0 ? sum / count : 0,
-        activeAvg: activeCount > 0 ? sum / activeCount : (count > 0 ? sum / count : 0),
-        total: (sum * nav.resSeconds / 3600) / 1000
-    };
 }

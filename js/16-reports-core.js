@@ -32,8 +32,8 @@ function getKarachiDate(ms) {
 
 function billingRangeFor(year, month) {
     // Always calculate using UTC and offset to ensure stability
-    const start = new Date(Date.UTC(year, month - 1, 25, 0, 0, 0));
-    const end = new Date(Date.UTC(year, month, 26, 0, 0, 0));
+    const start = new Date(Date.UTC(year, month - 2, 25, 0, 0, 0));
+    const end = new Date(Date.UTC(year, month - 1, 26, 0, 0, 0));
     return { 
         startMs: start.getTime() - 18000000, 
         endMs: end.getTime() - 18000000 

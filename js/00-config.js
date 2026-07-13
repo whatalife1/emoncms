@@ -160,8 +160,8 @@ function isPktToday(timestamp) {
 }
 
 function getPktBillingRange(year, month) {
-    const start = new Date(Date.UTC(year, month - 1, 25, 0, 0, 0));
-    const end = new Date(Date.UTC(year, month, 26, 0, 0, 0));
+    const start = new Date(Date.UTC(year, month - 2, 25, 0, 0, 0));
+    const end = new Date(Date.UTC(year, month - 1, 26, 0, 0, 0));
     return {
         startMs: start.getTime() - 18000000,
         endMs: end.getTime() - 18000000

@@ -135,8 +135,8 @@ function _handleGraphHover(e, pin) {
     if (!graphDataCache) return;
     const canvas = document.getElementById('graph-canvas');
     if (!canvas) return;
-    const { bars1, bars2, labels, color1, color2, unit, isCombined, lastIdx, multiData, minV, maxV, range, 
-            barsTemp, tempMinV, tempMaxV, tempRange, tempUnit, tempColor, overlayLabel, isDualY } = graphDataCache;
+    const { bars1, bars2, labels, timeLabels, fullLabels, color1, color2, unit, isCombined, lastIdx, multiData, minV, maxV, range, 
+            barsTemp, tempMinV, tempMaxV, tempRange, tempUnit, tempColor, overlayLabel, isDualY, nav } = graphDataCache;
     const rect = canvas.getBoundingClientRect();
     const clientX = e.clientX || (e.touches?.[0]?.clientX ?? 0);
     const clientY = e.clientY || (e.touches?.[0]?.clientY ?? 0);
@@ -150,8 +150,25 @@ function _handleGraphHover(e, pin) {
         return;
     }
 
-    // ---- Multi-line tooltip: show all visible feeds ----
-    const PT = 12, cH = rect.height - 12 - 34; // Top padding and Chart Height
+    // ---- Get the exact time label for this data point ----
+    let timeLabel = '--:--';
+    if (nav && nav.fullLabels && nav.fullLabels[idx]) {
+        timeLabel = nav.fullLabels[idx];
+    } else if (nav && nav.timeLabels && nav.timeLabels[idx]) {
+        timeLabel = nav.timeLabels[idx];
+    } else if (nav && nav.isDayTab && nav.resSeconds) {
+        const startMs = nav.startMs || 0;
+        const ts = startMs + (idx * nav.resSeconds * 1000);
+        const pktDate = getKarachiDate(ts);
+        const h = pktDate.hour;
+        const m = Math.round((ts - new Date(pktDate.year, pktDate.month - 1, pktDate.day, h, 0, 0).getTime()) / 60000);
+        const ampm = h >= 12 ? 'pm' : 'am';
+        const hh = h % 12 || 12;
+        const mm = String(m).padStart(2, '0');
+        timeLabel = `${hh}:${mm}${ampm}`;
+    }
+
+    const PT = 12, cH = rect.height - 12 - 34;
     const mouseY = clientY - rect.top;
     let closestLineIdx = 0;
 
@@ -165,9 +182,8 @@ function _handleGraphHover(e, pin) {
     }
 
     const closeBtn = pin ? `<span class="close-btn" onclick="hideTooltip();">✕</span>` : '';
-    let html = `<div style="font-weight:700;font-size:11px;color:var(--text-muted);margin-bottom:4px">${labels[idx] || ''} ${closeBtn}</div>`;
+    let html = `<div style="font-weight:700;font-size:12px;color:var(--text-main);margin-bottom:4px;border-bottom:1px solid var(--border);padding-bottom:4px;">${timeLabel} ${closeBtn}</div>`;
 
-    // Determine if we're in month/year view (kWh) or day view (W)
     const isMonthOrYear = graphTab === 'month' || graphTab === 'year';
     const isDayView = graphTab === 'day';
     const isKwhView = isMonthOrYear;
@@ -185,16 +201,12 @@ function _handleGraphHover(e, pin) {
         multiData.forEach((line, i) => {
             const val = (line.data[idx] ?? 0);
             const isTemp = unit === '°C';
-            // Format based on view: kWh for month/year, W for day
             let valStr;
             if (isKwhView) {
-                // Month/Year: show as kWh
                 valStr = val.toFixed(2) + ' kWh';
             } else if (isDayView) {
-                // Day: show as Watts (or °C for temp)
                 valStr = isTemp ? val.toFixed(1) + ' °C' : Math.round(val) + ' W';
             } else {
-                // Fallback
                 valStr = isTemp ? val.toFixed(1) + ' °C' : val.toFixed(2) + ' ' + unit;
             }
             const isFocused = (closestLineIdx === i + 1);
@@ -205,7 +217,6 @@ function _handleGraphHover(e, pin) {
             </div>`;
         });
 
-        // Add overlay if present
         if (isDualY && barsTemp && idx < barsTemp.length) {
             const tempVal = barsTemp[idx] ?? 0;
             const isOvTemp = tempUnit === '°C';
@@ -224,17 +235,13 @@ function _handleGraphHover(e, pin) {
             </div>`;
         }
     } else {
-        // Single/combined line
         const isTempCombined = graphFeedKey === 'temp' || graphFeedKey === 'temp2';
         const isTemp = unit === '°C' || isTempCombined;
         
-        // Format based on view: kWh for month/year, W for day
         let val1;
         if (isKwhView) {
-            // Month/Year: show as kWh
             val1 = (isTemp ? bars1[idx].toFixed(1) : bars1[idx].toFixed(2)) + ' kWh';
         } else if (isDayView) {
-            // Day: show as Watts (or °C for temp)
             val1 = (isTemp ? bars1[idx].toFixed(1) : Math.round(bars1[idx])) + ' ' + (isTempCombined ? '°C' : unit);
         } else {
             val1 = (isTemp ? bars1[idx].toFixed(1) : bars1[idx].toFixed(2)) + ' ' + (isTempCombined ? '°C' : unit);
@@ -273,7 +280,6 @@ function _handleGraphHover(e, pin) {
         const l1 = isTempCombined ? 'Temp' : (isCombined ? 'Solar' : null);
         const l2 = isTempCombined ? 'Hum' : (isCombined ? 'Grid' : null);
 
-        // Show tooltip with overlay data if present
         if (isDualY && barsTemp && idx < barsTemp.length) {
             const tempVal = barsTemp[idx] ?? 0;
             const isOvTemp = tempUnit === '°C';
@@ -319,9 +325,6 @@ function _handleGraphHover(e, pin) {
     tooltip.style.top  = top  + 'px';
 }
 
-
-
-
 // ---- _drawChart with Multi-Line support + dual Y-axis for overlay ----
 function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombined, nav, lastIdx, multiData,
                    minV, maxV, range, barsTemp = [], tempMinV = 0, tempMaxV = 100, tempRange = 100, tempUnit = '°C', tempColor = '#10b981', overlayLabel = '') {
@@ -353,13 +356,10 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
 
     ctx.clearRect(0, 0, rect.width, rect.height);
 
-    // Determine if we're in month/year view (kWh) or day view (W)
     const isMonthOrYear = graphTab === 'month' || graphTab === 'year';
     const isKwhView = isMonthOrYear;
     const displayUnit = isKwhView ? 'kWh' : unit;
-    const isKwhForDisplay = displayUnit === 'kWh';
 
-    // ---- Left Y-axis grid ----
     ctx.fillStyle = '#71717a';
     ctx.font = '9px system-ui';
     ctx.textAlign = 'right';
@@ -369,7 +369,6 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
         const y   = PT + cH - (i / numGridLines) * cH;
         let lbl;
         if (isKwhView) {
-            // Month/Year: show as kWh
             lbl = val.toFixed(1);
         } else if (isTemp) {
             lbl = val.toFixed(1) + '°';
@@ -384,7 +383,6 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
         ctx.stroke();
     }
 
-    // Add unit label to Y-axis
     ctx.fillStyle = '#71717a';
     ctx.font = '8px system-ui';
     ctx.textAlign = 'center';
@@ -396,7 +394,6 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
         ctx.fillText('W', 10, PT + 8);
     }
 
-    // ---- Right Y-axis grid for overlay ----
     if (barsTemp.length > 0) {
         ctx.fillStyle = '#71717a';
         ctx.font = '9px system-ui';
@@ -422,7 +419,6 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
             ctx.beginPath(); ctx.moveTo(PL, y); ctx.lineTo(PL + cW, y); ctx.stroke();
         }
         
-        // Add unit label for right Y-axis
         ctx.fillStyle = '#71717a';
         ctx.font = '8px system-ui';
         ctx.textAlign = 'center';
@@ -433,7 +429,6 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
         }
     }
 
-    // ---- Clip to chart area ----
     ctx.save();
     ctx.beginPath();
     ctx.rect(PL, PT, cW, cH);
@@ -444,12 +439,10 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
     const isBar = chartType === 'bar';
 
     if (multiData && multiData.length > 0) {
-        // ---- Multi-line: draw each visible feed ----
         for (const line of multiData) {
             const data = line.data;
             
             if (isBar || isHourly) {
-                // ---- Bar/Hourly mode for multi-data ----
                 const barWidth = Math.max(2, (cW / n) * 0.7);
                 for (let i = 0; i < lastIdx; i++) {
                     if (i >= data.length) break;
@@ -465,7 +458,6 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
                     ctx.globalAlpha = 1;
                 }
             } else {
-                // ---- Line mode ----
                 ctx.beginPath();
                 ctx.strokeStyle = line.color;
                 ctx.lineWidth = 2;
@@ -485,7 +477,6 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
                 }
                 ctx.stroke();
 
-                // ---- End-of-line label ----
                 if (lastDrawnX !== null && lastDrawnY !== null) {
                     ctx.beginPath();
                     ctx.arc(lastDrawnX, lastDrawnY, 4, 0, Math.PI * 2);
@@ -502,10 +493,8 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
             }
         }
     } else {
-        // ---- Single / combined line ----
         const drawData = (data, clr, isSecondary = false) => {
             if (isBar || isHourly) {
-                // ---- Bar/Hourly mode ----
                 const barWidth = Math.max(2, (cW / n) * 0.6);
                 const offset = isSecondary ? barWidth * 0.5 : 0;
                 for (let i = 0; i < lastIdx; i++) {
@@ -522,7 +511,6 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
                     ctx.globalAlpha = 1;
                 }
             } else {
-                // ---- Line mode ----
                 ctx.beginPath();
                 ctx.strokeStyle = clr;
                 ctx.lineWidth = isSecondary ? 1.5 : 2.5;
@@ -547,7 +535,6 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
         drawData(bars1, color1, false);
     }
 
-    // ---- Overlay line (dashed) ----
     if (barsTemp.length > 0) {
         ctx.beginPath();
         ctx.strokeStyle = tempColor;
@@ -569,15 +556,31 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
 
     ctx.restore();
 
-    // ---- X-axis labels ----
+    // ---- X-axis labels with dynamic detail based on zoom ----
     ctx.fillStyle = '#71717a';
     ctx.textAlign = 'center';
     ctx.font = '9px system-ui';
-    const skip = Math.max(1, Math.ceil(n / (8 * zoom)));
-    for (let i = 0; i < n; i += skip) {
+
+    const isZoomed = zoom > 2;
+    const labelStep = isZoomed ? Math.max(1, Math.ceil(n / (20 * zoom))) : Math.max(1, Math.ceil(n / (8 * zoom)));
+
+    // Use fullLabels when zoomed, otherwise use labels
+    const displayLabels = (isZoomed && nav && nav.fullLabels) ? nav.fullLabels : (labels || []);
+
+    for (let i = 0; i < n; i += labelStep) {
         const lx = mapX(PL + (i / n) * cW);
         if (lx > PL - 10 && lx < rect.width - PR) {
-            ctx.fillText(labels[i] || '', lx, rect.height - 12);
+            let label = displayLabels[i] || '';
+            // If zoomed out and label is too long, truncate to hour only
+            if (!isZoomed && label.length > 6) {
+                const match = label.match(/^(\d+):/);
+                if (match) {
+                    const hour = parseInt(match[1]);
+                    const ampm = label.includes('pm') ? 'pm' : 'am';
+                    label = `${hour}${ampm}`;
+                }
+            }
+            ctx.fillText(label, lx, rect.height - 12);
         }
     }
 }

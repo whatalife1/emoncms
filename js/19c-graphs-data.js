@@ -61,6 +61,8 @@ function _pointsToBars(pts, nav, feedKey) {
             bars.push(daily[key] || 0); 
         }
         nav.labels = labels; 
+        nav.timeLabels = labels;
+        nav.fullLabels = labels;
         nav.nBars = bars.length; 
         return bars;
     }
@@ -218,7 +220,11 @@ async function _loadAndDraw() {
 
         const maxBT = barsTemp.length > 0 ? Math.max(...barsTemp, 1) : 1;
         graphDataCache = { 
-            bars1, bars2, labels: nav.labels, color1, color2, unit, isCombined, nav, lastIdx, multiData, minV, maxV, range: maxV-minV, 
+            bars1, bars2, 
+            labels: nav.labels, 
+            timeLabels: nav.timeLabels || nav.labels,
+            fullLabels: nav.fullLabels || nav.labels,
+            color1, color2, unit, isCombined, nav, lastIdx, multiData, minV, maxV, range: maxV-minV, 
             barsTemp, tempMinV: 0, tempMaxV: maxBT * 1.1, tempRange: maxBT * 1.1, 
             tempUnit: 'W', tempColor: ovAc ? ovAc.color : '#38bdf8', overlayLabel: ovAc ? ovAc.label : 'AC', isDualY: barsTemp.length > 0 
         };

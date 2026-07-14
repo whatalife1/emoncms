@@ -562,7 +562,9 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
     ctx.font = '9px system-ui';
 
     const isZoomed = zoom > 2;
-    const labelStep = isZoomed ? Math.max(1, Math.ceil(n / (20 * zoom))) : Math.max(1, Math.ceil(n / (8 * zoom)));
+    // Calculate how many labels can comfortably fit (assume ~45px per label)
+    const maxLabels = Math.max(3, Math.floor(cW / 45));
+    const labelStep = Math.max(1, Math.ceil(n / (maxLabels * zoom)));
 
     // Use fullLabels when zoomed, otherwise use labels
     const displayLabels = (isZoomed && nav && nav.fullLabels) ? nav.fullLabels : (labels || []);
@@ -571,8 +573,8 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
         const lx = mapX(PL + (i / n) * cW);
         if (lx > PL - 10 && lx < rect.width - PR) {
             let label = displayLabels[i] || '';
-            // If zoomed out and label is too long, truncate to hour only
-            if (!isZoomed && label.length > 6) {
+            // If zoomed out and label has minutes, truncate to hour only to save space
+            if (!isZoomed && label.includes(':')) {
                 const match = label.match(/^(\d+):/);
                 if (match) {
                     const hour = parseInt(match[1]);

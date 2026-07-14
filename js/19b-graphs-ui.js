@@ -22,7 +22,6 @@ window.generateGraphReport = async function() {
     const sums = {};
     const visualData = {}; 
     
-    // Single-pass optimization for fast reports
     results.forEach(r => {
         const fId = r.feed.id;
         const ds = r.feed.isPc ? EXPORT_PC_DAY_START : EXPORT_DAY_START;
@@ -43,33 +42,6 @@ window.generateGraphReport = async function() {
         } else {
             const sorted = Object.keys(h24).sort(), dArr = sorted.map(d => h24[d]);
             visualData[fId] = { arr: dArr, max: Math.max(...dArr, 0.1) };
-        }
-    });
-    const skip_old_loop = false;
-    if (skip_old_loop) results.forEach(r => {
-        const ds = r.feed.isPc ? EXPORT_PC_DAY_START : EXPORT_DAY_START;
-        const de = r.feed.isPc ? EXPORT_PC_DAY_END : EXPORT_DAY_END;
-        sums[r.feed.id] = {
-            h24: sumByDay(r.data, 0, 24),
-            day: sumByDay(r.data, ds, de),
-            night: sumByDay(r.data, EXPORT_NIGHT_START, EXPORT_NIGHT_END)
-        };
-        
-        if (isDay) {
-            const hSum = new Array(24).fill(0), hCnt = new Array(24).fill(0);
-            const local = getKarachiDate(nav.startMs);
-            for (const [tsStr, val] of Object.entries(r.data)) {
-                const l = getKarachiDate(parseInt(tsStr));
-                if (l.year === local.year && l.month === local.month && l.day === local.day) {
-                    hSum[l.hour] += val; hCnt[l.hour]++;
-                }
-            }
-            const hArr = hSum.map((s, i) => hCnt[i] ? s/hCnt[i] : 0);
-            visualData[r.feed.id] = { arr: hArr, max: Math.max(...hArr, 0) };
-        } else {
-            const dates = Object.keys(sums[r.feed.id].h24).sort();
-            const dArr = dates.map(d => sums[r.feed.id].h24[d]);
-            visualData[r.feed.id] = { arr: dArr, max: Math.max(...dArr, 0) };
         }
     });
 
@@ -485,23 +457,55 @@ function _renderGFeedTabs() {
 
 function _gNavInfo() {
     const now = getPktNow();
-    const to12hr = (h, m) => { const ampm = h >= 12 ? 'pm' : 'am'; const hh = h % 12 || 12; const mm = String(m).padStart(2, '0'); return `${hh}:${mm}${ampm}`; };
+    const to12hr = (h, m) => { 
+        const ampm = h >= 12 ? 'pm' : 'am'; 
+        const hh = h % 12 || 12; 
+        const mm = String(m).padStart(2, '0'); 
+        return `${hh}:${mm}${ampm}`; 
+    };
+    const to12hrShort = (h) => { 
+        const ampm = h >= 12 ? 'pm' : 'am'; 
+        const hh = h % 12 || 12; 
+        return `${hh}${ampm}`; 
+    };
+    
     if (graphTab === 'day') {
         const d = new Date(now);
         d.setDate(d.getDate() + graphDateNav);
         const startMs = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
         const res = (graphChartType === 'hourly') ? 3600 : GRAPH_DAY_RESOLUTION_SECONDS;
-        const labels = []; 
-        for (let i = 0; i < Math.ceil((24*3600)/res); i++) { 
-            const date = new Date(startMs + i*res*1000);
+        const totalPoints = Math.ceil((24 * 3600) / res);
+        const labels = [];
+        const timeLabels = [];
+        const fullLabels = [];
+        
+        for (let i = 0; i < totalPoints; i++) { 
+            const date = new Date(startMs + i * res * 1000);
             const pktDate = getKarachiDate(date.getTime());
-            labels.push(to12hr(pktDate.hour, 0)); 
+            const h = pktDate.hour;
+            const m = Math.round((date.getTime() - new Date(date.getFullYear(), date.getMonth(), date.getDate(), h, 0, 0).getTime()) / 60000);
+            
+            const label = to12hrShort(h);
+            const timeLabel = to12hr(h, m);
+            
+            labels.push(label);
+            timeLabels.push(timeLabel);
+            fullLabels.push(timeLabel);
         }
+        
         const dateStr = d.toLocaleDateString('en-PK', { day:'numeric', month:'short' });
         return { 
             label: graphDateNav === 0 ? 'Today' : dateStr, 
             sub: d.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }),
-            interval: res, startMs, endMs: startMs + 24*3600*1000-1, isDayTab: true, nBars: Math.ceil((24*3600)/res), labels, resSeconds: res 
+            interval: res, 
+            startMs, 
+            endMs: startMs + 24 * 3600 * 1000 - 1, 
+            isDayTab: true, 
+            nBars: totalPoints, 
+            labels, 
+            timeLabels,
+            fullLabels,
+            resSeconds: res 
         };
     }
     if (graphTab === 'month') {
@@ -511,15 +515,17 @@ function _gNavInfo() {
         const end = new Date(start.getFullYear(), start.getMonth() + 1, 26);
         const days = Math.ceil((end - start) / 86400000);
         const labels = []; 
+        const timeLabels = [];
         for (let i = 0; i < days; i++) { 
             const d = new Date(start.getTime() + i*86400000);
             const pktDate = getKarachiDate(d.getTime());
-            labels.push(`${pktDate.day}/${pktDate.month}`); 
+            labels.push(`${pktDate.day}/${pktDate.month}`);
+            timeLabels.push(`${pktDate.day}/${pktDate.month}`);
         }
         return { 
             label: `${start.toLocaleDateString(undefined,{month:'short',day:'numeric'})} - ${end.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'})}`,
             interval: 3600, isDayTab: false, nBars: days, startMs: start.getTime(), endMs: end.getTime(), 
-            labels, month: start.getMonth(), year: start.getFullYear(), isMonthBilling: true, resSeconds: 3600 
+            labels, timeLabels, month: start.getMonth(), year: start.getFullYear(), isMonthBilling: true, resSeconds: 3600 
         };
     }
     if (graphTab === 'year') {
@@ -527,6 +533,7 @@ function _gNavInfo() {
         const start = new Date(y, 0, 1);
         const end = new Date(y, 11, 31, 23, 59, 59);
         const labels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const timeLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
         const daysInMonth = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
         if ((y % 4 === 0 && y % 100 !== 0) || (y % 400 === 0)) {
             daysInMonth[1] = 29;
@@ -538,7 +545,7 @@ function _gNavInfo() {
             nBars: 12, 
             startMs: start.getTime(), 
             endMs: end.getTime(), 
-            labels: labels,
+            labels, timeLabels,
             daysInMonth: daysInMonth,
             year: y, 
             isYearBilling: true, 
@@ -546,7 +553,7 @@ function _gNavInfo() {
             isYearView: true
         };
     }
-    return { label:'All Time', startMs: new Date(2024,0,1).getTime(), endMs: now.getTime(), labels:[] };
+    return { label:'All Time', startMs: new Date(2024,0,1).getTime(), endMs: now.getTime(), labels:[], timeLabels:[] };
 }
 
 function _renderGNavBar() {

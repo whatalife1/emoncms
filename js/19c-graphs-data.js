@@ -20,7 +20,8 @@ function _formatStatLine(icon, label, mainVal, accentColor, peakVal, avgVal, nig
     const isTemp = lblLower.includes('temp') || lblLower.includes('\u00b0c');
     const isWater = lblLower.includes('water') || lblLower.includes('tank');
     const isDay = currentTab === 'day';
-    const hideNight = isSolar || isTemp || isWater || (currentTab === 'month');
+    // ✅ FIX: Remove 'month' from hideNight so night info appears on Month view
+    const hideNight = isSolar || isTemp || isWater;
     const peakLabel = isDay ? "Peak" : (currentTab === 'year' ? "Max Month" : "Max Day");
     const avgLabel  = isDay ? "Avg"  : (currentTab === 'month' ? "Daily Avg" : "Monthly Avg");
     let peakColor = accentColor; if (peakVal > 1500 && isDay && !isTemp) peakColor = '#ef4444';

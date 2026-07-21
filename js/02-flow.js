@@ -1,17 +1,18 @@
 const LAYOUT = {
  weather: { x:5, y:10, w:708, h:49, color:'#0ea5e9', label:'Weather', ly1:25, fs:25, c1:'#ffffff',  },
- solar: { x:7, y:64, w:321, h:365, color:'#f59e0b', label:'Solar', ly1:42, fs:47, c1:'#ffff00', ly2:106, fs2:46, c2:'#2c8758', ly3:172, fs3:38, c3:'#b4b635', ly4:219, fs4:22, c4:'#21c442', ly5:279, fs5:24, c5:'#3de31c', ly6:317, fs6:22, c6:'#38bdf8', ly7:140, fs7:17, c7:'#a1a1aa',  },
+ solar: { x:7, y:64, w:321, h:365, color:'#f59e0b', label:'Solar', ly1:42, fs:47, c1:'#ffff00', ly2:106, fs2:46, c2:'#2c8758', ly3:172, fs3:31, c3:'#b4b635', ly4:219, fs4:22, c4:'#21c442', ly5:279, fs5:24, c5:'#3de31c', ly6:317, fs6:22, c6:'#38bdf8', ly7:140, fs7:17, c7:'#a1a1aa',  },
  grid: { x:330, y:64, w:245, h:365, color:'#ef4444', label:'Grid', ly1:48, fs:38, c1:'#ef4444', ly2:154, fs2:28, c2:'#35c0b7', ly3:276, fs3:22, c3:'#3de3e4', ly4:319, fs4:20, c4:'#38bdf8', ly5:186, fs5:20, c5:'#a1a1aa',  },
  water: { x:585, y:64, w:140, h:365, color:'#0ea5e9', label:'Water', ly1:48, fs:46, c1:'#0ea5e9', ly2:158, fs2:56, c2:'#25f447', ly3:251, fs3:25, c3:'#9ca3af', ly4:295, fs4:20, c4:'#0ce4e0', ly5:320, fs5:19, c5:'#38bdf8', ly6:342, fs6:18, c6:'#a1a1aa',  },
  haier: { x:7, y:436, w:238, h:199, color:'#38bdf8', label:'Haier 1T', ly1:25, fs:34, c1:'#38bdf8', ly2:75, fs2:63, c2:'#25f447', ly3:137, fs3:25, c3:'#00c8f0', ly4:173, fs4:25, c4:'#518e35', ly5:113, fs5:16, c5:'#a1a1aa',  },
  k15: { x:252, y:436, w:238, h:199, color:'#38bdf8', label:'Kenwood 1.5T', ly1:21, fs:33, c1:'#38bdf8', ly2:68, fs2:60, c2:'#25f447', ly3:137, fs3:25, c3:'#00c8f0', ly4:173, fs4:25, c4:'#518e35', ly5:108, fs5:16, c5:'#a1a1aa',  },
  k1: { x:497, y:435, w:230, h:192, color:'#38bdf8', label:'Kenwood 1T', ly1:27, fs:34, c1:'#38bdf8', ly2:75, fs2:61, c2:'#25f447', ly3:137, fs3:25, c3:'#00c8f0', ly4:173, fs4:25, c4:'#518e35', ly5:113, fs5:16, c5:'#a1a1aa',  },
- fridge: { x:8, y:678, w:240, h:231, color:'#c084fc', label:'Fridges', ly1:16, fs:36, c1:'#38bdf8', ly2:53, fs2:52, c2:'#25f447', ly3:101, fs3:19, c3:'#518e35', ly4:125, fs4:36, c4:'#38bdf8', ly5:165, fs5:52, c5:'#25f447', ly6:217, fs6:19, c6:'#518e35', ly7:84, fs7:14, c7:'#a1a1aa', ly8:197, fs8:16, c8:'#a1a1aa',  },
+ fridge: { x:8, y:678, w:240, h:231, color:'#c084fc', label:'Fridges', ly1:16, fs:36, c1:'#38bdf8', ly2:53, fs2:52, c2:'#25f447', ly3:101, fs3:19, c3:'#518e35', ly4:125, fs4:36, c4:'#38bdf8', ly5:165, fs5:52, c5:'#25f447', ly6:217, fs6:18, c6:'#518e35', ly7:84, fs7:14, c7:'#a1a1aa', ly8:197, fs8:16, c8:'#a1a1aa',  },
  pc: { x:508, y:676, w:218, h:232, color:'#10b9f8', label:'PC', ly1:27, fs:47, c1:'#38bdf8', ly2:90, fs2:53, c2:'#25f447', ly3:168, fs3:25, c3:'#00c8f0', ly4:207, fs4:21, c4:'#518e35', ly5:135, fs5:19, c5:'#a1a1aa',  },
  motor: { x:249, y:678, w:248, h:231, color:'#fbbf24', label:'Water Motor', ly1:24, fs:35, c1:'#fbbf24', ly2:83, fs2:57, c2:'#38bdf8', ly3:163, fs3:21, c3:'#518e35', ly4:200, fs4:22, c4:'#518e35', ly5:126, fs5:17, c5:'#a1a1aa',  },
  temp: { x:500, y:631, w:225, h:40, color:'#22c55e', label:'temp', ly1:20, fs:27, c1:'#25f447',  },
  temp2: { x:8, y:639, w:238, h:35, color:'#22c55e', label:'temp2', ly1:16, fs:27, c1:'#25f447',  },
 };
+
 
 function renderFlowDiagram(byName) {
   if (!byName) return;
@@ -23,6 +24,7 @@ function renderFlowDiagram(byName) {
   const v = getV('AC Volts');
   const sv = getV('Solar Volts') || getV('Solar V');
   const sa = getV('Solar Amps');
+  const invT = getV('Inverter Temp');
   const tk = getV('Water Tank');
   const tp = getV('Temperature');
   const hm = getV('Humidity');
@@ -102,7 +104,7 @@ function renderFlowDiagram(byName) {
   svg += `<text x="${cx(o)}" y="${o.y+o.ly1}" ${tpProps} font-size="${o.fs}" fill="${o.c1}">${o.label}: ${pF(s)}</text>`;
   svg += `<text x="${cx(o)}" y="${o.y+o.ly2}" ${tpProps} font-size="${o.fs2}" fill="${o.c2}">Load: ${pF(l)}</text>`;
   if (o.ly7) svg += `<text x="${cx(o)}" y="${o.y+o.ly7}" ${tpProps} font-size="${o.fs7}" fill="${o.c7}">${lTimeStr}</text>`;
-  svg += `<text x="${cx(o)}" y="${o.y+o.ly3}" ${tpProps} font-size="${o.fs3}" fill="${o.c3}">${Math.round(sv)}V | ${sa.toFixed(1)}A</text>`;
+  svg += `<text x="${cx(o)}" y="${o.y+o.ly3}" ${tpProps} font-size="${o.fs3}" fill="${o.c3}">${Math.round(sv)}V | ${sa.toFixed(1)}A | ${invT.toFixed(1)}°C</text>`;
   const rainStr = rain > 0 ? ` 🌧 ${rain}%` : '';
   svg += `<text x="${cx(o)}" y="${o.y+o.ly4}" ${tpProps} font-size="${o.fs4}" fill="${o.c4}">Pred: ${predF(predW)} | ☁ ${cloud}%${rainStr}</text>`;
   svg += `<text x="${cx(o)}" y="${o.y+o.ly5}" ${tpProps} font-size="${o.fs5}" fill="${o.c5}">Today: ${solar_t.toFixed(1)} kWh | ${kF(solar_t*rate)} PKR</text>`;

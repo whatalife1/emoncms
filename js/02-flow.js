@@ -1,18 +1,17 @@
 const LAYOUT = {
  weather: { x:5, y:10, w:708, h:49, color:'#0ea5e9', label:'Weather', ly1:25, fs:25, c1:'#ffffff',  },
- solar: { x:7, y:64, w:321, h:365, color:'#f59e0b', label:'Solar', ly1:42, fs:47, c1:'#ffff00', ly2:106, fs2:46, c2:'#2c8758', ly3:166, fs3:38, c3:'#b4b635', ly4:219, fs4:22, c4:'#21c442', ly5:279, fs5:24, c5:'#3de31c', ly6:317, fs6:22, c6:'#38bdf8',  },
- grid: { x:330, y:64, w:245, h:365, color:'#ef4444', label:'Grid', ly1:48, fs:38, c1:'#ef4444', ly2:154, fs2:28, c2:'#35c0b7', ly3:278, fs3:22, c3:'#3de3e4', ly4:317, fs4:22, c4:'#38bdf8',  },
+ solar: { x:7, y:64, w:321, h:365, color:'#f59e0b', label:'Solar', ly1:42, fs:47, c1:'#ffff00', ly2:106, fs2:46, c2:'#2c8758', ly3:172, fs3:38, c3:'#b4b635', ly4:219, fs4:22, c4:'#21c442', ly5:279, fs5:24, c5:'#3de31c', ly6:317, fs6:22, c6:'#38bdf8', ly7:140, fs7:17, c7:'#a1a1aa',  },
+ grid: { x:330, y:64, w:245, h:365, color:'#ef4444', label:'Grid', ly1:48, fs:38, c1:'#ef4444', ly2:154, fs2:28, c2:'#35c0b7', ly3:276, fs3:22, c3:'#3de3e4', ly4:319, fs4:20, c4:'#38bdf8', ly5:186, fs5:20, c5:'#a1a1aa',  },
  water: { x:585, y:64, w:140, h:365, color:'#0ea5e9', label:'Water', ly1:48, fs:46, c1:'#0ea5e9', ly2:158, fs2:56, c2:'#25f447', ly3:251, fs3:25, c3:'#9ca3af', ly4:295, fs4:20, c4:'#0ce4e0', ly5:320, fs5:19, c5:'#38bdf8', ly6:342, fs6:18, c6:'#a1a1aa',  },
- haier: { x:7, y:436, w:238, h:199, color:'#38bdf8', label:'Haier 1T', ly1:25, fs:34, c1:'#38bdf8', ly2:75, fs2:63, c2:'#25f447', ly3:137, fs3:25, c3:'#00c8f0', ly4:173, fs4:25, c4:'#518e35',  },
- k15: { x:252, y:436, w:238, h:199, color:'#38bdf8', label:'Kenwood 1.5T', ly1:21, fs:33, c1:'#38bdf8', ly2:68, fs2:60, c2:'#25f447', ly3:137, fs3:25, c3:'#00c8f0', ly4:173, fs4:25, c4:'#518e35',  },
- k1: { x:497, y:435, w:230, h:192, color:'#38bdf8', label:'Kenwood 1T', ly1:27, fs:34, c1:'#38bdf8', ly2:75, fs2:61, c2:'#25f447', ly3:137, fs3:25, c3:'#00c8f0', ly4:173, fs4:25, c4:'#518e35',  },
- fridge: { x:8, y:678, w:240, h:231, color:'#c084fc', label:'Fridges', ly1:19, fs:36, c1:'#38bdf8', ly2:60, fs2:52, c2:'#25f447', ly3:94, fs3:19, c3:'#518e35', ly4:125, fs4:36, c4:'#38bdf8', ly5:172, fs5:52, c5:'#25f447', ly6:212, fs6:19, c6:'#518e35',  },
- pc: { x:508, y:676, w:218, h:232, color:'#10b9f8', label:'PC', ly1:27, fs:47, c1:'#38bdf8', ly2:93, fs2:53, c2:'#25f447', ly3:160, fs3:25, c3:'#00c8f0', ly4:207, fs4:21, c4:'#518e35',  },
- motor: { x:249, y:678, w:248, h:231, color:'#fbbf24', label:'Water Motor', ly1:24, fs:35, c1:'#fbbf24', ly2:99, fs2:57, c2:'#38bdf8', ly3:157, fs3:21, c3:'#518e35', ly4:200, fs4:22, c4:'#518e35',  },
+ haier: { x:7, y:436, w:238, h:199, color:'#38bdf8', label:'Haier 1T', ly1:25, fs:34, c1:'#38bdf8', ly2:75, fs2:63, c2:'#25f447', ly3:137, fs3:25, c3:'#00c8f0', ly4:173, fs4:25, c4:'#518e35', ly5:113, fs5:16, c5:'#a1a1aa',  },
+ k15: { x:252, y:436, w:238, h:199, color:'#38bdf8', label:'Kenwood 1.5T', ly1:21, fs:33, c1:'#38bdf8', ly2:68, fs2:60, c2:'#25f447', ly3:137, fs3:25, c3:'#00c8f0', ly4:173, fs4:25, c4:'#518e35', ly5:108, fs5:16, c5:'#a1a1aa',  },
+ k1: { x:497, y:435, w:230, h:192, color:'#38bdf8', label:'Kenwood 1T', ly1:27, fs:34, c1:'#38bdf8', ly2:75, fs2:61, c2:'#25f447', ly3:137, fs3:25, c3:'#00c8f0', ly4:173, fs4:25, c4:'#518e35', ly5:113, fs5:16, c5:'#a1a1aa',  },
+ fridge: { x:8, y:678, w:240, h:231, color:'#c084fc', label:'Fridges', ly1:16, fs:36, c1:'#38bdf8', ly2:53, fs2:52, c2:'#25f447', ly3:101, fs3:19, c3:'#518e35', ly4:125, fs4:36, c4:'#38bdf8', ly5:165, fs5:52, c5:'#25f447', ly6:217, fs6:19, c6:'#518e35', ly7:84, fs7:14, c7:'#a1a1aa', ly8:197, fs8:16, c8:'#a1a1aa',  },
+ pc: { x:508, y:676, w:218, h:232, color:'#10b9f8', label:'PC', ly1:27, fs:47, c1:'#38bdf8', ly2:90, fs2:53, c2:'#25f447', ly3:168, fs3:25, c3:'#00c8f0', ly4:207, fs4:21, c4:'#518e35', ly5:135, fs5:19, c5:'#a1a1aa',  },
+ motor: { x:249, y:678, w:248, h:231, color:'#fbbf24', label:'Water Motor', ly1:24, fs:35, c1:'#fbbf24', ly2:83, fs2:57, c2:'#38bdf8', ly3:163, fs3:21, c3:'#518e35', ly4:200, fs4:22, c4:'#518e35', ly5:126, fs5:17, c5:'#a1a1aa',  },
  temp: { x:500, y:631, w:225, h:40, color:'#22c55e', label:'temp', ly1:20, fs:27, c1:'#25f447',  },
  temp2: { x:8, y:639, w:238, h:35, color:'#22c55e', label:'temp2', ly1:16, fs:27, c1:'#25f447',  },
 };
-
 
 function renderFlowDiagram(byName) {
   if (!byName) return;
@@ -96,9 +95,13 @@ function renderFlowDiagram(byName) {
   const cloud = window.currentCloud || 0;
   const rain = window.currentRain || 0;
   const solAct = s > 20;
+  const lTime = byName.get('Tot Load')?.time;
+  const lTimeStr = lTime ? new Date(lTime * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--';
+
   svg += `<rect class="${solAct ? 'pulse-animation' : ''}" style="--pulse-clr:${o.color}" x="${o.x}" y="${o.y}" width="${o.w}" height="${o.h}" rx="10" fill="#1a1508" stroke="${o.color}" stroke-width="2"/>`;
   svg += `<text x="${cx(o)}" y="${o.y+o.ly1}" ${tpProps} font-size="${o.fs}" fill="${o.c1}">${o.label}: ${pF(s)}</text>`;
   svg += `<text x="${cx(o)}" y="${o.y+o.ly2}" ${tpProps} font-size="${o.fs2}" fill="${o.c2}">Load: ${pF(l)}</text>`;
+  if (o.ly7) svg += `<text x="${cx(o)}" y="${o.y+o.ly7}" ${tpProps} font-size="${o.fs7}" fill="${o.c7}">${lTimeStr}</text>`;
   svg += `<text x="${cx(o)}" y="${o.y+o.ly3}" ${tpProps} font-size="${o.fs3}" fill="${o.c3}">${Math.round(sv)}V | ${sa.toFixed(1)}A</text>`;
   const rainStr = rain > 0 ? ` 🌧 ${rain}%` : '';
   svg += `<text x="${cx(o)}" y="${o.y+o.ly4}" ${tpProps} font-size="${o.fs4}" fill="${o.c4}">Pred: ${predF(predW)} | ☁ ${cloud}%${rainStr}</text>`;
@@ -112,9 +115,13 @@ function renderFlowDiagram(byName) {
   const gClass = gridOff ? 'grid-off-anim' : (grdAct ? 'pulse-animation' : '');
   const gFill = gridOff ? '#1f1f23' : (grdAct ? '#2a0a0a' : '#1f1f23');
   const gStroke = gridOff ? '#666' : (grdAct ? o.color : '#666');
+  const vTime = byName.get('AC Volts')?.time;
+  const vTimeStr = vTime ? new Date(vTime * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--';
+
   svg += `<rect class="${gClass}" style="--pulse-clr:${o.color}" x="${o.x}" y="${o.y}" width="${o.w}" height="${o.h}" rx="10" fill="${gFill}" stroke="${gStroke}" stroke-width="2"/>`;
   svg += `<text x="${cx(o)}" y="${o.y+o.ly1}" ${tpProps} font-size="${o.fs}" fill="${gridOff?'#ef4444':(grdAct?o.c1:'#777')}">${gridOff?'GRID OFF':o.label+': '+pF(b)}</text>`;
   svg += `<text x="${cx(o)}" y="${o.y+o.ly2}" ${tpProps} font-size="${o.fs2}" fill="${gridOff?'#ef4444':o.c2}">AC Input: ${Math.round(v)}V</text>`;
+  if (o.ly5) svg += `<text x="${cx(o)}" y="${o.y+o.ly5}" ${tpProps} font-size="${o.fs5}" fill="${gridOff?'#ef4444':o.c5}">${vTimeStr}</text>`;
   svg += `<text x="${cx(o)}" y="${o.y+o.ly3}" ${tpProps} font-size="${o.fs3}" fill="${o.c3}">T: ${grid_t.toFixed(1)} kWh | ${kF(grid_t*rate)} PKR</text>`;
   svg += `<text x="${cx(o)}" y="${o.y+o.ly4}" ${tpProps} font-size="${o.fs4}" fill="${o.c4}">M: ${nF(mU.grid||0)} kWh | ${kF((mU.grid||0)*rate)} PKR</text>`;
 
@@ -157,9 +164,13 @@ function renderFlowDiagram(byName) {
   const drawApp = (k, name, suffix="Today") => {
     const oA = L[k]; const val = getV(name); const act = val > 20;
     const t = getV(name + " " + suffix); const mon = mU[k] || 0;
+    const aTime = byName.get(name)?.time;
+    const aTimeStr = aTime ? new Date(aTime * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--';
+    
     svg += `<rect class="${act ? 'pulse-animation' : ''}" style="--pulse-clr:${oA.color}" x="${oA.x}" y="${oA.y}" width="${oA.w}" height="${oA.h}" rx="10" fill="${act?'#141416':'#1a1a1c'}" stroke="${act?oA.color:'#333'}" stroke-width="2"/>`;
     svg += `<text x="${cx(oA)}" y="${oA.y+oA.ly1}" ${tpProps} font-size="${oA.fs}" fill="${act?oA.c1:'#777'}">${oA.label}</text>`;
     svg += `<text x="${cx(oA)}" y="${oA.y+oA.ly2}" ${tpProps} font-size="${oA.fs2}" fill="${act?oA.c2:'#555'}">${pF(val)}</text>`;
+    if (oA.ly5) svg += `<text x="${cx(oA)}" y="${oA.y+oA.ly5}" ${tpProps} font-size="${oA.fs5}" fill="${oA.c5}">${aTimeStr}</text>`;
     svg += `<text x="${cx(oA)}" y="${oA.y+oA.ly3}" ${tpProps} font-size="${oA.fs3}" fill="${oA.c3}">Today: ${t.toFixed(1)} kWh</text>`;
     svg += `<text x="${cx(oA)}" y="${oA.y+oA.ly4}" ${tpProps} font-size="${oA.fs4}" fill="${oA.c4}">Month: ${mon.toFixed(1)} kWh</text>`;
   };
@@ -168,20 +179,32 @@ function renderFlowDiagram(byName) {
   const f1W = getV('Fridge'); const f2W = getV('Fridge2');
   const f1T = getV('Fridge Today'); const f2T = getV('Fridge2 Today');
   const fAct = (f1W + f2W) > 15; o = L.fridge;
+  const f1Time = byName.get('Fridge')?.time;
+  const f1TimeStr = f1Time ? new Date(f1Time * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--';
+  const f2Time = byName.get('Fridge2')?.time;
+  const f2TimeStr = f2Time ? new Date(f2Time * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--';
+
   svg += `<rect class="${fAct ? 'pulse-animation' : ''}" style="--pulse-clr:${o.color}" x="${o.x}" y="${o.y}" width="${o.w}" height="${o.h}" rx="10" fill="${fAct?'#141416':'#1a1a1c'}" stroke="${fAct?o.color:'#333'}" stroke-width="2"/>`;
   svg += `<text x="${cx(o)}" y="${o.y+o.ly1}" ${tpProps} font-size="${o.fs}" fill="${f1W>5?o.c1:'#777'}">Fridge 1</text>`;
   svg += `<text x="${cx(o)}" y="${o.y+o.ly2}" ${tpProps} font-size="${o.fs2}" fill="${f1W>5?o.c2:'#25f447'}">${pF(f1W)}</text>`;
+  if (o.ly7) svg += `<text x="${cx(o)}" y="${o.y+o.ly7}" ${tpProps} font-size="${o.fs7}" fill="${o.c7}">${f1TimeStr}</text>`;
   svg += `<text x="${cx(o)}" y="${o.y+o.ly3}" ${tpProps} font-size="${o.fs3}" fill="${o.c3}">T: ${f1T.toFixed(2)} kWh M: ${(mU.f1||0).toFixed(1)} kWh</text>`;
+  
   svg += `<text x="${cx(o)}" y="${o.y+o.ly4}" ${tpProps} font-size="${o.fs4}" fill="${f2W>5?o.c4:'#777'}">Fridge 2</text>`;
   svg += `<text x="${cx(o)}" y="${o.y+o.ly5}" ${tpProps} font-size="${o.fs5}" fill="${f2W>5?o.c5:'#25f447'}">${pF(f2W)}</text>`;
+  if (o.ly8) svg += `<text x="${cx(o)}" y="${o.y+o.ly8}" ${tpProps} font-size="${o.fs8}" fill="${o.c8}">${f2TimeStr}</text>`;
   svg += `<text x="${cx(o)}" y="${o.y+o.ly6}" ${tpProps} font-size="${o.fs6}" fill="${o.c6}">T: ${f2T.toFixed(2)} kWh M: ${(mU.f2||0).toFixed(1)} kWh</text>`;
 
   const motT = getV('Water Motor Today');
   const motAct = motW > 20; o = L.motor;
+  const motTime = byName.get('Water Motor')?.time;
+  const motTimeStr = motTime ? new Date(motTime * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--';
+
   if(o) {
     svg += `<rect class="${motAct ? 'pulse-animation' : ''}" style="--pulse-clr:${o.color}" x="${o.x}" y="${o.y}" width="${o.w}" height="${o.h}" rx="10" fill="${motAct?'#141416':'#1a1a1c'}" stroke="${motAct?o.color:'#333'}" stroke-width="2"/>`;
     svg += `<text x="${cx(o)}" y="${o.y+o.ly1}" ${tpProps} font-size="${o.fs}" fill="${motAct?o.c1:'#777'}">${o.label}</text>`;
     svg += `<text x="${cx(o)}" y="${o.y+o.ly2}" ${tpProps} font-size="${o.fs2}" fill="${motAct?o.c2:'#555'}">${pF(motW)}</text>`;
+    if (o.ly5) svg += `<text x="${cx(o)}" y="${o.y+o.ly5}" ${tpProps} font-size="${o.fs5}" fill="${o.c5}">${motTimeStr}</text>`;
     svg += `<text x="${cx(o)}" y="${o.y+o.ly3}" ${tpProps} font-size="${o.fs3}" fill="${o.c3}">Today ${motT.toFixed(2)} kWh</text>`;
     svg += `<text x="${cx(o)}" y="${o.y+o.ly4}" ${tpProps} font-size="${o.fs4}" fill="${o.c4}">Month ${(mU.motor||0).toFixed(1)} kWh</text>`;
   }

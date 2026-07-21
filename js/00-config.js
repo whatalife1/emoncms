@@ -4,7 +4,14 @@ let autoRefreshSec = 30;
 
 // ─── Staleness config (Fix 1) ───────────────────────────────────────────────
 const STALE_MS = 5 * 60 * 1000; // 5 minutes — force live readings to 0 if no update in this long
-const STALE_EXEMPT = new Set(["Water Tank"]); // feeds that should NOT be zeroed when stale
+const STALE_EXEMPT = new Set([
+  "Water Tank",
+  "Temperature",
+  "Humidity",
+  "Temperature 2",
+  "Humidity 2",
+  "Inverter Temp"
+]); // feeds that should NOT be zeroed when stale
 
 const FEEDS_BASE = [
   { id: "499431", name: "Water Tank",           unit: "%",   type: "env"   },
@@ -41,13 +48,14 @@ const FEEDS_BASE = [
   { id: "499382", name: "Solar Amps",           unit: "A",   type: "env"   },
   { id: "499429", name: "Humidity",             unit: "%",   type: "env"   },
   { id: "512473", name: "Temperature 2",        unit: "°C",  type: "env"   },
-  { id: "512474", name: "Humidity 2",           unit: "%",   type: "env"   }
+  { id: "512474", name: "Humidity 2",           unit: "%",   type: "env"   },
+  { id: "499394", name: "Inverter Temp",        unit: "°C",  type: "env"   }
 ];
 
 const COLORS = { watts: "val-watts", units: "val-units", env: "val-env" };
 
 const LINKED_GROUPS = [
-  ["Solar", "Solar V", "Tot Load", "Solar Today", "Solar Total"],
+  ["Solar", "Solar V", "Tot Load", "Solar Today", "Solar Total", "Inverter Temp"],
   ["Breaker", "AC Volts", "Breaker Today", "Breaker Total"],
   ["Utility", "Utility Today", "Utility Total"],
   ["PC", "PC Today"],

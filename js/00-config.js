@@ -2,6 +2,10 @@ const PROXY_BASE = 'https://emon-proxy.new-life-786-786-786.workers.dev';
 
 let autoRefreshSec = 30;
 
+// ─── Staleness config (Fix 1) ───────────────────────────────────────────────
+const STALE_MS = 5 * 60 * 1000; // 5 minutes — force live readings to 0 if no update in this long
+const STALE_EXEMPT = new Set(["Water Tank"]); // feeds that should NOT be zeroed when stale
+
 const FEEDS_BASE = [
   { id: "499431", name: "Water Tank",           unit: "%",   type: "env"   },
   { id: "499374", name: "Breaker",              unit: "W",   type: "watts" },

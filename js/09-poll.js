@@ -172,6 +172,23 @@ async function poll() {
         }
       }
 
+      // ─── Generic staleness → force 0 for live (non-accumulator) readings ───
+      // Fix 1: if a "live watts/volts/etc" feed hasn't updated in STALE_MS,
+      // treat it as 0 instead of showing the last stuck value.
+      // Water Tank (and anything in STALE_EXEMPT) is left alone since it's a
+      // slow-moving level, not a live power reading.
+      if (!STALE_EXEMPT.has(f.name) && val !== null && time) {
+        const tsMs = time < 2000000000 ? time * 1000 : time;
+        const age = Date.now() - tsMs;
+        const isAccumulator = f.name.toLowerCase().includes('today') || f.name.toLowerCase().includes('total');
+        if (age > STALE_MS && !isAccumulator) {
+          if (window.addDebugLog) {
+            window.addDebugLog(`<b style="color:#f59e0b">Stale→0:</b> ${f.name} (no update in ${Math.round(age/60000)}m)`);
+          }
+          val = 0;
+        }
+      }
+
       if (f.id === "541350" && window.addDebugLog) window.addDebugLog(`<b>Debug 541350:</b> bulk=${!!entry}, val=${val}`);
       return { ...f, value: val ?? null, time: time ?? null };
     }));

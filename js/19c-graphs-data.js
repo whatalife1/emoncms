@@ -20,7 +20,7 @@ function _formatStatLine(icon, label, mainVal, accentColor, peakVal, avgVal, nig
     const isTemp = lblLower.includes('temp') || lblLower.includes('\u00b0c');
     const isWater = lblLower.includes('water') || lblLower.includes('tank');
     const isDay = currentTab === 'day';
-    // ✅ FIX: Remove 'month' from hideNight so night info appears on Month view
+    //  FIX: Remove 'month' from hideNight so night info appears on Month view
     const hideNight = isSolar || isTemp || isWater;
     const peakLabel = isDay ? "Peak" : (currentTab === 'year' ? "Max Month" : "Max Day");
     const avgLabel  = isDay ? "Avg"  : (currentTab === 'month' ? "Daily Avg" : "Monthly Avg");
@@ -81,7 +81,15 @@ function _pointsToBars(pts, nav, feedKey) {
         return monthly;
     }
     
-    const isAvg = feedKey && (feedKey.startsWith('temp') || feedKey === 'water' || feedKey === 'acvolts');
+    const isAvg = feedKey && (
+        feedKey.startsWith('temp') || 
+        feedKey.startsWith('humidity') || 
+        feedKey === 'invtemp' || 
+        feedKey === 'water' || 
+        feedKey === 'acvolts' ||
+        feedKey === 'solarv' ||
+        feedKey === 'solv'
+    );
     const bars = Array(nav.nBars || 1).fill(0), counts = Array(nav.nBars || 1).fill(0);
     const resMs = nav.resSeconds * 1000;
     
@@ -101,6 +109,8 @@ function _pointsToBars(pts, nav, feedKey) {
     }
     return isAvg ? bars.map((v, i) => counts[i] > 0 ? v / counts[i] : 0) : bars;
 }
+
+
 
 async function _gFetch(feedId, startMs, endMs, interval) {
     if (!feedId) return []; 
@@ -162,7 +172,7 @@ async function _loadAndDraw() {
         const displayLabel = (graphTab === 'day' && nav.sub) ? nav.sub : nav.label;
         stat.innerHTML = `
           <div style="display:flex; justify-content:space-between; align-items:center; width:100%; padding-right:4px;">
-            <span style="color:#10b981;font-weight:700;font-size:13px;">📄 Energy Usage Report &nbsp; <span style="color:var(--text-muted); font-weight:normal; font-size:11px;">${displayLabel}</span></span>
+            <span style="color:#10b981;font-weight:700;font-size:13px;">📄 Energy Usage Report &nbsp; <span style="color:var(--text-muted); font-weight:normal; font-size:11px;">\${displayLabel}</span></span>
             <button id="btn-graph-report-txt" style="background:#10b981; color:#000; border:none; padding:3px 10px; border-radius:6px; font-size:10px; font-weight:800; cursor:pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">Save TXT</button>
           </div>
         `;
@@ -174,7 +184,7 @@ async function _loadAndDraw() {
         try {
             const report = await window.generateGraphReport();
             const txt = report.text || ""; const html = report.html || "";
-            reportDiv.innerHTML = html + `<pre style="white-space:pre; margin:20px 0 0 0; font-family:monospace; border-top:1px dashed var(--border); padding-top:20px; color:var(--text-muted); opacity:0.8;">${txt}</pre>`;
+            reportDiv.innerHTML = html + `<pre style="white-space:pre; margin:20px 0 0 0; font-family:monospace; border-top:1px dashed var(--border); padding-top:20px; color:var(--text-muted); opacity:0.8;">\${txt}</pre>`;
         } catch(e) { reportDiv.textContent = "Error: " + e.message; }
         _showGraphLoading(false); graphIsLoading = false; return;
     } else {
@@ -185,7 +195,7 @@ async function _loadAndDraw() {
         const nav = _gNavInfo(); const fA = GRAPH_FEEDS.find(f => f.key === graphFeedKey);
         const isCombined = graphFeedKey === 'combined', isGridAll = graphFeedKey === 'gridall';
         const color1 = fA?.color || '#facc15', color2 = '#ef4444';
-        const isTemp = graphFeedKey.startsWith('temp');
+        const isTemp = graphFeedKey.startsWith('temp') || graphFeedKey === 'invtemp';
         const unit = isTemp ? '\u00b0C' : (graphFeedKey === 'water' ? '%' : (graphFeedKey === 'acvolts' ? 'V' : 'W'));
         let pts1 = [], pts2 = [], bars1 = [], bars2 = [], multiData = null;
 
@@ -250,7 +260,7 @@ async function _loadAndDraw() {
         const df = (graphTab === 'month' || graphTab === 'year') ? 1 : (nav.resSeconds / 3600) / 1000;
         
         if (isGridAll) {
-            stat.innerHTML = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;">${multiData.map(m => {
+            stat.innerHTML = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;">\${multiData.map(m => {
                 const t = m.data.reduce((a,b,i)=>i<lastIdx?a+b:a,0) * df; 
                 const pk = Math.max(...m.data, 0); 
                 let av = null, nAv = null, nTt = null;
@@ -373,7 +383,7 @@ function _showGraphLoading(s) {
             o = document.createElement('div'); 
             o.id = 'graph-loading-overlay'; 
             o.style.cssText = `position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.4);z-index:20;display:flex;align-items:center;justify-content:center;border-radius:10px;pointer-events:none;`; 
-            o.innerHTML = `<div style="color:#fff;font-size:14px;font-weight:700;">\u23f3 Loading...</div>`; 
+            o.innerHTML = `<div style="color:#fff;font-size:14px;font-weight:700;">\\u23f3 Loading...</div>`; 
             c.appendChild(o); 
         } 
         o.style.display = 'flex'; 

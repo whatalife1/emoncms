@@ -371,6 +371,45 @@ window.downloadDayGraphReport = async function() {
     finally { if (btn) { btn.textContent = oldTxt; btn.disabled = false; } }
 };
 
+window.downloadDayGraphReportPng = async function() {
+    const btn = document.getElementById('btn-graph-report-png');
+    const oldTxt = btn ? btn.textContent : '';
+    const content = document.querySelector('#graph-report-view .report-wrapper') || document.getElementById('graph-report-view');
+    if (!content) {
+        alert('No report content available.');
+        return;
+    }
+    if (typeof html2canvas === 'undefined') {
+        alert('html2canvas library not loaded');
+        return;
+    }
+    if (btn) { btn.disabled = true; btn.textContent = 'Saving...'; }
+
+    let clone = null;
+    try {
+        clone = content.cloneNode(true);
+        clone.style.cssText = 'position:fixed;top:0;left:0;width:max-content;max-width:none;z-index:-9999;opacity:1;background:#ffffff;color:#18181b;';
+        document.body.appendChild(clone);
+        const canvas = await html2canvas(clone, {
+            backgroundColor: '#ffffff',
+            scale: 3,
+            useCORS: true,
+            logging: false,
+            width: clone.scrollWidth,
+            height: clone.scrollHeight
+        });
+        const a = document.createElement('a');
+        a.download = `Emon_Report_${graphTab}_${new Date().getTime()}_PKT.png`;
+        a.href = canvas.toDataURL('image/png');
+        a.click();
+    } catch (e) {
+        alert('Error generating PNG: ' + e.message);
+    } finally {
+        if (clone && document.body.contains(clone)) document.body.removeChild(clone);
+        if (btn) { btn.disabled = false; btn.textContent = oldTxt || 'Save PNG'; }
+    }
+};
+
 function _getLocalMidnight(date) { return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime(); }
 
 function startGraphsAutoRefresh() {

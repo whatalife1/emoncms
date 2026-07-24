@@ -58,15 +58,24 @@ function saveReportCache() {
   try { localStorage.setItem('report_cache', JSON.stringify(reportCache)); } catch (e) {}
 }
 
-async function fetchWithCache(feedId, startMs, endMs) {
+function clearReportCache() {
+  reportCache = {};
+  localStorage.removeItem('report_cache');
+  if (window.addDebugLog) window.addDebugLog(`<b style="color:#10b981">Cache Cleared:</b> Report cache wiped.`);
+}
+
+async function fetchWithCache(feedId, startMs, endMs, forceRefresh = false) {
+  if (forceRefresh) {
+    delete reportCache[feedId];
+  }
+
   if (!reportCache[feedId]) reportCache[feedId] = {};
   const feedCache = reportCache[feedId];
   
   const timestamps = Object.keys(feedCache).map(Number).sort((a,b)=>a-b);
-  const startExists = timestamps.length > 0 && timestamps[0] <= startMs + 3600000;
   
   let fetchStartMs = startMs;
-  if (startExists) {
+  if (!forceRefresh && timestamps.length > 0 && timestamps[0] <= startMs + 3600000) {
     const safeThresholdMs = endMs - (3 * 3600 * 1000);
     let maxSafe = -1;
     for (const ts of timestamps) {
@@ -75,10 +84,15 @@ async function fetchWithCache(feedId, startMs, endMs) {
     if (maxSafe !== -1) fetchStartMs = maxSafe;
   }
 
-  if (fetchStartMs < endMs - 60000) {
-    const freshData = await fetchHourly(feedId, fetchStartMs, endMs);
-    for (const [ts, val] of Object.entries(freshData)) feedCache[ts] = val;
-    // Removed saveReportCache() from here to speed up parallel fetches
+  if (forceRefresh || fetchStartMs < endMs - 60000) {
+    const fetchFrom = forceRefresh ? startMs : fetchStartMs;
+    const freshData = await fetchHourly(feedId, fetchFrom, endMs);
+    
+    // Correctly merge freshData into feedCache
+    for (const [ts, val] of Object.entries(freshData)) {
+      feedCache[ts] = val;
+    }
+    saveReportCache();
   }
   
   const result = {};

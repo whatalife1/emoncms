@@ -166,9 +166,14 @@ Visual Daily Summary (Scale: ${dates.length} days)
       <pre style="white-space:pre; margin:20px 0 0 0; font-family:monospace; border-top:1px dashed #d4d4d8; padding-top:20px; color:#71717a;">${sparkTxt}</pre>
     </div>`;
 }
-async function calculateDetailedReport() {
+
+async function calculateDetailedReport(forceRefresh = false) {
   const out = document.getElementById('usage-report-content');
   if (out) out.innerHTML = '<div class="sol-loading">Fetching billing history...</div>';
+
+  if (forceRefresh && typeof clearReportCache === 'function') {
+    clearReportCache();
+  }
 
   const m = parseInt(document.getElementById('report-month-m').value);
   const y = parseInt(document.getElementById('report-month-y').value);
@@ -178,7 +183,7 @@ async function calculateDetailedReport() {
   const feedData = {};
   try {
     const promises = EXPORT_FEEDS.map(async (f) => {
-      feedData[f.id] = await fetchWithCache(f.id, startMs, endMs);
+      feedData[f.id] = await fetchWithCache(f.id, startMs, endMs, forceRefresh);
     });
     await Promise.all(promises);
     renderDetailedReport(feedData, startMs, endMs, pkrRate);

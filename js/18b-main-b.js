@@ -1,4 +1,4 @@
-// ─── Safe button helper ───────────────────────────────────────────────────────
+// Safe button helper
 function _btn(id, fn) {
   const el = document.getElementById(id);
   if (el) {
@@ -8,8 +8,7 @@ function _btn(id, fn) {
   }
 }
 
-// ─── Button wiring ────────────────────────────────────────────────────────────
-// Wait for DOM to be fully ready before wiring buttons
+// Button wiring
 function wireButtons() {
   _btn('btn-solar', () => {
     const panel = document.getElementById('solar-panel');
@@ -124,6 +123,13 @@ function wireButtons() {
     if (typeof calculateDetailedReport === 'function') calculateDetailedReport();
   });
 
+  _btn('btn-report-clear-cache', () => {
+    if (typeof clearReportCache === 'function') clearReportCache();
+    if (typeof calculateDetailedReport === 'function') {
+      calculateDetailedReport(true);
+    }
+  });
+
   _btn('btn-report-text', () => {
     if (typeof downloadTextReport === 'function') downloadTextReport();
   });
@@ -137,7 +143,7 @@ function wireButtons() {
     }
     if (typeof html2canvas === 'undefined') {
       alert('html2canvas library not loaded');
-      return;
+      return; 
     }
     btn.disabled = true; 
     btn.textContent = 'Saving...';
@@ -198,53 +204,43 @@ function wireButtons() {
   });
 
   // Graph buttons
-  // Graph buttons
-_btn('btn-graphs', () => {
-  if (typeof openGraphsPanel === 'function') {
-    openGraphsPanel();
-  } else {
-    const p = document.getElementById('graphs-panel');
-    if (p) {
-      p.classList.add('open');
-      if (typeof renderGraphsPanel === 'function') {
-        setTimeout(renderGraphsPanel, 50);
-      }
-      // Ensure auto-refresh starts for day view
-      if (graphTab === 'day' && typeof startGraphsAutoRefresh === 'function') {
-        setTimeout(startGraphsAutoRefresh, 100);
+  _btn('btn-graphs', () => {
+    if (typeof openGraphsPanel === 'function') {
+      openGraphsPanel();
+    } else {
+      const p = document.getElementById('graphs-panel');
+      if (p) {
+        p.classList.add('open');
+        if (typeof renderGraphsPanel === 'function') {
+          setTimeout(renderGraphsPanel, 50);
+        }
+        if (graphTab === 'day' && typeof startGraphsAutoRefresh === 'function') {
+          setTimeout(startGraphsAutoRefresh, 100);
+        }
       }
     }
-  }
-  // Request fullscreen on mobile to hide browser URL bar
-  const isMobile = /Android|iPhone|iPad/i.test(navigator.userAgent);
-  if (isMobile && document.documentElement.requestFullscreen) {
-    document.documentElement.requestFullscreen().catch(() => {});
-  }
-});
+    const isMobile = /Android|iPhone|iPad/i.test(navigator.userAgent);
+    if (isMobile && document.documentElement.requestFullscreen) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    }
+  });
 
-// REPLACE the btn-graphs-close handler:
-_btn('btn-graphs-close', () => {
-  if (screen.orientation && screen.orientation.unlock) {
-    screen.orientation.unlock();
-  }
-  // Exit fullscreen when closing graphs
-  if (document.fullscreenElement && document.exitFullscreen) {
-    document.exitFullscreen().catch(() => {});
-  }
-  if (typeof closeGraphsPanel === 'function') {
-    closeGraphsPanel();
-  } else {
-    const p = document.getElementById('graphs-panel');
-    if (p) p.classList.remove('open');
-  }
-});
+  _btn('btn-graphs-close', () => {
+    if (screen.orientation && screen.orientation.unlock) {
+      screen.orientation.unlock();
+    }
+    if (document.fullscreenElement && document.exitFullscreen) {
+      document.exitFullscreen().catch(() => {});
+    }
+    if (typeof closeGraphsPanel === 'function') {
+      closeGraphsPanel();
+    } else {
+      const p = document.getElementById('graphs-panel');
+      if (p) p.classList.remove('open');
+    }
+  });
 
-
-
-
-
-
-_btn('btn-graphs-fullscreen', () => {
+  _btn('btn-graphs-fullscreen', () => {
     const p = document.getElementById('graphs-panel');
     if (!p) return;
     
@@ -255,7 +251,6 @@ _btn('btn-graphs-fullscreen', () => {
       btn.textContent = isGoingFull ? 'Exit' : 'Full';
     }
 
-    // On mobile, lock/unlock orientation
     if (screen.orientation && screen.orientation.lock) {
       if (isGoingFull) {
         screen.orientation.lock('landscape').catch(() => {});
@@ -264,7 +259,6 @@ _btn('btn-graphs-fullscreen', () => {
       }
     }
     
-    // Trigger canvas scale update immediately
     setTimeout(() => {
       if (typeof _syncOverlaySize === 'function') _syncOverlaySize();
       if (typeof _fastRedraw === 'function') _fastRedraw();
@@ -272,8 +266,7 @@ _btn('btn-graphs-fullscreen', () => {
   });
 }
 
-// ─── APP BOOT ────────────────────────────────────────────────────────────────
-// Initialize everything when DOM is ready
+// APP BOOT
 function initApp() {
   try { 
     if (typeof loadReportCache === 'function') loadReportCache();
@@ -299,14 +292,12 @@ function initApp() {
     if (typeof initCompact === 'function') initCompact(); 
   } catch(e) { console.error('initCompact',e); }
 
-  // Wire all buttons
   try {
     wireButtons();
   } catch(e) {
     console.error('wireButtons error:', e);
   }
 
-  // Instant render from cache
   try {
     const cached = localStorage.getItem('last_known_results');
     if (cached) {
@@ -332,40 +323,34 @@ function initApp() {
     if (footer) footer.textContent = 'Initializing...';
   }
 
-  // Background monthly fetch
   try {
     if (typeof window.backgroundFetchMonthly === 'function') {
       window.backgroundFetchMonthly();
     }
   } catch(e) { console.error('backgroundFetchMonthly',e); }
 
-  // Load settings → start polling
   if (typeof loadSettings === 'function') {
     loadSettings().then(() => {
       if (typeof poll === 'function') poll();
     }).catch(e => {
       console.error('loadSettings failed:', e);
-      if (typeof poll === 'function') poll(); // try anyway
+      if (typeof poll === 'function') poll();
     });
   } else {
     if (typeof poll === 'function') poll();
   }
 
-  // Start prediction updates
-  // Hide Full button on mobile devices
   const isDesktop = window.matchMedia('(min-width: 1024px)').matches;
   const fullBtn = document.getElementById('btn-graphs-fullscreen');
   if (fullBtn && !isDesktop) {
     fullBtn.style.display = 'none';
   }
 
-
   if (typeof updateMainPredicted === 'function') {
     setInterval(updateMainPredicted, 120000);
     setTimeout(updateMainPredicted, 3000);
   }
 
-  // Wake-up Refresh: Update data when app becomes visible (screen turned on)
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
       if (window.addDebugLog) window.addDebugLog(`<b>System:</b> App woke up. Triggering fresh poll.`);
@@ -374,7 +359,6 @@ function initApp() {
   });
 }
 
-// Run init when DOM is ready
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', initApp);
 } else {

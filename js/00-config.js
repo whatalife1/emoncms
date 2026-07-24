@@ -1,8 +1,59 @@
-const PROXY_BASE = 'https://emon-proxy.new-life-786-786-786.workers.dev';
+// ─── Proxy & DNS Configuration ──────────────────────────────────────────────
+const PROXY_ENDPOINTS = [
+  'https://emon-proxy.new-life-786-786-786.workers.dev',
+  // You can add secondary backup endpoints or custom domains here:
+  // 'https://emon-backup.yourdomain.com'
+];
+
+let activeProxyIndex = 0;
+let PROXY_BASE = PROXY_ENDPOINTS[0];
+
+// DoH (DNS-over-HTTPS) Resolvers for Google, Cloudflare, and AdGuard
+const DOH_RESOLVERS = [
+  { name: 'Google DNS (8.8.8.8 / 8.8.4.4)', url: 'https://dns.google/resolve?type=A&name=' },
+  { name: 'Cloudflare DNS (1.1.1.1 / 1.0.0.1)', url: 'https://cloudflare-dns.com/dns-query?type=A&ct=application/dns-json&name=' },
+  { name: 'AdGuard DNS (94.140.14.14 / 94.140.15.15)', url: 'https://dns.adguard-dns.com/resolve?type=A&name=' }
+];
+
+/**
+ * Perform a DoH lookup across public resolvers when local ISP DNS fails
+ */
+async function resolveDomainDoH(hostname) {
+  for (const resolver of DOH_RESOLVERS) {
+    try {
+      const res = await fetch(resolver.url + encodeURIComponent(hostname), {
+        headers: { 'accept': 'application/dns-json' }
+      });
+      if (!res.ok) continue;
+      const data = await res.json();
+      if (data.Answer && data.Answer.length > 0) {
+        const ips = data.Answer.filter(a => a.type === 1).map(a => a.data);
+        if (ips.length > 0) {
+          return { provider: resolver.name, ips: ips };
+        }
+      }
+    } catch (e) {
+      // Continue trying next DoH provider
+    }
+  }
+  return null;
+}
+
+/**
+ * Rotate to next proxy endpoint if available
+ */
+function rotateProxyEndpoint() {
+  if (PROXY_ENDPOINTS.length > 1) {
+    activeProxyIndex = (activeProxyIndex + 1) % PROXY_ENDPOINTS.length;
+    PROXY_BASE = PROXY_ENDPOINTS[activeProxyIndex];
+    return PROXY_BASE;
+  }
+  return PROXY_BASE;
+}
 
 let autoRefreshSec = 30;
 
-// ─── Staleness config (Fix 1) ───────────────────────────────────────────────
+// ─── Staleness config ───────────────────────────────────────────────────────
 const STALE_MS = 5 * 60 * 1000; // 5 minutes — force live readings to 0 if no update in this long
 const STALE_EXEMPT = new Set([
   "Water Tank",
@@ -112,12 +163,10 @@ let isCompact = false;
 window.lastSolarActual = 0;
 
 // ─── Fast Timezone Detection ────────────────────────────────────────────────
-// PKT is UTC+5. offset is -300 minutes.
 const IS_PKT_ZONE = (new Date().getTimezoneOffset() === -300);
 
 function getPktNow() {
     if (IS_PKT_ZONE) return new Date();
-    // Fallback for non-PKT devices: Adjust UTC to PKT
     const now = new Date();
     const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
     return new Date(utc + 18000000);
@@ -128,7 +177,6 @@ function getPktTodayStart() {
     if (IS_PKT_ZONE) {
         return new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
     }
-    // For non-PKT devices, use the shifted date components
     return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).getTime();
 }
 
@@ -139,8 +187,6 @@ function getPktDayStart(year, month, day) {
 
 function formatPktTime(timestamp, format = 'datetime') {
     const ts = timestamp < 10000000000 ? timestamp * 1000 : timestamp;
-    
-    // Shift the date for non-PKT devices so we can use UTC methods to get PKT parts
     const date = IS_PKT_ZONE ? new Date(ts) : new Date(ts + 18000000);
     
     const yr = IS_PKT_ZONE ? date.getFullYear() : date.getUTCFullYear();

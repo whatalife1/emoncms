@@ -181,11 +181,13 @@ function getPktTodayStart() {
 }
 
 function getPktDayStart(year, month, day) {
-    if (IS_PKT_ZONE) return new Date(year, month - 1, day).getTime();
-    // Midnight PKT is 19:00 (7 PM) the previous day in UTC. 
-    // We get Midnight UTC and subtract 5 hours (18,000,000 ms)
-    return new Date(Date.UTC(year, month - 1, day, 0, 0, 0)).getTime() - 18000000;
+    // Create UTC midnight for the requested day
+    const utcMidnight = Date.UTC(year, month - 1, day, 0, 0, 0);
+    // Subtract 5 hours (18,000,000ms) to get the exact UTC timestamp 
+    // that corresponds to 12:00 AM in Pakistan.
+    return utcMidnight - 18000000;
 }
+
 
 
 

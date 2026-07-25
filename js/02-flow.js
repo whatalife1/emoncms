@@ -184,7 +184,7 @@ function renderFlowDiagram(byName) {
   const f1Time = byName.get('Fridge')?.time;
   const f1TimeStr = f1Time ? new Date(f1Time * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--';
   const f2Time = byName.get('Fridge2')?.time;
-  const f2TimeStr = f2Time ? new Date(f2Time * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--';
+  const f2TimeStr = (f2Time && !isNaN(f2Time)) ? new Date(f2Time * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--';
 
   svg += `<rect class="${fAct ? 'pulse-animation' : ''}" style="--pulse-clr:${o.color}" x="${o.x}" y="${o.y}" width="${o.w}" height="${o.h}" rx="10" fill="${fAct?'#141416':'#1a1a1c'}" stroke="${fAct?o.color:'#333'}" stroke-width="2"/>`;
   svg += `<text x="${cx(o)}" y="${o.y+o.ly1}" ${tpProps} font-size="${o.fs}" fill="${f1W>5?o.c1:'#777'}">Fridge 1</text>`;
@@ -200,7 +200,7 @@ function renderFlowDiagram(byName) {
   const motT = getV('Water Motor Today');
   const motAct = motW > 20; o = L.motor;
   const motTime = byName.get('Water Motor')?.time;
-  const motTimeStr = motTime ? new Date(motTime * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--';
+  const motTimeStr = (motTime && !isNaN(motTime)) ? new Date(motTime * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--';
 
   if(o) {
     svg += `<rect class="${motAct ? 'pulse-animation' : ''}" style="--pulse-clr:${o.color}" x="${o.x}" y="${o.y}" width="${o.w}" height="${o.h}" rx="10" fill="${motAct?'#141416':'#1a1a1c'}" stroke="${motAct?o.color:'#333'}" stroke-width="2"/>`;

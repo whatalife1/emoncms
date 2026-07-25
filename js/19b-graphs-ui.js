@@ -508,29 +508,37 @@ function _gNavInfo() {
         return `${hh}${ampm}`; 
     };
     
-    if (graphTab === 'day') {
+if (graphTab === 'day') {
         const d = new Date(now);
         d.setDate(d.getDate() + graphDateNav);
+        
+        // Use the corrected PKT Midnight function
         const startMs = getPktDayStart(d.getFullYear(), d.getMonth() + 1, d.getDate());
-
+        
         const res = (graphChartType === 'hourly') ? 3600 : GRAPH_DAY_RESOLUTION_SECONDS;
         const totalPoints = Math.ceil((24 * 3600) / res);
+        
         const labels = [];
         const timeLabels = [];
         const fullLabels = [];
         
         for (let i = 0; i < totalPoints; i++) { 
-            const date = new Date(startMs + i * res * 1000);
-            const pktDate = getKarachiDate(date.getTime());
-            const h = pktDate.hour;
-            const m = Math.round((date.getTime() - new Date(date.getFullYear(), date.getMonth(), date.getDate(), h, 0, 0).getTime()) / 60000);
+            const currentTs = startMs + i * res * 1000;
             
-            const label = to12hrShort(h);
-            const timeLabel = to12hr(h, m);
+            // Force the timestamp to PKT offset for label generation
+            const dObj = new Date(currentTs + 18000000); 
+            const h = dObj.getUTCHours();
+            const m = dObj.getUTCMinutes();
             
-            labels.push(label);
-            timeLabels.push(timeLabel);
-            fullLabels.push(timeLabel);
+            const ampm = h >= 12 ? 'pm' : 'am';
+            const hh = h % 12 || 12;
+            const mm = String(m).padStart(2, '0');
+            
+            // Primary axis labels (e.g., 12am, 2am...)
+            labels.push(`${hh}${ampm}`);
+            // Tooltip labels (e.g., 12:02am)
+            fullLabels.push(`${hh}:${mm}${ampm}`);
+            timeLabels.push(`${hh}:${mm}${ampm}`);
         }
         
         const dateStr = d.toLocaleDateString('en-PK', { day:'numeric', month:'short' });
@@ -548,6 +556,8 @@ function _gNavInfo() {
             resSeconds: res 
         };
     }
+
+
     if (graphTab === 'month') {
         let base = new Date(now.getFullYear(), now.getMonth() + graphMonthNav, 1);
         let sM = base.getMonth() - 1; let sY = base.getFullYear(); if (sM < 0) { sM = 11; sY--; }

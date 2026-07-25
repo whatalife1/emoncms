@@ -522,24 +522,25 @@ if (graphTab === 'day') {
         const timeLabels = [];
         const fullLabels = [];
         
-        for (let i = 0; i < totalPoints; i++) { 
+for (let i = 0; i < totalPoints; i++) { 
             const currentTs = startMs + i * res * 1000;
             
-            // Force the timestamp to PKT offset for label generation
-            const dObj = new Date(currentTs + 18000000); 
-            const h = dObj.getUTCHours();
-            const m = dObj.getUTCMinutes();
+            // This is the "Magic Formula" to extract Pakistan Hour from a UTC timestamp
+            // Regardless of your New York/Australia system time
+            const pktHour = Math.floor((currentTs / 3600000) + 5) % 24;
+            const pktMin  = Math.floor((currentTs / 60000)) % 60;
             
-            const ampm = h >= 12 ? 'pm' : 'am';
-            const hh = h % 12 || 12;
-            const mm = String(m).padStart(2, '0');
+            const ampm = pktHour >= 12 ? 'pm' : 'am';
+            const hh = pktHour % 12 || 12;
+            const mm = String(pktMin).padStart(2, '0');
             
-            // Primary axis labels (e.g., 12am, 2am...)
             labels.push(`${hh}${ampm}`);
-            // Tooltip labels (e.g., 12:02am)
             fullLabels.push(`${hh}:${mm}${ampm}`);
             timeLabels.push(`${hh}:${mm}${ampm}`);
         }
+
+
+
         
         const dateStr = d.toLocaleDateString('en-PK', { day:'numeric', month:'short' });
         return { 

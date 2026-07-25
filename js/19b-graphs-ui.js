@@ -501,32 +501,17 @@ function _renderGFeedTabs() {
 
 function _gNavInfo() {
     const now = getPktNow();
-    const to12hr = (h, m) => { 
-        const ampm = h >= 12 ? 'pm' : 'am'; 
-        const hh = h % 12 || 12; 
-        const mm = String(m).padStart(2, '0'); 
-        return `${hh}:${mm}${ampm}`; 
-    };
-    const to12hrShort = (h) => { 
-        const ampm = h >= 12 ? 'pm' : 'am'; 
-        const hh = h % 12 || 12; 
-        return `${hh}${ampm}`; 
-    };
     
 if (graphTab === 'day') {
-        // 1. Get current time, but force it to a UTC-based calculation for Pakistan
-        const now = new Date();
-        const pktTime = new Date(now.getTime() + (now.getTimezoneOffset() * 60000) + 18000000);
+        // Use the calendar-correct Date object from getPktNow()
+        const d = new Date(now.getTime());
+        d.setDate(d.getDate() + graphDateNav);
         
-        // 2. Apply navigation offset (Previous/Next day buttons)
-        const d = new Date(pktTime.getTime());
-        d.setUTCDate(d.getUTCDate() + graphDateNav);
-        
-        const year = d.getUTCFullYear();
-        const month = d.getUTCMonth() + 1;
-        const day = d.getUTCDate();
+        const year = d.getFullYear();
+        const month = d.getMonth() + 1;
+        const day = d.getDate();
 
-        // 3. Calculate start of the day (Midnight PKT)
+        // Calculate start of the day (Midnight PKT)
         const startMs = getPktDayStart(year, month, day);
         
         const res = (graphChartType === 'hourly') ? 3600 : GRAPH_DAY_RESOLUTION_SECONDS;
@@ -564,9 +549,6 @@ if (graphTab === 'day') {
             resSeconds: res 
         };
     }
-
-
-
 
     if (graphTab === 'month') {
         let base = new Date(now.getFullYear(), now.getMonth() + graphMonthNav, 1);

@@ -2,6 +2,30 @@ let _lastPollSuccess = Date.now();
 let countdownVal = autoRefreshSec;
 let countdownTimer, refreshTimer;
 
+// Helper to fetch the latest timestamp for a feed
+async function fetchFeedTime(feedId) {
+    const now = Date.now();
+    const start = now - 24 * 3600 * 1000;  // last 24 hours
+    const url = `${PROXY_BASE}/feed/data.json?ids=${feedId}&start=${start}&end=${now}&skipmissing=1&average=0&interval=0`;
+    try {
+        const text = await nativeFetch(url);
+        if (text && !text.startsWith('ERROR')) {
+            const data = JSON.parse(text);
+            if (data && data[0] && data[0].data) {
+                const points = data[0].data;
+                if (points.length > 0) {
+                    const last = points[points.length - 1];
+                    if (last && last[0] && last[1] !== null) {
+                        return parseInt(last[0]);  // timestamp in ms
+                    }
+                }
+            }
+        }
+    } catch (e) {}
+    return null;
+}
+
+
 window.addDebugLog = function(msg) {
   const dbg = document.getElementById('debug-info');
   const debugOn = document.getElementById('debug-toggle')?.checked;
@@ -193,11 +217,54 @@ async function poll() {
       return { ...f, value: val ?? null, time: time ?? null };
     }));
 
+    
+    // --- Target fetch for Water Motor and Fridge2 times ---
+    const timeFixIds = [
+        { name: 'Water Motor', id: '542850' },
+        { name: 'Fridge2', id: '541348' }
+    ];
+    for (const feed of timeFixIds) {
+        const result = results.find(r => r.name === feed.name);
+        if (result && (result.time === null || result.time === undefined || isNaN(result.time))) {
+            const ts = await fetchFeedTime(feed.id);
+            if (ts !== null) {
+                result.time = Math.floor(ts / 1000); // convert to seconds
+                if (window.addDebugLog) {
+                    window.addDebugLog(`🕒 Fetched time for ${feed.name}: ${new Date(result.time * 1000).toLocaleTimeString()}`);
+                }
+            }
+        }
+    }
+
     localStorage.setItem('last_known_results', JSON.stringify(results));
 
     const bm = new Map(results.map(r => [r.name, r]));
     window.lastResultsMap = bm; 
     window.lastSolarActual = bm.get('Solar')?.value || 0;
+    // Fallback: fetch missing times individually
+    const missingTimeFeeds = results.filter(r => r.time === null && r.value !== null);
+    if (missingTimeFeeds.length > 0) {
+      const fetchPromises = missingTimeFeeds.map(async (f) => {
+        const url = `${PROXY_BASE}/feed/get.json?id=${f.id}`;
+        try {
+          const text = await nativeFetch(url);
+          if (text && !text.startsWith('ERROR')) {
+            const data = JSON.parse(text);
+            if (data && data.time) {
+              const time = parseInt(data.time);
+              if (!isNaN(time)) {
+                const idx = results.indexOf(f);
+                if (idx !== -1) {
+                  results[idx].time = time;
+                }
+              }
+            }
+          }
+        } catch (e) { /* ignore */ }
+      });
+      await Promise.all(fetchPromises);
+    }
+
     
     renderResults(results);
     

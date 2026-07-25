@@ -166,10 +166,10 @@ window.lastSolarActual = 0;
 const IS_PKT_ZONE = (new Date().getTimezoneOffset() === -300);
 
 function getPktNow() {
-    if (IS_PKT_ZONE) return new Date();
     const now = new Date();
+    if (IS_PKT_ZONE) return now;
     const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
-    return new Date(utc + 18000000);
+    return new Date(utc + 18000000 - (now.getTimezoneOffset() * 60000));
 }
 
 function getPktTodayStart() {
@@ -211,16 +211,8 @@ function formatPktTime(timestamp, format = 'datetime') {
 
 function isPktToday(timestamp) {
     const ts = timestamp < 10000000000 ? timestamp * 1000 : timestamp;
-    const now = getPktNow();
-    const d = new Date(ts + (IS_PKT_ZONE ? 0 : 18000000));
-    
-    const d_day = IS_PKT_ZONE ? d.getDate() : d.getUTCDate();
-    const n_day = IS_PKT_ZONE ? now.getDate() : now.getUTCDate();
-    if (d_day !== n_day) return false;
-    
-    const d_mo = IS_PKT_ZONE ? d.getMonth() : d.getUTCMonth();
-    const n_mo = IS_PKT_ZONE ? now.getMonth() : now.getUTCMonth();
-    return d_mo === n_mo;
+    const start = getPktTodayStart();
+    return ts >= start && ts < (start + 86400000);
 }
 
 function getPktBillingRange(year, month) {

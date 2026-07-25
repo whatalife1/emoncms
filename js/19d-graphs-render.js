@@ -131,6 +131,14 @@ function _attachDirectZoom(canvas) {
     canvas.addEventListener('click', (e) => _handleGraphHover(e, true));
 }
 
+function hideTooltip() {
+    const tooltip = document.getElementById('graph-tooltip');
+    if (tooltip) {
+        tooltip.style.display = 'none';
+        tooltip.classList.remove('pinned');
+    }
+}
+
 function _handleGraphHover(e, pin) {
     if (!graphDataCache) return;
     const canvas = document.getElementById('graph-canvas');
@@ -267,10 +275,6 @@ function _handleGraphHover(e, pin) {
     tooltip.style.top  = Math.max(10, top) + 'px';
 }
 
-
-
-
-
 // ---- _drawChart with Multi-Line support + dual Y-axis for overlay ----
 function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombined, nav, lastIdx, multiData,
                    minV, maxV, range, barsTemp = [], tempMinV = 0, tempMaxV = 100, tempRange = 100, tempUnit = '°C', tempColor = '#10b981', overlayLabel = '') {
@@ -380,25 +384,28 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
     ctx.textAlign = 'center';
     ctx.font = '9px system-ui';
 
-    // Space labels dynamically based on width and zoom
-    const labelSpacing = 55; // Pixels per label
-    const maxLabels = Math.max(2, Math.floor(cW / labelSpacing));
+    const isZoomed = zoom > 2;
+    // Calculate how many labels can comfortably fit (assume ~45px per label)
+    const maxLabels = Math.max(3, Math.floor(cW / 45));
     const labelStep = Math.max(1, Math.ceil(n / (maxLabels * zoom)));
+
+    // Use fullLabels when zoomed, otherwise use labels
+    const displayLabels = (isZoomed && nav && nav.fullLabels) ? nav.fullLabels : (labels || []);
 
     for (let i = 0; i < n; i += labelStep) {
         const lx = mapX(PL + (i / n) * cW);
-        
-        // Only draw if label is visible on screen
-        if (lx > PL - 10 && lx < rect.width - PR + 10) {
-            const labelText = labels[i] || '';
-            ctx.fillText(labelText, lx, rect.height - 12);
-            
-            // Draw small tick mark
-            ctx.strokeStyle = 'rgba(255,255,255,0.2)';
-            ctx.beginPath();
-            ctx.moveTo(lx, PT + cH);
-            ctx.lineTo(lx, PT + cH + 4);
-            ctx.stroke();
+        if (lx > PL - 10 && lx < rect.width - PR) {
+            let label = displayLabels[i] || '';
+            // If zoomed out and label has minutes, truncate to hour only to save space
+            if (!isZoomed && label.includes(':')) {
+                const match = label.match(/^(\d+):/);
+                if (match) {
+                    const hour = parseInt(match[1]);
+                    const ampm = label.includes('pm') ? 'pm' : 'am';
+                    label = `${hour}${ampm}`;
+                }
+            }
+            ctx.fillText(label, lx, rect.height - 12);
         }
     }
 }
@@ -441,45 +448,10 @@ function _renderPlot(ctx, data, n, clr, type, mapX, PL, PT, cW, cH, min, range, 
     }
 }
 
-
-
-    ctx.restore();
-
-    // ---- X-axis labels with dynamic detail based on zoom ----
-    ctx.fillStyle = '#71717a';
-    ctx.textAlign = 'center';
-    ctx.font = '9px system-ui';
-
-    const isZoomed = zoom > 2;
-    // Calculate how many labels can comfortably fit (assume ~45px per label)
-    const maxLabels = Math.max(3, Math.floor(cW / 45));
-    const labelStep = Math.max(1, Math.ceil(n / (maxLabels * zoom)));
-
-    // Use fullLabels when zoomed, otherwise use labels
-    const displayLabels = (isZoomed && nav && nav.fullLabels) ? nav.fullLabels : (labels || []);
-
-    for (let i = 0; i < n; i += labelStep) {
-        const lx = mapX(PL + (i / n) * cW);
-        if (lx > PL - 10 && lx < rect.width - PR) {
-            let label = displayLabels[i] || '';
-            // If zoomed out and label has minutes, truncate to hour only to save space
-            if (!isZoomed && label.includes(':')) {
-                const match = label.match(/^(\d+):/);
-                if (match) {
-                    const hour = parseInt(match[1]);
-                    const ampm = label.includes('pm') ? 'pm' : 'am';
-                    label = `${hour}${ampm}`;
-                }
-            }
-            ctx.fillText(label, lx, rect.height - 12);
-        }
-    }
-}
-
-
 // ---- Expose globally ----
 window._fastRedraw         = _fastRedraw;
 window._showRefreshPulse   = _showRefreshPulse;
 window._attachDirectZoom   = _attachDirectZoom;
 window._handleGraphHover   = _handleGraphHover;
 window._drawChart          = _drawChart;
+window.hideTooltip         = hideTooltip;

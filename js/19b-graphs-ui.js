@@ -509,24 +509,31 @@ function _gNavInfo() {
     };
     
 if (graphTab === 'day') {
-        const d = new Date(now);
-        d.setDate(d.getDate() + graphDateNav);
+        // 1. Get current time, but force it to a UTC-based calculation for Pakistan
+        const now = new Date();
+        const pktTime = new Date(now.getTime() + (now.getTimezoneOffset() * 60000) + 18000000);
         
-        // Use the corrected PKT Midnight function
-        const startMs = getPktDayStart(d.getFullYear(), d.getMonth() + 1, d.getDate());
+        // 2. Apply navigation offset (Previous/Next day buttons)
+        const d = new Date(pktTime.getTime());
+        d.setUTCDate(d.getUTCDate() + graphDateNav);
+        
+        const year = d.getUTCFullYear();
+        const month = d.getUTCMonth() + 1;
+        const day = d.getUTCDate();
+
+        // 3. Calculate start of the day (Midnight PKT)
+        const startMs = getPktDayStart(year, month, day);
         
         const res = (graphChartType === 'hourly') ? 3600 : GRAPH_DAY_RESOLUTION_SECONDS;
         const totalPoints = Math.ceil((24 * 3600) / res);
         
         const labels = [];
-        const timeLabels = [];
         const fullLabels = [];
         
-for (let i = 0; i < totalPoints; i++) { 
+        for (let i = 0; i < totalPoints; i++) { 
             const currentTs = startMs + i * res * 1000;
             
-            // This is the "Magic Formula" to extract Pakistan Hour from a UTC timestamp
-            // Regardless of your New York/Australia system time
+            // ATOMIC MATH: Force PKT hour calculation by adding 5 hours to UTC
             const pktHour = Math.floor((currentTs / 3600000) + 5) % 24;
             const pktMin  = Math.floor((currentTs / 60000)) % 60;
             
@@ -536,27 +543,24 @@ for (let i = 0; i < totalPoints; i++) {
             
             labels.push(`${hh}${ampm}`);
             fullLabels.push(`${hh}:${mm}${ampm}`);
-            timeLabels.push(`${hh}:${mm}${ampm}`);
         }
-
-
-
         
-        const dateStr = d.toLocaleDateString('en-PK', { day:'numeric', month:'short' });
         return { 
-            label: graphDateNav === 0 ? 'Today' : dateStr, 
-            sub: d.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }),
+            label: graphDateNav === 0 ? 'Today' : `${day} ${_MONTH_SHORT[month-1]}`, 
+            sub: `${day} ${_MONTH_NAMES[month-1]} ${year}`,
             interval: res, 
             startMs, 
             endMs: startMs + 24 * 3600 * 1000 - 1, 
             isDayTab: true, 
             nBars: totalPoints, 
             labels, 
-            timeLabels,
+            timeLabels: fullLabels,
             fullLabels,
             resSeconds: res 
         };
     }
+
+
 
 
     if (graphTab === 'month') {

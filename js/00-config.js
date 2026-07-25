@@ -181,12 +181,12 @@ function getPktTodayStart() {
 }
 
 function getPktDayStart(year, month, day) {
-    // Create UTC midnight for the requested day
+    // 1. Get the exact UTC timestamp for 12:00 AM UTC
     const utcMidnight = Date.UTC(year, month - 1, day, 0, 0, 0);
-    // Subtract 5 hours (18,000,000ms) to get the exact UTC timestamp 
-    // that corresponds to 12:00 AM in Pakistan.
-    return utcMidnight - 18000000;
+    // 2. Subtract exactly 5 hours to get Pakistan Midnight
+    return utcMidnight - (5 * 3600 * 1000);
 }
+
 
 
 

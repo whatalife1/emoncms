@@ -135,38 +135,41 @@ function _handleGraphHover(e, pin) {
     if (!graphDataCache) return;
     const canvas = document.getElementById('graph-canvas');
     if (!canvas) return;
+
     const { bars1, bars2, labels, timeLabels, fullLabels, color1, color2, unit, isCombined, lastIdx, multiData, minV, maxV, range, 
             barsTemp, tempMinV, tempMaxV, tempRange, tempUnit, tempColor, overlayLabel, isDualY, nav } = graphDataCache;
+
     const rect = canvas.getBoundingClientRect();
     const clientX = e.clientX || (e.touches?.[0]?.clientX ?? 0);
     const clientY = e.clientY || (e.touches?.[0]?.clientY ?? 0);
     const x = clientX - rect.left;
+
     const PL = 38, PR = 8, cW = rect.width - PL - PR, n = bars1.length || (multiData?.[0]?.data?.length ?? 0);
     if (n === 0 || cW <= 0) return;
+
     const zoom = graphZoomLevel, panX = graphPanOffset, centerX = PL + cW / 2;
     const idx = Math.round(((x - panX - centerX) / zoom + centerX - PL) / (cW / n));
+
+    // Guard against out of bounds or drawing into the future
     if (idx < 0 || idx >= n || idx >= lastIdx) {
         if (!pin) hideTooltip();
         return;
     }
 
-    // ---- Get the exact time label for this data point ----
-    let timeLabel = '--:--';
-    if (nav && nav.fullLabels && nav.fullLabels[idx]) {
-        timeLabel = nav.fullLabels[idx];
-    } else if (nav && nav.timeLabels && nav.timeLabels[idx]) {
-        timeLabel = nav.timeLabels[idx];
-    } else if (nav && nav.isDayTab && nav.resSeconds) {
-        const startMs = nav.startMs || 0;
-        const ts = startMs + (idx * nav.resSeconds * 1000);
-        const pktDate = getKarachiDate(ts);
-        const h = pktDate.hour;
-        const m = Math.round((ts - new Date(pktDate.year, pktDate.month - 1, pktDate.day, h, 0, 0).getTime()) / 60000);
-        const ampm = h >= 12 ? 'pm' : 'am';
-        const hh = h % 12 || 12;
-        const mm = String(m).padStart(2, '0');
-        timeLabel = `${hh}:${mm}${ampm}`;
-    }
+    // ---- START TIMEZONE FIX ----
+    const startMs = nav.startMs || 0;
+    const ts = startMs + (idx * nav.resSeconds * 1000);
+    
+    // Create a Date object forced to Pakistan Time (UTC + 5)
+    const dObj = new Date(ts + 18000000); 
+    const h = dObj.getUTCHours();
+    const m = dObj.getUTCMinutes();
+    
+    const ampm = h >= 12 ? 'pm' : 'am';
+    const hh = h % 12 || 12;
+    const mm = String(m).padStart(2, '0');
+    const timeLabel = `${hh}:${mm}${ampm}`;
+    // ---- END TIMEZONE FIX ----
 
     const PT = 12, cH = rect.height - 12 - 34;
     const mouseY = clientY - rect.top;
@@ -177,8 +180,6 @@ function _handleGraphHover(e, pin) {
         tooltip = document.createElement('div');
         tooltip.id = 'graph-tooltip';
         document.body.appendChild(tooltip);
-    } else if (tooltip.parentElement !== document.body) {
-        document.body.appendChild(tooltip);
     }
 
     const closeBtn = pin ? `<span class="close-btn" onclick="hideTooltip();">✕</span>` : '';
@@ -188,6 +189,7 @@ function _handleGraphHover(e, pin) {
     const isDayView = graphTab === 'day';
     const isKwhView = isMonthOrYear;
 
+    // Logic for Multi-Line (Grid-All)
     if (multiData && multiData.length > 0) {
         let minDist = 999;
         for (let i = 0; i < multiData.length; i++) {
@@ -200,130 +202,74 @@ function _handleGraphHover(e, pin) {
 
         multiData.forEach((line, i) => {
             const val = (line.data[idx] ?? 0);
-            const isTemp = unit === '°C';
-            let valStr;
-            if (isKwhView) {
-                valStr = val.toFixed(2) + ' kWh';
-            } else if (isDayView) {
-                valStr = isTemp ? val.toFixed(1) + ' °C' : Math.round(val) + ' W';
-            } else {
-                valStr = isTemp ? val.toFixed(1) + ' °C' : val.toFixed(2) + ' ' + unit;
-            }
+            const isLineTemp = unit === '°C';
+            let valStr = isKwhView ? val.toFixed(2) + ' kWh' : 
+                         (isLineTemp ? val.toFixed(1) + ' °C' : Math.round(val) + ' W');
+            
             const isFocused = (closestLineIdx === i + 1);
             const focusStyle = isFocused ? 'font-weight:900;font-size:13px;filter:brightness(1.2);' : 'opacity:0.6;';
             html += `<div style="color:${line.color};margin:2px 0;${focusStyle}">
-                ${isFocused ? '*' : '&nbsp;'} <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${line.color};margin-right:5px;vertical-align:middle;opacity:${isFocused?1:0.8}"></span>
+                ${isFocused ? '*' : '&nbsp;'} <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${line.color};margin-right:5px;vertical-align:middle;"></span>
                 <b>${line.label}:</b> ${valStr}
             </div>`;
         });
-
-        if (isDualY && barsTemp && idx < barsTemp.length) {
-            const tempVal = barsTemp[idx] ?? 0;
-            const isOvTemp = tempUnit === '°C';
-            let tempValStr;
-            if (isKwhView) {
-                tempValStr = tempVal.toFixed(2) + ' kWh';
-            } else if (isDayView) {
-                tempValStr = isOvTemp ? tempVal.toFixed(1) + ' °C' : Math.round(tempVal) + ' W';
-            } else {
-                tempValStr = isOvTemp ? tempVal.toFixed(1) + ' °C' : Math.round(tempVal) + ' W';
-            }
-            const labelStr = overlayLabel || (isOvTemp ? 'Temp' : 'AC');
-            html += `<div style="color:${tempColor};margin:2px 0;">
-                <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${tempColor};margin-right:5px;"></span>
-                <b>${labelStr}:</b> ${tempValStr}
-            </div>`;
-        }
-    } else {
+    } 
+    // Logic for Single or Combined Feeds
+    else {
         const isTempCombined = graphFeedKey === 'temp' || graphFeedKey === 'temp2';
-        const isTemp = unit === '°C' || isTempCombined;
+        const isTooltipTemp = unit === '°C' || isTempCombined;
         
-        let val1;
-        if (isKwhView) {
-            val1 = (isTemp ? bars1[idx].toFixed(1) : bars1[idx].toFixed(2)) + ' kWh';
-        } else if (isDayView) {
-            val1 = (isTemp ? bars1[idx].toFixed(1) : Math.round(bars1[idx])) + ' ' + (isTempCombined ? '°C' : unit);
-        } else {
-            val1 = (isTemp ? bars1[idx].toFixed(1) : bars1[idx].toFixed(2)) + ' ' + (isTempCombined ? '°C' : unit);
-        }
+        const val1Raw = bars1[idx] || 0;
+        const val1 = isKwhView ? val1Raw.toFixed(2) + ' kWh' : 
+                     (isTooltipTemp ? val1Raw.toFixed(1) + ' °C' : Math.round(val1Raw) + ' ' + unit);
         
-        let val2 = '';
-        let c2 = color2;
+        let val2Str = '';
         if (isCombined) {
-            if (isKwhView) {
-                val2 = bars2[idx].toFixed(2) + ' kWh';
-            } else if (isDayView) {
-                val2 = Math.round(bars2[idx]) + ' ' + unit;
-            } else {
-                val2 = bars2[idx].toFixed(2) + ' ' + unit;
-            }
-        }
-        if (isTempCombined) { 
-            if (isKwhView) {
-                val2 = bars2[idx].toFixed(2) + ' kWh';
-            } else if (isDayView) {
-                val2 = Math.round(bars2[idx]) + ' %';
-            } else {
-                val2 = bars2[idx].toFixed(2) + ' %';
-            }
-            c2 = '#6366f1';
-        }
-        
-        if (isCombined || isTempCombined) {
-            const py1 = PT + cH - ((bars1[idx] - minV) / range) * cH;
-            const py2 = PT + cH - ((bars2[idx] - minV) / range) * cH;
-            closestLineIdx = Math.abs(mouseY - py1) < Math.abs(mouseY - py2) ? 1 : 2;
-        } else {
-            closestLineIdx = 1;
+            const val2Raw = bars2[idx] || 0;
+            val2Str = isKwhView ? val2Raw.toFixed(2) + ' kWh' : Math.round(val2Raw) + ' ' + unit;
+        } else if (isTempCombined) {
+            const val2Raw = bars2[idx] || 0;
+            val2Str = Math.round(val2Raw) + ' %';
         }
 
-        const l1 = isTempCombined ? 'Temp' : (isCombined ? 'Solar' : null);
-        const l2 = isTempCombined ? 'Hum' : (isCombined ? 'Grid' : null);
+        const l1 = isTempCombined ? 'Temp' : (isCombined ? 'Solar' : 'Value');
+        const l2 = isTempCombined ? 'Hum' : (isCombined ? 'Grid' : '');
 
-        if (isDualY && barsTemp && idx < barsTemp.length) {
-            const tempVal = barsTemp[idx] ?? 0;
-            const isOvTemp = tempUnit === '°C';
-            let tempValStr;
-            if (isKwhView) {
-                tempValStr = tempVal.toFixed(2) + ' kWh';
-            } else if (isDayView) {
-                tempValStr = isOvTemp ? tempVal.toFixed(1) + ' °C' : Math.round(tempVal) + ' W';
-            } else {
-                tempValStr = isOvTemp ? tempVal.toFixed(1) + ' °C' : Math.round(tempVal) + ' W';
-            }
-            const labelStr = overlayLabel || (isOvTemp ? 'Temp' : 'AC');
-            html += `<div style="color:${tempColor};margin:2px 0;">
-                <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${tempColor};margin-right:5px;"></span>
-                <b>${labelStr}:</b> ${tempValStr}
-            </div>`;
+        html += `<div style="color:${color1};">● <b>${l1}:</b> ${val1}</div>`;
+        if (val2Str) {
+            const c2 = isTempCombined ? '#6366f1' : color2;
+            html += `<div style="color:${c2};">● <b>${l2}:</b> ${val2Str}</div>`;
         }
+    }
 
-        const hl = isCombined || isTempCombined;
-        if (hl) {
-            const style1 = closestLineIdx === 1 ? 'font-weight:900;font-size:13px;filter:brightness(1.2);' : 'opacity:0.6;';
-            const style2 = closestLineIdx === 2 ? 'font-weight:900;font-size:13px;filter:brightness(1.2);' : 'opacity:0.6;';
-            html += `<div style="color:${color1};${style1}">${closestLineIdx === 1 ? '* ' : ''}● ${l1}: ${val1}</div>`;
-            if (val2) html += `<div style="color:${c2};${style2}">${closestLineIdx === 2 ? '* ' : ''}● ${l2}: ${val2}</div>`;
-        } else {
-            html += `<div style="color:${color1};">● ${val1}</div>`;
-        }
+    // Logic for Secondary Axis (AC Overlay on Temp)
+    if (isDualY && barsTemp && idx < barsTemp.length) {
+        const tVal = barsTemp[idx] ?? 0;
+        const tValStr = isKwhView ? tVal.toFixed(2) + ' kWh' : Math.round(tVal) + ' W';
+        html += `<div style="color:${tempColor};margin-top:4px;border-top:1px dashed var(--border);padding-top:4px;">
+            <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${tempColor};margin-right:5px;"></span>
+            <b>${overlayLabel || 'AC'}:</b> ${tValStr}
+        </div>`;
     }
 
     tooltip.innerHTML = html;
     tooltip.style.display = 'block';
     tooltip.classList.toggle('pinned', pin);
 
+    // Positioning
     let left = clientX + 15;
     let top  = clientY - 15;
     const tRect = tooltip.getBoundingClientRect();
-    const vw = window.innerWidth, vh = window.innerHeight;
-    if (left + tRect.width  > vw - 10) left = clientX - tRect.width  - 15;
-    if (top  + tRect.height > vh - 10) top  = clientY - tRect.height - 15;
-    if (top  < 10) top  = 10;
-    if (left < 10) left = 10;
-    tooltip.style.left = left + 'px';
-    tooltip.style.top  = top  + 'px';
+    if (left + tRect.width > window.innerWidth - 10) left = clientX - tRect.width - 15;
+    if (top + tRect.height > window.innerHeight - 10) top = clientY - tRect.height - 15;
+    
+    tooltip.style.left = Math.max(10, left) + 'px';
+    tooltip.style.top  = Math.max(10, top) + 'px';
 }
+
+
+
+
 
 // ---- _drawChart with Multi-Line support + dual Y-axis for overlay ----
 function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombined, nav, lastIdx, multiData,

@@ -274,8 +274,11 @@ function _handleGraphHover(e, pin) {
 // ---- _drawChart with Multi-Line support + dual Y-axis for overlay ----
 function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombined, nav, lastIdx, multiData,
                    minV, maxV, range, barsTemp = [], tempMinV = 0, tempMaxV = 100, tempRange = 100, tempUnit = '°C', tempColor = '#10b981', overlayLabel = '') {
+    
+    // Ensure input handlers are attached
     _attachDirectZoom(canvas);
 
+    // Show pulse dot for today's live view
     if (graphTab === 'day') {
         _showRefreshPulse();
     } else {
@@ -286,42 +289,44 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
     const ctx = canvas.getContext('2d');
     const dpr = window.devicePixelRatio || 1;
     const rect = canvas.getBoundingClientRect();
+    
+    // Setup high-DPI canvas
     canvas.width  = rect.width  * dpr;
     canvas.height = rect.height * dpr;
     ctx.scale(dpr, dpr);
 
-    const PL = 38, PR = 8, PT = 12, PB = 34;
+    const PL = 38, PR = 10, PT = 12, PB = 34;
     const cW = rect.width  - PL - PR;
     const cH = rect.height - PT - PB;
-    const zoom = graphZoomLevel, panX = graphPanOffset, centerX = PL + cW / 2;
+
+    // Zoom & Pan Math
+    const zoom = graphZoomLevel;
+    const panX = graphPanOffset;
+    const centerX = PL + cW / 2;
     const mapX = (x) => centerX + (x - centerX) * zoom + panX;
 
     const chartType = graphChartType || 'line';
-    const isTempCombined = graphFeedKey === 'temp' || graphFeedKey === 'temp2';
-    const isTemp = unit === '°C' || isTempCombined;
+    const isTemp = (unit === '°C' || graphFeedKey.startsWith('temp'));
+    const isKwhView = (graphTab === 'month' || graphTab === 'year');
 
     ctx.clearRect(0, 0, rect.width, rect.height);
 
-    const isMonthOrYear = graphTab === 'month' || graphTab === 'year';
-    const isKwhView = isMonthOrYear;
-    const displayUnit = isKwhView ? 'kWh' : unit;
-
+    // --- 1. DRAW Y-AXIS GRID & LABELS (LEFT) ---
     ctx.fillStyle = '#71717a';
     ctx.font = '9px system-ui';
     ctx.textAlign = 'right';
-    const numGridLines = isTemp ? 5 : 4;
+    const numGridLines = 5;
+
     for (let i = 0; i <= numGridLines; i++) {
         const val = minV + (i / numGridLines) * range;
         const y   = PT + cH - (i / numGridLines) * cH;
-        let lbl;
-        if (isKwhView) {
-            lbl = val.toFixed(1);
-        } else if (isTemp) {
-            lbl = val.toFixed(1) + '°';
-        } else {
-            lbl = Math.round(val).toLocaleString();
-        }
+        
+        let lbl = isKwhView ? val.toFixed(1) : 
+                  (isTemp ? val.toFixed(1) + '°' : Math.round(val).toLocaleString());
+        
         ctx.fillText(lbl, PL - 5, y + 3);
+        
+        // Subtle grid lines
         ctx.strokeStyle = 'rgba(255,255,255,0.05)';
         ctx.beginPath();
         ctx.moveTo(PL, y);
@@ -329,176 +334,114 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
         ctx.stroke();
     }
 
-    ctx.fillStyle = '#71717a';
-    ctx.font = '8px system-ui';
-    ctx.textAlign = 'center';
-    if (isKwhView) {
-        ctx.fillText('kWh', 10, PT + 8);
-    } else if (isTemp) {
-        ctx.fillText('°C', 10, PT + 8);
-    } else {
-        ctx.fillText('W', 10, PT + 8);
-    }
-
-    if (barsTemp.length > 0) {
-        ctx.fillStyle = '#71717a';
-        ctx.font = '9px system-ui';
+    // --- 2. DRAW SECONDARY Y-AXIS (RIGHT - For Temp Overlays) ---
+    if (barsTemp && barsTemp.length > 0) {
         ctx.textAlign = 'left';
-        const rightX = PL + cW + 4;
-        const isOvTemp = tempUnit === '°C';
-        for (let i = 0; i <= 4; i++) {
-            const val = tempMinV + (i / 4) * tempRange;
-            const y = PT + cH - (i / 4) * cH;
-            let lbl;
-            if (isKwhView) {
-                lbl = val.toFixed(1);
-            } else if (isOvTemp) {
-                lbl = val.toFixed(1) + '°';
-            } else {
-                lbl = Math.round(val).toLocaleString();
-            }
-            ctx.fillText(lbl, rightX, y + 3);
-        }
-        ctx.strokeStyle = 'rgba(255,255,255,0.05)';
-        for (let i = 0; i <= 4; i++) {
-            const y = PT + cH - (i / 4) * cH;
-            ctx.beginPath(); ctx.moveTo(PL, y); ctx.lineTo(PL + cW, y); ctx.stroke();
-        }
-        
-        ctx.fillStyle = '#71717a';
-        ctx.font = '8px system-ui';
-        ctx.textAlign = 'center';
-        if (isKwhView) {
-            ctx.fillText('kWh', rect.width - 10, PT + 8);
-        } else {
-            ctx.fillText('W', rect.width - 10, PT + 8);
+        const rightX = PL + cW + 5;
+        for (let i = 0; i <= numGridLines; i++) {
+            const val = tempMinV + (i / numGridLines) * tempRange;
+            const y = PT + cH - (i / numGridLines) * cH;
+            ctx.fillText(Math.round(val).toLocaleString(), rightX, y + 3);
         }
     }
 
+    // --- 3. DRAW DATA (CLIPPED TO CHART AREA) ---
     ctx.save();
     ctx.beginPath();
     ctx.rect(PL, PT, cW, cH);
     ctx.clip();
 
     const n = bars1.length || (multiData?.[0]?.data?.length ?? 0);
-    const isHourly = chartType === 'hourly';
-    const isBar = chartType === 'bar';
-
-    if (multiData && multiData.length > 0) {
-        for (const line of multiData) {
-            const data = line.data;
-            
-            if (isBar || isHourly) {
-                const barWidth = Math.max(2, (cW / n) * 0.7);
-                for (let i = 0; i < lastIdx; i++) {
-                    if (i >= data.length) break;
-                    const val = data[i];
-                    if (val === null || val === undefined) continue;
-                    const x = mapX(PL + (i / n) * cW) - barWidth / 2;
-                    const y = PT + cH - ((val - minV) / range) * cH;
-                    const h = PT + cH - y;
-                    
-                    ctx.fillStyle = line.color;
-                    ctx.globalAlpha = 0.8;
-                    ctx.fillRect(x, y, barWidth, h);
-                    ctx.globalAlpha = 1;
-                }
-            } else {
-                ctx.beginPath();
-                ctx.strokeStyle = line.color;
-                ctx.lineWidth = 2;
-                let started = false;
-                let lastDrawnX = null, lastDrawnY = null;
-
-                for (let i = 0; i < lastIdx; i++) {
-                    if (i >= data.length) break;
-                    const val = data[i];
-                    if (val === null || val === undefined) { started = false; continue; }
-                    const x = mapX(PL + (i / n) * cW);
-                    const y = PT + cH - ((val - minV) / range) * cH;
-                    if (!started) { ctx.moveTo(x, y); started = true; }
-                    else ctx.lineTo(x, y);
-                    lastDrawnX = x;
-                    lastDrawnY = y;
-                }
-                ctx.stroke();
-
-                if (lastDrawnX !== null && lastDrawnY !== null) {
-                    ctx.beginPath();
-                    ctx.arc(lastDrawnX, lastDrawnY, 4, 0, Math.PI * 2);
-                    ctx.fillStyle = line.color;
-                    ctx.fill();
-
-                    ctx.font = 'bold 10px system-ui';
-                    ctx.textAlign = 'left';
-                    ctx.fillStyle = line.color;
-                    const labelX = Math.min(lastDrawnX + 6, PL + cW - 2);
-                    const labelY = Math.max(PT + 8, Math.min(lastDrawnY + 4, PT + cH - 2));
-                    ctx.fillText(line.label, labelX, labelY);
-                }
+    if (n > 0) {
+        // Multi-line (Grid-All) logic
+        if (multiData && multiData.length > 0) {
+            multiData.forEach(line => {
+                _renderPlot(ctx, line.data, n, line.color, chartType, mapX, PL, PT, cW, cH, minV, range, lastIdx, false);
+            });
+        } 
+        // Single/Combined feed logic
+        else {
+            if (isCombined || (graphFeedKey.startsWith('temp') && bars2.length)) {
+                const c2 = graphFeedKey.startsWith('temp') ? '#6366f1' : color2;
+                _renderPlot(ctx, bars2, n, c2, chartType, mapX, PL, PT, cW, cH, minV, range, lastIdx, true);
             }
+            _renderPlot(ctx, bars1, n, color1, chartType, mapX, PL, PT, cW, cH, minV, range, lastIdx, false);
         }
-    } else {
-        const drawData = (data, clr, isSecondary = false) => {
-            if (isBar || isHourly) {
-                const barWidth = Math.max(2, (cW / n) * 0.6);
-                const offset = isSecondary ? barWidth * 0.5 : 0;
-                for (let i = 0; i < lastIdx; i++) {
-                    if (i >= data.length) break;
-                    const val = data[i];
-                    if (val === null || val === undefined) continue;
-                    const x = mapX(PL + (i / n) * cW) - barWidth / 2 + offset;
-                    const y = PT + cH - ((val - minV) / range) * cH;
-                    const h = PT + cH - y;
-                    
-                    ctx.fillStyle = clr;
-                    ctx.globalAlpha = isSecondary ? 0.6 : 0.8;
-                    ctx.fillRect(x, y, barWidth * 0.8, h);
-                    ctx.globalAlpha = 1;
-                }
-            } else {
-                ctx.beginPath();
-                ctx.strokeStyle = clr;
-                ctx.lineWidth = isSecondary ? 1.5 : 2.5;
-                let started = false;
-                for (let i = 0; i < lastIdx; i++) {
-                    if (i >= data.length) break;
-                    const val = data[i];
-                    if (val === null || val === undefined) { started = false; continue; }
-                    const x = mapX(PL + (i / n) * cW);
-                    const y = PT + cH - ((val - minV) / range) * cH;
-                    if (!started) { ctx.moveTo(x, y); started = true; }
-                    else ctx.lineTo(x, y);
-                }
-                ctx.stroke();
-            }
-        };
-        
-        if (isCombined || isTempCombined) {
-            const c2 = isTempCombined ? '#6366f1' : color2;
-            drawData(bars2, c2, true);
+
+        // Overlay line (e.g. AC Watts over Temperature)
+        if (barsTemp && barsTemp.length > 0) {
+            _renderPlot(ctx, barsTemp, n, tempColor, 'line', mapX, PL, PT, cW, cH, tempMinV, tempRange, lastIdx, false, true);
         }
-        drawData(bars1, color1, false);
     }
+    ctx.restore();
 
-    if (barsTemp.length > 0) {
+    // --- 4. DRAW X-AXIS LABELS (THE TIMEZONE-PROOF FIX) ---
+    ctx.fillStyle = '#71717a';
+    ctx.textAlign = 'center';
+    ctx.font = '9px system-ui';
+
+    // Space labels dynamically based on width and zoom
+    const labelSpacing = 55; // Pixels per label
+    const maxLabels = Math.max(2, Math.floor(cW / labelSpacing));
+    const labelStep = Math.max(1, Math.ceil(n / (maxLabels * zoom)));
+
+    for (let i = 0; i < n; i += labelStep) {
+        const lx = mapX(PL + (i / n) * cW);
+        
+        // Only draw if label is visible on screen
+        if (lx > PL - 10 && lx < rect.width - PR + 10) {
+            const labelText = labels[i] || '';
+            ctx.fillText(labelText, lx, rect.height - 12);
+            
+            // Draw small tick mark
+            ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+            ctx.beginPath();
+            ctx.moveTo(lx, PT + cH);
+            ctx.lineTo(lx, PT + cH + 4);
+            ctx.stroke();
+        }
+    }
+}
+
+/**
+ * Internal helper to draw the actual lines/bars
+ */
+function _renderPlot(ctx, data, n, clr, type, mapX, PL, PT, cW, cH, min, range, lastIdx, isSecondary, isDashed = false) {
+    if (type === 'bar' || type === 'hourly') {
+        const barWidth = Math.max(1, (cW / n) * 0.7);
+        const offset = isSecondary ? barWidth * 0.4 : 0;
+        ctx.fillStyle = clr;
+        ctx.globalAlpha = isSecondary ? 0.4 : 0.8;
+        
+        for (let i = 0; i < lastIdx; i++) {
+            const val = data[i];
+            if (val == null) continue;
+            const x = mapX(PL + (i / n) * cW) - barWidth / 2 + offset;
+            const y = PT + cH - ((val - min) / range) * cH;
+            ctx.fillRect(x, y, barWidth * 0.9, (PT + cH) - y);
+        }
+        ctx.globalAlpha = 1.0;
+    } else {
         ctx.beginPath();
-        ctx.strokeStyle = tempColor;
-        ctx.lineWidth = 2;
-        ctx.setLineDash([4, 4]);
+        ctx.strokeStyle = clr;
+        ctx.lineWidth = isSecondary ? 1.5 : 2.5;
+        if (isDashed) ctx.setLineDash([4, 4]); else ctx.setLineDash([]);
+        
         let started = false;
         for (let i = 0; i < lastIdx; i++) {
-            if (i >= barsTemp.length) break;
-            const val = barsTemp[i];
-            if (val === null || val === undefined) { started = false; continue; }
+            const val = data[i];
+            if (val == null) { started = false; continue; }
             const x = mapX(PL + (i / n) * cW);
-            const y = PT + cH - ((val - tempMinV) / tempRange) * cH;
+            const y = PT + cH - ((val - min) / range) * cH;
             if (!started) { ctx.moveTo(x, y); started = true; }
             else ctx.lineTo(x, y);
         }
         ctx.stroke();
         ctx.setLineDash([]);
     }
+}
+
+
 
     ctx.restore();
 

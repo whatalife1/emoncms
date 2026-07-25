@@ -62,8 +62,13 @@ window.generateGraphReport = async function() {
     const reportDates = Object.keys(sums[solarF.id].h24).sort();
     const numDays = reportDates.length || 1;
     const nightHoursPerDay = (isDay && graphTab === 'day' && graphDateNav === 0) ? 
-        (() => { const now = getPktNow(); const h = now.getHours() + now.getMinutes()/60; return (h >= EXPORT_NIGHT_START) ? (h - EXPORT_NIGHT_START) : ((24 - EXPORT_NIGHT_START) + h); })() :
+        (() => { const now = getPktNow(); const h = now.getHours() + now.getMinutes()/60; 
+            if (h < 8) return h;
+            if (h >= 17) return 8 + (h - 17);
+            return 8;
+        })() :
         (24 - EXPORT_NIGHT_START) + EXPORT_NIGHT_END;
+    const totalNightHours = nightHoursPerDay * numDays;
 
     const blocks = ['_', '\u2581', '\u2582', '\u2583', '\u2584', '\u2585', '\u2586', '\u2587', '\u2588'];
 
@@ -117,13 +122,13 @@ window.generateGraphReport = async function() {
         'Appliance'.padEnd(colWidths.name),
         'Total (kWh)'.padStart(colWidths.total),
         'Day (kWh)'.padStart(colWidths.day),
-        'Day %'.padStart(colWidths.dayPct),
         'Night (kWh)'.padStart(colWidths.night),
+        'Avg Night (W)'.padStart(colWidths.avgNight),
+        'Avg/Day'.padStart(colWidths.avgDay),
+        'Day %'.padStart(colWidths.dayPct),
         'Night %'.padStart(colWidths.nightPct),
         'Day Share'.padStart(colWidths.dayShare),
         'Night Share'.padStart(colWidths.nightShare),
-        'Avg Night (W)'.padStart(colWidths.avgNight),
-        'Avg/Day'.padStart(colWidths.avgDay),
         '% of Total'.padStart(colWidths.totalPct)
     ];
     const header = headerParts.join(' ');
@@ -149,13 +154,13 @@ window.generateGraphReport = async function() {
             shortName.padEnd(colWidths.name),
             total.toFixed(2).padStart(colWidths.total),
             isSolar ? '-'.padStart(colWidths.day) : day.toFixed(2).padStart(colWidths.day),
-            isSolar ? '-'.padStart(colWidths.dayPct) : dayPct.toFixed(1).padStart(colWidths.dayPct) + '%',
             isSolar ? '-'.padStart(colWidths.night) : night.toFixed(2).padStart(colWidths.night),
+            isSolar ? '-'.padStart(colWidths.avgNight) : (Math.round(avgNightW) + ' W').padStart(colWidths.avgNight),
+            avgDay.toFixed(2).padStart(colWidths.avgDay),
+            isSolar ? '-'.padStart(colWidths.dayPct) : dayPct.toFixed(1).padStart(colWidths.dayPct) + '%',
             isSolar ? '-'.padStart(colWidths.nightPct) : nightPct.toFixed(1).padStart(colWidths.nightPct) + '%',
             (totalDayLoadKwh === 0) ? '-'.padStart(colWidths.dayShare) : dayShare.toFixed(1).padStart(colWidths.dayShare) + '%',
             (totalNightLoadKwh === 0) ? '-'.padStart(colWidths.nightShare) : nightShare.toFixed(1).padStart(colWidths.nightShare) + '%',
-            isSolar ? '-'.padStart(colWidths.avgNight) : (Math.round(avgNightW) + ' W').padStart(colWidths.avgNight),
-            avgDay.toFixed(2).padStart(colWidths.avgDay),
             (totalLoadKwh === 0) ? '-'.padStart(colWidths.totalPct) : totalPct.toFixed(1).padStart(colWidths.totalPct) + '%'
         ];
         return parts.join(' ');
@@ -169,7 +174,7 @@ window.generateGraphReport = async function() {
         const dayKwh = dayWh / 1000;
         const nightKwh = nightWh / 1000;
         const avg = totalKwh / numDays;
-        const avgNightW = nightHoursPerDay > 0 ? nightWh / nightHoursPerDay : 0;
+        const avgNightW = totalNightHours > 0 ? nightWh / totalNightHours : 0;
         const totalPct = (totalLoadKwh === 0) ? 0 : (totalKwh / totalLoadKwh * 100);
 
         txt += formatRow(f.name, totalKwh, dayKwh, nightKwh, avgNightW, avg, totalPct, f.isSolar, f.isBreaker) + '\n';
@@ -207,7 +212,7 @@ window.generateGraphReport = async function() {
             const totalKwh = totalWh / 1000;
             const dayKwh = dayWh / 1000;
             const nightKwh = nightWh / 1000;
-            const avgNightW = nightHoursPerDay > 0 ? nightWh / nightHoursPerDay : 0;
+            const avgNightW = totalNightHours > 0 ? nightWh / totalNightHours : 0;
             const maxW = Math.max(...visualData[f.id]?.arr || [0], 0.1);
             const spark = makeSparkline24(visualData[f.id]?.arr || new Array(24).fill(0));
             const name = f.name.length > 16 ? f.name.substring(0,15)+'…' : f.name;
@@ -231,7 +236,7 @@ window.generateGraphReport = async function() {
         EXPORT_FEEDS.forEach(f => {
             const nightWh = Object.values(sums[f.id].night).reduce((a,b)=>a+b,0);
             const nightKwh = nightWh / 1000;
-            const avgNightW = nightHoursPerDay > 0 ? nightWh / nightHoursPerDay : 0;
+            const avgNightW = totalNightHours > 0 ? nightWh / totalNightHours : 0;
             const arr = visualData[f.id]?.arr || new Array(24).fill(0);
             const nightMax = Math.max(...arr.filter((v,i) => i<8 || i>=18), 0.1);
             const spark = makeSparklineNight(arr);
@@ -294,13 +299,13 @@ window.generateGraphReport = async function() {
         <th style="border:1px solid var(--border); padding:6px; text-align:left;">Appliance</th>
         <th style="border:1px solid var(--border); padding:6px; text-align:right;">Total (kWh)</th>
         <th style="border:1px solid var(--border); padding:6px; text-align:right;">Day (kWh)</th>
-        <th style="border:1px solid var(--border); padding:6px; text-align:right;">Day %</th>
         <th style="border:1px solid var(--border); padding:6px; text-align:right;">Night (kWh)</th>
+        <th style="border:1px solid var(--border); padding:6px; text-align:right;">Avg Night (W)</th>
+        <th style="border:1px solid var(--border); padding:6px; text-align:right;">Avg/Day</th>
+        <th style="border:1px solid var(--border); padding:6px; text-align:right;">Day %</th>
         <th style="border:1px solid var(--border); padding:6px; text-align:right;">Night %</th>
         <th style="border:1px solid var(--border); padding:6px; text-align:right;">Day Share</th>
         <th style="border:1px solid var(--border); padding:6px; text-align:right;">Night Share</th>
-        <th style="border:1px solid var(--border); padding:6px; text-align:right;">Avg Night (W)</th>
-        <th style="border:1px solid var(--border); padding:6px; text-align:right;">Avg/Day</th>
         <th style="border:1px solid var(--border); padding:6px; text-align:right;">% of Total</th>
     </tr>`;
 
@@ -312,7 +317,7 @@ window.generateGraphReport = async function() {
         const dayKwh = dayWh / 1000;
         const nightKwh = nightWh / 1000;
         const avg = totalKwh / numDays;
-        const avgNightW = nightHoursPerDay > 0 ? nightWh / nightHoursPerDay : 0;
+        const avgNightW = totalNightHours > 0 ? nightWh / totalNightHours : 0;
         const totalPct = (totalLoadKwh === 0) ? 0 : (totalKwh / totalLoadKwh * 100);
         const dayPct = (f.isSolar || totalKwh === 0) ? 0 : (dayKwh / totalKwh * 100);
         const nightPct = (f.isSolar || totalKwh === 0) ? 0 : (nightKwh / totalKwh * 100);
@@ -327,13 +332,13 @@ window.generateGraphReport = async function() {
             <td style="border:1px solid var(--border); padding:6px; font-weight:bold;">${f.name}</td>
             <td style="border:1px solid var(--border); padding:6px; text-align:right; color:${color};">${totalKwh.toFixed(2)}</td>
             <td style="border:1px solid var(--border); padding:6px; text-align:right; color:var(--accent-solar);">${f.isSolar?'-':dayKwh.toFixed(2)}</td>
-            <td style="border:1px solid var(--border); padding:6px; text-align:right; color:var(--accent-solar);">${f.isSolar?'-':dayPct.toFixed(1) + '%'}</td>
             <td style="border:1px solid var(--border); padding:6px; text-align:right; color:#c084fc;">${f.isSolar?'-':nightKwh.toFixed(2)}</td>
+            <td style="border:1px solid var(--border); padding:6px; text-align:right; color:#c084fc;">${f.isSolar?'-':Math.round(avgNightW) + ' W'}</td>
+            <td style="border:1px solid var(--border); padding:6px; text-align:right;">${avg.toFixed(2)}</td>
+            <td style="border:1px solid var(--border); padding:6px; text-align:right; color:var(--accent-solar);">${f.isSolar?'-':dayPct.toFixed(1) + '%'}</td>
             <td style="border:1px solid var(--border); padding:6px; text-align:right; color:#c084fc;">${f.isSolar?'-':nightPct.toFixed(1) + '%'}</td>
             <td style="border:1px solid var(--border); padding:6px; text-align:right; color:var(--accent-solar);">${totalDayLoadKwh===0?'-':dayShare.toFixed(1) + '%'}</td>
             <td style="border:1px solid var(--border); padding:6px; text-align:right; color:#c084fc;">${totalNightLoadKwh===0?'-':nightShare.toFixed(1) + '%'}</td>
-            <td style="border:1px solid var(--border); padding:6px; text-align:right; color:#c084fc;">${f.isSolar?'-':Math.round(avgNightW) + ' W'}</td>
-            <td style="border:1px solid var(--border); padding:6px; text-align:right;">${avg.toFixed(2)}</td>
             <td style="border:1px solid var(--border); padding:6px; text-align:right;">${totalLoadKwh===0?'-':totalPct.toFixed(1)+'%'}</td>
         </tr>`;
     });
@@ -342,13 +347,13 @@ window.generateGraphReport = async function() {
         <td style="border:1px solid var(--border); padding:6px;">TOTAL LOAD</td>
         <td style="border:1px solid var(--border); padding:6px; text-align:right;">${totalLoadKwh.toFixed(2)}</td>
         <td style="border:1px solid var(--border); padding:6px; text-align:right; color:var(--accent-solar);">${totalDayLoadKwh.toFixed(2)}</td>
-        <td style="border:1px solid var(--border); padding:6px; text-align:right; color:var(--accent-solar);">${totalLoadKwh===0?'-':(totalDayLoadKwh/totalLoadKwh*100).toFixed(1)+'%'}</td>
         <td style="border:1px solid var(--border); padding:6px; text-align:right; color:#c084fc;">${totalNightLoadKwh.toFixed(2)}</td>
+        <td style="border:1px solid var(--border); padding:6px; text-align:right;">-</td>
+        <td style="border:1px solid var(--border); padding:6px; text-align:right;">${(totalLoadKwh/numDays).toFixed(2)}</td>
+        <td style="border:1px solid var(--border); padding:6px; text-align:right; color:var(--accent-solar);">${totalLoadKwh===0?'-':(totalDayLoadKwh/totalLoadKwh*100).toFixed(1)+'%'}</td>
         <td style="border:1px solid var(--border); padding:6px; text-align:right; color:#c084fc;">${totalLoadKwh===0?'-':(totalNightLoadKwh/totalLoadKwh*100).toFixed(1)+'%'}</td>
         <td style="border:1px solid var(--border); padding:6px; text-align:right; color:var(--accent-solar);">100%</td>
         <td style="border:1px solid var(--border); padding:6px; text-align:right; color:#c084fc;">100%</td>
-        <td style="border:1px solid var(--border); padding:6px; text-align:right;">-</td>
-        <td style="border:1px solid var(--border); padding:6px; text-align:right;">${(totalLoadKwh/numDays).toFixed(2)}</td>
         <td style="border:1px solid var(--border); padding:6px; text-align:right;">100%</td>
     </tr>`;
     html += `</table></div>`;

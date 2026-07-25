@@ -100,7 +100,9 @@ async function fetchEmonBulk() {
     const data = JSON.parse(text);
     const lookup = new Map();
     data.forEach(f => {
-      lookup.set(String(f.id), { v: parseFloat(f.value), t: parseInt(f.time) });
+            const t = (f.time !== undefined && f.time !== null) ? parseInt(f.time) : null;
+      const time = (t !== null && !isNaN(t)) ? t : null;
+      lookup.set(String(f.id), { v: parseFloat(f.value) || 0, t: time });
     });
     return lookup;
   } catch (e) {

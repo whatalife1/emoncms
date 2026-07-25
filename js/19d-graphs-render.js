@@ -476,6 +476,7 @@ function _renderPlot(ctx, data, n, clr, type, mapX, PL, PT, cW, cH, min, range, 
     }
 }
 
+
 // ---- Expose globally ----
 window._fastRedraw         = _fastRedraw;
 window._showRefreshPulse   = _showRefreshPulse;

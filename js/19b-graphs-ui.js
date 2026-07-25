@@ -511,7 +511,8 @@ function _gNavInfo() {
     if (graphTab === 'day') {
         const d = new Date(now);
         d.setDate(d.getDate() + graphDateNav);
-        const startMs = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+        const startMs = getPktDayStart(d.getFullYear(), d.getMonth() + 1, d.getDate());
+
         const res = (graphChartType === 'hourly') ? 3600 : GRAPH_DAY_RESOLUTION_SECONDS;
         const totalPoints = Math.ceil((24 * 3600) / res);
         const labels = [];

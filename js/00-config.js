@@ -182,8 +182,12 @@ function getPktTodayStart() {
 
 function getPktDayStart(year, month, day) {
     if (IS_PKT_ZONE) return new Date(year, month - 1, day).getTime();
-    return new Date(Date.UTC(year, month - 1, day)).getTime();
+    // Midnight PKT is 19:00 (7 PM) the previous day in UTC. 
+    // We get Midnight UTC and subtract 5 hours (18,000,000 ms)
+    return new Date(Date.UTC(year, month - 1, day, 0, 0, 0)).getTime() - 18000000;
 }
+
+
 
 function formatPktTime(timestamp, format = 'datetime') {
     const ts = timestamp < 10000000000 ? timestamp * 1000 : timestamp;

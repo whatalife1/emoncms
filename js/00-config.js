@@ -1,9 +1,18 @@
 // ─── Proxy & DNS Configuration ──────────────────────────────────────────────
+
+
+// ─── Proxy & DNS Configuration ──────────────────────────────────────────────
 const PROXY_ENDPOINTS = [
   'https://emon-proxy.new-life-786-786-786.workers.dev',
-  // You can add secondary backup endpoints or custom domains here:
-  // 'https://emon-backup.yourdomain.com'
+  'https://crisp-blackbird-1172.newlife786786786.deno.net',
+  'https://my-vercel-proxy-1.vercel.app',
+  'https://newlife-proxy.vercel.app',
+//  'https://taupe-bunny-bb0a25.netlify.app'
+  'https://gxmbeybitqckkonxxtcr.supabase.co/functions/v1/proxy'
 ];
+
+
+
 
 let activeProxyIndex = 0;
 let PROXY_BASE = PROXY_ENDPOINTS[0];
@@ -63,6 +72,12 @@ const STALE_EXEMPT = new Set([
   "Humidity 2",
   "Inverter Temp"
 ]); // feeds that should NOT be zeroed when stale
+
+// Feed IDs that emoncms's list.json unreliably enumerates for their account
+// (confirmed across multiple independent proxies — workers.dev, Supabase, etc.)
+// but that respond fine to individual value.json fetches. We patch these into
+// every bulk response client-side, so it's fixed regardless of which proxy is active.
+const BULK_UNRELIABLE_IDS = ["541348", "541350", "542850", "542853", "512473", "512474"];
 
 const FEEDS_BASE = [
   { id: "499431", name: "Water Tank",           unit: "%",   type: "env"   },

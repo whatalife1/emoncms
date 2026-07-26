@@ -10,7 +10,7 @@ window.onNativeResponse = (id, res) => {
 /**
  * Robust fetch with DoH (DNS-over-HTTPS) diagnostic and endpoint rotation
  */
-function nativeFetch(url, retries = 2, delay = 1000) {
+function nativeFetch(url, retries = PROXY_ENDPOINTS.length - 1, delay = 1000) {
   return new Promise(resolve => {
     const id = Math.random().toString(36).substr(2, 9);
     
@@ -104,11 +104,29 @@ async function fetchEmonBulk() {
       const time = (t !== null && !isNaN(t)) ? t : null;
       lookup.set(String(f.id), { v: parseFloat(f.value) || 0, t: time });
     });
+
+    // Patch in feed IDs known to be unreliable in list.json, regardless of proxy.
+    // (Confirmed: this emoncms instance doesn't support batched ids= on value.json,
+    // so we fetch these in parallel individually — still just 1 round-trip's worth
+    // of wall-clock time since they all fire at once.)
+    const missingIds = BULK_UNRELIABLE_IDS.filter(id => !lookup.has(id));
+    if (missingIds.length > 0) {
+      const patches = await Promise.all(missingIds.map(async id => {
+        const val = await fetchEmon(id);
+        return { id, val };
+      }));
+      patches.forEach(({ id, val }) => {
+        if (val !== null) lookup.set(id, { v: val, t: null });
+      });
+    }
+
     return lookup;
   } catch (e) {
     throw e; 
   }
 }
+
+
 
 async function fetchEmon(id) {
   const url = `${PROXY_BASE}/?id=${id}`;

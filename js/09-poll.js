@@ -168,10 +168,17 @@ async function poll() {
       window.waterFlowRate = 0;
     }
 
-    const fetchTime = Date.now() - fetchStart;
-    if (window.addDebugLog) {
-        window.addDebugLog(`<b>Proxy Bulk:</b> OK (${fetchTime}ms, ${bulkData.size} feeds)`);
-    }
+const fetchTime = Date.now() - fetchStart;
+if (window.addDebugLog) {
+  const missing = FEEDS_BASE.filter(f => !bulkData.has(String(f.id)));
+  if (missing.length > 0) {
+    const names = missing.map(f => `${f.name} (${f.id})`).join(', ');
+    window.addDebugLog(`<b style="color:#ef4444">Proxy Bulk:</b> ${fetchTime}ms, ${bulkData.size} feeds returned, but MISSING: ${names}`);
+  } else {
+    window.addDebugLog(`<b>Proxy Bulk:</b> OK (${fetchTime}ms, ${bulkData.size}/${FEEDS_BASE.length} expected feeds present)`);
+  }
+}
+
 
     const results = await Promise.all(userOrderedFeeds.filter(f => f.enabled).map(async f => {
       const entry = bulkData.get(String(f.id));

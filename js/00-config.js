@@ -11,11 +11,16 @@ const PROXY_ENDPOINTS = [
   'https://gxmbeybitqckkonxxtcr.supabase.co/functions/v1/proxy'
 ];
 
-
-
-
+// Load last known working proxy index for this device
 let activeProxyIndex = 0;
-let PROXY_BASE = PROXY_ENDPOINTS[0];
+try {
+  const savedIdx = parseInt(localStorage.getItem('activeProxyIndex'));
+  if (!isNaN(savedIdx) && savedIdx >= 0 && savedIdx < PROXY_ENDPOINTS.length) {
+    activeProxyIndex = savedIdx;
+  }
+} catch (e) {}
+
+let PROXY_BASE = PROXY_ENDPOINTS[activeProxyIndex];
 
 // DoH (DNS-over-HTTPS) Resolvers for Google, Cloudflare, and AdGuard
 const DOH_RESOLVERS = [
@@ -49,12 +54,15 @@ async function resolveDomainDoH(hostname) {
 }
 
 /**
- * Rotate to next proxy endpoint if available
+ * Rotate to next proxy endpoint if available and persist choice
  */
 function rotateProxyEndpoint() {
   if (PROXY_ENDPOINTS.length > 1) {
     activeProxyIndex = (activeProxyIndex + 1) % PROXY_ENDPOINTS.length;
     PROXY_BASE = PROXY_ENDPOINTS[activeProxyIndex];
+    try {
+      localStorage.setItem('activeProxyIndex', activeProxyIndex.toString());
+    } catch (e) {}
     return PROXY_BASE;
   }
   return PROXY_BASE;

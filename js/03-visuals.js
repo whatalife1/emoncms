@@ -41,7 +41,7 @@ async function fetchMonthlyUnits() {
     { key: 'motor', id: '542853' } // ✅ FIXED: was 542851
   ];
 
-  const results = { haier:0, k1:0, k15:0, pc:0, f1:0, f2:0, solar:0, grid:0 };
+  const results = { haier:0, k1:0, k15:0, pc:0, f1:0, f2:0, solar:0, grid:0, motor:0 };
 
   try {
     const promises = feeds.map(f => {

@@ -1,29 +1,4 @@
-// Add at the top of the file to ensure _navOffset is accessible
-// (If not already defined in 14-solar-today.js)
-
-function _navDate() {
-  const d = new Date();
-  const offset = window._navOffset || 0;
-  d.setDate(d.getDate() + offset);
-  return { y: d.getFullYear(), mo: d.getMonth()+1, d: d.getDate(), date: d };
-}
-
-function _updateNavLabel() {
-  const { date } = _navDate();
-  const lbl = document.getElementById('sol-nav-label');
-  const sub = document.getElementById('sol-nav-sub');
-  if (!lbl) return;
-  const offset = window._navOffset || 0;
-  if (offset === 0)      lbl.textContent = 'Today';
-  else if (offset === -1) lbl.textContent = 'Yesterday';
-  else if (offset === 1)  lbl.textContent = 'Tomorrow';
-  else lbl.textContent = date.toLocaleDateString('en-PK', { weekday:'short', day:'numeric', month:'short' });
-  if (sub) sub.textContent = date.toLocaleDateString('en-PK', { day:'numeric', month:'long', year:'numeric' });
-  const nextBtn = document.getElementById('sol-next-day');
-  if (nextBtn) nextBtn.style.opacity = offset >= 7 ? '0.3' : '1';
-}
-
-// The rest of the file remains the same...
+// Solar render helpers for today actuals and heatmap
 async function _fetchTodayActuals(y, mo, d) {
   const solarFeed = userOrderedFeeds.find(f => f.name === 'Solar');
   const solarId   = solarFeed ? solarFeed.id : '499380';
@@ -118,42 +93,3 @@ function _renderHeatmap(daily, container) {
     </div>`;
 }
 
-function updateSolarNow(hourly) {
-  try {
-    const elW = document.getElementById('sol-now-watt');
-    if (!elW) return;
-    const now = new Date();
-    const cur = now.getHours() + now.getMinutes()/60;
-    let watt = 0, cloud = 0;
-
-    const firstHour = hourly[0]?.h ?? 5;
-    const lastHour = hourly[hourly.length - 1]?.h ?? 18;
-
-    if (cur >= lastHour + 1 || cur < firstHour) {
-      watt = 0;
-      cloud = hourly[hourly.length - 1]?.cloud ?? 0;
-    } else {
-      for (let i=0; i<hourly.length; i++) {
-        const h0 = hourly[i], h1 = hourly[i+1];
-        if (h0.h <= cur && (!h1 || h1.h > cur)) {
-          if (h1) {
-            const t = Math.max(0, Math.min(1, (cur - h0.h)/(h1.h - h0.h)));
-            watt = h0.watt + t*(h1.watt - h0.watt);
-            cloud = (h0.cloud||0) + t*((h1.cloud||0)-(h0.cloud||0));
-          } else { 
-            const t = Math.max(0, Math.min(1, cur - h0.h));
-            watt = h0.watt * (1 - t);
-            cloud = h0.cloud||0; 
-          }
-          break;
-        }
-      }
-    }
-
-    elW.textContent = Math.round(watt);
-    const elT = document.getElementById('sol-now-time');
-    const elC = document.getElementById('sol-now-cloud');
-    if (elT) elT.textContent = now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
-    if (elC) elC.textContent = '☁ ' + Math.round(cloud) + '%';
-  } catch(e){}
-}

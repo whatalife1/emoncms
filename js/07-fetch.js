@@ -10,17 +10,17 @@ window.onNativeResponse = (id, res) => {
 /**
  * Robust fetch with DoH (DNS-over-HTTPS) diagnostic and endpoint rotation
  */
-function nativeFetch(url, retries = PROXY_ENDPOINTS.length - 1, delay = 1000) {
+function nativeFetch(url, retries = PROXY_ENDPOINTS.length - 1, delay = 500) {
   return new Promise(resolve => {
     const id = Math.random().toString(36).substr(2, 9);
     
-    // Safety timeout: If no response in 10s, force a retry
+    // Safety timeout: Reduced from 10s to 4.5s for fast failover on blocked/slow proxy
     const timeoutTimer = setTimeout(() => {
       if (nativeCallbacks[id]) {
-        if (window.addDebugLog) window.addDebugLog(`<b style="color:#ef4444">Timeout:</b> 10s exceeded. Force-canceling.`);
+        if (window.addDebugLog) window.addDebugLog(`<b style="color:#ef4444">Timeout:</b> 4.5s exceeded. Force-canceling & rotating.`);
         nativeCallbacks[id]("ERROR: Timeout");
       }
-    }, 10000);
+    }, 4500);
 
     nativeCallbacks[id] = async (result) => {
       clearTimeout(timeoutTimer);
@@ -61,11 +61,16 @@ function nativeFetch(url, retries = PROXY_ENDPOINTS.length - 1, delay = 1000) {
         }
 
         setTimeout(() => {
-          resolve(nativeFetch(url, retries - 1, delay * 1.5));
+          resolve(nativeFetch(url, retries - 1, Math.min(delay * 1.5, 2000)));
         }, delay);
       } else {
         if (typeof result === 'string' && result.startsWith('ERROR:')) {
            if (window.addDebugLog) window.addDebugLog(`<b style="color:#ef4444">Fetch Failed:</b> ${result.substring(0, 60)}...`);
+        } else {
+           // Save healthy active proxy index on successful response
+           try {
+             localStorage.setItem('activeProxyIndex', activeProxyIndex.toString());
+           } catch (e) {}
         }
         resolve(result);
       }

@@ -452,7 +452,9 @@ function _renderGTimeTabs() {
             graphTab = b.dataset.gtab; graphChartType = (graphTab === 'day') ? 'line' : 'bar';
             if (graphTab === 'day') startGraphsAutoRefresh(); else stopGraphsAutoRefresh();
             graphDateNav = 0; graphMonthNav = 0; graphYearNav = 0; graphZoomLevel = 1; graphPanOffset = 0; hideTooltip();
-            _renderGTimeTabs(); _renderGNavBar(); _renderChartTypeToggle(); _loadAndDraw();
+            _renderGTimeTabs(); _renderGNavBar();
+    updateGraphStartButton();
+    updateGraphStartButton(); _renderChartTypeToggle(); _loadAndDraw();
         });
     });
 }
@@ -499,6 +501,8 @@ function _renderGFeedTabs() {
     _renderGridAllToggles(); _renderOverlayToggles();
 }
 
+
+
 function _gNavInfo() {
     const now = getPktNow();
     
@@ -511,8 +515,9 @@ if (graphTab === 'day') {
         const month = d.getMonth() + 1;
         const day = d.getDate();
 
-        // Calculate start of the day (Midnight PKT)
-        const startMs = getPktDayStart(year, month, day);
+        // Calculate start of the day (Midnight PKT) + user-selected start hour
+        let startMs = getPktDayStart(year, month, day);
+        startMs += window.graphDayStartHour * 3600 * 1000;
         
         const res = (graphChartType === 'hourly') ? 3600 : GRAPH_DAY_RESOLUTION_SECONDS;
         const totalPoints = Math.ceil((24 * 3600) / res);
@@ -598,14 +603,71 @@ if (graphTab === 'day') {
     return { label:'All Time', startMs: new Date(2024,0,1).getTime(), endMs: now.getTime(), labels:[], timeLabels:[] };
 }
 
+
+
+
+
 function _renderGNavBar() {
-    const wrap = document.getElementById('graph-nav-bar'); if (!wrap || graphTab === 'total') return;
-    const nav = _gNavInfo(); 
-    const canFwd = (graphTab === 'day' && graphDateNav < 0) || (graphTab === 'month' && nav.endMs < Date.now()) || (graphTab === 'year' && graphYearNav < 0);
-    wrap.innerHTML = `<button class="graph-nav-btn" id="gnav-prev">\u2039</button><div class="graph-nav-center"><div class="graph-nav-label">${nav.label}</div>${nav.sub?`<div class="graph-nav-sub">${nav.sub}</div>`:''}</div><button class="graph-nav-btn" id="gnav-next" style="opacity:${canFwd?1:0.3}">\u203a</button>`;
-    document.getElementById('gnav-prev').addEventListener('click', () => { if (graphTab === 'day') graphDateNav--; else if (graphTab === 'month') graphMonthNav--; else graphYearNav--; graphZoomLevel = 1; graphPanOffset = 0; hideTooltip(); _renderGNavBar(); _loadAndDraw(); });
-    document.getElementById('gnav-next').addEventListener('click', () => { if (canFwd) { if (graphTab === 'day') graphDateNav++; else if (graphTab === 'month') graphMonthNav++; else graphYearNav++; graphZoomLevel = 1; graphPanOffset = 0; hideTooltip(); _renderGNavBar(); _loadAndDraw(); } });
+    const wrap = document.getElementById('graph-nav-bar');
+    if (!wrap || graphTab === 'total') return;
+    const nav = _gNavInfo();
+    const canFwd = (graphTab === 'day' && graphDateNav < 0) ||
+                   (graphTab === 'month' && nav.endMs < Date.now()) ||
+                   (graphTab === 'year' && graphYearNav < 0);
+
+    // Toggle button for day view only
+    const startToggle = graphTab === 'day'
+        ? `<button id="graph-start-toggle" class="graph-nav-btn" style="font-size:10px; padding:2px 8px;">${
+            window.graphDayStartHour === 5 ? '5am-5am' : '12am-12am'
+          }</button>`
+        : '';
+
+    wrap.innerHTML = `
+        <button class="graph-nav-btn" id="gnav-prev">‹</button>
+        <div class="graph-nav-center">
+            <div class="graph-nav-label">${nav.label}</div>
+            ${nav.sub ? `<div class="graph-nav-sub">${nav.sub}</div>` : ''}
+        </div>
+        ${startToggle}
+        <button class="graph-nav-btn" id="gnav-next" style="opacity:${canFwd ? 1 : 0.3}">›</button>
+    `;
+
+    // Event listeners for prev/next
+    document.getElementById('gnav-prev').addEventListener('click', () => {
+        if (graphTab === 'day') graphDateNav--;
+        else if (graphTab === 'month') graphMonthNav--;
+        else graphYearNav--;
+        graphZoomLevel = 1;
+        graphPanOffset = 0;
+        hideTooltip();
+        _renderGNavBar();
+        _loadAndDraw();
+    });
+
+    document.getElementById('gnav-next').addEventListener('click', () => {
+        if (canFwd) {
+            if (graphTab === 'day') graphDateNav++;
+            else if (graphTab === 'month') graphMonthNav++;
+            else graphYearNav++;
+            graphZoomLevel = 1;
+            graphPanOffset = 0;
+            hideTooltip();
+            _renderGNavBar();
+            _loadAndDraw();
+        }
+    });
+
+    // Attach toggle listener
+    const toggleBtn = document.getElementById('graph-start-toggle');
+    if (toggleBtn) {
+        toggleBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleGraphStartHour();
+        });
+    }
 }
+
+
 
 function hideTooltip() { const t = document.getElementById('graph-tooltip'); if (t) { t.style.display = 'none'; t.classList.remove('pinned'); } tooltipPinned = false; }
 

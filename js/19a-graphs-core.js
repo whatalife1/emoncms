@@ -79,3 +79,27 @@ window.graphZoomLevel = graphZoomLevel;
 window.graphPanOffset = graphPanOffset;
 window.graphIsRendering = graphIsRendering;
 window.graphIsPanning = graphIsPanning;
+
+// ─── Day start hour (default 5am) ────────────────────────────────
+window.graphDayStartHour = 5;
+try {
+  const saved = localStorage.getItem('graphDayStartHour');
+  if (saved !== null) window.graphDayStartHour = parseInt(saved) || 5;
+} catch(e) {}
+
+function toggleGraphStartHour() {
+  window.graphDayStartHour = window.graphDayStartHour === 5 ? 0 : 5;
+  localStorage.setItem('graphDayStartHour', window.graphDayStartHour);
+  if (window.graphTab === 'day') {
+    window._loadAndDraw();
+  }
+  updateGraphStartButton();
+}
+
+function updateGraphStartButton() {
+  const btn = document.getElementById('graph-start-toggle');
+  if (!btn) return;
+  const label = window.graphDayStartHour === 5 ? '5am-5am' : '12am-12am';
+  btn.textContent = label;
+  btn.title = 'Toggle day start time';
+}

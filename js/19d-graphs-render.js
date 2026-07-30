@@ -334,60 +334,63 @@ function _handleGraphHover(e, pin) {
         const totNightAvgW = Math.round(loads.reduce((sum, l) => sum + l.stats.nightAvgW, 0));
 
         let htmlStr = `
-            <div style="font-weight:800; font-size:13px; color:var(--text-main); border-bottom:1px solid var(--border); padding-bottom:4px; margin-bottom:6px;">
+            <div style="font-weight:800; font-size:14px; color:var(--text-main); border-bottom:1px solid var(--border); padding-bottom:4px; margin-bottom:6px;">
                 🕒 ${timeLabel} ${closeBtn}
             </div>
-            <div style="display:flex; flex-direction:column; gap:4px; margin-bottom:6px; font-size:11px; background:var(--bg-card); padding:6px; border-radius:6px; border:1px solid var(--border);">
+            <div style="display:flex; flex-direction:column; gap:5px; margin-bottom:8px; font-size:12px; background:var(--bg-card); padding:8px 10px; border-radius:8px; border:1px solid var(--border);">
                 <div>
-                    <div style="display:flex; justify-content:space-between;">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
                         <span style="color:#ef4444; font-weight:800;">⚡ Grid: ${gridW} W</span>
                         <span style="color:#ef4444; font-weight:700;">Tot: ${gridStats.totalKwh.toFixed(2)} kWh</span>
                     </div>
-                    <div style="display:flex; justify-content:space-between; font-size:9.5px; color:var(--text-muted); margin-top:1px;">
+                    <div style="display:flex; justify-content:space-between; font-size:11px; color:var(--text-muted); margin-top:2px;">
                         <span>☀️ Day: ${gridStats.dayKwh.toFixed(2)} kWh (${gridStats.dayAvgW} W)</span>
                         <span>🌙 Night: ${gridStats.nightKwh.toFixed(2)} kWh (${gridStats.nightAvgW} W)</span>
                     </div>
                 </div>
-                <div style="border-top:1px dashed var(--border); padding-top:3px;">
-                    <div style="display:flex; justify-content:space-between;">
+                <div style="border-top:1px dashed var(--border); padding-top:4px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
                         <span style="color:#facc15; font-weight:800;">☀ Solar: ${solarW} W</span>
                         <span style="color:#facc15; font-weight:700;">Tot: ${solarStats.totalKwh.toFixed(2)} kWh</span>
                     </div>
-                    <div style="display:flex; justify-content:space-between; font-size:9.5px; color:var(--text-muted); margin-top:1px;">
+                    <div style="display:flex; justify-content:space-between; font-size:11px; color:var(--text-muted); margin-top:2px;">
                         <span>☀️ Day: ${solarStats.dayKwh.toFixed(2)} kWh (${solarStats.dayAvgW} W)</span>
                         <span></span>
                     </div>
                 </div>
-                <div style="border-top:1px dashed var(--border); padding-top:3px;">
-                    <div style="display:flex; justify-content:space-between;">
+                <div style="border-top:1px dashed var(--border); padding-top:4px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
                         <span style="color:#38bdf8; font-weight:800;">💡 Load: ${totLoad} W</span>
                         <span style="color:#38bdf8; font-weight:700;">Tot: ${totLoadKwh.toFixed(2)} kWh</span>
                     </div>
-                    <div style="display:flex; justify-content:space-between; font-size:9.5px; color:var(--text-muted); margin-top:1px;">
+                    <div style="display:flex; justify-content:space-between; font-size:11px; color:var(--text-muted); margin-top:2px;">
                         <span>☀️ Day: ${totDayKwh.toFixed(2)} kWh (${totDayAvgW} W)</span>
                         <span>🌙 Night: ${totNightKwh.toFixed(2)} kWh (${totNightAvgW} W)</span>
                     </div>
                 </div>
             </div>
-            <div style="font-size:10px; font-weight:700; color:var(--text-muted); text-transform:uppercase; margin-bottom:4px; border-bottom:1px dashed var(--border); padding-bottom:2px;">
+            <div style="font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase; margin-bottom:6px; border-bottom:1px dashed var(--border); padding-bottom:3px;">
                 Appliance Current & Total at ${timeLabel}:
             </div>
         `;
 
         loads.forEach(l => {
             const isActive = l.watts > 10;
-            const opacity = isActive ? '1' : '0.45';
+            const opacity = isActive ? '1' : '0.55';
             const fontWt  = isActive ? '800' : '600';
             htmlStr += `
-                <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px; margin:2px 0; opacity:${opacity};">
-                    <span style="color:${l.color}; font-weight:700; white-space:nowrap;">
-                        <span style="display:inline-block; width:6px; height:6px; border-radius:50%; background:${l.color}; margin-right:4px;"></span>
-                        ${l.label}
-                    </span>
-                    <span style="font-weight:${fontWt}; color:var(--text-main); font-family:monospace; text-align:right; white-space:nowrap; margin-left:8px;">
-                        ${l.watts} W <span style="font-size:10px; color:var(--text-muted); font-weight:normal;">(${l.stats.totalKwh.toFixed(2)} kWh)</span>
-                        <div style="font-size:9px; color:var(--text-muted); font-weight:normal; white-space:nowrap;">☀️ ${l.stats.dayKwh.toFixed(2)}k (${l.stats.dayAvgW}W) | 🌙 ${l.stats.nightKwh.toFixed(2)}k (${l.stats.nightAvgW}W)</div>
-                    </span>
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; font-size:12px; margin:4px 0; padding:2px 0; opacity:${opacity}; border-bottom:1px solid rgba(255,255,255,0.03);">
+                    <div style="display:flex; align-items:center; gap:5px; white-space:nowrap; flex-shrink:0;">
+                        <span style="display:inline-block; width:7px; height:7px; border-radius:50%; background:${l.color};"></span>
+                        <span style="color:${l.color}; font-weight:700;">${l.label}</span>
+                    </div>
+                    <div style="text-align:right; font-family:monospace; white-space:nowrap; margin-left:12px;">
+                        <span style="font-weight:${fontWt}; color:var(--text-main);">${l.watts} W</span>
+                        <span style="font-size:11px; color:var(--accent-kwh); margin-left:4px;">(${l.stats.totalKwh.toFixed(2)} kWh)</span>
+                        <div style="font-size:10.5px; color:var(--text-muted); font-weight:normal; margin-top:1px;">
+                            ☀️ ${l.stats.dayKwh.toFixed(2)} kWh (${l.stats.dayAvgW}W) &bull; 🌙 ${l.stats.nightKwh.toFixed(2)} kWh (${l.stats.nightAvgW}W)
+                        </div>
+                    </div>
                 </div>
             `;
         });

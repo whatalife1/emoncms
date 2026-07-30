@@ -1,10 +1,9 @@
-// Solar render helpers for today actuals and heatmap
 async function _fetchTodayActuals(y, mo, d) {
   const solarFeed = userOrderedFeeds.find(f => f.name === 'Solar');
   const solarId   = solarFeed ? solarFeed.id : '499380';
 
-  const startOfDay = new Date(y, mo-1, d, 0, 0, 0).getTime();
-  const endOfDay   = new Date(y, mo-1, d, 23, 59, 59).getTime();
+  const startOfDay = getPktDayStart(y, mo, d);
+  const endOfDay   = startOfDay + (24 * 3600 * 1000) - 1;
   const url        = `${PROXY_BASE}/feed/data.json?ids=${solarId}&start=${startOfDay}&end=${endOfDay}&skipmissing=0&average=1&delta=0&interval=3600`;
   try {
     const text = await nativeFetch(url);
@@ -18,8 +17,8 @@ async function _fetchTodayActuals(y, mo, d) {
     const result = {};
     for (const pt of data) {
       if (pt[1] === null || pt[1] === undefined) continue;
-      const h = new Date(pt[0]).getHours();
-      result[h] = pt[1];
+      const pktDate = getKarachiDate(pt[0]);
+      result[pktDate.hour] = pt[1];
     }
     return Object.keys(result).length > 0 ? result : null;
   } catch(e) { return null; }
@@ -29,8 +28,8 @@ async function _fetchDayBreakerKwh(y, mo, d) {
   const breakerTodayFeed = userOrderedFeeds.find(f => f.name === 'Breaker Today');
   const feedId = breakerTodayFeed ? breakerTodayFeed.id : '499413';
   
-  const startOfDay = new Date(y, mo-1, d, 0, 0, 0).getTime();
-  const endOfDay   = new Date(y, mo-1, d, 23, 59, 59).getTime();
+  const startOfDay = getPktDayStart(y, mo, d);
+  const endOfDay   = startOfDay + (24 * 3600 * 1000) - 1;
   const url        = `${PROXY_BASE}/feed/data.json?ids=${feedId}&start=${startOfDay}&end=${endOfDay}&skipmissing=0&average=1&delta=0&interval=3600`;
   try {
     const text = await nativeFetch(url);
@@ -92,4 +91,3 @@ function _renderHeatmap(daily, container) {
       ${headers}${blanks}${cells}
     </div>`;
 }
-

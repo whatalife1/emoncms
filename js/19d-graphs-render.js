@@ -348,7 +348,7 @@ function _handleGraphHover(e, pin) {
 
         loads.push({
             key: 'others',
-            label: 'Others (Fans, TV...)',
+            label: 'Others (Fans, Lights...)',
             color: '#f59e0b',
             watts: othersW,
             stats: othersStats

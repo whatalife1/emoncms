@@ -1,8 +1,8 @@
 function _billingRange() {
-  const pktNow = getPktNow();
-  const yr = IS_PKT_ZONE ? pktNow.getFullYear() : pktNow.getUTCFullYear();
-  const mo = (IS_PKT_ZONE ? pktNow.getMonth() : pktNow.getUTCMonth()) + 1;
-  const dy = IS_PKT_ZONE ? pktNow.getDate() : pktNow.getUTCDate();
+  const pktDate = getKarachiDate(Date.now());
+  const yr = pktDate.year;
+  const mo = pktDate.month;
+  const dy = pktDate.day;
 
   const range = getPktBillingRange(yr, dy < 26 ? mo : mo + 1);
   return { start: new Date(range.startMs), end: new Date(range.endMs) };

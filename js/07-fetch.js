@@ -14,12 +14,15 @@ function nativeFetch(url, retries = PROXY_ENDPOINTS.length - 1, delay = 500) {
     const timeoutTimer = setTimeout(() => {
       if (nativeCallbacks[id]) {
         if (window.addDebugLog) window.addDebugLog(`<b style="color:#ef4444">Timeout:</b> 4.5s exceeded. Force-canceling & rotating.`);
-        nativeCallbacks[id]("ERROR: Timeout");
+        const cb = nativeCallbacks[id];
+        delete nativeCallbacks[id];
+        cb("ERROR: Timeout");
       }
     }, 4500);
 
     nativeCallbacks[id] = async (result) => {
       clearTimeout(timeoutTimer);
+      delete nativeCallbacks[id];
       if (typeof result === 'string' && result.startsWith('ERROR:') && retries > 0) {
         try {
           const parsedUrl = new URL(url);

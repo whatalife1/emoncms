@@ -1,4 +1,3 @@
-// ─── Water Tank SVG Renderer ────────────────────────────────────────────────
 function renderWaterTank(pct) {
   if (pct == null) return '';
   const p = Math.max(0, Math.min(100, pct));
@@ -19,33 +18,28 @@ function renderWaterTank(pct) {
   </svg>`;
 }
 
-// ─── Billing Cycle Units Fetch (25th to 26th) ───────────────────────────────
 async function fetchMonthlyUnits() {
-  const now = new Date();
-  const day = now.getDate();
-  let startMonth = now.getMonth();
-  let startYear = now.getFullYear();
+  const pktNow = getPktNow();
+  const yr = IS_PKT_ZONE ? pktNow.getFullYear() : pktNow.getUTCFullYear();
+  const mo = (IS_PKT_ZONE ? pktNow.getMonth() : pktNow.getUTCMonth()) + 1;
+  const dy = IS_PKT_ZONE ? pktNow.getDate() : pktNow.getUTCDate();
 
-  // If today is before 26th, cycle started on 25th of PREVIOUS month
-  if (day < 26) {
-    startMonth -= 1;
-    if (startMonth < 0) { startMonth = 11; startYear -= 1; }
-  }
-  const startOfCycle = new Date(startYear, startMonth, 25, 0, 0, 0).getTime();
-  
+  const range = getPktBillingRange(yr, dy < 26 ? mo : mo + 1);
+  const nowMs = Date.now();
+
   const feeds = [
     { key: 'haier', id: '499409' }, { key: 'k1', id: '499407' }, 
     { key: 'k15', id: '499405' }, { key: 'pc', id: '499424' }, 
     { key: 'f1', id: '499411' }, { key: 'f2', id: '541350' },
     { key: 'solar', id: '499415' }, { key: 'grid', id: '499413' },
-    { key: 'motor', id: '542853' } // ✅ FIXED: was 542851
+    { key: 'motor', id: '542853' }
   ];
 
   const results = { haier:0, k1:0, k15:0, pc:0, f1:0, f2:0, solar:0, grid:0, motor:0 };
 
   try {
     const promises = feeds.map(f => {
-      const url = `${PROXY_BASE}/feed/data.json?id=${f.id}&start=${startOfCycle}&end=${now.getTime()}&interval=daily&delta=0`;
+      const url = `${PROXY_BASE}/feed/data.json?id=${f.id}&start=${range.startMs}&end=${nowMs}&interval=daily&delta=1`;
       return nativeFetch(url).then(text => ({ key: f.key, text })).catch(() => ({ key: f.key, text: "[]" }));
     });
 
@@ -56,7 +50,6 @@ async function fetchMonthlyUnits() {
         if (res.text && !res.text.startsWith('ERROR')) {
           const data = JSON.parse(res.text);
           if (Array.isArray(data)) {
-            // Sum up the daily recorded usage for the billing cycle
             results[res.key] = data.reduce((acc, curr) => acc + (parseFloat(curr[1]) || 0), 0);
           }
         }
@@ -78,8 +71,7 @@ async function fetchMonthlyUnits() {
   };
 }
 
-// ─── Financial Sharing ──────────────────────────────────────────────────────
 function updateCostCard(byName) {
   const pkrRate = solarCfg?.pkrPerUnit ?? 60;
-  window.pkrRate = pkrRate; // Share with 02-flow.js
+  window.pkrRate = pkrRate;
 }

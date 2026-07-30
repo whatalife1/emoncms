@@ -3,6 +3,222 @@ let tooltipPinned = false;
 let graphsAutoRefreshInterval = null;
 let graphsLastUpdate = 0;
 
+function _gNavInfo() {
+    const now = getPktNow();
+    
+    if (graphTab === 'day') {
+        const d = new Date(now.getTime());
+        d.setDate(d.getDate() + graphDateNav);
+        const year = d.getFullYear();
+        const month = d.getMonth() + 1;
+        const day = d.getDate();
+
+        let startMs = getPktDayStart(year, month, day);
+        startMs += window.graphDayStartHour * 3600 * 1000;
+        
+        const res = (graphChartType === 'hourly') ? 3600 : GRAPH_DAY_RESOLUTION_SECONDS;
+        const totalPoints = Math.ceil((24 * 3600) / res);
+        const labels = [];
+        const fullLabels = [];
+        
+        for (let i = 0; i < totalPoints; i++) { 
+            const currentTs = startMs + i * res * 1000;
+            const pktDate = getKarachiDate(currentTs);
+            const h = pktDate.hour;
+            const m = Math.floor((currentTs / 60000)) % 60;
+            const ampm = h >= 12 ? 'pm' : 'am';
+            const hh = h % 12 || 12;
+            const mm = String(m).padStart(2, '0');
+            labels.push(`${hh}${ampm}`);
+            fullLabels.push(`${hh}:${mm}${ampm}`);
+        }
+        
+        return { 
+            label: graphDateNav === 0 ? 'Today' : `${day} ${_MONTH_SHORT[month-1]}`, 
+            sub: `${day} ${_MONTH_NAMES[month-1]} ${year}`,
+            interval: res, 
+            startMs, 
+            endMs: startMs + 24 * 3600 * 1000 - 1, 
+            isDayTab: true, 
+            nBars: totalPoints, 
+            labels, 
+            timeLabels: fullLabels,
+            fullLabels,
+            resSeconds: res 
+        };
+    }
+
+    if (graphTab === 'month') {
+        let base = new Date(now.getFullYear(), now.getMonth() + graphMonthNav, 1);
+        let sM = base.getMonth() - 1; let sY = base.getFullYear(); if (sM < 0) { sM = 11; sY--; }
+        const start = new Date(sY, sM, 25);
+        const end = new Date(start.getFullYear(), start.getMonth() + 1, 26);
+        const days = Math.ceil((end - start) / 86400000);
+        const labels = []; 
+        const timeLabels = [];
+        for (let i = 0; i < days; i++) { 
+            const d = new Date(start.getTime() + i*86400000);
+            const pktDate = getKarachiDate(d.getTime());
+            labels.push(`${pktDate.day}/${pktDate.month}`);
+            timeLabels.push(`${pktDate.day}/${pktDate.month}`);
+        }
+        return { 
+            label: `${start.toLocaleDateString(undefined,{month:'short',day:'numeric'})} - ${end.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'})}`,
+            interval: GRAPH_MONTH_RESOLUTION_SECONDS,
+            isDayTab: false, 
+            nBars: days, 
+            startMs: start.getTime(), 
+            endMs: end.getTime(), 
+            labels, 
+            timeLabels, 
+            month: start.getMonth(), 
+            year: start.getFullYear(), 
+            isMonthBilling: true, 
+            resSeconds: GRAPH_MONTH_RESOLUTION_SECONDS
+        };
+    }
+
+    if (graphTab === 'year') {
+        const y = now.getFullYear() + graphYearNav;
+        const start = new Date(y, 0, 1);
+        const end = new Date(y, 11, 31, 23, 59, 59);
+        const labels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const timeLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const daysInMonth = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+        if ((y % 4 === 0 && y % 100 !== 0) || (y % 400 === 0)) {
+            daysInMonth[1] = 29;
+        }
+        return { 
+            label: `${y}`, 
+            interval: GRAPH_YEAR_RESOLUTION_SECONDS,
+            isYearly: true, 
+            nBars: 12, 
+            startMs: start.getTime(), 
+            endMs: end.getTime(), 
+            labels, 
+            timeLabels,
+            daysInMonth: daysInMonth,
+            year: y, 
+            isYearBilling: true, 
+            resSeconds: GRAPH_YEAR_RESOLUTION_SECONDS,
+            isYearView: true
+        };
+    }
+    return { label:'All Time', startMs: new Date(2024,0,1).getTime(), endMs: now.getTime(), labels:[], timeLabels:[] };
+}
+window._gNavInfo = _gNavInfo;
+
+function _renderGNavBar() {
+    const wrap = document.getElementById('graph-nav-bar');
+    if (!wrap || graphTab === 'total') return;
+
+    const nav = _gNavInfo();
+    const canFwd = (graphTab === 'day' && graphDateNav < 0) ||
+                   (graphTab === 'month' && nav.endMs < Date.now()) ||
+                   (graphTab === 'year' && graphYearNav < 0);
+
+    let dateStr = '';
+    if (graphTab === 'day') {
+        const d = new Date(getPktNow().getTime());
+        d.setDate(d.getDate() + graphDateNav);
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        dateStr = `${year}-${month}-${day}`;
+    }
+
+    let rightControls = '';
+    if (graphTab === 'day') {
+        rightControls = `
+            <input type="date" id="graph-date-picker" value="${dateStr}" 
+                   style="background:var(--input-bg);border:1px solid var(--border);border-radius:6px;
+                          color:var(--text-main);padding:3px 6px;font-size:12px;width:auto;max-width:130px;
+                          cursor:pointer;margin-left:4px;">
+            <button id="graph-today-btn" class="graph-nav-btn" style="font-size:10px;padding:2px 8px;margin-left:4px;">Today</button>
+        `;
+    }
+
+    const startToggle = graphTab === 'day'
+        ? `<button id="graph-start-toggle" class="graph-nav-btn" style="font-size:10px; padding:2px 8px; margin-left:4px;">${
+            window.graphDayStartHour === 5 ? '5am-5am' : '12am-12am'
+          }</button>`
+        : '';
+
+    wrap.innerHTML = `
+        <button class="graph-nav-btn" id="gnav-prev">‹</button>
+        <div class="graph-nav-center" style="flex:1;text-align:center;">
+            <div class="graph-nav-label">${nav.label}</div>
+            ${nav.sub ? `<div class="graph-nav-sub">${nav.sub}</div>` : ''}
+        </div>
+        <div style="display:flex;align-items:center;gap:2px;flex-shrink:0;">
+            ${startToggle}
+            ${rightControls}
+            <button class="graph-nav-btn" id="gnav-next" style="opacity:${canFwd ? 1 : 0.3};margin-left:4px;">›</button>
+        </div>
+    `;
+
+    document.getElementById('gnav-prev').addEventListener('click', () => {
+        if (graphTab === 'day') graphDateNav--;
+        else if (graphTab === 'month') graphMonthNav--;
+        else graphYearNav--;
+        graphZoomLevel = 1;
+        graphPanOffset = 0;
+        hideTooltip();
+        _renderGNavBar();
+        if (typeof _loadAndDraw === 'function') _loadAndDraw();
+    });
+
+    document.getElementById('gnav-next').addEventListener('click', () => {
+        if (canFwd) {
+            if (graphTab === 'day') graphDateNav++;
+            else if (graphTab === 'month') graphMonthNav++;
+            else graphYearNav++;
+            graphZoomLevel = 1;
+            graphPanOffset = 0;
+            hideTooltip();
+            _renderGNavBar();
+            if (typeof _loadAndDraw === 'function') _loadAndDraw();
+        }
+    });
+
+    const toggleBtn = document.getElementById('graph-start-toggle');
+    if (toggleBtn) {
+        toggleBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleGraphStartHour();
+        });
+    }
+
+    const datePicker = document.getElementById('graph-date-picker');
+    if (datePicker) {
+        datePicker.addEventListener('change', function() {
+            const selected = new Date(this.value + 'T00:00:00');
+            const today = getPktNow();
+            const diffTime = selected.getTime() - today.getTime();
+            const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+            graphDateNav = diffDays;
+            graphZoomLevel = 1;
+            graphPanOffset = 0;
+            hideTooltip();
+            _renderGNavBar();
+            if (typeof _loadAndDraw === 'function') _loadAndDraw();
+        });
+    }
+
+    const todayBtn = document.getElementById('graph-today-btn');
+    if (todayBtn) {
+        todayBtn.addEventListener('click', () => {
+            graphDateNav = 0;
+            graphZoomLevel = 1;
+            graphPanOffset = 0;
+            hideTooltip();
+            _renderGNavBar();
+            if (typeof _loadAndDraw === 'function') _loadAndDraw();
+        });
+    }
+}
+window._renderGNavBar = _renderGNavBar;
+
 window.generateGraphReport = async function() {
     const nav = _gNavInfo();
     const isDay = graphTab === 'day';
@@ -70,52 +286,9 @@ window.generateGraphReport = async function() {
         (24 - EXPORT_NIGHT_START) + EXPORT_NIGHT_END;
     const totalNightHours = nightHoursPerDay * numDays;
 
-    const blocks = ['_', '\u2581', '\u2582', '\u2583', '\u2584', '\u2585', '\u2586', '\u2587', '\u2588'];
-
-    function makeSparkline24(arr) {
-        if (!arr || arr.length < 24) return '_'.repeat(24);
-        const maxVal = Math.max(...arr, 0.1);
-        let str = '';
-        for (let i = 0; i < 24; i++) {
-            const v = arr[i] || 0;
-            if (v <= 0) str += '_';
-            else {
-                let idx = Math.ceil((v / maxVal) * 8);
-                str += blocks[Math.max(1, Math.min(8, idx))];
-            }
-        }
-        return str;
-    }
-
-    function makeSparklineNight(arr) {
-        if (!arr || arr.length < 24) return '_'.repeat(14);
-        const nightIndices = [0,1,2,3,4,5,6,7,18,19,20,21,22,23];
-        const nightVals = nightIndices.map(i => arr[i] || 0);
-        const maxVal = Math.max(...nightVals, 0.1);
-        let str = '';
-        for (const i of nightIndices) {
-            const v = arr[i] || 0;
-            if (v <= 0) str += '_';
-            else {
-                let idx = Math.ceil((v / maxVal) * 8);
-                str += blocks[Math.max(1, Math.min(8, idx))];
-            }
-        }
-        return str;
-    }
-
     const colWidths = {
-        name: 18,
-        total: 12,
-        day: 12,
-        dayPct: 8,
-        night: 12,
-        nightPct: 8,
-        dayShare: 10,
-        nightShare: 12,
-        avgNight: 14,
-        avgDay: 10,
-        totalPct: 12
+        name: 18, total: 12, day: 12, dayPct: 8, night: 12, nightPct: 8,
+        dayShare: 10, nightShare: 12, avgNight: 14, avgDay: 10, totalPct: 12
     };
 
     const headerParts = [
@@ -179,113 +352,6 @@ window.generateGraphReport = async function() {
 
         txt += formatRow(f.name, totalKwh, dayKwh, nightKwh, avgNightW, avg, totalPct, f.isSolar, f.isBreaker) + '\n';
     });
-
-    const avgTotal = totalLoadKwh / numDays;
-    const totalDayPct = (totalLoadKwh === 0) ? 0 : (totalDayLoadKwh / totalLoadKwh * 100);
-    const totalNightPct = (totalLoadKwh === 0) ? 0 : (totalNightLoadKwh / totalLoadKwh * 100);
-    const totalParts = [
-        'TOTAL'.padEnd(colWidths.name),
-        totalLoadKwh.toFixed(2).padStart(colWidths.total),
-        totalDayLoadKwh.toFixed(2).padStart(colWidths.day),
-        totalDayPct.toFixed(1).padStart(colWidths.dayPct) + '%',
-        totalNightLoadKwh.toFixed(2).padStart(colWidths.night),
-        totalNightPct.toFixed(1).padStart(colWidths.nightPct) + '%',
-        '100%'.padStart(colWidths.dayShare),
-        '100%'.padStart(colWidths.nightShare),
-        '-'.padStart(colWidths.avgNight),
-        avgTotal.toFixed(2).padStart(colWidths.avgDay),
-        '100.0%'.padStart(colWidths.totalPct)
-    ];
-    txt += totalParts.join(' ') + '\n';
-
-    if (isDay) {
-        txt += '\n' + '='.repeat(header.length) + '\n';
-        txt += 'VISUAL SUMMARY (Full 24-hour Profile)  Day = 8:00-17:00  Night = 0:00-7:00, 18:00-23:00\n';
-        txt += '='.repeat(header.length) + '\n';
-        txt += 'Appliance'.padEnd(18) + ' Total(kWh)  Day(kWh)  Night(kWh)  AvgNight(W)   Sparkline (24h)                           Max(W)\n';
-        txt += '-'.repeat(header.length) + '\n';
-
-        EXPORT_FEEDS.forEach(f => {
-            const totalWh = Object.values(sums[f.id].h24).reduce((a,b)=>a+b,0);
-            const dayWh = Object.values(sums[f.id].day).reduce((a,b)=>a+b,0);
-            const nightWh = Object.values(sums[f.id].night).reduce((a,b)=>a+b,0);
-            const totalKwh = totalWh / 1000;
-            const dayKwh = dayWh / 1000;
-            const nightKwh = nightWh / 1000;
-            const avgNightW = totalNightHours > 0 ? nightWh / totalNightHours : 0;
-            const maxW = Math.max(...visualData[f.id]?.arr || [0], 0.1);
-            const spark = makeSparkline24(visualData[f.id]?.arr || new Array(24).fill(0));
-            const name = f.name.length > 16 ? f.name.substring(0,15)+'…' : f.name;
-            txt += name.padEnd(18) + 
-                   totalKwh.toFixed(2).padStart(10) + 
-                   dayKwh.toFixed(2).padStart(9) + 
-                   nightKwh.toFixed(2).padStart(10) + 
-                   Math.round(avgNightW).toString().padStart(13) + '  ' +
-                   spark.padEnd(40) + '  ' +
-                   Math.round(maxW).toString().padStart(6) + 'W\n';
-        });
-    }
-
-    if (isDay) {
-        txt += '\n' + '='.repeat(header.length) + '\n';
-        txt += 'VISUAL SUMMARY (Night Profile)  Night = 0:00-7:00, 18:00-23:00 (PKT)\n';
-        txt += '='.repeat(header.length) + '\n';
-        txt += 'Appliance'.padEnd(18) + ' Night(kWh)  AvgNight(W)   Sparkline (Night)                    Max(W)\n';
-        txt += '-'.repeat(header.length) + '\n';
-
-        EXPORT_FEEDS.forEach(f => {
-            const nightWh = Object.values(sums[f.id].night).reduce((a,b)=>a+b,0);
-            const nightKwh = nightWh / 1000;
-            const avgNightW = totalNightHours > 0 ? nightWh / totalNightHours : 0;
-            const arr = visualData[f.id]?.arr || new Array(24).fill(0);
-            const nightMax = Math.max(...arr.filter((v,i) => i<8 || i>=18), 0.1);
-            const spark = makeSparklineNight(arr);
-            const name = f.name.length > 16 ? f.name.substring(0,15)+'…' : f.name;
-            txt += name.padEnd(18) + 
-                   nightKwh.toFixed(2).padStart(10) + 
-                   Math.round(avgNightW).toString().padStart(13) + '  ' +
-                   spark.padEnd(40) + '  ' +
-                   Math.round(nightMax).toString().padStart(6) + 'W\n';
-        });
-    }
-
-    if (!isDay) {
-        txt += '\n' + '='.repeat(header.length) + '\n';
-        txt += 'VISUAL SUMMARY (Daily/Monthly Totals)\n';
-        txt += '='.repeat(header.length) + '\n';
-        txt += 'Appliance'.padEnd(18) + '  Total (kWh)  Sparkline (daily)               Max (kWh)\n';
-        txt += '-'.repeat(header.length) + '\n';
-        EXPORT_FEEDS.forEach(f => {
-            const d = visualData[f.id];
-            if (!d || d.arr.length === 0) {
-                txt += f.name.padEnd(18) + '  No data\n';
-                return;
-            }
-            const totalWh = Object.values(sums[f.id].h24).reduce((a,b)=>a+b,0);
-            const totalKwh = totalWh / 1000;
-            const maxKwh = d.max / 1000;
-            const sparkStr = makeSparkline24(d.arr.map(v => v/1000));
-            const name = f.name.length > 16 ? f.name.substring(0,15)+'…' : f.name;
-            txt += name.padEnd(18) + 
-                   totalKwh.toFixed(2).padStart(10) + '  ' +
-                   sparkStr.padEnd(40) + '  ' +
-                   maxKwh.toFixed(1).padStart(6) + 'kWh\n';
-        });
-    }
-
-    if (!isDay) {
-        txt += '\n' + '='.repeat(header.length) + '\n';
-        txt += 'DAILY LOG (Solar / Grid)\n';
-        txt += '='.repeat(header.length) + '\n';
-        txt += 'Date       Solar (kWh)  Grid (kWh)  Total (kWh)\n';
-        txt += '-'.repeat(header.length) + '\n';
-        reportDates.forEach(d => {
-            const sol = (sums[solarF.id].h24[d]||0)/1000;
-            const grd = (sums[breakerF.id].h24[d]||0)/1000;
-            const total = sol + grd;
-            txt += `${d.padEnd(10)} ${sol.toFixed(2).padStart(10)} ${grd.toFixed(2).padStart(10)} ${total.toFixed(2).padStart(10)}\n`;
-        });
-    }
 
     let html = `<div class="report-wrapper" style="background:var(--bg-panel); color:var(--text-main); border:1px solid var(--border); border-radius:10px; padding:10px; margin-top:20px;">`;
     html += `<h4 style="margin:0 0 10px 0; font-size:14px; border-bottom:1px solid var(--border); padding-bottom:5px;">Consumption Breakdown</h4>`;
@@ -361,69 +427,15 @@ window.generateGraphReport = async function() {
     return { text: txt, html: html };
 };
 
-window.downloadDayGraphReport = async function() {
-    const btn = document.getElementById('btn-graph-report-txt') || document.getElementById('btn-graphs-report');
-    const oldTxt = btn ? btn.textContent : ''; 
-    if (btn) { btn.textContent = '...'; btn.disabled = true; }
-    
-    try {
-        const report = await window.generateGraphReport();
-        const blob = new Blob([report.text], { type: 'text/plain' });
-        const a = document.createElement('a');
-        a.download = `Emon_Report_${graphTab}_${new Date().getTime()}_PKT.txt`;
-        a.href = URL.createObjectURL(blob); a.click();
-    } catch (e) { alert("Error: " + e.message); } 
-    finally { if (btn) { btn.textContent = oldTxt; btn.disabled = false; } }
-};
-
-window.downloadDayGraphReportPng = async function() {
-    const btn = document.getElementById('btn-graph-report-png');
-    const oldTxt = btn ? btn.textContent : '';
-    const content = document.querySelector('#graph-report-view .report-wrapper') || document.getElementById('graph-report-view');
-    if (!content) {
-        alert('No report content available.');
-        return;
-    }
-    if (typeof html2canvas === 'undefined') {
-        alert('html2canvas library not loaded');
-        return;
-    }
-    if (btn) { btn.disabled = true; btn.textContent = 'Saving...'; }
-
-    let clone = null;
-    try {
-        clone = content.cloneNode(true);
-        clone.style.cssText = 'position:fixed;top:0;left:0;width:max-content;max-width:none;z-index:-9999;opacity:1;background:#ffffff;color:#18181b;';
-        document.body.appendChild(clone);
-        const canvas = await html2canvas(clone, {
-            backgroundColor: '#ffffff',
-            scale: 3,
-            useCORS: true,
-            logging: false,
-            width: clone.scrollWidth,
-            height: clone.scrollHeight
-        });
-        const a = document.createElement('a');
-        a.download = `Emon_Report_${graphTab}_${new Date().getTime()}_PKT.png`;
-        a.href = canvas.toDataURL('image/png');
-        a.click();
-    } catch (e) {
-        alert('Error generating PNG: ' + e.message);
-    } finally {
-        if (clone && document.body.contains(clone)) document.body.removeChild(clone);
-        if (btn) { btn.disabled = false; btn.textContent = oldTxt || 'Save PNG'; }
-    }
-};
-
-function _getLocalMidnight(date) { return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime(); }
-
 function startGraphsAutoRefresh() {
     if (graphsAutoRefreshInterval) clearInterval(graphsAutoRefreshInterval);
     if (graphTab === 'day') {
         graphsAutoRefreshInterval = setInterval(() => {
             const p = document.getElementById('graphs-panel');
             if (!p || !p.classList.contains('open')) { clearInterval(graphsAutoRefreshInterval); return; }
-            if (!graphIsLoading && !graphIsPanning) _loadAndDraw();
+            if (!graphIsLoading && !graphIsPanning) {
+                if (typeof _loadAndDraw === 'function') _loadAndDraw();
+            }
         }, 60000);
     }
 }
@@ -438,7 +450,7 @@ function _renderChartTypeToggle() {
     [{ type: 'line', label: 'Line' }, { type: 'bar', label: 'Bar' }, { type: 'hourly', label: 'Hourly' }].forEach(({ type, label }) => {
         const btn = document.createElement('button'); const active = graphChartType === type;
         btn.textContent = label; btn.style.cssText = `padding:4px 8px; border-radius:6px; font-size:11px; cursor:pointer; width:auto; background:${active ? 'var(--bg-base)' : 'rgba(0,0,0,0.45)'}; border:1px solid ${active ? 'var(--border)' : 'transparent'}; color:var(--text-main); opacity:${active ? '1' : '0.55'}; font-weight:700;`;
-        btn.addEventListener('click', () => { graphChartType = type; _renderChartTypeToggle(); _loadAndDraw(); });
+        btn.addEventListener('click', () => { graphChartType = type; _renderChartTypeToggle(); if (typeof _loadAndDraw === 'function') _loadAndDraw(); });
         toggle.appendChild(btn);
     });
     card.appendChild(toggle);
@@ -452,9 +464,7 @@ function _renderGTimeTabs() {
             graphTab = b.dataset.gtab; graphChartType = (graphTab === 'day') ? 'line' : 'bar';
             if (graphTab === 'day') startGraphsAutoRefresh(); else stopGraphsAutoRefresh();
             graphDateNav = 0; graphMonthNav = 0; graphYearNav = 0; graphZoomLevel = 1; graphPanOffset = 0; hideTooltip();
-            _renderGTimeTabs(); _renderGNavBar();
-    updateGraphStartButton();
-    updateGraphStartButton(); _renderChartTypeToggle(); _loadAndDraw();
+            _renderGTimeTabs(); _renderGNavBar(); updateGraphStartButton(); _renderChartTypeToggle(); if (typeof _loadAndDraw === 'function') _loadAndDraw();
         });
     });
 }
@@ -469,7 +479,7 @@ function _renderGridAllToggles() {
         const btn = document.createElement('button');
         btn.style.cssText = `white-space:nowrap; flex-shrink:0; padding:4px 10px; border-radius:20px; font-size:11px; font-weight:700; cursor:pointer; border:1.5px solid ${f.color}; width:auto; background:${off ? 'transparent' : f.color + '33'}; color:${off ? 'var(--text-muted)' : f.color}; opacity:${off ? '0.4' : '1'};`;
         btn.innerHTML = `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${f.color};margin-right:5px;vertical-align:middle;opacity:${off?0.3:1}"></span>${f.label}`;
-        btn.addEventListener('click', () => { if (window.gridAllDisabled.has(f.key)) window.gridAllDisabled.delete(f.key); else if ((GRID_ALL_FEEDS.length - window.gridAllDisabled.size) > 1) window.gridAllDisabled.add(f.key); _renderGridAllToggles(); _loadAndDraw(); });
+        btn.addEventListener('click', () => { if (window.gridAllDisabled.has(f.key)) window.gridAllDisabled.delete(f.key); else if ((GRID_ALL_FEEDS.length - window.gridAllDisabled.size) > 1) window.gridAllDisabled.add(f.key); _renderGridAllToggles(); if (typeof _loadAndDraw === 'function') _loadAndDraw(); });
         wrap.appendChild(btn);
     });
     const feedTabsWrap = document.getElementById('graph-feed-tabs');
@@ -483,12 +493,12 @@ function _renderOverlayToggles() {
     container.style.cssText = 'display:flex;gap:5px;flex-wrap:wrap;padding:6px 0 8px;align-items:center;justify-content:center;';
     const acs = [{ key: 'haier', label: '+ Haier 1T', color: '#a5f3fc' }, { key: 'k15', label: '+ Kenwood 1.5T', color: '#38bdf8' }, { key: 'k1', label: '+ Kenwood 1T', color: '#7dd3fc' }];
     const clearBtn = document.createElement('button'); clearBtn.textContent = 'Clear'; clearBtn.style.cssText = 'padding:4px 10px;border-radius:20px;font-size:11px;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--text-muted);';
-    clearBtn.addEventListener('click', () => { window.graphOverlayAc = null; _renderOverlayToggles(); _loadAndDraw(); });
+    clearBtn.addEventListener('click', () => { window.graphOverlayAc = null; _renderOverlayToggles(); if (typeof _loadAndDraw === 'function') _loadAndDraw(); });
     container.appendChild(clearBtn);
     acs.forEach(t => {
         const active = window.graphOverlayAc === t.key;
         const btn = document.createElement('button'); btn.style.cssText = `padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;cursor:pointer; border:1.5px solid ${t.color};background:${active ? t.color+'33' : 'transparent'}; color:${active ? t.color : 'var(--text-muted)'};opacity:${active ? '1' : '0.5'};`;
-        btn.textContent = t.label; btn.addEventListener('click', () => { window.graphOverlayAc = t.key; _renderOverlayToggles(); _loadAndDraw(); });
+        btn.textContent = t.label; btn.addEventListener('click', () => { window.graphOverlayAc = t.key; _renderOverlayToggles(); if (typeof _loadAndDraw === 'function') _loadAndDraw(); });
         container.appendChild(btn);
     });
     const fTabs = document.getElementById('graph-feed-tabs'); if (fTabs) fTabs.parentNode.insertBefore(container, fTabs.nextSibling);
@@ -496,239 +506,11 @@ function _renderOverlayToggles() {
 
 function _renderGFeedTabs() {
     const wrap = document.getElementById('graph-feed-tabs'); if (!wrap) return;
-    wrap.innerHTML = [GRAPH_COMBINED, ...GRAPH_FEEDS].map(f => `<button class="gfeed-tab${graphFeedKey===f.key?' active':''}" data-gkey="${f.key}" style="${graphFeedKey===f.key?`border-color:${f.color};color:${f.color}`:''}">${f.label}</button>`).join('') + `<button class="gfeed-tab${graphFeedKey==='report'?' active':''}" data-gkey="report" style="${graphFeedKey==='report'?'border-color:#10b981;color:#10b981':''}">📄 Report</button>`;
-    wrap.querySelectorAll('.gfeed-tab').forEach(b => { b.addEventListener('click', () => { graphFeedKey = b.dataset.gkey; graphZoomLevel = 1; graphPanOffset = 0; hideTooltip(); _renderGFeedTabs(); _loadAndDraw(); }); });
+    const tabs = [GRAPH_COMBINED, GRAPH_MOMENT_FLOW, ...GRAPH_FEEDS];
+    wrap.innerHTML = tabs.map(f => `<button class="gfeed-tab${graphFeedKey===f.key?' active':''}" data-gkey="${f.key}" style="${graphFeedKey===f.key?`border-color:${f.color};color:${f.color}`:''}">${f.label}</button>`).join('') + `<button class="gfeed-tab${graphFeedKey==='report'?' active':''}" data-gkey="report" style="${graphFeedKey==='report'?'border-color:#10b981;color:#10b981':''}">📄 Report</button>`;
+    wrap.querySelectorAll('.gfeed-tab').forEach(b => { b.addEventListener('click', () => { graphFeedKey = b.dataset.gkey; graphZoomLevel = 1; graphPanOffset = 0; hideTooltip(); _renderGFeedTabs(); if (typeof _loadAndDraw === 'function') _loadAndDraw(); }); });
     _renderGridAllToggles(); _renderOverlayToggles();
 }
-
-
-
-function _gNavInfo() {
-    const now = getPktNow();
-    
-if (graphTab === 'day') {
-        // Use the calendar-correct Date object from getPktNow()
-        const d = new Date(now.getTime());
-        d.setDate(d.getDate() + graphDateNav);
-        
-        const year = d.getFullYear();
-        const month = d.getMonth() + 1;
-        const day = d.getDate();
-
-        // Calculate start of the day (Midnight PKT) + user-selected start hour
-        let startMs = getPktDayStart(year, month, day);
-        startMs += window.graphDayStartHour * 3600 * 1000;
-        
-        const res = (graphChartType === 'hourly') ? 3600 : GRAPH_DAY_RESOLUTION_SECONDS;
-        const totalPoints = Math.ceil((24 * 3600) / res);
-        
-        const labels = [];
-        const fullLabels = [];
-        
-        for (let i = 0; i < totalPoints; i++) { 
-            const currentTs = startMs + i * res * 1000;
-            
-            // ATOMIC MATH: Force PKT hour calculation by adding 5 hours to UTC
-            const pktHour = Math.floor((currentTs / 3600000) + 5) % 24;
-            const pktMin  = Math.floor((currentTs / 60000)) % 60;
-            
-            const ampm = pktHour >= 12 ? 'pm' : 'am';
-            const hh = pktHour % 12 || 12;
-            const mm = String(pktMin).padStart(2, '0');
-            
-            labels.push(`${hh}${ampm}`);
-            fullLabels.push(`${hh}:${mm}${ampm}`);
-        }
-        
-        return { 
-            label: graphDateNav === 0 ? 'Today' : `${day} ${_MONTH_SHORT[month-1]}`, 
-            sub: `${day} ${_MONTH_NAMES[month-1]} ${year}`,
-            interval: res, 
-            startMs, 
-            endMs: startMs + 24 * 3600 * 1000 - 1, 
-            isDayTab: true, 
-            nBars: totalPoints, 
-            labels, 
-            timeLabels: fullLabels,
-            fullLabels,
-            resSeconds: res 
-        };
-    }
-
-    if (graphTab === 'month') {
-        let base = new Date(now.getFullYear(), now.getMonth() + graphMonthNav, 1);
-        let sM = base.getMonth() - 1; let sY = base.getFullYear(); if (sM < 0) { sM = 11; sY--; }
-        const start = new Date(sY, sM, 25);
-        const end = new Date(start.getFullYear(), start.getMonth() + 1, 26);
-        const days = Math.ceil((end - start) / 86400000);
-        const labels = []; 
-        const timeLabels = [];
-        for (let i = 0; i < days; i++) { 
-            const d = new Date(start.getTime() + i*86400000);
-            const pktDate = getKarachiDate(d.getTime());
-            labels.push(`${pktDate.day}/${pktDate.month}`);
-            timeLabels.push(`${pktDate.day}/${pktDate.month}`);
-        }
-        return { 
-            label: `${start.toLocaleDateString(undefined,{month:'short',day:'numeric'})} - ${end.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'})}`,
-            interval: 3600, isDayTab: false, nBars: days, startMs: start.getTime(), endMs: end.getTime(), 
-            labels, timeLabels, month: start.getMonth(), year: start.getFullYear(), isMonthBilling: true, resSeconds: 3600 
-        };
-    }
-    if (graphTab === 'year') {
-        const y = now.getFullYear() + graphYearNav;
-        const start = new Date(y, 0, 1);
-        const end = new Date(y, 11, 31, 23, 59, 59);
-        const labels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-        const timeLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-        const daysInMonth = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-        if ((y % 4 === 0 && y % 100 !== 0) || (y % 400 === 0)) {
-            daysInMonth[1] = 29;
-        }
-        return { 
-            label: `${y}`, 
-            interval: 3600, 
-            isYearly: true, 
-            nBars: 12, 
-            startMs: start.getTime(), 
-            endMs: end.getTime(), 
-            labels, timeLabels,
-            daysInMonth: daysInMonth,
-            year: y, 
-            isYearBilling: true, 
-            resSeconds: 3600,
-            isYearView: true
-        };
-    }
-    return { label:'All Time', startMs: new Date(2024,0,1).getTime(), endMs: now.getTime(), labels:[], timeLabels:[] };
-}
-
-
-
-
-
-function _renderGNavBar() {
-    const wrap = document.getElementById('graph-nav-bar');
-    if (!wrap || graphTab === 'total') return;
-
-    const nav = _gNavInfo();
-    const canFwd = (graphTab === 'day' && graphDateNav < 0) ||
-                   (graphTab === 'month' && nav.endMs < Date.now()) ||
-                   (graphTab === 'year' && graphYearNav < 0);
-
-    // Get the current date being displayed (for Day view only)
-    let dateStr = '';
-    if (graphTab === 'day') {
-        const d = new Date(getPktNow().getTime());
-        d.setDate(d.getDate() + graphDateNav);
-        const year = d.getFullYear();
-        const month = String(d.getMonth() + 1).padStart(2, '0');
-        const day = String(d.getDate()).padStart(2, '0');
-        dateStr = `${year}-${month}-${day}`;
-    }
-
-    // Build right-side controls (date picker + Today button) for Day view
-    let rightControls = '';
-    if (graphTab === 'day') {
-        rightControls = `
-            <input type="date" id="graph-date-picker" value="${dateStr}" 
-                   style="background:var(--input-bg);border:1px solid var(--border);border-radius:6px;
-                          color:var(--text-main);padding:3px 6px;font-size:12px;width:auto;max-width:130px;
-                          cursor:pointer;margin-left:4px;">
-            <button id="graph-today-btn" class="graph-nav-btn" style="font-size:10px;padding:2px 8px;margin-left:4px;">Today</button>
-        `;
-    }
-
-    const startToggle = graphTab === 'day'
-        ? `<button id="graph-start-toggle" class="graph-nav-btn" style="font-size:10px; padding:2px 8px; margin-left:4px;">${
-            window.graphDayStartHour === 5 ? '5am-5am' : '12am-12am'
-          }</button>`
-        : '';
-
-    wrap.innerHTML = `
-        <button class="graph-nav-btn" id="gnav-prev">‹</button>
-        <div class="graph-nav-center" style="flex:1;text-align:center;">
-            <div class="graph-nav-label">${nav.label}</div>
-            ${nav.sub ? `<div class="graph-nav-sub">${nav.sub}</div>` : ''}
-        </div>
-        <div style="display:flex;align-items:center;gap:2px;flex-shrink:0;">
-            ${startToggle}
-            ${rightControls}
-            <button class="graph-nav-btn" id="gnav-next" style="opacity:${canFwd ? 1 : 0.3};margin-left:4px;">›</button>
-        </div>
-    `;
-
-    // ─── Event listeners ─────────────────────────────────────────────
-
-    // Previous button
-    document.getElementById('gnav-prev').addEventListener('click', () => {
-        if (graphTab === 'day') graphDateNav--;
-        else if (graphTab === 'month') graphMonthNav--;
-        else graphYearNav--;
-        graphZoomLevel = 1;
-        graphPanOffset = 0;
-        hideTooltip();
-        _renderGNavBar();
-        _loadAndDraw();
-    });
-
-    // Next button
-    document.getElementById('gnav-next').addEventListener('click', () => {
-        if (canFwd) {
-            if (graphTab === 'day') graphDateNav++;
-            else if (graphTab === 'month') graphMonthNav++;
-            else graphYearNav++;
-            graphZoomLevel = 1;
-            graphPanOffset = 0;
-            hideTooltip();
-            _renderGNavBar();
-            _loadAndDraw();
-        }
-    });
-
-    // Start hour toggle (only for Day)
-    const toggleBtn = document.getElementById('graph-start-toggle');
-    if (toggleBtn) {
-        toggleBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            toggleGraphStartHour();
-        });
-    }
-
-    // ─── Date picker (only for Day) ────────────────────────────────
-    const datePicker = document.getElementById('graph-date-picker');
-    if (datePicker) {
-        datePicker.addEventListener('change', function() {
-            const selected = new Date(this.value + 'T00:00:00');
-            const today = getPktNow();
-            const diffTime = selected.getTime() - today.getTime();
-            const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
-            graphDateNav = diffDays;
-            graphZoomLevel = 1;
-            graphPanOffset = 0;
-            hideTooltip();
-            _renderGNavBar();
-            _loadAndDraw();
-        });
-    }
-
-    // ─── Today button (only for Day) ───────────────────────────────
-    const todayBtn = document.getElementById('graph-today-btn');
-    if (todayBtn) {
-        todayBtn.addEventListener('click', () => {
-            graphDateNav = 0;
-            graphZoomLevel = 1;
-            graphPanOffset = 0;
-            hideTooltip();
-            _renderGNavBar();
-            _loadAndDraw();
-        });
-    }
-}
-
-
-
-
 
 function hideTooltip() { const t = document.getElementById('graph-tooltip'); if (t) { t.style.display = 'none'; t.classList.remove('pinned'); } tooltipPinned = false; }
 
@@ -743,6 +525,19 @@ function closeGraphsPanel() { const p = document.getElementById('graphs-panel');
 
 function renderGraphsPanel() {
     if (graphIsRendering) return; graphIsRendering = true;
-    try { _renderGFeedTabs(); _renderGTimeTabs(); _renderGNavBar(); _renderChartTypeToggle(); _loadAndDraw(); }
+    try { 
+        _renderGFeedTabs(); 
+        _renderGTimeTabs(); 
+        _renderGNavBar(); 
+        _renderChartTypeToggle(); 
+        if (typeof _loadAndDraw === 'function') _loadAndDraw(); 
+    }
     catch(e) { console.warn('Graph render error:', e); } finally { graphIsRendering = false; }
 }
+
+window._renderGFeedTabs = _renderGFeedTabs;
+window._renderGTimeTabs = _renderGTimeTabs;
+window._renderChartTypeToggle = _renderChartTypeToggle;
+window.renderGraphsPanel = renderGraphsPanel;
+window.openGraphsPanel = openGraphsPanel;
+window.closeGraphsPanel = closeGraphsPanel;

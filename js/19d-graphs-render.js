@@ -211,6 +211,7 @@ function hideTooltip() {
         tooltip.style.display = 'none';
         tooltip.classList.remove('pinned');
     }
+    tooltipPinned = false;
 }
 
 function _handleGraphHover(e, pin) {
@@ -512,7 +513,7 @@ function _handleGraphHover(e, pin) {
     let top  = clientY - 15;
     const tRect = tooltip.getBoundingClientRect();
     if (left + tRect.width > window.innerWidth - 10) left = clientX - tRect.width - 15;
-    if (top + tRect.height > window.innerHeight - 10) top = clientY - tRect.height - 15;
+    if (top + tRect.height > window.innerHeight - 10) top = window.innerHeight - tRect.height - 10;
 
     tooltip.style.left = Math.max(10, left) + 'px';
     tooltip.style.top  = Math.max(10, top) + 'px';

@@ -170,6 +170,9 @@ function _attachDirectZoom(canvas) {
     canvas.addEventListener('touchstart', (e) => {
         isTouching = true;
         graphIsPanning = true;
+        const tooltip = document.getElementById('graph-tooltip');
+        if (tooltip) tooltip.style.pointerEvents = 'none';
+
         if (e.touches.length === 2) {
             const dx = e.touches[0].clientX - e.touches[1].clientX;
             const dy = e.touches[0].clientY - e.touches[1].clientY;
@@ -178,10 +181,14 @@ function _attachDirectZoom(canvas) {
         } else if (e.touches.length === 1) {
             tStartX = e.touches[0].clientX;
             tStartPan = graphPanOffset;
+            _handleGraphHover(e.touches[0], false);
         }
     }, { passive: false });
     canvas.addEventListener('touchmove', (e) => {
         if (!isTouching) return;
+        const tooltip = document.getElementById('graph-tooltip');
+        if (tooltip) tooltip.style.pointerEvents = 'none';
+
         if (e.touches.length === 2 && pStartDist > 0) {
             if (e.cancelable) e.preventDefault();
             const dx = e.touches[0].clientX - e.touches[1].clientX;
@@ -193,6 +200,7 @@ function _attachDirectZoom(canvas) {
             _fastRedraw();
         } else if (e.touches.length === 1) {
             if (e.cancelable) e.preventDefault();
+            _handleGraphHover(e.touches[0], false);
             graphPanOffset = tStartPan + (e.touches[0].clientX - tStartX);
             _fastRedraw();
         }
@@ -201,8 +209,18 @@ function _attachDirectZoom(canvas) {
         isTouching = false;
         pStartDist = 0;
         graphIsPanning = false;
+        const tooltip = document.getElementById('graph-tooltip');
+        if (tooltip && tooltip.classList.contains('pinned')) {
+            tooltip.style.pointerEvents = 'auto';
+        }
     });
-    canvas.addEventListener('click', (e) => _handleGraphHover(e, true));
+    canvas.addEventListener('click', (e) => {
+        if (graphFeedKey === 'momentflow') {
+            _handleGraphHover(e, false);
+        } else {
+            _handleGraphHover(e, true);
+        }
+    });
 }
 
 function hideTooltip() {

@@ -41,9 +41,9 @@ function billingRangeFor(year, month) {
 }
 
 function currentHourMs() {
-    const now = getPktNow();
-    now.setMinutes(0, 0, 0);
-    return now.getTime() + 3600 * 1000;
+    const pktDate = getKarachiDate(Date.now());
+    const startMs = getPktDayStart(pktDate.year, pktDate.month, pktDate.day);
+    return startMs + (pktDate.hour + 1) * 3600 * 1000;
 }
 
 let reportCache = {};

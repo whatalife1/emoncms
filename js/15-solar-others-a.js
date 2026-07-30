@@ -1,12 +1,11 @@
 function _billingRange() {
-  const now   = new Date();
-  const day   = now.getDate();
-  const endCal = new Date(now.getFullYear(), now.getMonth(), 26, 0, 0);
-  if (day < 26) endCal.setMonth(endCal.getMonth());
-  else endCal.setMonth(endCal.getMonth() + 1);
-  const startCal = new Date(endCal);
-  startCal.setMonth(startCal.getMonth() - 1);
-  return { start: startCal, end: endCal };
+  const pktNow = getPktNow();
+  const yr = IS_PKT_ZONE ? pktNow.getFullYear() : pktNow.getUTCFullYear();
+  const mo = (IS_PKT_ZONE ? pktNow.getMonth() : pktNow.getUTCMonth()) + 1;
+  const dy = IS_PKT_ZONE ? pktNow.getDate() : pktNow.getUTCDate();
+
+  const range = getPktBillingRange(yr, dy < 26 ? mo : mo + 1);
+  return { start: new Date(range.startMs), end: new Date(range.endMs) };
 }
 
 async function solRenderBilling() {
@@ -26,8 +25,14 @@ async function solRenderBilling() {
     const arr  = JSON.parse(text);
     const data = arr?.[0]?.data || [];
 
-    const ymd  = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-    const dmy  = d => `${String(d.getDate()).padStart(2,'0')}-${String(d.getMonth()+1).padStart(2,'0')}-${d.getFullYear()}`;
+    const ymd  = d => {
+      const p = getKarachiDate(d.getTime());
+      return `${p.year}-${String(p.month).padStart(2,'0')}-${String(p.day).padStart(2,'0')}`;
+    };
+    const dmy  = d => {
+      const p = getKarachiDate(d.getTime());
+      return `${String(p.day).padStart(2,'0')}-${String(p.month).padStart(2,'0')}-${p.year}`;
+    };
 
     const byDay = {};
     for (const pt of data) {
@@ -53,12 +58,12 @@ async function solRenderBilling() {
     const savings     = (totalKwh * solarCfg.pkrPerUnit).toFixed(0);
     const projSavings = (projectedKwh * solarCfg.pkrPerUnit).toFixed(0);
     const maxKwh      = Math.max(...days.map(d => d.kwh), 1);
-    const bestDay     = days.reduce((a, b) => b.kwh > a.kwh ? b : a, days[0]);
+    const bestDay     = days.reduce((a, b) => b.kwh > a.kwh ? b : a, days[0] || { date: new Date(), kwh: 0 });
     const rangeStr    = `${dmy(start)} → ${dmy(end)}`;
 
     const bars = days.map(({ date, kwh }) => {
       const pct     = (kwh / maxKwh * 100).toFixed(1);
-      const isToday = ymd(date) === ymd(new Date());
+      const isToday = ymd(date) === ymd(getPktNow());
       const barColor = isToday ? 'background:linear-gradient(90deg,#164e63,#facc15)' : '';
       return `<div class="sol-d-row">
         <span class="sol-d-day" style="${isToday?'color:var(--accent-solar);font-weight:700':''}">${String(date.getDate()).padStart(2,'0')}</span>

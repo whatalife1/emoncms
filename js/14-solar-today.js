@@ -1,11 +1,13 @@
 window._navOffset = 0;
 
 function _navDate() {
-    const now = getPktNow();
+    const pktDate = getKarachiDate(Date.now());
     const offset = window._navOffset || 0;
-    const d = new Date(now);
-    d.setDate(d.getDate() + offset);
-    return { y: d.getFullYear(), mo: d.getMonth() + 1, d: d.getDate(), date: d };
+    const d = new Date(Date.UTC(pktDate.year, pktDate.month - 1, pktDate.day + offset));
+    const y = d.getUTCFullYear();
+    const mo = d.getUTCMonth() + 1;
+    const day = d.getUTCDate();
+    return { y, mo, d: day, date: new Date(y, mo - 1, day) };
 }
 
 function _updateNavLabel() {

@@ -380,13 +380,13 @@ function _handleGraphHover(e, pin) {
             const fontWt  = isActive ? '800' : '600';
             htmlStr += `
                 <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px; margin:2px 0; opacity:${opacity};">
-                    <span style="color:${l.color}; font-weight:700;">
+                    <span style="color:${l.color}; font-weight:700; white-space:nowrap;">
                         <span style="display:inline-block; width:6px; height:6px; border-radius:50%; background:${l.color}; margin-right:4px;"></span>
                         ${l.label}
                     </span>
-                    <span style="font-weight:${fontWt}; color:var(--text-main); font-family:monospace; text-align:right;">
+                    <span style="font-weight:${fontWt}; color:var(--text-main); font-family:monospace; text-align:right; white-space:nowrap; margin-left:8px;">
                         ${l.watts} W <span style="font-size:10px; color:var(--text-muted); font-weight:normal;">(${l.stats.totalKwh.toFixed(2)} kWh)</span>
-                        <div style="font-size:9px; color:var(--text-muted); font-weight:normal;">☀️ ${l.stats.dayKwh.toFixed(2)}k (${l.stats.dayAvgW}W) | 🌙 ${l.stats.nightKwh.toFixed(2)}k (${l.stats.nightAvgW}W)</div>
+                        <div style="font-size:9px; color:var(--text-muted); font-weight:normal; white-space:nowrap;">☀️ ${l.stats.dayKwh.toFixed(2)}k (${l.stats.dayAvgW}W) | 🌙 ${l.stats.nightKwh.toFixed(2)}k (${l.stats.nightAvgW}W)</div>
                     </span>
                 </div>
             `;

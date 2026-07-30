@@ -17,6 +17,14 @@ const LAYOUT = {
 function renderFlowDiagram(byName) {
   if (!byName) return;
 
+  const titleEl = document.getElementById('flow-title');
+  if (titleEl && typeof solarCfg !== 'undefined') {
+    const pCount = solarCfg.panelCount || 9;
+    const pWatts = solarCfg.panelWatts || 580;
+    const totalKw = ((pCount * pWatts) / 1000).toFixed(1);
+    titleEl.innerHTML = `⚡ Live power flow &bull; Inverter: 6kW &bull; ${pCount}×${pWatts}W = ${totalKw}kW Solar`;
+  }
+
   const getV = (n) => byName.get(n)?.value ?? 0;
   const s = getV('Solar');
   const b = getV('Breaker');

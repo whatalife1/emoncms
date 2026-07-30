@@ -610,29 +610,57 @@ if (graphTab === 'day') {
 function _renderGNavBar() {
     const wrap = document.getElementById('graph-nav-bar');
     if (!wrap || graphTab === 'total') return;
+
     const nav = _gNavInfo();
     const canFwd = (graphTab === 'day' && graphDateNav < 0) ||
                    (graphTab === 'month' && nav.endMs < Date.now()) ||
                    (graphTab === 'year' && graphYearNav < 0);
 
-    // Toggle button for day view only
+    // Get the current date being displayed (for Day view only)
+    let dateStr = '';
+    if (graphTab === 'day') {
+        const d = new Date(getPktNow().getTime());
+        d.setDate(d.getDate() + graphDateNav);
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        dateStr = `${year}-${month}-${day}`;
+    }
+
+    // Build right-side controls (date picker + Today button) for Day view
+    let rightControls = '';
+    if (graphTab === 'day') {
+        rightControls = `
+            <input type="date" id="graph-date-picker" value="${dateStr}" 
+                   style="background:var(--input-bg);border:1px solid var(--border);border-radius:6px;
+                          color:var(--text-main);padding:3px 6px;font-size:12px;width:auto;max-width:130px;
+                          cursor:pointer;margin-left:4px;">
+            <button id="graph-today-btn" class="graph-nav-btn" style="font-size:10px;padding:2px 8px;margin-left:4px;">Today</button>
+        `;
+    }
+
     const startToggle = graphTab === 'day'
-        ? `<button id="graph-start-toggle" class="graph-nav-btn" style="font-size:10px; padding:2px 8px;">${
+        ? `<button id="graph-start-toggle" class="graph-nav-btn" style="font-size:10px; padding:2px 8px; margin-left:4px;">${
             window.graphDayStartHour === 5 ? '5am-5am' : '12am-12am'
           }</button>`
         : '';
 
     wrap.innerHTML = `
         <button class="graph-nav-btn" id="gnav-prev">‹</button>
-        <div class="graph-nav-center">
+        <div class="graph-nav-center" style="flex:1;text-align:center;">
             <div class="graph-nav-label">${nav.label}</div>
             ${nav.sub ? `<div class="graph-nav-sub">${nav.sub}</div>` : ''}
         </div>
-        ${startToggle}
-        <button class="graph-nav-btn" id="gnav-next" style="opacity:${canFwd ? 1 : 0.3}">›</button>
+        <div style="display:flex;align-items:center;gap:2px;flex-shrink:0;">
+            ${startToggle}
+            ${rightControls}
+            <button class="graph-nav-btn" id="gnav-next" style="opacity:${canFwd ? 1 : 0.3};margin-left:4px;">›</button>
+        </div>
     `;
 
-    // Event listeners for prev/next
+    // ─── Event listeners ─────────────────────────────────────────────
+
+    // Previous button
     document.getElementById('gnav-prev').addEventListener('click', () => {
         if (graphTab === 'day') graphDateNav--;
         else if (graphTab === 'month') graphMonthNav--;
@@ -644,6 +672,7 @@ function _renderGNavBar() {
         _loadAndDraw();
     });
 
+    // Next button
     document.getElementById('gnav-next').addEventListener('click', () => {
         if (canFwd) {
             if (graphTab === 'day') graphDateNav++;
@@ -657,7 +686,7 @@ function _renderGNavBar() {
         }
     });
 
-    // Attach toggle listener
+    // Start hour toggle (only for Day)
     const toggleBtn = document.getElementById('graph-start-toggle');
     if (toggleBtn) {
         toggleBtn.addEventListener('click', (e) => {
@@ -665,7 +694,39 @@ function _renderGNavBar() {
             toggleGraphStartHour();
         });
     }
+
+    // ─── Date picker (only for Day) ────────────────────────────────
+    const datePicker = document.getElementById('graph-date-picker');
+    if (datePicker) {
+        datePicker.addEventListener('change', function() {
+            const selected = new Date(this.value + 'T00:00:00');
+            const today = getPktNow();
+            const diffTime = selected.getTime() - today.getTime();
+            const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+            graphDateNav = diffDays;
+            graphZoomLevel = 1;
+            graphPanOffset = 0;
+            hideTooltip();
+            _renderGNavBar();
+            _loadAndDraw();
+        });
+    }
+
+    // ─── Today button (only for Day) ───────────────────────────────
+    const todayBtn = document.getElementById('graph-today-btn');
+    if (todayBtn) {
+        todayBtn.addEventListener('click', () => {
+            graphDateNav = 0;
+            graphZoomLevel = 1;
+            graphPanOffset = 0;
+            hideTooltip();
+            _renderGNavBar();
+            _loadAndDraw();
+        });
+    }
 }
+
+
 
 
 

@@ -310,6 +310,7 @@ function _handleGraphHover(e, pin) {
             const watts = Math.max(0, Math.round(m.data[idx] || 0));
             const stats = getCumStats(m.data, m.key);
             return {
+                key: m.key,
                 label: m.label,
                 color: m.color,
                 watts: watts,
@@ -326,7 +327,35 @@ function _handleGraphHover(e, pin) {
         const gridW      = Math.round(gridItem?.data[idx] || 0);
         const gridStats  = getCumStats(gridItem?.data, 'grid');
 
-        const totLoad      = loads.reduce((sum, l) => sum + l.watts, 0);
+        // Synthetic calculation for "Others" (ceiling fans, microwave, TVs...)
+        const othersData = new Array(n).fill(0);
+        for (let k = 0; k < n; k++) {
+            const sW = (solarItem?.data?.[k] != null && solarItem.data[k] > 0) ? solarItem.data[k] : 0;
+            const gW = (gridItem?.data?.[k] != null && gridItem.data[k] > 0) ? gridItem.data[k] : 0;
+            const totSupplied = sW + gW;
+            let trackedSum = 0;
+            loads.forEach(l => {
+                const item = multiData.find(m => m.key === l.key);
+                if (item && item.data?.[k] != null && item.data[k] > 0) {
+                    trackedSum += item.data[k];
+                }
+            });
+            othersData[k] = Math.max(0, totSupplied - trackedSum);
+        }
+
+        const othersW = Math.round(othersData[idx] || 0);
+        const othersStats = getCumStats(othersData, 'others');
+
+        loads.push({
+            key: 'others',
+            label: 'Others (Fans, TV...)',
+            color: '#f59e0b',
+            watts: othersW,
+            stats: othersStats
+        });
+
+        const trackedWatts = loads.filter(l => l.key !== 'others').reduce((sum, l) => sum + l.watts, 0);
+        const totLoad      = Math.max(trackedWatts, solarW + gridW);
         const totLoadKwh   = loads.reduce((sum, l) => sum + l.stats.totalKwh, 0);
         const totDayKwh    = loads.reduce((sum, l) => sum + l.stats.dayKwh, 0);
         const totNightKwh  = loads.reduce((sum, l) => sum + l.stats.nightKwh, 0);
@@ -404,7 +433,7 @@ function _handleGraphHover(e, pin) {
         const tRect = tooltip.getBoundingClientRect();
         if (left + tRect.width > window.innerWidth - 10) left = clientX - tRect.width - 15;
         if (top + tRect.height > window.innerHeight - 10) top = clientY - tRect.height - 15;
-        
+
         tooltip.style.left = Math.max(10, left) + 'px';
         tooltip.style.top  = Math.max(10, top) + 'px';
         return;
@@ -429,9 +458,9 @@ function _handleGraphHover(e, pin) {
         multiData.forEach((line, i) => {
             const val = (line.data[idx] ?? 0);
             const isLineTemp = unit === '°C';
-            let valStr = isKwhView ? val.toFixed(2) + ' kWh' : 
+            let valStr = isKwhView ? val.toFixed(2) + ' kWh' :
                          (isLineTemp ? val.toFixed(1) + ' °C' : Math.round(val) + ' W');
-            
+
             const isFocused = (closestLineIdx === i + 1);
             const focusStyle = isFocused ? 'font-weight:900;font-size:13px;filter:brightness(1.2);' : 'opacity:0.6;';
             html += `<div style="color:${line.color};margin:2px 0;${focusStyle}">
@@ -442,11 +471,11 @@ function _handleGraphHover(e, pin) {
     } else {
         const isTempCombined = graphFeedKey === 'temp' || graphFeedKey === 'temp2';
         const isTooltipTemp = unit === '°C' || isTempCombined;
-        
+
         const val1Raw = bars1[idx] || 0;
-        const val1 = isKwhView ? val1Raw.toFixed(2) + ' kWh' : 
+        const val1 = isKwhView ? val1Raw.toFixed(2) + ' kWh' :
                      (isTooltipTemp ? val1Raw.toFixed(1) + ' °C' : Math.round(val1Raw) + ' ' + unit);
-        
+
         let val2Str = '';
         if (isCombined) {
             const val2Raw = bars2[idx] || 0;
@@ -484,7 +513,7 @@ function _handleGraphHover(e, pin) {
     const tRect = tooltip.getBoundingClientRect();
     if (left + tRect.width > window.innerWidth - 10) left = clientX - tRect.width - 15;
     if (top + tRect.height > window.innerHeight - 10) top = clientY - tRect.height - 15;
-    
+
     tooltip.style.left = Math.max(10, left) + 'px';
     tooltip.style.top  = Math.max(10, top) + 'px';
 }

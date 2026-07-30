@@ -1,13 +1,15 @@
-// ─── Graphs Panel - Core Configuration ──────────────────────────────────────
-
-// Set to 120 for 2-minute resolution
 const GRAPH_DAY_RESOLUTION_SECONDS = 120;
+const GRAPH_MONTH_RESOLUTION_SECONDS = 3600;
+const GRAPH_YEAR_RESOLUTION_SECONDS  = 3600;
 
-// ─── NEW: Resolution controls for Month and Year ───────────────────────────
-const GRAPH_MONTH_RESOLUTION_SECONDS = 3600;   // 10 minutes (change as you like)
-const GRAPH_YEAR_RESOLUTION_SECONDS  = 3600;  // 1 hour (keep higher for performance)
+const GRAPH_MOMENT_FLOW = { 
+  key: 'momentflow', 
+  name: 'Moment Flow Inspector', 
+  color: '#f59e0b', 
+  label: '🔍 Moment Flow', 
+  isWatts: true 
+};
 
-// ---- GRAPH FEEDS ----
 const GRAPH_FEEDS = [
     { key: 'solar',     name: 'Solar',          id: '499380', color: '#facc15', label: '☀ Solar',        isWatts: true },
     { key: 'grid',      name: 'Grid (Breaker)',  id: '499374', color: '#ef4444', label: '⚡ Grid',         isWatts: true },
@@ -23,13 +25,11 @@ const GRAPH_FEEDS = [
     { key: 'pc',        name: 'PC',              id: '499422', color: '#4ade80', label: '💻 PC',          isWatts: true },
     { key: 'motor',     name: 'Water Motor',     id: '542850', color: '#fbbf24', label: '🚿 Motor',       isWatts: true },
     { key: 'water',     name: 'Water Tank',      id: '499431', color: '#0ea5e9', label: '💧 Water',       isWatts: false },
-    // ---- Grid-All Multi-Line (shows all appliances as separate lines) ----
     { key: 'gridall',   name: 'All',             id: null,     color: '#ff6b6b', label: '⚡ All',         isWatts: true, isMultiLine: true }
 ];
 
 const GRAPH_COMBINED = { key: 'combined', name: 'Solar + Grid', color: '#facc15', label: '⚡☀ Solar+Grid' };
 
-// ---- Map of feeds to show in Grid-All multi-line graph ----
 const GRID_ALL_FEEDS = [
     { key: 'solar',     id: '499380', color: '#facc15', label: 'Solar'        },
     { key: 'grid',      id: '499374', color: '#ef4444', label: 'Grid'         },
@@ -42,10 +42,8 @@ const GRID_ALL_FEEDS = [
     { key: 'motor',     id: '542850', color: '#fbbf24', label: 'Motor'        }
 ];
 
-// ---- Temperature range config ----
 const TEMP_RANGE_PADDING = 5;
 
-// ---- Shared variables ----
 let graphIsLoading = false;
 let graphDataCache = null;
 let graphTab = 'day';
@@ -59,15 +57,12 @@ let graphPanOffset = 0;
 let graphIsRendering = false;
 let graphIsPanning = false;
 
-// ---- Grid-All per-feed toggle: keys in this Set are hidden ----
 window.gridAllDisabled = new Set();
-
-// ---- AC overlay for Temp feeds: null, 'haier', 'k1', or 'k15' ----
 window.graphOverlayAc = null;
 
-// ---- Expose globals ----
 window.GRAPH_FEEDS = GRAPH_FEEDS;
 window.GRAPH_COMBINED = GRAPH_COMBINED;
+window.GRAPH_MOMENT_FLOW = GRAPH_MOMENT_FLOW;
 window.GRID_ALL_FEEDS = GRID_ALL_FEEDS;
 window.TEMP_RANGE_PADDING = TEMP_RANGE_PADDING;
 window.GRAPH_DAY_RESOLUTION_SECONDS = GRAPH_DAY_RESOLUTION_SECONDS;
@@ -86,7 +81,6 @@ window.graphPanOffset = graphPanOffset;
 window.graphIsRendering = graphIsRendering;
 window.graphIsPanning = graphIsPanning;
 
-// ─── Day start hour (default 5am) ────────────────────────────────
 window.graphDayStartHour = 5;
 try {
   const saved = localStorage.getItem('graphDayStartHour');
@@ -97,7 +91,7 @@ function toggleGraphStartHour() {
   window.graphDayStartHour = window.graphDayStartHour === 5 ? 0 : 5;
   localStorage.setItem('graphDayStartHour', window.graphDayStartHour);
   if (window.graphTab === 'day') {
-    window._loadAndDraw();
+    if (typeof _loadAndDraw === 'function') _loadAndDraw();
   }
   updateGraphStartButton();
 }
@@ -109,3 +103,6 @@ function updateGraphStartButton() {
   btn.textContent = label;
   btn.title = 'Toggle day start time';
 }
+
+window.toggleGraphStartHour = toggleGraphStartHour;
+window.updateGraphStartButton = updateGraphStartButton;

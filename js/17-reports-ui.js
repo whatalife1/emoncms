@@ -23,7 +23,8 @@ function renderDetailedReport(feedData, startMs, endMs, pkrPerKwh) {
     sums[f.id] = { h24: sumByDay(feedData[f.id]||{}, 0, 24), day: sumByDay(feedData[f.id]||{}, ds, de), night: sumByDay(feedData[f.id]||{}, EXPORT_NIGHT_START, EXPORT_NIGHT_END) };
   });
 
-  const solarF = EXPORT_FEEDS.find(f => f.isSolar), breakerF = EXPORT_FEEDS.find(f => f.isBreaker);
+  const solarF = EXPORT_FEEDS.find(f => f.isSolar) || { id: '499380', name: 'Solar' };
+  const breakerF = EXPORT_FEEDS.find(f => f.isBreaker) || { id: '499374', name: 'Breaker' };
   
   const colTotals = {};
   EXPORT_FEEDS.forEach(f => {

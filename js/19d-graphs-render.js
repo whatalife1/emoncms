@@ -1,4 +1,82 @@
-// ─── Graphs Panel - Rendering & Interaction ────────────────────────────────
+function replayFlowDiagramAtMoment(multiData, idx, timestampSec) {
+    if (!multiData || typeof renderFlowDiagram !== 'function') return;
+
+    const nav = graphDataCache?.nav || (typeof _gNavInfo === 'function' ? _gNavInfo() : { resSeconds: 120 });
+    const factor = (nav.resSeconds || 120) / 3600000;
+
+    const getVal = (key) => {
+        const item = multiData.find(m => m.key === key);
+        return item && item.data[idx] != null ? Math.max(0, Math.round(item.data[idx])) : 0;
+    };
+
+    const getCumKwh = (key) => {
+        const item = multiData.find(m => m.key === key);
+        if (!item || !item.data) return 0;
+        let sum = 0;
+        const maxI = Math.min(idx, item.data.length - 1);
+        for (let k = 0; k <= maxI; k++) {
+            if (item.data[k] != null && item.data[k] > 0) {
+                sum += item.data[k];
+            }
+        }
+        return sum * factor;
+    };
+
+    const solarW  = getVal('solar');
+    const gridW   = getVal('grid');
+    const k15W    = getVal('k15');
+    const k1W     = getVal('k1');
+    const haierW  = getVal('haier');
+    const f1W     = getVal('fridge1');
+    const f2W     = getVal('fridge2');
+    const pcW     = getVal('pc');
+    const motorW  = getVal('motor');
+    const totLoad = k15W + k1W + haierW + f1W + f2W + pcW + motorW;
+
+    const solarCumKwh = getCumKwh('solar');
+    const gridCumKwh  = getCumKwh('grid');
+    const k15CumKwh   = getCumKwh('k15');
+    const k1CumKwh    = getCumKwh('k1');
+    const haierCumKwh = getCumKwh('haier');
+    const f1CumKwh    = getCumKwh('fridge1');
+    const f2CumKwh    = getCumKwh('fridge2');
+    const pcCumKwh    = getCumKwh('pc');
+    const motorCumKwh = getCumKwh('motor');
+
+    const mockMap = new Map();
+    mockMap.set('Solar',           { value: solarW, time: timestampSec });
+    mockMap.set('Solar Today',     { value: solarCumKwh, time: timestampSec });
+    mockMap.set('Breaker',         { value: gridW,  time: timestampSec });
+    mockMap.set('Breaker Today',   { value: gridCumKwh, time: timestampSec });
+    mockMap.set('Utility Today',   { value: gridCumKwh, time: timestampSec });
+    mockMap.set('Tot Load',        { value: totLoad, time: timestampSec });
+    mockMap.set('AC Volts',        { value: gridW > 20 ? 230 : 0, time: timestampSec });
+    mockMap.set('Solar V',         { value: solarW > 20 ? 380 : 0, time: timestampSec });
+    mockMap.set('Solar Amps',      { value: solarW > 20 ? (solarW / 380) : 0, time: timestampSec });
+    mockMap.set('Inverter Temp',   { value: 38, time: timestampSec });
+    mockMap.set('Water Tank',      { value: 75, time: timestampSec });
+    mockMap.set('Temperature',     { value: 30, time: timestampSec });
+    mockMap.set('Humidity',        { value: 55, time: timestampSec });
+    mockMap.set('Temperature 2',   { value: 29, time: timestampSec });
+    mockMap.set('Humidity 2',      { value: 55, time: timestampSec });
+
+    mockMap.set('Kenwood 1.5Ton',       { value: k15W, time: timestampSec });
+    mockMap.set('Kenwood 1.5Ton Today', { value: k15CumKwh, time: timestampSec });
+    mockMap.set('Kenwood 1Ton',         { value: k1W,  time: timestampSec });
+    mockMap.set('Kenwood 1Ton Today',   { value: k1CumKwh, time: timestampSec });
+    mockMap.set('Haier 1Ton',           { value: haierW, time: timestampSec });
+    mockMap.set('Haier 1Ton Today',     { value: haierCumKwh, time: timestampSec });
+    mockMap.set('Fridge',              { value: f1W,  time: timestampSec });
+    mockMap.set('Fridge Today',         { value: f1CumKwh, time: timestampSec });
+    mockMap.set('Fridge2',             { value: f2W,  time: timestampSec });
+    mockMap.set('Fridge2 Today',        { value: f2CumKwh, time: timestampSec });
+    mockMap.set('PC',                  { value: pcW,  time: timestampSec });
+    mockMap.set('PC Today',             { value: pcCumKwh, time: timestampSec });
+    mockMap.set('Water Motor',         { value: motorW, time: timestampSec });
+    mockMap.set('Water Motor Today',   { value: motorCumKwh, time: timestampSec });
+
+    renderFlowDiagram(mockMap);
+}
 
 function _fastRedraw() {
     const canvas = document.getElementById('graph-canvas');
@@ -61,8 +139,6 @@ function _attachDirectZoom(canvas) {
         const oldZ = graphZoomLevel;
         graphZoomLevel = Math.max(1, Math.min(60, graphZoomLevel * zoomFactor));
         graphPanOffset *= (graphZoomLevel / oldZ);
-        const zl = document.getElementById('zoom-level');
-        if (zl) zl.textContent = Math.round(graphZoomLevel * 100) + '%';
         _fastRedraw();
     }, { passive: false });
 
@@ -76,7 +152,7 @@ function _attachDirectZoom(canvas) {
     });
     window.addEventListener('mousemove', (e) => {
         if (isMouseDown) {
-            graphPanOffset = startPan + (e.clientX - startX) * graphZoomLevel;
+            graphPanOffset = startPan + (e.clientX - startX);
             _fastRedraw();
         } else if (e.target === canvas) {
             _handleGraphHover(e, false);
@@ -114,12 +190,10 @@ function _attachDirectZoom(canvas) {
             const oldZ = graphZoomLevel;
             graphZoomLevel = Math.max(1, Math.min(60, pStartZoom * (dist / pStartDist)));
             graphPanOffset *= (graphZoomLevel / oldZ);
-            const zl = document.getElementById('zoom-level');
-            if (zl) zl.textContent = Math.round(graphZoomLevel * 100) + '%';
             _fastRedraw();
         } else if (e.touches.length === 1) {
             if (e.cancelable) e.preventDefault();
-            graphPanOffset = tStartPan + (e.touches[0].clientX - tStartX) * graphZoomLevel;
+            graphPanOffset = tStartPan + (e.touches[0].clientX - tStartX);
             _fastRedraw();
         }
     }, { passive: false });
@@ -158,30 +232,28 @@ function _handleGraphHover(e, pin) {
     const zoom = graphZoomLevel, panX = graphPanOffset, centerX = PL + cW / 2;
     const idx = Math.round(((x - panX - centerX) / zoom + centerX - PL) / (cW / n));
 
-    // Guard against out of bounds or drawing into the future
     if (idx < 0 || idx >= n || idx >= lastIdx) {
         if (!pin) hideTooltip();
         return;
     }
 
-    // ---- START TIMEZONE FIX ----
-    const startMs = nav.startMs || 0;
-    const ts = startMs + (idx * nav.resSeconds * 1000);
-    
-    // Create a Date object forced to Pakistan Time (UTC + 5)
-    const dObj = new Date(ts + 18000000); 
-    const h = dObj.getUTCHours();
-    const m = dObj.getUTCMinutes();
-    
-    const ampm = h >= 12 ? 'pm' : 'am';
-    const hh = h % 12 || 12;
-    const mm = String(m).padStart(2, '0');
-    const timeLabel = `${hh}:${mm}${ampm}`;
-    // ---- END TIMEZONE FIX ----
+    const isMonthOrYear = graphTab === 'month' || graphTab === 'year';
+    const isKwhView = isMonthOrYear;
 
-    const PT = 12, cH = rect.height - 12 - 34;
-    const mouseY = clientY - rect.top;
-    let closestLineIdx = 0;
+    let timeLabel = '';
+    if (isMonthOrYear) {
+        timeLabel = (labels && labels[idx]) ? labels[idx] : `Day ${idx + 1}`;
+    } else {
+        const startMs = nav.startMs || 0;
+        const ts = startMs + (idx * nav.resSeconds * 1000);
+        const pktDate = getKarachiDate(ts);
+        const h = pktDate.hour;
+        const m = Math.floor((ts / 60000)) % 60;
+        const ampm = h >= 12 ? 'pm' : 'am';
+        const hh = h % 12 || 12;
+        const mm = String(m).padStart(2, '0');
+        timeLabel = `${hh}:${mm}${ampm}`;
+    }
 
     let tooltip = document.getElementById('graph-tooltip');
     if (!tooltip) {
@@ -191,15 +263,158 @@ function _handleGraphHover(e, pin) {
     }
 
     const closeBtn = pin ? `<span class="close-btn" onclick="hideTooltip();">✕</span>` : '';
+
+    if (graphDataCache.isMomentFlow && multiData) {
+        const timestampSec = Math.floor((nav.startMs + (idx * nav.resSeconds * 1000)) / 1000);
+        replayFlowDiagramAtMoment(multiData, idx, timestampSec);
+
+        const factor = (nav.resSeconds || 120) / 3600000;
+        const startMs = nav.startMs || 0;
+
+        const getCumStats = (dataArr, key = '') => {
+            if (!dataArr) return { totalKwh: 0, dayKwh: 0, nightKwh: 0, dayAvgW: 0, nightAvgW: 0 };
+            let totalSum = 0, daySum = 0, nightSum = 0;
+            let dayCount = 0, nightCount = 0;
+            const maxI = Math.min(idx, dataArr.length - 1);
+            
+            const isPc = key === 'pc';
+            const dayStart = isPc ? 6 : 8;
+            const dayEnd = 17;
+
+            for (let k = 0; k <= maxI; k++) {
+                const val = dataArr[k];
+                if (val != null && val > 0) {
+                    totalSum += val;
+                    const ts = startMs + (k * nav.resSeconds * 1000);
+                    const p = getKarachiDate(ts);
+                    const h = p.hour;
+                    if (h >= dayStart && h < dayEnd) {
+                        daySum += val;
+                        dayCount++;
+                    } else {
+                        nightSum += val;
+                        nightCount++;
+                    }
+                }
+            }
+            return {
+                totalKwh: totalSum * factor,
+                dayKwh: daySum * factor,
+                nightKwh: nightSum * factor,
+                dayAvgW: dayCount > 0 ? Math.round(daySum / dayCount) : 0,
+                nightAvgW: nightCount > 0 ? Math.round(nightSum / nightCount) : 0
+            };
+        };
+
+        const loads = multiData.filter(m => m.key !== 'solar' && m.key !== 'grid').map(m => {
+            const watts = Math.max(0, Math.round(m.data[idx] || 0));
+            const stats = getCumStats(m.data, m.key);
+            return {
+                label: m.label,
+                color: m.color,
+                watts: watts,
+                stats: stats
+            };
+        });
+
+        const solarItem = multiData.find(m => m.key === 'solar');
+        const gridItem  = multiData.find(m => m.key === 'grid');
+
+        const solarW     = Math.round(solarItem?.data[idx] || 0);
+        const solarStats = getCumStats(solarItem?.data, 'solar');
+        
+        const gridW      = Math.round(gridItem?.data[idx] || 0);
+        const gridStats  = getCumStats(gridItem?.data, 'grid');
+
+        const totLoad      = loads.reduce((sum, l) => sum + l.watts, 0);
+        const totLoadKwh   = loads.reduce((sum, l) => sum + l.stats.totalKwh, 0);
+        const totDayKwh    = loads.reduce((sum, l) => sum + l.stats.dayKwh, 0);
+        const totNightKwh  = loads.reduce((sum, l) => sum + l.stats.nightKwh, 0);
+        const totDayAvgW   = Math.round(loads.reduce((sum, l) => sum + l.stats.dayAvgW, 0));
+        const totNightAvgW = Math.round(loads.reduce((sum, l) => sum + l.stats.nightAvgW, 0));
+
+        let htmlStr = `
+            <div style="font-weight:800; font-size:13px; color:var(--text-main); border-bottom:1px solid var(--border); padding-bottom:4px; margin-bottom:6px;">
+                🕒 ${timeLabel} ${closeBtn}
+            </div>
+            <div style="display:flex; flex-direction:column; gap:4px; margin-bottom:6px; font-size:11px; background:var(--bg-card); padding:6px; border-radius:6px; border:1px solid var(--border);">
+                <div>
+                    <div style="display:flex; justify-content:space-between;">
+                        <span style="color:#ef4444; font-weight:800;">⚡ Grid: ${gridW} W</span>
+                        <span style="color:#ef4444; font-weight:700;">Tot: ${gridStats.totalKwh.toFixed(2)} kWh</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; font-size:9.5px; color:var(--text-muted); margin-top:1px;">
+                        <span>☀️ Day: ${gridStats.dayKwh.toFixed(2)} kWh (${gridStats.dayAvgW} W)</span>
+                        <span>🌙 Night: ${gridStats.nightKwh.toFixed(2)} kWh (${gridStats.nightAvgW} W)</span>
+                    </div>
+                </div>
+                <div style="border-top:1px dashed var(--border); padding-top:3px;">
+                    <div style="display:flex; justify-content:space-between;">
+                        <span style="color:#facc15; font-weight:800;">☀ Solar: ${solarW} W</span>
+                        <span style="color:#facc15; font-weight:700;">Tot: ${solarStats.totalKwh.toFixed(2)} kWh</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; font-size:9.5px; color:var(--text-muted); margin-top:1px;">
+                        <span>☀️ Day: ${solarStats.dayKwh.toFixed(2)} kWh (${solarStats.dayAvgW} W)</span>
+                        <span></span>
+                    </div>
+                </div>
+                <div style="border-top:1px dashed var(--border); padding-top:3px;">
+                    <div style="display:flex; justify-content:space-between;">
+                        <span style="color:#38bdf8; font-weight:800;">💡 Load: ${totLoad} W</span>
+                        <span style="color:#38bdf8; font-weight:700;">Tot: ${totLoadKwh.toFixed(2)} kWh</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; font-size:9.5px; color:var(--text-muted); margin-top:1px;">
+                        <span>☀️ Day: ${totDayKwh.toFixed(2)} kWh (${totDayAvgW} W)</span>
+                        <span>🌙 Night: ${totNightKwh.toFixed(2)} kWh (${totNightAvgW} W)</span>
+                    </div>
+                </div>
+            </div>
+            <div style="font-size:10px; font-weight:700; color:var(--text-muted); text-transform:uppercase; margin-bottom:4px; border-bottom:1px dashed var(--border); padding-bottom:2px;">
+                Appliance Current & Total at ${timeLabel}:
+            </div>
+        `;
+
+        loads.forEach(l => {
+            const isActive = l.watts > 10;
+            const opacity = isActive ? '1' : '0.45';
+            const fontWt  = isActive ? '800' : '600';
+            htmlStr += `
+                <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px; margin:2px 0; opacity:${opacity};">
+                    <span style="color:${l.color}; font-weight:700;">
+                        <span style="display:inline-block; width:6px; height:6px; border-radius:50%; background:${l.color}; margin-right:4px;"></span>
+                        ${l.label}
+                    </span>
+                    <span style="font-weight:${fontWt}; color:var(--text-main); font-family:monospace; text-align:right;">
+                        ${l.watts} W <span style="font-size:10px; color:var(--text-muted); font-weight:normal;">(${l.stats.totalKwh.toFixed(2)} kWh)</span>
+                        <div style="font-size:9px; color:var(--text-muted); font-weight:normal;">☀️ ${l.stats.dayKwh.toFixed(2)}k (${l.stats.dayAvgW}W) | 🌙 ${l.stats.nightKwh.toFixed(2)}k (${l.stats.nightAvgW}W)</div>
+                    </span>
+                </div>
+            `;
+        });
+
+        tooltip.innerHTML = htmlStr;
+        tooltip.style.display = 'block';
+        tooltip.classList.toggle('pinned', pin);
+
+        let left = clientX + 15;
+        let top  = clientY - 15;
+        const tRect = tooltip.getBoundingClientRect();
+        if (left + tRect.width > window.innerWidth - 10) left = clientX - tRect.width - 15;
+        if (top + tRect.height > window.innerHeight - 10) top = clientY - tRect.height - 15;
+        
+        tooltip.style.left = Math.max(10, left) + 'px';
+        tooltip.style.top  = Math.max(10, top) + 'px';
+        return;
+    }
+
     let html = `<div style="font-weight:700;font-size:12px;color:var(--text-main);margin-bottom:4px;border-bottom:1px solid var(--border);padding-bottom:4px;">${timeLabel} ${closeBtn}</div>`;
 
-    const isMonthOrYear = graphTab === 'month' || graphTab === 'year';
-    const isDayView = graphTab === 'day';
-    const isKwhView = isMonthOrYear;
+    const mouseY = clientY - rect.top;
+    const PT = 12, cH = rect.height - 12 - 34;
 
-    // Logic for Multi-Line (Grid-All)
     if (multiData && multiData.length > 0) {
         let minDist = 999;
+        let closestLineIdx = 0;
         for (let i = 0; i < multiData.length; i++) {
             const val = multiData[i].data[idx];
             if (val === null || val === undefined) continue;
@@ -221,9 +436,7 @@ function _handleGraphHover(e, pin) {
                 <b>${line.label}:</b> ${valStr}
             </div>`;
         });
-    } 
-    // Logic for Single or Combined Feeds
-    else {
+    } else {
         const isTempCombined = graphFeedKey === 'temp' || graphFeedKey === 'temp2';
         const isTooltipTemp = unit === '°C' || isTempCombined;
         
@@ -250,7 +463,6 @@ function _handleGraphHover(e, pin) {
         }
     }
 
-    // Logic for Secondary Axis (AC Overlay on Temp)
     if (isDualY && barsTemp && idx < barsTemp.length) {
         const tVal = barsTemp[idx] ?? 0;
         const tValStr = isKwhView ? tVal.toFixed(2) + ' kWh' : Math.round(tVal) + ' W';
@@ -264,7 +476,6 @@ function _handleGraphHover(e, pin) {
     tooltip.style.display = 'block';
     tooltip.classList.toggle('pinned', pin);
 
-    // Positioning
     let left = clientX + 15;
     let top  = clientY - 15;
     const tRect = tooltip.getBoundingClientRect();
@@ -275,14 +486,11 @@ function _handleGraphHover(e, pin) {
     tooltip.style.top  = Math.max(10, top) + 'px';
 }
 
-// ---- _drawChart with Multi-Line support + dual Y-axis for overlay ----
 function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombined, nav, lastIdx, multiData,
                    minV, maxV, range, barsTemp = [], tempMinV = 0, tempMaxV = 100, tempRange = 100, tempUnit = '°C', tempColor = '#10b981', overlayLabel = '') {
     
-    // Ensure input handlers are attached
     _attachDirectZoom(canvas);
 
-    // Show pulse dot for today's live view
     if (graphTab === 'day') {
         _showRefreshPulse();
     } else {
@@ -294,7 +502,6 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
     const dpr = window.devicePixelRatio || 1;
     const rect = canvas.getBoundingClientRect();
     
-    // Setup high-DPI canvas
     canvas.width  = rect.width  * dpr;
     canvas.height = rect.height * dpr;
     ctx.scale(dpr, dpr);
@@ -303,7 +510,10 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
     const cW = rect.width  - PL - PR;
     const cH = rect.height - PT - PB;
 
-    // Zoom & Pan Math
+    const maxPan = (cW / 2) * (graphZoomLevel - 1);
+    const minPan = -maxPan;
+    graphPanOffset = Math.max(minPan, Math.min(maxPan, graphPanOffset));
+
     const zoom = graphZoomLevel;
     const panX = graphPanOffset;
     const centerX = PL + cW / 2;
@@ -315,7 +525,6 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
 
     ctx.clearRect(0, 0, rect.width, rect.height);
 
-    // --- 1. DRAW Y-AXIS GRID & LABELS (LEFT) ---
     ctx.fillStyle = '#71717a';
     ctx.font = '9px system-ui';
     ctx.textAlign = 'right';
@@ -330,7 +539,6 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
         
         ctx.fillText(lbl, PL - 5, y + 3);
         
-        // Subtle grid lines
         ctx.strokeStyle = 'rgba(255,255,255,0.05)';
         ctx.beginPath();
         ctx.moveTo(PL, y);
@@ -338,7 +546,6 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
         ctx.stroke();
     }
 
-    // --- 2. DRAW SECONDARY Y-AXIS (RIGHT - For Temp Overlays) ---
     if (barsTemp && barsTemp.length > 0) {
         ctx.textAlign = 'left';
         const rightX = PL + cW + 5;
@@ -349,7 +556,6 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
         }
     }
 
-    // --- 3. DRAW DATA (CLIPPED TO CHART AREA) ---
     ctx.save();
     ctx.beginPath();
     ctx.rect(PL, PT, cW, cH);
@@ -357,14 +563,11 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
 
     const n = bars1.length || (multiData?.[0]?.data?.length ?? 0);
     if (n > 0) {
-        // Multi-line (Grid-All) logic
         if (multiData && multiData.length > 0) {
             multiData.forEach(line => {
                 _renderPlot(ctx, line.data, n, line.color, chartType, mapX, PL, PT, cW, cH, minV, range, lastIdx, false);
             });
-        } 
-        // Single/Combined feed logic
-        else {
+        } else {
             if (isCombined || (graphFeedKey.startsWith('temp') && bars2.length)) {
                 const c2 = graphFeedKey.startsWith('temp') ? '#6366f1' : color2;
                 _renderPlot(ctx, bars2, n, c2, chartType, mapX, PL, PT, cW, cH, minV, range, lastIdx, true);
@@ -372,31 +575,26 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
             _renderPlot(ctx, bars1, n, color1, chartType, mapX, PL, PT, cW, cH, minV, range, lastIdx, false);
         }
 
-        // Overlay line (e.g. AC Watts over Temperature)
         if (barsTemp && barsTemp.length > 0) {
             _renderPlot(ctx, barsTemp, n, tempColor, 'line', mapX, PL, PT, cW, cH, tempMinV, tempRange, lastIdx, false, true);
         }
     }
     ctx.restore();
 
-    // --- 4. DRAW X-AXIS LABELS (THE TIMEZONE-PROOF FIX) ---
     ctx.fillStyle = '#71717a';
     ctx.textAlign = 'center';
     ctx.font = '9px system-ui';
 
     const isZoomed = zoom > 2;
-    // Calculate how many labels can comfortably fit (assume ~45px per label)
     const maxLabels = Math.max(3, Math.floor(cW / 45));
     const labelStep = Math.max(1, Math.ceil(n / (maxLabels * zoom)));
 
-    // Use fullLabels when zoomed, otherwise use labels
     const displayLabels = (isZoomed && nav && nav.fullLabels) ? nav.fullLabels : (labels || []);
 
     for (let i = 0; i < n; i += labelStep) {
         const lx = mapX(PL + (i / n) * cW);
         if (lx > PL - 10 && lx < rect.width - PR) {
             let label = displayLabels[i] || '';
-            // If zoomed out and label has minutes, truncate to hour only to save space
             if (!isZoomed && label.includes(':')) {
                 const match = label.match(/^(\d+):/);
                 if (match) {
@@ -410,9 +608,6 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
     }
 }
 
-/**
- * Internal helper to draw the actual lines/bars
- */
 function _renderPlot(ctx, data, n, clr, type, mapX, PL, PT, cW, cH, min, range, lastIdx, isSecondary, isDashed = false) {
     if (type === 'bar' || type === 'hourly') {
         const barWidth = Math.max(1, (cW / n) * 0.7);
@@ -448,7 +643,6 @@ function _renderPlot(ctx, data, n, clr, type, mapX, PL, PT, cW, cH, min, range, 
     }
 }
 
-// ---- Expose globally ----
 window._fastRedraw         = _fastRedraw;
 window._showRefreshPulse   = _showRefreshPulse;
 window._attachDirectZoom   = _attachDirectZoom;

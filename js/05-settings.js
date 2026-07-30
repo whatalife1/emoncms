@@ -2,7 +2,7 @@ async function loadSettings() {
   const savedLayout   = localStorage.getItem('customLayout');
   const savedInterval = localStorage.getItem('refreshInterval');
   const debugEnabled  = localStorage.getItem('debugEnabled') === 'true';
-  autoRefreshSec = savedInterval ? parseInt(savedInterval) : 30;
+  autoRefreshSec = Math.max(5, parseInt(savedInterval) || 30);
   document.getElementById('refresh-interval').value = autoRefreshSec;
   document.getElementById('debug-toggle').checked = debugEnabled;
   document.getElementById('debug-info').style.display = debugEnabled ? 'block' : 'none';
@@ -49,7 +49,7 @@ async function saveSettings() {
   if (window.Android && window.Android.saveWidgetPrefs) {
     window.Android.saveWidgetPrefs(
       'https://emoncms.org',
-      'c28cb22a6877c80b1c6a2611b72c25f4',
+      '',
       '499380'
     );
   }

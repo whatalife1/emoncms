@@ -90,10 +90,10 @@
   box-shadow: 0 4px 20px rgba(0,0,0,0.5);
   display: none;
   pointer-events: none;
-  min-width: 80px;
-  max-width: 250px;
+  min-width: 280px;
+  max-width: 360px;
   font-family: system-ui, -apple-system, sans-serif;
-  line-height: 1.6;
+  line-height: 1.5;
 }
 #graph-tooltip.pinned,
 #graph-tooltip:has(.close-btn) {

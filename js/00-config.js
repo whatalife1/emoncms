@@ -170,7 +170,7 @@ const IS_PKT_ZONE = (new Date().getTimezoneOffset() === -300);
 function getPktNow() {
     const now = new Date();
     if (IS_PKT_ZONE) return now;
-    return new Date(now.getTime() + 18000000 + (now.getTimezoneOffset() * 60000));
+    return new Date(now.getTime() + 18000000);
 }
 
 function getPktDayStart(year, month, day) {

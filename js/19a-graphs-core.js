@@ -3,6 +3,10 @@
 // Set to 120 for 2-minute resolution
 const GRAPH_DAY_RESOLUTION_SECONDS = 120;
 
+// ─── NEW: Resolution controls for Month and Year ───────────────────────────
+const GRAPH_MONTH_RESOLUTION_SECONDS = 3600;   // 10 minutes (change as you like)
+const GRAPH_YEAR_RESOLUTION_SECONDS  = 3600;  // 1 hour (keep higher for performance)
+
 // ---- GRAPH FEEDS ----
 const GRAPH_FEEDS = [
     { key: 'solar',     name: 'Solar',          id: '499380', color: '#facc15', label: '☀ Solar',        isWatts: true },
@@ -67,6 +71,8 @@ window.GRAPH_COMBINED = GRAPH_COMBINED;
 window.GRID_ALL_FEEDS = GRID_ALL_FEEDS;
 window.TEMP_RANGE_PADDING = TEMP_RANGE_PADDING;
 window.GRAPH_DAY_RESOLUTION_SECONDS = GRAPH_DAY_RESOLUTION_SECONDS;
+window.GRAPH_MONTH_RESOLUTION_SECONDS = GRAPH_MONTH_RESOLUTION_SECONDS;
+window.GRAPH_YEAR_RESOLUTION_SECONDS = GRAPH_YEAR_RESOLUTION_SECONDS;
 window.graphIsLoading = graphIsLoading;
 window.graphDataCache = graphDataCache;
 window.graphTab = graphTab;

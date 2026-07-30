@@ -39,7 +39,7 @@ async function fetchMonthlyUnits() {
 
   try {
     const promises = feeds.map(f => {
-      const url = `${PROXY_BASE}/feed/data.json?id=${f.id}&start=${range.startMs}&end=${nowMs}&interval=daily&delta=1`;
+      const url = `${PROXY_BASE}/feed/data.json?id=${f.id}&start=${range.startMs}&end=${nowMs}&interval=daily&delta=0`;
       return nativeFetch(url).then(text => ({ key: f.key, text })).catch(() => ({ key: f.key, text: "[]" }));
     });
 

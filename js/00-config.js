@@ -1,17 +1,11 @@
-// ─── Proxy & DNS Configuration ──────────────────────────────────────────────
-
-
-// ─── Proxy & DNS Configuration ──────────────────────────────────────────────
 const PROXY_ENDPOINTS = [
   'https://emon-proxy.new-life-786-786-786.workers.dev',
   'https://crisp-blackbird-1172.newlife786786786.deno.net',
   'https://my-vercel-proxy-1.vercel.app',
   'https://newlife-proxy.vercel.app',
-//  'https://taupe-bunny-bb0a25.netlify.app'
   'https://gxmbeybitqckkonxxtcr.supabase.co/functions/v1/proxy'
 ];
 
-// Load last known working proxy index for this device
 let activeProxyIndex = 0;
 try {
   const savedIdx = parseInt(localStorage.getItem('activeProxyIndex'));
@@ -22,16 +16,12 @@ try {
 
 let PROXY_BASE = PROXY_ENDPOINTS[activeProxyIndex];
 
-// DoH (DNS-over-HTTPS) Resolvers for Google, Cloudflare, and AdGuard
 const DOH_RESOLVERS = [
   { name: 'Google DNS (8.8.8.8 / 8.8.4.4)', url: 'https://dns.google/resolve?type=A&name=' },
   { name: 'Cloudflare DNS (1.1.1.1 / 1.0.0.1)', url: 'https://cloudflare-dns.com/dns-query?type=A&ct=application/dns-json&name=' },
   { name: 'AdGuard DNS (94.140.14.14 / 94.140.15.15)', url: 'https://dns.adguard-dns.com/resolve?type=A&name=' }
 ];
 
-/**
- * Perform a DoH lookup across public resolvers when local ISP DNS fails
- */
 async function resolveDomainDoH(hostname) {
   for (const resolver of DOH_RESOLVERS) {
     try {
@@ -46,16 +36,11 @@ async function resolveDomainDoH(hostname) {
           return { provider: resolver.name, ips: ips };
         }
       }
-    } catch (e) {
-      // Continue trying next DoH provider
-    }
+    } catch (e) {}
   }
   return null;
 }
 
-/**
- * Rotate to next proxy endpoint if available and persist choice
- */
 function rotateProxyEndpoint() {
   if (PROXY_ENDPOINTS.length > 1) {
     activeProxyIndex = (activeProxyIndex + 1) % PROXY_ENDPOINTS.length;
@@ -70,8 +55,7 @@ function rotateProxyEndpoint() {
 
 let autoRefreshSec = 30;
 
-// ─── Staleness config ───────────────────────────────────────────────────────
-const STALE_MS = 5 * 60 * 1000; // 5 minutes — force live readings to 0 if no update in this long
+const STALE_MS = 5 * 60 * 1000;
 const STALE_EXEMPT = new Set([
   "Water Tank",
   "Temperature",
@@ -79,12 +63,8 @@ const STALE_EXEMPT = new Set([
   "Temperature 2",
   "Humidity 2",
   "Inverter Temp"
-]); // feeds that should NOT be zeroed when stale
+]);
 
-// Feed IDs that emoncms's list.json unreliably enumerates for their account
-// (confirmed across multiple independent proxies — workers.dev, Supabase, etc.)
-// but that respond fine to individual value.json fetches. We patch these into
-// every bulk response client-side, so it's fixed regardless of which proxy is active.
 const BULK_UNRELIABLE_IDS = ["541348", "541350", "542850", "542853", "512473", "512474"];
 
 const FEEDS_BASE = [
@@ -185,34 +165,26 @@ let userOrderedFeeds = [];
 let isCompact = false;
 window.lastSolarActual = 0;
 
-// ─── Fast Timezone Detection ────────────────────────────────────────────────
 const IS_PKT_ZONE = (new Date().getTimezoneOffset() === -300);
 
 function getPktNow() {
     const now = new Date();
     if (IS_PKT_ZONE) return now;
-    const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
-    return new Date(utc + 18000000 - (now.getTimezoneOffset() * 60000));
+    return new Date(now.getTime() + 18000000 + (now.getTimezoneOffset() * 60000));
+}
+
+function getPktDayStart(year, month, day) {
+    const utcMidnight = Date.UTC(year, month - 1, day, 0, 0, 0);
+    return utcMidnight - (5 * 3600 * 1000);
 }
 
 function getPktTodayStart() {
     const now = getPktNow();
-    if (IS_PKT_ZONE) {
-        return new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-    }
-    return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).getTime();
+    const year = IS_PKT_ZONE ? now.getFullYear() : now.getUTCFullYear();
+    const month = (IS_PKT_ZONE ? now.getMonth() : now.getUTCMonth()) + 1;
+    const day = IS_PKT_ZONE ? now.getDate() : now.getUTCDate();
+    return getPktDayStart(year, month, day);
 }
-
-function getPktDayStart(year, month, day) {
-    // 1. Get the exact UTC timestamp for 12:00 AM UTC
-    const utcMidnight = Date.UTC(year, month - 1, day, 0, 0, 0);
-    // 2. Subtract exactly 5 hours to get Pakistan Midnight
-    return utcMidnight - (5 * 3600 * 1000);
-}
-
-
-
-
 
 function formatPktTime(timestamp, format = 'datetime') {
     const ts = timestamp < 10000000000 ? timestamp * 1000 : timestamp;

@@ -89,16 +89,30 @@
   color: var(--text-main);
   box-shadow: 0 4px 24px rgba(0,0,0,0.6);
   display: none;
-  pointer-events: none;
-  min-width: 380px;
+  pointer-events: auto;
+  min-width: 280px;
   max-width: 480px;
+  max-height: calc(100vh - 20px);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  box-sizing: border-box;
   width: max-content;
   font-family: system-ui, -apple-system, sans-serif;
-  line-height: 1.5;
+  line-height: 1.4;
 }
 #graph-tooltip.pinned,
 #graph-tooltip:has(.close-btn) {
   pointer-events: auto;
+}
+
+@media (max-height: 520px), (max-width: 600px) {
+  #graph-tooltip {
+    min-width: 250px;
+    max-width: calc(100vw - 20px);
+    padding: 8px 10px;
+    font-size: 10.5px;
+    max-height: calc(100vh - 16px);
+  }
 }
 #graph-tooltip .close-btn {
   float: right; margin-left: 10px; cursor: pointer; font-weight: bold; color: var(--text-muted); padding: 0 4px;
@@ -268,7 +282,7 @@
   text-shadow: 0 0 12px rgba(239, 68, 68, 0.5);
 }
 
-.graph-stat .peak-high.peak-high {
+.graph-stat .peak-high.peak-warn {
   color: #f97316 !important;
   text-shadow: 0 0 10px rgba(249, 115, 22, 0.4);
 }

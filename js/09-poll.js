@@ -2,10 +2,9 @@ let _lastPollSuccess = Date.now();
 let countdownVal = autoRefreshSec;
 let countdownTimer, refreshTimer;
 
-// Helper to fetch the latest timestamp for a feed
 async function fetchFeedTime(feedId) {
     const now = Date.now();
-    const start = now - 24 * 3600 * 1000;  // last 24 hours
+    const start = now - 24 * 3600 * 1000;
     const url = `${PROXY_BASE}/feed/data.json?ids=${feedId}&start=${start}&end=${now}&skipmissing=1&average=0&interval=0`;
     try {
         const text = await nativeFetch(url);
@@ -16,7 +15,7 @@ async function fetchFeedTime(feedId) {
                 if (points.length > 0) {
                     const last = points[points.length - 1];
                     if (last && last[0] && last[1] !== null) {
-                        return parseInt(last[0]);  // timestamp in ms
+                        return parseInt(last[0]);
                     }
                 }
             }
@@ -24,7 +23,6 @@ async function fetchFeedTime(feedId) {
     } catch (e) {}
     return null;
 }
-
 
 window.addDebugLog = function(msg) {
   const dbg = document.getElementById('debug-info');
@@ -58,10 +56,8 @@ window.backgroundFetchMonthly = async function() {
 async function poll() {
   const btn = document.getElementById('btn-refresh');
   const footer = document.getElementById('footer');
-  const dbg = document.getElementById('debug-info');
   
-  const pktNow = getPktNow();
-  const startOfToday = new Date(pktNow.getFullYear(), pktNow.getMonth(), pktNow.getDate()).getTime() / 1000;
+  const pktTodayStart = getPktTodayStart();
   
   if (btn) {
     btn.disabled = true;
@@ -143,15 +139,10 @@ async function poll() {
                   }
                 }
               }
-
-              window.prevTankLevel = curTank;
-              window.prevTankTime = now;
             }
           }
         } else if (pctDiff < 0) {
           window.waterFlowRate = 0;
-          window.prevTankLevel = curTank;
-          window.prevTankTime = now;
         } else {
           if (now - window.prevTankTime > 15 * 60 * 1000) {
             window.waterFlowRate = 0;
@@ -163,22 +154,24 @@ async function poll() {
             localStorage.removeItem('water_session_avg_flow');
           }
         }
+        // Always update tank variables to prevent state machine lockup
+        window.prevTankLevel = curTank;
+        window.prevTankTime = now;
       }
     } else {
       window.waterFlowRate = 0;
     }
 
-const fetchTime = Date.now() - fetchStart;
-if (window.addDebugLog) {
-  const missing = FEEDS_BASE.filter(f => !bulkData.has(String(f.id)));
-  if (missing.length > 0) {
-    const names = missing.map(f => `${f.name} (${f.id})`).join(', ');
-    window.addDebugLog(`<b style="color:#ef4444">Proxy Bulk:</b> ${fetchTime}ms, ${bulkData.size} feeds returned, but MISSING: ${names}`);
-  } else {
-    window.addDebugLog(`<b>Proxy Bulk:</b> OK (${fetchTime}ms, ${bulkData.size}/${FEEDS_BASE.length} expected feeds present)`);
-  }
-}
-
+    const fetchTime = Date.now() - fetchStart;
+    if (window.addDebugLog) {
+      const missing = FEEDS_BASE.filter(f => !bulkData.has(String(f.id)));
+      if (missing.length > 0) {
+        const names = missing.map(f => `${f.name} (${f.id})`).join(', ');
+        window.addDebugLog(`<b style="color:#ef4444">Proxy Bulk:</b> ${fetchTime}ms, ${bulkData.size} feeds returned, but MISSING: ${names}`);
+      } else {
+        window.addDebugLog(`<b>Proxy Bulk:</b> OK (${fetchTime}ms, ${bulkData.size}/${FEEDS_BASE.length} expected feeds present)`);
+      }
+    }
 
     const results = await Promise.all(userOrderedFeeds.filter(f => f.enabled).map(async f => {
       const entry = bulkData.get(String(f.id));
@@ -192,22 +185,16 @@ if (window.addDebugLog) {
       if (f.name.toLowerCase().includes('today') && val !== null) {
         if (time) {
           const timestampMs = time < 2000000000 ? time * 1000 : time;
-          if (timestampMs < (startOfToday * 1000)) {
+          if (timestampMs < pktTodayStart) {
             if (window.addDebugLog) window.addDebugLog(`<b style="color:#ef4444">Stale:</b> ${f.name} (recorded ${formatPktTime(timestampMs, 'time')} PKT)`);
             val = 0;
             if (window.addDebugLog) window.addDebugLog(`<b style="color:var(--accent-solar)">Reset:</b> ${f.name} (stale value from yesterday PKT)`);
           }
         } else if (!entry && val === null) {
           val = 0;
-          if (window.addDebugLog) window.addDebugLog(`<b style="color:var(--accent-solar)">Reset:</b> ${f.name} (missing from bulk and fetch failed)`);
         }
       }
 
-      // ─── Generic staleness → force 0 for live (non-accumulator) readings ───
-      // Fix 1: if a "live watts/volts/etc" feed hasn't updated in STALE_MS,
-      // treat it as 0 instead of showing the last stuck value.
-      // Water Tank (and anything in STALE_EXEMPT) is left alone since it's a
-      // slow-moving level, not a live power reading.
       if (!STALE_EXEMPT.has(f.name) && val !== null && time) {
         const tsMs = time < 2000000000 ? time * 1000 : time;
         const age = Date.now() - tsMs;
@@ -220,12 +207,9 @@ if (window.addDebugLog) {
         }
       }
 
-      if (f.id === "541350" && window.addDebugLog) window.addDebugLog(`<b>Debug 541350:</b> bulk=${!!entry}, val=${val}`);
       return { ...f, value: val ?? null, time: time ?? null };
     }));
 
-    
-    // --- Target fetch for Water Motor and Fridge2 times ---
     const timeFixIds = [
         { name: 'Water Motor', id: '542850' },
         { name: 'Fridge2', id: '541348' }
@@ -235,10 +219,7 @@ if (window.addDebugLog) {
         if (result && (result.time === null || result.time === undefined || isNaN(result.time))) {
             const ts = await fetchFeedTime(feed.id);
             if (ts !== null) {
-                result.time = Math.floor(ts / 1000); // convert to seconds
-                if (window.addDebugLog) {
-                    window.addDebugLog(`🕒 Fetched time for ${feed.name}: ${new Date(result.time * 1000).toLocaleTimeString()}`);
-                }
+                result.time = Math.floor(ts / 1000);
             }
         }
     }
@@ -248,31 +229,7 @@ if (window.addDebugLog) {
     const bm = new Map(results.map(r => [r.name, r]));
     window.lastResultsMap = bm; 
     window.lastSolarActual = bm.get('Solar')?.value || 0;
-    // Fallback: fetch missing times individually
-    const missingTimeFeeds = results.filter(r => r.time === null && r.value !== null);
-    if (missingTimeFeeds.length > 0) {
-      const fetchPromises = missingTimeFeeds.map(async (f) => {
-        const url = `${PROXY_BASE}/feed/get.json?id=${f.id}`;
-        try {
-          const text = await nativeFetch(url);
-          if (text && !text.startsWith('ERROR')) {
-            const data = JSON.parse(text);
-            if (data && data.time) {
-              const time = parseInt(data.time);
-              if (!isNaN(time)) {
-                const idx = results.indexOf(f);
-                if (idx !== -1) {
-                  results[idx].time = time;
-                }
-              }
-            }
-          }
-        } catch (e) { /* ignore */ }
-      });
-      await Promise.all(fetchPromises);
-    }
 
-    
     renderResults(results);
     
     if (typeof checkAlerts === 'function') checkAlerts(bm);

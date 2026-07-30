@@ -154,6 +154,113 @@ function _calcStatsForRange(bars, startHour, endHour, nav, lastIdx) {
     };
 }
 
+// ─── UPDATED _gNavInfo() with constants ─────────────────────────────────────
+
+function _gNavInfo() {
+    const now = getPktNow();
+    
+    if (graphTab === 'day') {
+        const d = new Date(now.getTime());
+        d.setDate(d.getDate() + graphDateNav);
+        const year = d.getFullYear();
+        const month = d.getMonth() + 1;
+        const day = d.getDate();
+
+        let startMs = getPktDayStart(year, month, day);
+        startMs += window.graphDayStartHour * 3600 * 1000;
+        
+        const res = (graphChartType === 'hourly') ? 3600 : GRAPH_DAY_RESOLUTION_SECONDS;
+        const totalPoints = Math.ceil((24 * 3600) / res);
+        const labels = [];
+        const fullLabels = [];
+        
+        for (let i = 0; i < totalPoints; i++) { 
+            const currentTs = startMs + i * res * 1000;
+            const pktHour = Math.floor((currentTs / 3600000) + 5) % 24;
+            const pktMin  = Math.floor((currentTs / 60000)) % 60;
+            const ampm = pktHour >= 12 ? 'pm' : 'am';
+            const hh = pktHour % 12 || 12;
+            const mm = String(pktMin).padStart(2, '0');
+            labels.push(`${hh}${ampm}`);
+            fullLabels.push(`${hh}:${mm}${ampm}`);
+        }
+        
+        return { 
+            label: graphDateNav === 0 ? 'Today' : `${day} ${_MONTH_SHORT[month-1]}`, 
+            sub: `${day} ${_MONTH_NAMES[month-1]} ${year}`,
+            interval: res, 
+            startMs, 
+            endMs: startMs + 24 * 3600 * 1000 - 1, 
+            isDayTab: true, 
+            nBars: totalPoints, 
+            labels, 
+            timeLabels: fullLabels,
+            fullLabels,
+            resSeconds: res 
+        };
+    }
+
+    if (graphTab === 'month') {
+        let base = new Date(now.getFullYear(), now.getMonth() + graphMonthNav, 1);
+        let sM = base.getMonth() - 1; let sY = base.getFullYear(); if (sM < 0) { sM = 11; sY--; }
+        const start = new Date(sY, sM, 25);
+        const end = new Date(start.getFullYear(), start.getMonth() + 1, 26);
+        const days = Math.ceil((end - start) / 86400000);
+        const labels = []; 
+        const timeLabels = [];
+        for (let i = 0; i < days; i++) { 
+            const d = new Date(start.getTime() + i*86400000);
+            const pktDate = getKarachiDate(d.getTime());
+            labels.push(`${pktDate.day}/${pktDate.month}`);
+            timeLabels.push(`${pktDate.day}/${pktDate.month}`);
+        }
+        return { 
+            label: `${start.toLocaleDateString(undefined,{month:'short',day:'numeric'})} - ${end.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'})}`,
+            interval: GRAPH_MONTH_RESOLUTION_SECONDS,
+            isDayTab: false, 
+            nBars: days, 
+            startMs: start.getTime(), 
+            endMs: end.getTime(), 
+            labels, 
+            timeLabels, 
+            month: start.getMonth(), 
+            year: start.getFullYear(), 
+            isMonthBilling: true, 
+            resSeconds: GRAPH_MONTH_RESOLUTION_SECONDS
+        };
+    }
+
+    if (graphTab === 'year') {
+        const y = now.getFullYear() + graphYearNav;
+        const start = new Date(y, 0, 1);
+        const end = new Date(y, 11, 31, 23, 59, 59);
+        const labels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const timeLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const daysInMonth = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+        if ((y % 4 === 0 && y % 100 !== 0) || (y % 400 === 0)) {
+            daysInMonth[1] = 29;
+        }
+        return { 
+            label: `${y}`, 
+            interval: GRAPH_YEAR_RESOLUTION_SECONDS,
+            isYearly: true, 
+            nBars: 12, 
+            startMs: start.getTime(), 
+            endMs: end.getTime(), 
+            labels, 
+            timeLabels,
+            daysInMonth: daysInMonth,
+            year: y, 
+            isYearBilling: true, 
+            resSeconds: GRAPH_YEAR_RESOLUTION_SECONDS,
+            isYearView: true
+        };
+    }
+    return { label:'All Time', startMs: new Date(2024,0,1).getTime(), endMs: now.getTime(), labels:[], timeLabels:[] };
+}
+
+// ─── The rest of the file (unchanged) ───────────────────────────────────────
+
 async function _loadAndDraw() {
     if (graphIsLoading) return; graphIsLoading = true; _showGraphLoading(true);
     const stat = document.getElementById('graph-stat'), canvas = document.getElementById('graph-canvas');

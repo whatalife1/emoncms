@@ -44,7 +44,6 @@ body { background: var(--bg-base); color: var(--text-main); font-family: system-
   background: var(--bg-base);
 }
 
-/* ── Override desktop constraints for the Detailed Usage Report ── */
 @media (min-width: 480px) {
   body {
     background: #040406;
@@ -59,14 +58,14 @@ body { background: var(--bg-base); color: var(--text-main); font-family: system-
     border-right: 1px solid var(--border);
   }
   .header {
-    max-width: 448px;
+    max-width: 450px;
   }
   .footer {
     position: absolute;
     bottom: 0;
     left: 0;
     right: 0;
-    max-width: 448px;
+    max-width: 450px;
   }
   
   .slide-panel, #solar-panel, #settings, #widgets-panel, #alerts-panel {

@@ -7,14 +7,10 @@ window.onNativeResponse = (id, res) => {
   }
 };
 
-/**
- * Robust fetch with DoH (DNS-over-HTTPS) diagnostic and endpoint rotation
- */
 function nativeFetch(url, retries = PROXY_ENDPOINTS.length - 1, delay = 500) {
   return new Promise(resolve => {
-    const id = Math.random().toString(36).substr(2, 9);
+    const id = Math.random().toString(36).substring(2, 11);
     
-    // Safety timeout: Reduced from 10s to 4.5s for fast failover on blocked/slow proxy
     const timeoutTimer = setTimeout(() => {
       if (nativeCallbacks[id]) {
         if (window.addDebugLog) window.addDebugLog(`<b style="color:#ef4444">Timeout:</b> 4.5s exceeded. Force-canceling & rotating.`);
@@ -25,8 +21,6 @@ function nativeFetch(url, retries = PROXY_ENDPOINTS.length - 1, delay = 500) {
     nativeCallbacks[id] = async (result) => {
       clearTimeout(timeoutTimer);
       if (typeof result === 'string' && result.startsWith('ERROR:') && retries > 0) {
-        
-        // Extract target domain and perform DoH resolution test
         try {
           const parsedUrl = new URL(url);
           const hostname = parsedUrl.hostname;
@@ -35,19 +29,13 @@ function nativeFetch(url, retries = PROXY_ENDPOINTS.length - 1, delay = 500) {
             window.addDebugLog(`<b style="color:#f59e0b">Network/DNS Failure:</b> (${result}). Testing DoH lookup for ${hostname}...`);
           }
 
-          // Query Google (8.8.8.8), Cloudflare (1.1.1.1), or AdGuard (94.140.14.14) via HTTPS
           const dohResult = await resolveDomainDoH(hostname);
           if (dohResult) {
             if (window.addDebugLog) {
               window.addDebugLog(`<b style="color:#10b981">DoH Resolved [${dohResult.provider}]:</b> ${hostname} -> [${dohResult.ips.join(', ')}]`);
             }
-          } else {
-            if (window.addDebugLog) {
-              window.addDebugLog(`<b style="color:#ef4444">DoH Check:</b> DNS blocked on local network across all providers.`);
-            }
           }
 
-          // If multiple proxy endpoints are defined, rotate endpoint
           if (typeof PROXY_ENDPOINTS !== 'undefined' && PROXY_ENDPOINTS.length > 1) {
             const oldBase = PROXY_BASE;
             const newBase = rotateProxyEndpoint();
@@ -56,9 +44,7 @@ function nativeFetch(url, retries = PROXY_ENDPOINTS.length - 1, delay = 500) {
               window.addDebugLog(`<b style="color:#38bdf8">Switching Endpoint:</b> ${newBase}`);
             }
           }
-        } catch (e) {
-          // Ignore URL parse errors
-        }
+        } catch (e) {}
 
         setTimeout(() => {
           resolve(nativeFetch(url, retries - 1, Math.min(delay * 1.5, 2000)));
@@ -67,7 +53,6 @@ function nativeFetch(url, retries = PROXY_ENDPOINTS.length - 1, delay = 500) {
         if (typeof result === 'string' && result.startsWith('ERROR:')) {
            if (window.addDebugLog) window.addDebugLog(`<b style="color:#ef4444">Fetch Failed:</b> ${result.substring(0, 60)}...`);
         } else {
-           // Save healthy active proxy index on successful response
            try {
              localStorage.setItem('activeProxyIndex', activeProxyIndex.toString());
            } catch (e) {}
@@ -105,23 +90,20 @@ async function fetchEmonBulk() {
     const data = JSON.parse(text);
     const lookup = new Map();
     data.forEach(f => {
-            const t = (f.time !== undefined && f.time !== null) ? parseInt(f.time) : null;
+      const t = (f.time !== undefined && f.time !== null) ? parseInt(f.time) : null;
       const time = (t !== null && !isNaN(t)) ? t : null;
       lookup.set(String(f.id), { v: parseFloat(f.value) || 0, t: time });
     });
 
-    // Patch in feed IDs known to be unreliable in list.json, regardless of proxy.
-    // (Confirmed: this emoncms instance doesn't support batched ids= on value.json,
-    // so we fetch these in parallel individually — still just 1 round-trip's worth
-    // of wall-clock time since they all fire at once.)
     const missingIds = BULK_UNRELIABLE_IDS.filter(id => !lookup.has(id));
     if (missingIds.length > 0) {
       const patches = await Promise.all(missingIds.map(async id => {
         const val = await fetchEmon(id);
         return { id, val };
       }));
+      const nowSec = Math.floor(Date.now() / 1000);
       patches.forEach(({ id, val }) => {
-        if (val !== null) lookup.set(id, { v: val, t: null });
+        if (val !== null) lookup.set(id, { v: val, t: nowSec });
       });
     }
 
@@ -130,8 +112,6 @@ async function fetchEmonBulk() {
     throw e; 
   }
 }
-
-
 
 async function fetchEmon(id) {
   const url = `${PROXY_BASE}/?id=${id}`;

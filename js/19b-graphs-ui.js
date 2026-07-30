@@ -192,11 +192,11 @@ function _renderGNavBar() {
     const datePicker = document.getElementById('graph-date-picker');
     if (datePicker) {
         datePicker.addEventListener('change', function() {
-            const selected = new Date(this.value + 'T00:00:00');
-            const today = getPktNow();
-            const diffTime = selected.getTime() - today.getTime();
-            const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
-            graphDateNav = diffDays;
+            const [y, m, d] = this.value.split('-').map(Number);
+            const targetMs = Date.UTC(y, m - 1, d);
+            const pktDate = getKarachiDate(Date.now());
+            const todayMs = Date.UTC(pktDate.year, pktDate.month - 1, pktDate.day);
+            graphDateNav = Math.round((targetMs - todayMs) / 86400000);
             graphZoomLevel = 1;
             graphPanOffset = 0;
             hideTooltip();

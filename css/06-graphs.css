@@ -89,9 +89,9 @@
   color: var(--text-main);
   box-shadow: 0 4px 24px rgba(0,0,0,0.6);
   display: none;
-  pointer-events: auto;
-  min-width: 280px;
-  max-width: 480px;
+  pointer-events: none;
+  min-width: 260px;
+  max-width: min(480px, calc(100vw - 20px));
   max-height: calc(100vh - 20px);
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
@@ -101,7 +101,8 @@
   line-height: 1.4;
 }
 #graph-tooltip.pinned,
-#graph-tooltip:has(.close-btn) {
+#graph-tooltip .close-btn,
+#graph-tooltip button {
   pointer-events: auto;
 }
 

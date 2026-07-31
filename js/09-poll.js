@@ -234,6 +234,7 @@ async function poll() {
     
     if (typeof checkAlerts === 'function') checkAlerts(bm);
     if (typeof updateMainPredicted === 'function') updateMainPredicted();
+    if (typeof updateOfflineWarningBanner === 'function') updateOfflineWarningBanner(bm);
     
     if (footer) {
       const localTime = formatPktTime(Date.now(), 'time');

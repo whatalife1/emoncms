@@ -2,7 +2,15 @@ function updateOfflineWarningBanner(byName) {
   const wrap = document.getElementById('offline-warning-wrap');
   if (!wrap) return;
 
-  if (!byName || byName.size === 0) {
+  // Hardcoded master toggle (Set to true if you want to force enable in JS)
+  const HARDCODED_ENABLE_OFFLINE_WARNINGS = false;
+
+  // Settings UI switch (Default: false/off)
+  const uiEnableOfflineWarnings = localStorage.getItem('offlineWarnEnabled') === 'true';
+
+  const isEnabled = HARDCODED_ENABLE_OFFLINE_WARNINGS || uiEnableOfflineWarnings;
+
+  if (!isEnabled || !byName || byName.size === 0) {
     wrap.style.display = 'none';
     wrap.innerHTML = '';
     return;
@@ -13,21 +21,21 @@ function updateOfflineWarningBanner(byName) {
   const OFFLINE_THRESHOLD_SEC = 30 * 60; // 30 minutes offline threshold
 
   const STALE_CHECK_FEEDS = [
-    { name: "Kenwood 1.5Ton", label: "Kenwood 1.5T", type: "appliance" },
-    { name: "Kenwood 1Ton",   label: "Kenwood 1T",   type: "appliance" },
-    { name: "Haier 1Ton",     label: "Haier 1T",     type: "appliance" },
-    { name: "Fridge",         label: "Fridge 1",     type: "appliance" },
-    { name: "Fridge2",        label: "Fridge 2",     type: "appliance" },
-    { name: "Water Motor",    label: "Water Motor",  type: "appliance" },
-    { name: "PC",             label: "PC",           type: "appliance" },
-    { name: "Temperature",    label: "Temp 1",       type: "temp" },
-    { name: "Temperature 2",  label: "Temp 2",       type: "temp" },
-    { name: "Inverter Temp",  label: "Inv Temp",     type: "temp" },
-    { name: "Water Tank",     label: "Water Tank",   type: "env" },
-    { name: "AC Volts",       label: "AC Volts",     type: "env" },
-    { name: "Breaker",        label: "Breaker",      type: "watts" },
-    { name: "Solar",          label: "Solar",        type: "watts" },
-    { name: "Tot Load",       label: "Tot Load",     type: "watts" }
+    { name: "Kenwood 1.5Ton", label: "Kenwood 1.5T", type: "appliance", enabled: true },
+    { name: "Kenwood 1Ton",   label: "Kenwood 1T",   type: "appliance", enabled: true },
+    { name: "Haier 1Ton",     label: "Haier 1T",     type: "appliance", enabled: true },
+    { name: "Fridge",         label: "Fridge 1",     type: "appliance", enabled: true },
+    { name: "Fridge2",        label: "Fridge 2",     type: "appliance", enabled: true },
+    { name: "Water Motor",    label: "Water Motor",  type: "appliance", enabled: true },
+    { name: "PC",             label: "PC",           type: "appliance", enabled: true },
+    { name: "Temperature",    label: "Temp 1",       type: "temp",      enabled: true },
+    { name: "Temperature 2",  label: "Temp 2",       type: "temp",      enabled: true },
+    { name: "Inverter Temp",  label: "Inv Temp",     type: "temp",      enabled: true },
+    { name: "Water Tank",     label: "Water Tank",   type: "env",       enabled: true },
+    { name: "AC Volts",       label: "AC Volts",     type: "env",       enabled: true },
+    { name: "Breaker",        label: "Breaker",      type: "watts",     enabled: true },
+    { name: "Solar",          label: "Solar",        type: "watts",     enabled: true },
+    { name: "Tot Load",       label: "Tot Load",     type: "watts",     enabled: true }
   ];
 
   const formatAge = (sec) => {
@@ -40,6 +48,15 @@ function updateOfflineWarningBanner(byName) {
   };
 
   STALE_CHECK_FEEDS.forEach(item => {
+    // Skip if disabled in code above
+    if (item.enabled === false) return;
+
+    // Skip if disabled in Display Settings UI (⚙)
+    if (typeof userOrderedFeeds !== 'undefined' && userOrderedFeeds.length > 0) {
+      const userSetting = userOrderedFeeds.find(f => f.name === item.name);
+      if (userSetting && userSetting.enabled === false) return;
+    }
+
     const feed = byName.get(item.name);
     const timeSec = (feed && feed.time && typeof feed.time === 'number' && feed.time > 0) ? feed.time : null;
     const ageSec = timeSec ? (nowSec - timeSec) : null;

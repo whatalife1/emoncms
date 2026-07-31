@@ -1,3 +1,85 @@
+function updateOfflineWarningBanner(byName) {
+  const wrap = document.getElementById('offline-warning-wrap');
+  if (!wrap) return;
+
+  if (!byName || byName.size === 0) {
+    wrap.style.display = 'none';
+    wrap.innerHTML = '';
+    return;
+  }
+
+  const warnings = [];
+  const nowSec = Math.floor(Date.now() / 1000);
+
+  const STALE_CHECK_FEEDS = [
+    { name: "Kenwood 1.5Ton", label: "Kenwood 1.5T", type: "appliance" },
+    { name: "Kenwood 1Ton",   label: "Kenwood 1T",   type: "appliance" },
+    { name: "Haier 1Ton",     label: "Haier 1T",     type: "appliance" },
+    { name: "Fridge",         label: "Fridge 1",     type: "appliance" },
+    { name: "Fridge2",        label: "Fridge 2",     type: "appliance" },
+    { name: "Water Motor",    label: "Water Motor",  type: "appliance" },
+    { name: "PC",             label: "PC",           type: "appliance" },
+    { name: "Temperature",    label: "Temp 1",       type: "temp" },
+    { name: "Temperature 2",  label: "Temp 2",       type: "temp" },
+    { name: "Inverter Temp",  label: "Inv Temp",     type: "temp" },
+    { name: "Water Tank",     label: "Water Tank",   type: "env" },
+    { name: "AC Volts",       label: "AC Volts",     type: "env" },
+    { name: "Breaker",        label: "Breaker",      type: "watts" },
+    { name: "Solar",          label: "Solar",        type: "watts" },
+    { name: "Tot Load",       label: "Tot Load",     type: "watts" }
+  ];
+
+  STALE_CHECK_FEEDS.forEach(item => {
+    const feed = byName.get(item.name);
+
+    if (!feed || feed.value === null || feed.value === undefined) {
+      warnings.push({ label: item.label, detail: 'No Data' });
+      return;
+    }
+
+    if (item.type === 'temp' && feed.value <= 0) {
+      warnings.push({ label: item.label, detail: `${feed.value ?? 0}°C (Offline)` });
+      return;
+    }
+
+    if (feed.time && typeof feed.time === 'number' && feed.time > 0) {
+      const ageSec = nowSec - feed.time;
+      if (ageSec > 600) {
+        let ageStr = '';
+        if (ageSec < 3600) {
+          ageStr = `${Math.floor(ageSec / 60)}m ago`;
+        } else {
+          const hrs = Math.floor(ageSec / 3600);
+          const mins = Math.floor((ageSec % 3600) / 60);
+          ageStr = mins > 0 ? `${hrs}h ${mins}m ago` : `${hrs}h ago`;
+        }
+        warnings.push({ label: item.label, detail: ageStr });
+      }
+    }
+  });
+
+  if (warnings.length === 0) {
+    wrap.style.display = 'none';
+    wrap.innerHTML = '';
+  } else {
+    wrap.style.display = 'flex';
+    wrap.innerHTML = `
+      <div class="offline-warning-header">
+        <span>⚠️ Feeds Not Updating / Offline (${warnings.length}):</span>
+      </div>
+      <div class="offline-warning-list">
+        ${warnings.map(w => `
+          <div class="offline-pill">
+            <span class="pill-label">${w.label}</span>
+            <span>&bull;</span>
+            <span class="pill-detail">${w.detail}</span>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+}
+
 function renderResults(results) {
   const byName = new Map(results.map(r => [r.name, r]));
   const used   = new Set();
@@ -5,6 +87,7 @@ function renderResults(results) {
   results.forEach(f => { if (f.value != null) sparkPush(f.id, f.value); });
   if (!isCompact) { renderFlowDiagram(byName); } else { const wrap = document.getElementById('flow-svg-wrap'); if (wrap) wrap.innerHTML = ''; }
   updateCostCard(byName);
+  updateOfflineWarningBanner(byName);
 
   const html = results.map(f => {
     if (f.name === 'Solar Amps') return '';

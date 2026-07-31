@@ -95,3 +95,55 @@
 .grid-off-anim {
   animation: grid-off-flash 1.5s infinite ease-in-out;
 }
+
+/* ── Offline / Stale Warning Banner ───────────────────────────────────── */
+#offline-warning-wrap {
+  background: rgba(239, 68, 68, 0.12);
+  border-top: 1px solid rgba(239, 68, 68, 0.35);
+  border-bottom: 1px solid rgba(239, 68, 68, 0.35);
+  padding: 6px 12px;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.offline-warning-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #f87171;
+  letter-spacing: 0.02em;
+}
+
+.offline-warning-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+  align-items: center;
+}
+
+.offline-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(239, 68, 68, 0.2);
+  border: 1px solid rgba(239, 68, 68, 0.45);
+  border-radius: 6px;
+  padding: 2px 7px;
+  font-size: 11px;
+  color: #fecaca;
+  font-weight: 600;
+}
+
+.offline-pill .pill-label {
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.offline-pill .pill-detail {
+  color: #f87171;
+  font-weight: 700;
+}

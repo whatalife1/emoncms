@@ -22,7 +22,7 @@ function renderFlowDiagram(byName) {
     const pCount = solarCfg.panelCount || 9;
     const pWatts = solarCfg.panelWatts || 580;
     const totalKw = ((pCount * pWatts) / 1000).toFixed(1);
-    titleEl.innerHTML = `⚡ Live power flow &bull; Inverter: 6kW &bull; ${pCount}×${pWatts}W = ${totalKw}kW Solar`;
+    titleEl.innerHTML = `⚡ Live power flow &bull; Inverter: 6kW &bull; Solar ${totalKw} kW (${pCount}×${pWatts})`;
   }
 
   const getV = (n) => byName.get(n)?.value ?? 0;

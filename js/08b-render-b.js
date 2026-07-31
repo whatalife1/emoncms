@@ -30,32 +30,35 @@ function updateOfflineWarningBanner(byName) {
     { name: "Tot Load",       label: "Tot Load",     type: "watts" }
   ];
 
+  const formatAge = (sec) => {
+    if (sec < 3600) {
+      return `${Math.max(1, Math.floor(sec / 60))}m`;
+    }
+    const hrs = Math.floor(sec / 3600);
+    const mins = Math.floor((sec % 3600) / 60);
+    return mins > 0 ? `${hrs}h ${mins}m` : `${hrs}h`;
+  };
+
   STALE_CHECK_FEEDS.forEach(item => {
     const feed = byName.get(item.name);
+    const timeSec = (feed && feed.time && typeof feed.time === 'number' && feed.time > 0) ? feed.time : null;
+    const ageSec = timeSec ? (nowSec - timeSec) : null;
+    const ageText = ageSec && ageSec > 60 ? ` (Off for ${formatAge(ageSec)})` : '';
 
     if (!feed || feed.value === null || feed.value === undefined) {
-      warnings.push({ label: item.label, detail: 'No Data' });
+      const detailStr = ageSec && ageSec > 60 ? `No Data (Off for ${formatAge(ageSec)})` : 'No Data';
+      warnings.push({ label: item.label, detail: detailStr });
       return;
     }
 
     if (item.type === 'temp' && feed.value <= 0) {
-      warnings.push({ label: item.label, detail: `${feed.value ?? 0}°C (Offline)` });
+      const detailStr = `${feed.value ?? 0}°C${ageText || ' (Offline)'}`;
+      warnings.push({ label: item.label, detail: detailStr });
       return;
     }
 
-    if (feed.time && typeof feed.time === 'number' && feed.time > 0) {
-      const ageSec = nowSec - feed.time;
-      if (ageSec > OFFLINE_THRESHOLD_SEC) {
-        let ageStr = '';
-        if (ageSec < 3600) {
-          ageStr = `${Math.floor(ageSec / 60)}m ago`;
-        } else {
-          const hrs = Math.floor(ageSec / 3600);
-          const mins = Math.floor((ageSec % 3600) / 60);
-          ageStr = mins > 0 ? `${hrs}h ${mins}m ago` : `${hrs}h ago`;
-        }
-        warnings.push({ label: item.label, detail: ageStr });
-      }
+    if (ageSec && ageSec > OFFLINE_THRESHOLD_SEC) {
+      warnings.push({ label: item.label, detail: `Off for ${formatAge(ageSec)}` });
     }
   });
 

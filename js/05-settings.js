@@ -2,7 +2,7 @@ async function loadSettings() {
   const savedLayout   = localStorage.getItem('customLayout');
   const savedInterval = localStorage.getItem('refreshInterval');
   const debugEnabled  = localStorage.getItem('debugEnabled') === 'true';
-  const offlineWarnEnabled = localStorage.getItem('offlineWarnEnabled') === 'true';
+  const offlineWarnEnabled = localStorage.getItem('offlineWarnEnabled') !== 'false'; // Defaults to ON (true)
   autoRefreshSec = Math.max(5, parseInt(savedInterval) || 30);
   document.getElementById('refresh-interval').value = autoRefreshSec;
   document.getElementById('debug-toggle').checked = debugEnabled;

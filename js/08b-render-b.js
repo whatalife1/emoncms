@@ -10,6 +10,7 @@ function updateOfflineWarningBanner(byName) {
 
   const warnings = [];
   const nowSec = Math.floor(Date.now() / 1000);
+  const OFFLINE_THRESHOLD_SEC = 30 * 60; // 30 minutes offline threshold
 
   const STALE_CHECK_FEEDS = [
     { name: "Kenwood 1.5Ton", label: "Kenwood 1.5T", type: "appliance" },
@@ -44,7 +45,7 @@ function updateOfflineWarningBanner(byName) {
 
     if (feed.time && typeof feed.time === 'number' && feed.time > 0) {
       const ageSec = nowSec - feed.time;
-      if (ageSec > 600) {
+      if (ageSec > OFFLINE_THRESHOLD_SEC) {
         let ageStr = '';
         if (ageSec < 3600) {
           ageStr = `${Math.floor(ageSec / 60)}m ago`;

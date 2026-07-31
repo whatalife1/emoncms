@@ -98,7 +98,7 @@
   box-sizing: border-box;
   width: max-content;
   font-family: system-ui, -apple-system, sans-serif;
-  line-height: 1.4;
+  line-height: 1.35;
 }
 #graph-tooltip.pinned,
 #graph-tooltip .close-btn,
@@ -106,13 +106,26 @@
   pointer-events: auto;
 }
 
-@media (max-height: 520px), (max-width: 600px) {
+@media (max-width: 600px) {
   #graph-tooltip {
-    min-width: 250px;
-    max-width: calc(100vw - 20px);
-    padding: 8px 10px;
-    font-size: 10.5px;
-    max-height: calc(100vh - 16px);
+    position: fixed !important;
+    top: auto !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 100% !important;
+    max-height: 48vh !important;
+    border-radius: 16px 16px 0 0 !important;
+    border: 1px solid var(--border) !important;
+    border-bottom: none !important;
+    box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.8) !important;
+    padding: 10px 14px 16px 14px !important;
+    margin: 0 !important;
+    transform: none !important;
+    background: var(--bg-panel) !important;
+    z-index: 999999 !important;
   }
 }
 #graph-tooltip .close-btn {

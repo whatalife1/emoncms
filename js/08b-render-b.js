@@ -2,13 +2,12 @@ function updateOfflineWarningBanner(byName) {
   const wrap = document.getElementById('offline-warning-wrap');
   if (!wrap) return;
 
-  // Hardcoded master toggle (Set to true if you want to force enable in JS)
-  const HARDCODED_ENABLE_OFFLINE_WARNINGS = false;
+  // Default state when not saved in Settings yet (true = default ON, false = default OFF)
+  const DEFAULT_ENABLE_OFFLINE_WARNINGS = true;
 
-  // Settings UI switch (Default: false/off)
-  const uiEnableOfflineWarnings = localStorage.getItem('offlineWarnEnabled') === 'true';
-
-  const isEnabled = HARDCODED_ENABLE_OFFLINE_WARNINGS || uiEnableOfflineWarnings;
+  // Settings UI preference
+  const savedPref = localStorage.getItem('offlineWarnEnabled');
+  const isEnabled = savedPref !== null ? (savedPref === 'true') : DEFAULT_ENABLE_OFFLINE_WARNINGS;
 
   if (!isEnabled || !byName || byName.size === 0) {
     wrap.style.display = 'none';
@@ -78,6 +77,37 @@ function updateOfflineWarningBanner(byName) {
       warnings.push({ label: item.label, detail: `Off for ${formatAge(ageSec)}` });
     }
   });
+
+  // Check if BOTH fridges are at 0W (<= 5W) for > 30 minutes simultaneously
+  const f1Item = STALE_CHECK_FEEDS.find(i => i.name === "Fridge");
+  const f2Item = STALE_CHECK_FEEDS.find(i => i.name === "Fridge2");
+  const f1CodeEnabled = !f1Item || f1Item.enabled !== false;
+  const f2CodeEnabled = !f2Item || f2Item.enabled !== false;
+  const f1UiEnabled = !userOrderedFeeds || !userOrderedFeeds.some(f => f.name === "Fridge" && f.enabled === false);
+  const f2UiEnabled = !userOrderedFeeds || !userOrderedFeeds.some(f => f.name === "Fridge2" && f.enabled === false);
+
+  if (f1CodeEnabled && f2CodeEnabled && f1UiEnabled && f2UiEnabled) {
+    const f1 = byName.get("Fridge");
+    const f2 = byName.get("Fridge2");
+    const f1Val = (f1 && f1.value !== null && f1.value !== undefined) ? f1.value : 0;
+    const f2Val = (f2 && f2.value !== null && f2.value !== undefined) ? f2.value : 0;
+    const bothZero = (f1Val <= 5) && (f2Val <= 5);
+
+    if (bothZero) {
+      let startStr = localStorage.getItem('both_fridges_zero_start');
+      if (!startStr) {
+        startStr = nowSec.toString();
+        localStorage.setItem('both_fridges_zero_start', startStr);
+      } else {
+        const durSec = nowSec - parseInt(startStr, 10);
+        if (durSec >= 30 * 60) {
+          warnings.push({ label: "Both Fridges", detail: `0W for ${formatAge(durSec)}` });
+        }
+      }
+    } else {
+      localStorage.removeItem('both_fridges_zero_start');
+    }
+  }
 
   if (warnings.length === 0) {
     wrap.style.display = 'none';

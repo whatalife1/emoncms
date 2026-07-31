@@ -2,10 +2,13 @@ async function loadSettings() {
   const savedLayout   = localStorage.getItem('customLayout');
   const savedInterval = localStorage.getItem('refreshInterval');
   const debugEnabled  = localStorage.getItem('debugEnabled') === 'true';
+  const offlineWarnEnabled = localStorage.getItem('offlineWarnEnabled') === 'true';
   autoRefreshSec = Math.max(5, parseInt(savedInterval) || 30);
   document.getElementById('refresh-interval').value = autoRefreshSec;
   document.getElementById('debug-toggle').checked = debugEnabled;
   document.getElementById('debug-info').style.display = debugEnabled ? 'block' : 'none';
+  const offlineToggle = document.getElementById('offline-warn-toggle');
+  if (offlineToggle) offlineToggle.checked = offlineWarnEnabled;
   if (savedLayout) {
     const parsed = JSON.parse(savedLayout);
     userOrderedFeeds = parsed.map(saved => {
@@ -43,6 +46,10 @@ async function saveSettings() {
   localStorage.setItem('customLayout', JSON.stringify(layout));
   localStorage.setItem('refreshInterval', autoRefreshSec);
   localStorage.setItem('debugEnabled', document.getElementById('debug-toggle').checked);
+  const offlineToggle = document.getElementById('offline-warn-toggle');
+  if (offlineToggle) {
+    localStorage.setItem('offlineWarnEnabled', offlineToggle.checked);
+  }
   document.getElementById('debug-info').style.display = document.getElementById('debug-toggle').checked ? 'block' : 'none';
   document.getElementById('settings').classList.remove('open');
 

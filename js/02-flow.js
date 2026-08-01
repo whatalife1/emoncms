@@ -96,7 +96,6 @@ function renderFlowDiagram(byName) {
     const mFs = Math.round(o.fs * 0.72);
     const timeNow = getPktNow().toLocaleTimeString('en-PK', { hour: 'numeric', minute: '2-digit', hour12: true }).toLowerCase().replace(' ', '');
     svg += `<rect x="${o.x}" y="${o.y}" width="${o.w}" height="${o.h}" rx="10" fill="#0f172a" stroke="${o.color}" stroke-width="2"/>`;
-    // --- MODIFIED WEATHER LINE ---
     svg += `<text x="${cx(o)}" y="${o.y+o.ly1}" ${tpProps} font-size="${o.fs}" fill="${o.c1}"><tspan fill="#a1a1aa" font-size="${sFs}">${timeNow}</tspan> <tspan fill="#334155" font-size="${mFs}">|</tspan> ${wIcon} ${tW}°C <tspan fill="#334155" font-size="${mFs}">|</tspan> <tspan fill="#f59e0b" font-size="${sFs}">Feels: ${feels}°C</tspan> <tspan fill="#334155" font-size="${mFs}">|</tspan> <tspan fill="#38bdf8" font-size="${sFs}">Hum: ${humW}%</tspan> <tspan fill="#334155" font-size="${mFs}">|</tspan> <tspan fill="#cbd5e1" font-size="${sFs}">☁ ${cl}%</tspan> <tspan fill="#334155" font-size="${mFs}">|</tspan> <tspan fill="#60a5fa" font-size="${sFs}">🌧 ${rn}%</tspan>${window.irradiancePct !== undefined && window.irradiancePct !== null ? ` <tspan fill="#334155" font-size="${mFs}">|</tspan> <tspan fill="#facc15" font-size="${sFs}">☀️ ${window.irradiancePct}%</tspan>` : ''}</text>`;
   }
 
@@ -140,14 +139,21 @@ function renderFlowDiagram(byName) {
   o = L.water;
   const tkFeed = byName.get('Water Tank');
   const tkTime = tkFeed?.time;
+  const isWasting = window.waterWasteDetected?.active;
+
   let wS = "CRITICAL", wC = "#f87171";
-  if (tk > 95) { wS = "FULL"; wC = "#38bdf8"; }
+  if (isWasting) {
+    wS = "🚨 VALVE OPEN";
+    wC = "#ef4444";
+  } else if (tk > 95) { wS = "FULL"; wC = "#38bdf8"; }
   else if (tk > 70) { wS = "GOOD"; wC = "#4ade80"; }
   else if (tk > 40) { wS = "MODERATE"; wC = "#facc15"; }
   else if (tk > 20) { wS = "LOW"; wC = "#f59e0b"; }
-  svg += `<rect x="${o.x}" y="${o.y}" width="${o.w}" height="${o.h}" rx="10" fill="#0f1a20" stroke="${wC}" stroke-width="2"/>`;
-  svg += `<text x="${cx(o)}" y="${o.y+o.ly1}" ${tpProps} font-size="${o.fs}" fill="${o.c1}">${o.label}</text>`;
-  svg += `<text x="${cx(o)}" y="${o.y+o.ly2}" ${tpProps} font-size="${o.fs2}" fill="${o.c2}">${Math.round(tk)}%</text>`;
+
+  const boxClass = isWasting ? "pulse-animation" : "";
+  svg += `<rect class="${boxClass}" style="--pulse-clr:#ef4444" x="${o.x}" y="${o.y}" width="${o.w}" height="${o.h}" rx="10" fill="${isWasting?'#2a0a0a':'#0f1a20'}" stroke="${wC}" stroke-width="2"/>`;
+  svg += `<text x="${cx(o)}" y="${o.y+o.ly1}" ${tpProps} font-size="${o.fs}" fill="${isWasting?'#ef4444':o.c1}">${o.label}</text>`;
+  svg += `<text x="${cx(o)}" y="${o.y+o.ly2}" ${tpProps} font-size="${o.fs2}" fill="${isWasting?'#fca5a5':o.c2}">${Math.round(tk)}%</text>`;
   svg += `<text x="${cx(o)}" y="${o.y+o.ly3}" ${tpProps} font-size="${o.fs3}" fill="${wC}">${wS}</text>`;
   if (tkTime) {
     const timeStr = new Date(tkTime * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -161,13 +167,16 @@ function renderFlowDiagram(byName) {
 
   const avgFlow = window.waterAvgFlowRate || 0;
 
-  if (showFlow && o.ly5) {
+  if (isWasting && o.ly5) {
+    const rateHr = window.waterWasteDetected.ratePerHour || 0;
+    svg += `<text x="${cx(o)}" y="${o.y+o.ly5}" ${tpProps} font-size="${o.fs5}" fill="#ef4444">▼ -${rateHr.toFixed(1)}%/hr</text>`;
+  } else if (showFlow && o.ly5) {
     const displayFlow = flowRate > 0.1 ? flowRate : lastFlow;
     const prefix = flowRate > 0.1 ? '▲ ' : 'Last: ';
     svg += `<text x="${cx(o)}" y="${o.y+o.ly5}" ${tpProps} font-size="${o.fs5}" fill="${o.c5}">${prefix}${displayFlow.toFixed(1)} L/min</text>`;
   }
 
-  if (showFlow && avgFlow > 0.1 && o.ly6) {
+  if (showFlow && avgFlow > 0.1 && o.ly6 && !isWasting) {
     svg += `<text x="${cx(o)}" y="${o.y+o.ly6}" ${tpProps} font-size="${o.fs6}" fill="${o.c6 || '#a1a1aa'}">Ø ${avgFlow.toFixed(1)} L/min</text>`;
   }
 

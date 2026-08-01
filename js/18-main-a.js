@@ -34,41 +34,22 @@ async function updateMainPredicted() {
       }
     }
 
-    // Update global variables
-
-    // ─── Compute irradiance % from hourly data ──────────────────────────────────
-    let irradPct = null;
-    if (typeof _doy === 'function' && typeof _solarPos === 'function' && typeof _clearSky === 'function') {
-        try {
-            const now = new Date();
-            const year = now.getFullYear();
-            const month = now.getMonth() + 1;
-            const day = now.getDate();
-            const hour = now.getHours();
-            const targetTime = `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}T${String(hour).padStart(2,'0')}:00`;
-            const weather = await fetchLahoreWeather();
-            if (weather && weather.hourly && weather.hourly.time && weather.hourly.shortwave_radiation) {
-                const idx = weather.hourly.time.indexOf(targetTime);
-                if (idx !== -1) {
-                    const actualGhi = weather.hourly.shortwave_radiation[idx];
-                    if (actualGhi !== undefined && actualGhi !== null && actualGhi > 0) {
-                        const doy = _doy(year, month, day);
-                        const elev = _solarPos(year, month, day, hour + 0.5).elev;
-                        if (elev > 0) {
-                            const clearSky = _clearSky(elev, doy).ghi;
-                            if (clearSky > 0) {
-                                irradPct = Math.min(100, Math.round((actualGhi / clearSky) * 100));
-                            }
-                        }
-                    }
-                }
-            }
-        } catch(e) { /* ignore */ }
-    }
-    window.irradiancePct = irradPct;
+    // ─── Compute real-time solar load coverage ratio (% of load covered by solar) ─────
     window.currentPredW = Math.round(watt);
     window.currentCloud = Math.round(cloud);
     window.currentRain = Math.round(rain);
+
+    let irradPct = null;
+    const liveSolarW = window.lastSolarActual || 0;
+    const liveLoadW  = window.lastResultsMap?.get('Tot Load')?.value || 0;
+
+    // Calculate solar load coverage % (e.g. 363W Solar / 400W Load = 91%)
+    if (liveLoadW > 20) {
+      irradPct = Math.min(100, Math.round((liveSolarW / liveLoadW) * 100));
+    } else if (liveSolarW > 20) {
+      irradPct = 100;
+    }
+    window.irradiancePct = irradPct;
 
     // CRITICAL: If energy data exists, re-draw the flow chart with new pred values
     if (window.lastResultsMap) {

@@ -53,6 +53,241 @@ window.backgroundFetchMonthly = async function() {
   }
 };
 
+// ─── Water tank leak detection ─────────────────────────────────────────────
+// TANK_HISTORY_HOURS must be >= the longest span in checkWindows below,
+// or the longer windows will never find data to compare against.
+const TANK_HISTORY_HOURS = 5;
+const TANK_HISTORY_MS = TANK_HISTORY_HOURS * 3600 * 1000;
+
+async function checkWaterTankWastage(curTank, nowSec) {
+  if (!window.tankHistory) {
+    try {
+      const saved = localStorage.getItem('water_tank_history');
+      window.tankHistory = saved ? JSON.parse(saved) : [];
+    } catch(e) {
+      window.tankHistory = [];
+    }
+  }
+
+  const nowMs = nowSec * 1000;
+  // Detect if we are running in Simulator Mode (i.e. nowSec is a historical simulated time)
+  const isSimulation = Math.abs(nowMs - Date.now()) > 120000;
+
+  if (isSimulation) {
+    // In Simulation Mode: ALWAYS fetch historical data for [nowMs - TANK_HISTORY_MS, nowMs]
+    try {
+      const startMs = nowMs - TANK_HISTORY_MS;
+      const url = `${PROXY_BASE}/feed/data.json?ids=499431&start=${startMs}&end=${nowMs}&skipmissing=0&average=1&delta=0&interval=120`;
+      const text = await nativeFetch(url);
+      if (text && !text.startsWith('ERROR')) {
+        const parsed = JSON.parse(text);
+        const dataPts = parsed[0]?.data || (Array.isArray(parsed) ? parsed : []);
+        if (Array.isArray(dataPts) && dataPts.length > 0) {
+          const fetchedHistory = [];
+          dataPts.forEach(pt => {
+            if (pt && pt[0] && pt[1] !== null && !isNaN(pt[1])) {
+              const tMs = pt[0] < 2000000000 ? pt[0] * 1000 : pt[0];
+              fetchedHistory.push({ t: tMs, v: parseFloat(pt[1]) });
+            }
+          });
+          if (fetchedHistory.length > 0) {
+            window.tankHistory = fetchedHistory.sort((a, b) => a.t - b.t);
+          }
+        }
+      }
+    } catch(e) {
+      console.warn("Water tank simulation history fetch warning:", e);
+    }
+  } else {
+    // Live Real-Time Mode: Push curTank if valid
+    if (curTank != null && !isNaN(curTank)) {
+      if (window.tankHistory.length === 0 || (nowMs - window.tankHistory[window.tankHistory.length - 1].t) > 10000) {
+        window.tankHistory.push({ t: nowMs, v: curTank });
+      }
+    }
+
+    // Fetch background history if history is empty or short
+    const oldest = window.tankHistory[0];
+    if (!oldest || (nowMs - oldest.t) < TANK_HISTORY_MS - (20 * 60 * 1000) || window.tankHistory.length < 5) {
+      try {
+        const startMs = nowMs - TANK_HISTORY_MS;
+        const url = `${PROXY_BASE}/feed/data.json?ids=499431&start=${startMs}&end=${nowMs}&skipmissing=0&average=1&delta=0&interval=120`;
+        const text = await nativeFetch(url);
+        if (text && !text.startsWith('ERROR')) {
+          const parsed = JSON.parse(text);
+          const dataPts = parsed[0]?.data || (Array.isArray(parsed) ? parsed : []);
+          if (Array.isArray(dataPts) && dataPts.length > 0) {
+            const fetchedHistory = [];
+            dataPts.forEach(pt => {
+              if (pt && pt[0] && pt[1] !== null && !isNaN(pt[1])) {
+                const tMs = pt[0] < 2000000000 ? pt[0] * 1000 : pt[0];
+                fetchedHistory.push({ t: tMs, v: parseFloat(pt[1]) });
+              }
+            });
+            if (fetchedHistory.length > 0) {
+              const merged = [...fetchedHistory, ...window.tankHistory];
+              const uniqueMap = new Map();
+              merged.forEach(item => uniqueMap.set(item.t, item.v));
+              window.tankHistory = Array.from(uniqueMap.entries())
+                .map(([t, v]) => ({ t, v }))
+                .sort((a, b) => a.t - b.t)
+                .filter(pt => (nowMs - pt.t) <= TANK_HISTORY_MS);
+            }
+          }
+        }
+      } catch(e) {
+        console.warn("Water tank live history fetch warning:", e);
+      }
+    }
+  }
+
+  // Filter to keep last TANK_HISTORY_HOURS relative to nowMs
+  window.tankHistory = window.tankHistory.filter(pt => (nowMs - pt.t) <= TANK_HISTORY_MS);
+
+  try {
+    localStorage.setItem('water_tank_history', JSON.stringify(window.tankHistory));
+  } catch(e) {}
+
+  let isWasting = false;
+  let wastageMsg = "";
+  let dropRateHr = 0;
+  let droppedPct = 0;
+  let timeSpanMin = 0;
+  let startTStr = "";
+  let endTStr = "";
+
+  // ─── SENSOR GLITCH DETECTION ────────────────────────────────────────────
+  // The ultrasonic sensor sometimes halts and reports 0% until restarted.
+  // A glitch signature = a point at/near 0, OR a point within a short
+  // window of a near-zero point (the up-ramp as it snaps back after
+  // restart). These must be excluded from BOTH the "current level" and
+  // the "recovery check" — otherwise a restart's snap-back looks exactly
+  // like a real refill and hides genuine leaks.
+  const GLITCH_FLOOR = 5.0;      // values below this = sensor halted
+  const GLITCH_GUARD_MIN = 6;    // minutes around a glitch point to also exclude (the up/down ramp)
+
+  const glitchTimes = window.tankHistory
+    .filter(p => p.v < GLITCH_FLOOR)
+    .map(p => p.t);
+
+  const isNearGlitch = (t) => glitchTimes.some(gt => Math.abs(t - gt) <= GLITCH_GUARD_MIN * 60 * 1000);
+
+  // Clean history: real sensor readings only, glitch points and their
+  // recovery ramps removed entirely.
+  const cleanHistory = window.tankHistory.filter(p => p.v >= GLITCH_FLOOR && !isNearGlitch(p.t));
+
+  // --- NOISE-TOLERANT MEDIAN FILTER (using cleaned, glitch-free data) ---
+  const getMedian = (startMs, endMs) => {
+    const pts = cleanHistory.filter(p => p.t >= startMs && p.t <= endMs);
+    if (pts.length < 2) return null;
+    const vals = pts.map(p => p.v).sort((a, b) => a - b);
+    return vals[Math.floor(vals.length / 2)];
+  };
+
+  if (cleanHistory.length >= 5) {
+    const motorW = window.lastResultsMap?.get('Water Motor')?.value || 0;
+
+    // Only detect depletion if motor is NOT running
+    if (motorW <= 20) {
+
+      // Current level is median of last 6 minutes (glitch-free)
+      const currentMedian = getMedian(nowMs - 6 * 60 * 1000, nowMs);
+
+      if (currentMedian !== null) {
+
+        const checkWindows = [
+          { span: 15,  minDrop: 2.5 },
+          { span: 20,  minDrop: 3.0 },
+          { span: 30,  minDrop: 3.5 },
+          { span: 45,  minDrop: 5.0 },
+          { span: 60,  minDrop: 6.0 },
+          { span: 90,  minDrop: 8.0 },
+          { span: 120, minDrop: 8.0 },
+          { span: 180, minDrop: 10.0 },
+          { span: 240, minDrop: 10.0 },
+          { span: 300, minDrop: 12.0 }
+        ];
+
+        for (const win of checkWindows) {
+          const targetMs = nowMs - (win.span * 60 * 1000);
+
+          // Past level is median of a 6-minute window around target (glitch-free)
+          const pastMedian = getMedian(targetMs - 3 * 60 * 1000, targetMs + 3 * 60 * 1000);
+
+          if (pastMedian !== null) {
+            const drop = pastMedian - currentMedian;
+            const rateHr = drop / (win.span / 60);
+
+            // Rate check: real leaks are steady (<45%/hr). Extreme rates
+            // combined with a near-zero current reading indicate a sensor
+            // cutout, not a real leak — skip those explicitly.
+            if (currentMedian < 3.0 && rateHr > 20.0) {
+              continue;
+            }
+
+            if (drop >= win.minDrop && rateHr <= 45.0) {
+
+              // Recovery check: using cleanHistory means glitch round-trips
+              // can no longer masquerade as a real refill. A genuine
+              // recovery must show up in real (non-glitch) sensor readings.
+              const recentClean = cleanHistory.filter(p => p.t >= nowMs - 30 * 60 * 1000);
+              if (recentClean.length > 0) {
+                const recentMin = Math.min(...recentClean.map(p => p.v));
+                if (currentMedian > recentMin + 6.0) {
+                  continue; // Tank is genuinely recovering (real refill, not a glitch)
+                }
+              }
+
+              isWasting = true;
+              droppedPct = drop;
+              timeSpanMin = win.span;
+              dropRateHr = rateHr;
+
+              startTStr = formatPktTime(targetMs, 'time');
+              endTStr = formatPktTime(nowMs, 'time');
+              wastageMsg = `🚨 WATER WASTAGE / VALVE OPEN ALERT! Tank dropped ${drop.toFixed(1)}% in ~${timeSpanMin}m (between ${startTStr} and ${endTStr}). Rate: -${dropRateHr.toFixed(1)}%/hr. Check for open valves or leaks!`;
+
+              break;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  if (isWasting) {
+    window.waterWasteDetected = {
+      active: true,
+      ratePerHour: dropRateHr,
+      droppedPct: droppedPct,
+      timeSpanMin: timeSpanMin,
+      startTimeStr: startTStr,
+      endTimeStr: endTStr,
+      msg: wastageMsg
+    };
+
+    // System Notification & Toast (throttled to once every 10 mins)
+    const lastNotified = window._lastWaterWasteNotified || 0;
+    if (nowMs - lastNotified > 10 * 60 * 1000) {
+      window._lastWaterWasteNotified = nowMs;
+      if (typeof showToast === 'function') {
+        showToast(wastageMsg, 'alert');
+      }
+      if (window.Android && window.Android.showNotification) {
+        window.Android.showNotification("🚨 WATER WASTAGE / VALVE OPEN!", wastageMsg);
+      } else if (typeof Notification !== 'undefined' && Notification.permission === "granted") {
+        try {
+          new Notification("🚨 WATER WASTAGE / VALVE OPEN!", { body: wastageMsg });
+        } catch(e) {}
+      }
+    }
+  } else {
+    window.waterWasteDetected = { active: false };
+  }
+
+  return window.waterWasteDetected;
+}
+
 async function poll() {
   const btn = document.getElementById('btn-refresh');
   const footer = document.getElementById('footer');
@@ -98,6 +333,11 @@ async function poll() {
     }
 
     const tankEntry = bulkData.get("499431");
+    const curTankVal = tankEntry ? tankEntry.v : null;
+    const nowSec = Math.floor(Date.now() / 1000);
+    
+    // Execute water tank depletion check
+    await checkWaterTankWastage(curTankVal, nowSec);
     
     if (tankEntry && tankEntry.v != null) {
       const curTank = tankEntry.v;

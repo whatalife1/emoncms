@@ -2,132 +2,154 @@ function updateOfflineWarningBanner(byName) {
   const wrap = document.getElementById('offline-warning-wrap');
   if (!wrap) return;
 
-  // Default state when not saved in Settings yet (true = default ON, false = default OFF)
   const DEFAULT_ENABLE_OFFLINE_WARNINGS = true;
-
-  // Settings UI preference
   const savedPref = localStorage.getItem('offlineWarnEnabled');
   const isEnabled = savedPref !== null ? (savedPref === 'true') : DEFAULT_ENABLE_OFFLINE_WARNINGS;
 
-  if (!isEnabled || !byName || byName.size === 0) {
+  const warnings = [];
+  const nowSec = Math.floor(Date.now() / 1000);
+  const OFFLINE_THRESHOLD_SEC = 30 * 60;
+
+  // --- 🚨 EMERGENCY WATER WASTAGE BANNER (ALWAYS BYPASSES SETTINGS) ---
+  const waste = window.waterWasteDetected;
+  let emergencyHtml = "";
+  if (waste && waste.active) {
+    emergencyHtml = `
+      <div style="background: rgba(239, 68, 68, 0.25); border: 2px solid #ef4444; border-radius: 8px; padding: 10px 12px; margin-bottom: 6px; box-shadow: 0 0 15px rgba(239, 68, 68, 0.5);">
+        <div style="display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 13px; color: #fecaca;">
+          <span style="font-size: 18px;">🚨</span>
+          <span>WATER WASTAGE / VALVE LEFT OPEN DETECTED!</span>
+        </div>
+        <div style="font-size: 12px; color: #ffffff; margin-top: 4px; font-weight: 600;">
+          Tank dropped <b style="color: #fca5a5;">-${waste.droppedPct.toFixed(1)}%</b> in <b style="color: #fca5a5;">${waste.timeSpanMin}m</b> <span style="color:#a5b4fc; font-weight:700;">(${waste.startTimeStr} to ${waste.endTimeStr})</span> (Rate: <b style="color:#ef4444;">-${waste.ratePerHour.toFixed(1)}%/hr</b>).
+        </div>
+        <div style="font-size: 11px; color: #fca5a5; margin-top: 3px; font-style: italic;">
+          ⚠️ Please check taps, garden hoses, or overflow valves immediately to prevent running dry!
+        </div>
+      </div>
+    `;
+  }
+
+  // Hide banner only if NO emergency wastage and standard offline warnings are toggled OFF
+  if (!isEnabled && (!waste || !waste.active)) {
     wrap.style.display = 'none';
     wrap.innerHTML = '';
     return;
   }
 
-  const warnings = [];
-  const nowSec = Math.floor(Date.now() / 1000);
-  const OFFLINE_THRESHOLD_SEC = 30 * 60; // 30 minutes offline threshold
+  // Standard offline feeds check
+  if (isEnabled && byName && byName.size > 0) {
+    const STALE_CHECK_FEEDS = [
+      { name: "Kenwood 1.5Ton", label: "Kenwood 1.5T", type: "appliance", enabled: true },
+      { name: "Kenwood 1Ton",   label: "Kenwood 1T",   type: "appliance", enabled: true },
+      { name: "Haier 1Ton",     label: "Haier 1T",     type: "appliance", enabled: true },
+      { name: "Fridge",         label: "Fridge 1",     type: "appliance", enabled: true },
+      { name: "Fridge2",        label: "Fridge 2",     type: "appliance", enabled: true },
+      { name: "Water Motor",    label: "Water Motor",  type: "appliance", enabled: true },
+      { name: "PC",             label: "PC",           type: "appliance", enabled: true },
+      { name: "Temperature",    label: "Temp 1",       type: "temp",      enabled: true },
+      { name: "Temperature 2",  label: "Temp 2",       type: "temp",      enabled: true },
+      { name: "Inverter Temp",  label: "Inv Temp",     type: "temp",      enabled: true },
+      { name: "Water Tank",     label: "Water Tank",   type: "env",       enabled: true },
+      { name: "AC Volts",       label: "AC Volts",     type: "env",       enabled: true },
+      { name: "Breaker",        label: "Breaker",      type: "watts",     enabled: true },
+      { name: "Solar",          label: "Solar",        type: "watts",     enabled: true },
+      { name: "Tot Load",       label: "Tot Load",     type: "watts",     enabled: true }
+    ];
 
-  const STALE_CHECK_FEEDS = [
-    { name: "Kenwood 1.5Ton", label: "Kenwood 1.5T", type: "appliance", enabled: true },
-    { name: "Kenwood 1Ton",   label: "Kenwood 1T",   type: "appliance", enabled: true },
-    { name: "Haier 1Ton",     label: "Haier 1T",     type: "appliance", enabled: true },
-    { name: "Fridge",         label: "Fridge 1",     type: "appliance", enabled: true },
-    { name: "Fridge2",        label: "Fridge 2",     type: "appliance", enabled: true },
-    { name: "Water Motor",    label: "Water Motor",  type: "appliance", enabled: true },
-    { name: "PC",             label: "PC",           type: "appliance", enabled: true },
-    { name: "Temperature",    label: "Temp 1",       type: "temp",      enabled: true },
-    { name: "Temperature 2",  label: "Temp 2",       type: "temp",      enabled: true },
-    { name: "Inverter Temp",  label: "Inv Temp",     type: "temp",      enabled: true },
-    { name: "Water Tank",     label: "Water Tank",   type: "env",       enabled: true },
-    { name: "AC Volts",       label: "AC Volts",     type: "env",       enabled: true },
-    { name: "Breaker",        label: "Breaker",      type: "watts",     enabled: true },
-    { name: "Solar",          label: "Solar",        type: "watts",     enabled: true },
-    { name: "Tot Load",       label: "Tot Load",     type: "watts",     enabled: true }
-  ];
-
-  const formatAge = (sec) => {
-    if (sec < 3600) {
-      return `${Math.max(1, Math.floor(sec / 60))}m`;
-    }
-    const hrs = Math.floor(sec / 3600);
-    const mins = Math.floor((sec % 3600) / 60);
-    return mins > 0 ? `${hrs}h ${mins}m` : `${hrs}h`;
-  };
-
-  STALE_CHECK_FEEDS.forEach(item => {
-    // Skip if disabled in code above
-    if (item.enabled === false) return;
-
-    // Skip if disabled in Display Settings UI (⚙)
-    if (typeof userOrderedFeeds !== 'undefined' && userOrderedFeeds.length > 0) {
-      const userSetting = userOrderedFeeds.find(f => f.name === item.name);
-      if (userSetting && userSetting.enabled === false) return;
-    }
-
-    const feed = byName.get(item.name);
-    const timeSec = (feed && feed.time && typeof feed.time === 'number' && feed.time > 0) ? feed.time : null;
-    const ageSec = timeSec ? (nowSec - timeSec) : null;
-    const ageText = ageSec && ageSec > 60 ? ` (Off for ${formatAge(ageSec)})` : '';
-
-    if (!feed || feed.value === null || feed.value === undefined) {
-      const detailStr = ageSec && ageSec > 60 ? `No Data (Off for ${formatAge(ageSec)})` : 'No Data';
-      warnings.push({ label: item.label, detail: detailStr });
-      return;
-    }
-
-    if (item.type === 'temp' && feed.value <= 0) {
-      const detailStr = `${feed.value ?? 0}°C${ageText || ' (Offline)'}`;
-      warnings.push({ label: item.label, detail: detailStr });
-      return;
-    }
-
-    if (ageSec && ageSec > OFFLINE_THRESHOLD_SEC) {
-      warnings.push({ label: item.label, detail: `Off for ${formatAge(ageSec)}` });
-    }
-  });
-
-  // Check if BOTH fridges are at 0W (<= 5W) for > 30 minutes simultaneously
-  const f1Item = STALE_CHECK_FEEDS.find(i => i.name === "Fridge");
-  const f2Item = STALE_CHECK_FEEDS.find(i => i.name === "Fridge2");
-  const f1CodeEnabled = !f1Item || f1Item.enabled !== false;
-  const f2CodeEnabled = !f2Item || f2Item.enabled !== false;
-  const f1UiEnabled = !userOrderedFeeds || !userOrderedFeeds.some(f => f.name === "Fridge" && f.enabled === false);
-  const f2UiEnabled = !userOrderedFeeds || !userOrderedFeeds.some(f => f.name === "Fridge2" && f.enabled === false);
-
-  if (f1CodeEnabled && f2CodeEnabled && f1UiEnabled && f2UiEnabled) {
-    const f1 = byName.get("Fridge");
-    const f2 = byName.get("Fridge2");
-    const f1Val = (f1 && f1.value !== null && f1.value !== undefined) ? f1.value : 0;
-    const f2Val = (f2 && f2.value !== null && f2.value !== undefined) ? f2.value : 0;
-    const bothZero = (f1Val <= 5) && (f2Val <= 5);
-
-    if (bothZero) {
-      let startStr = localStorage.getItem('both_fridges_zero_start');
-      if (!startStr) {
-        startStr = nowSec.toString();
-        localStorage.setItem('both_fridges_zero_start', startStr);
-      } else {
-        const durSec = nowSec - parseInt(startStr, 10);
-        if (durSec >= 30 * 60) {
-          warnings.push({ label: "Both Fridges", detail: `0W for ${formatAge(durSec)}` });
-        }
+    const formatAge = (sec) => {
+      if (sec < 3600) {
+        return `${Math.max(1, Math.floor(sec / 60))}m`;
       }
-    } else {
-      localStorage.removeItem('both_fridges_zero_start');
+      const hrs = Math.floor(sec / 3600);
+      const mins = Math.floor((sec % 3600) / 60);
+      return mins > 0 ? `${hrs}h ${mins}m` : `${hrs}h`;
+    };
+
+    STALE_CHECK_FEEDS.forEach(item => {
+      if (item.enabled === false) return;
+
+      if (typeof userOrderedFeeds !== 'undefined' && userOrderedFeeds.length > 0) {
+        const userSetting = userOrderedFeeds.find(f => f.name === item.name);
+        if (userSetting && userSetting.enabled === false) return;
+      }
+
+      const feed = byName.get(item.name);
+      const timeSec = (feed && feed.time && typeof feed.time === 'number' && feed.time > 0) ? feed.time : null;
+      const ageSec = timeSec ? (nowSec - timeSec) : null;
+      const ageText = ageSec && ageSec > 60 ? ` (Off for ${formatAge(ageSec)})` : '';
+
+      if (!feed || feed.value === null || feed.value === undefined) {
+        const detailStr = ageSec && ageSec > 60 ? `No Data (Off for ${formatAge(ageSec)})` : 'No Data';
+        warnings.push({ label: item.label, detail: detailStr });
+        return;
+      }
+
+      if (item.type === 'temp' && feed.value <= 0) {
+        const detailStr = `${feed.value ?? 0}°C${ageText || ' (Offline)'}`;
+        warnings.push({ label: item.label, detail: detailStr });
+        return;
+      }
+
+      if (ageSec && ageSec > OFFLINE_THRESHOLD_SEC) {
+        warnings.push({ label: item.label, detail: `Off for ${formatAge(ageSec)}` });
+      }
+    });
+
+    const f1Item = STALE_CHECK_FEEDS.find(i => i.name === "Fridge");
+    const f2Item = STALE_CHECK_FEEDS.find(i => i.name === "Fridge2");
+    const f1CodeEnabled = !f1Item || f1Item.enabled !== false;
+    const f2CodeEnabled = !f2Item || f2Item.enabled !== false;
+    const f1UiEnabled = !userOrderedFeeds || !userOrderedFeeds.some(f => f.name === "Fridge" && f.enabled === false);
+    const f2UiEnabled = !userOrderedFeeds || !userOrderedFeeds.some(f => f.name === "Fridge2" && f.enabled === false);
+
+    if (f1CodeEnabled && f2CodeEnabled && f1UiEnabled && f2UiEnabled) {
+      const f1 = byName.get("Fridge");
+      const f2 = byName.get("Fridge2");
+      const f1Val = (f1 && f1.value !== null && f1.value !== undefined) ? f1.value : 0;
+      const f2Val = (f2 && f2.value !== null && f2.value !== undefined) ? f2.value : 0;
+      const bothZero = (f1Val <= 5) && (f2Val <= 5);
+
+      if (bothZero) {
+        let startStr = localStorage.getItem('both_fridges_zero_start');
+        if (!startStr) {
+          startStr = nowSec.toString();
+          localStorage.setItem('both_fridges_zero_start', startStr);
+        } else {
+          const durSec = nowSec - parseInt(startStr, 10);
+          if (durSec >= 30 * 60) {
+            warnings.push({ label: "Both Fridges", detail: `0W for ${formatAge(durSec)}` });
+          }
+        }
+      } else {
+        localStorage.removeItem('both_fridges_zero_start');
+      }
     }
   }
 
-  if (warnings.length === 0) {
+  if (warnings.length === 0 && (!waste || !waste.active)) {
     wrap.style.display = 'none';
     wrap.innerHTML = '';
   } else {
     wrap.style.display = 'flex';
-    wrap.innerHTML = `
-      <div class="offline-warning-header">
-        <span>⚠️ Feeds Not Updating / Offline (${warnings.length}):</span>
-      </div>
-      <div class="offline-warning-list">
-        ${warnings.map(w => `
-          <div class="offline-pill">
-            <span class="pill-label">${w.label}</span>
-            <span>&bull;</span>
-            <span class="pill-detail">${w.detail}</span>
-          </div>
-        `).join('')}
-      </div>
-    `;
+    let offlineListHtml = "";
+    if (warnings.length > 0) {
+      offlineListHtml = `
+        <div class="offline-warning-header">
+          <span>⚠️ Feeds Not Updating / Offline (${warnings.length}):</span>
+        </div>
+        <div class="offline-warning-list">
+          ${warnings.map(w => `
+            <div class="offline-pill">
+              <span class="pill-label">${w.label}</span>
+              <span>&bull;</span>
+              <span class="pill-detail">${w.detail}</span>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }
+    wrap.innerHTML = emergencyHtml + offlineListHtml;
   }
 }
 
@@ -193,15 +215,20 @@ function renderResults(results) {
 
     if (f.name === 'Water Tank') {
       const pct = f.value;
-      const pctColor = pct > 60 ? '#38bdf8' : pct > 30 ? '#f59e0b' : '#f87171';
-      const status   = pct > 80 ? 'Full' : pct > 50 ? 'Good' : pct > 25 ? 'Low' : '⚠️ Critical';
+      const isWasting = window.waterWasteDetected?.active;
+      const wastageInfo = window.waterWasteDetected;
+
+      const pctColor = isWasting ? '#ef4444' : (pct > 60 ? '#38bdf8' : pct > 30 ? '#f59e0b' : '#f87171');
+      const status   = isWasting ? '🚨 LEAK / VALVE OPEN' : (pct > 80 ? 'Full' : pct > 50 ? 'Good' : pct > 25 ? 'Low' : '⚠️ Critical');
       const flowRate = window.waterFlowRate || 0;
       const lastFlow = window.lastFlowRate || 0;
       const lastOnTime = window.lastMotorOnTime || 0;
       const showFlow = flowRate > 0.1 || (lastOnTime > 0 && (Date.now() - lastOnTime < 15 * 60 * 1000) && lastFlow > 0.1);
       
       let flowStr = '';
-      if (showFlow) {
+      if (isWasting) {
+        flowStr = ` · -${wastageInfo.ratePerHour.toFixed(1)}%/hr`;
+      } else if (showFlow) {
         const displayFlow = flowRate > 0.1 ? flowRate : lastFlow;
         const prefix = flowRate > 0.1 ? '▲ ' : 'Last: ';
         flowStr = ` · ${prefix}${displayFlow.toFixed(1)} L/min`;
@@ -212,18 +239,19 @@ function renderResults(results) {
       }
       
       if (isCompact) {
-        return `<div class="card card-env"><div class="card-header">
+        return `<div class="card card-env" style="${isWasting?'border-left: 4px solid #ef4444; background: rgba(239, 68, 68, 0.12);':''}"><div class="card-header">
           <span class="card-name">Water Tank</span>
           <span style="font-weight:700;color:${pctColor}">${pct != null ? Math.round(pct) : '--'}% · ${status}${flowStr}</span>
         </div></div>`;
       }
-      return `<div class="card card-env"><div class="card-header">
+      return `<div class="card card-env" style="${isWasting?'border-left: 4px solid #ef4444; background: rgba(239, 68, 68, 0.1);':''}"><div class="card-header">
         <div class="tank-wrap">
           ${renderWaterTank(pct)}
           <div class="tank-info">
             <span class="card-name">Water Tank</span>
             <span class="tank-pct" style="color:${pctColor}">${pct != null ? Math.round(pct) : '--'}%</span>
-            <span class="tank-label">${status}${flowStr}</span>
+            <span class="tank-label" style="${isWasting?'color:#ef4444;font-weight:800;':''}">${status}${flowStr}</span>
+            ${isWasting ? `<div style="font-size:10px; color:#fca5a5; font-weight:700; margin-top:2px;">Dropped -${wastageInfo.droppedPct.toFixed(1)}% in ${wastageInfo.timeSpanMin}m</div>` : ''}
             ${sparkSvg(f.id, pctColor)}
           </div>
         </div>

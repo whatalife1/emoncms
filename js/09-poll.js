@@ -177,12 +177,24 @@ async function checkWaterTankWastage(curTank, nowSec) {
   const cleanHistory = window.tankHistory.filter(p => p.v >= GLITCH_FLOOR && !isNearGlitch(p.t));
 
   // --- NOISE-TOLERANT MEDIAN FILTER (using cleaned, glitch-free data) ---
+  // MIN_MEDIAN_SAMPLES: with readings this noisy (single points can swing
+  // +/-15% in 2 minutes), a 2-3 point median is not trustworthy - it can
+  // land squarely on a noise trough/peak. Require at least 4 real samples.
+  const MIN_MEDIAN_SAMPLES = 4;
   const getMedian = (startMs, endMs) => {
     const pts = cleanHistory.filter(p => p.t >= startMs && p.t <= endMs);
-    if (pts.length < 2) return null;
+    if (pts.length < MIN_MEDIAN_SAMPLES) return null;
     const vals = pts.map(p => p.v).sort((a, b) => a - b);
     return vals[Math.floor(vals.length / 2)];
   };
+
+  // CURRENT_WINDOW_MIN: window used to establish "now". If the sensor was
+  // offline (glitch) for part or all of this window, cleanHistory will be
+  // sparse or empty here - getMedian's sample-count guard above already
+  // returns null in that case, so detection is safely skipped for this
+  // cycle rather than risking a comparison against a stale/contaminated
+  // reading pulled in from just outside the outage.
+  const CURRENT_WINDOW_MIN = 10;
 
   if (cleanHistory.length >= 5) {
     const motorW = window.lastResultsMap?.get('Water Motor')?.value || 0;
@@ -190,8 +202,9 @@ async function checkWaterTankWastage(curTank, nowSec) {
     // Only detect depletion if motor is NOT running
     if (motorW <= 20) {
 
-      // Current level is median of last 6 minutes (glitch-free)
-      const currentMedian = getMedian(nowMs - 6 * 60 * 1000, nowMs);
+      // Current level is median of the last CURRENT_WINDOW_MIN minutes
+      // (glitch-free).
+      const currentMedian = getMedian(nowMs - CURRENT_WINDOW_MIN * 60 * 1000, nowMs);
 
       if (currentMedian !== null) {
 
@@ -211,8 +224,11 @@ async function checkWaterTankWastage(curTank, nowSec) {
         for (const win of checkWindows) {
           const targetMs = nowMs - (win.span * 60 * 1000);
 
-          // Past level is median of a 6-minute window around target (glitch-free)
-          const pastMedian = getMedian(targetMs - 3 * 60 * 1000, targetMs + 3 * 60 * 1000);
+          // Past level is median of a wider (+/-6 min) window around target,
+          // glitch-free. Widened from +/-3 min because a tight window often
+          // sampled only 2-3 points - not enough to reject noise swinging
+          // +/-15% between consecutive readings.
+          const pastMedian = getMedian(targetMs - 6 * 60 * 1000, targetMs + 6 * 60 * 1000);
 
           if (pastMedian !== null) {
             const drop = pastMedian - currentMedian;
@@ -227,14 +243,21 @@ async function checkWaterTankWastage(curTank, nowSec) {
 
             if (drop >= win.minDrop && rateHr <= 45.0) {
 
-              // Recovery check: using cleanHistory means glitch round-trips
-              // can no longer masquerade as a real refill. A genuine
-              // recovery must show up in real (non-glitch) sensor readings.
-              const recentClean = cleanHistory.filter(p => p.t >= nowMs - 30 * 60 * 1000);
-              if (recentClean.length > 0) {
-                const recentMin = Math.min(...recentClean.map(p => p.v));
-                if (currentMedian > recentMin + 6.0) {
-                  continue; // Tank is genuinely recovering (real refill, not a glitch)
+              // Recovery check: distinguish a REAL refill (sustained rise
+              // over many samples) from ordinary noise producing one low
+              // point in the last 30 minutes. Comparing against a single
+              // min-point was too aggressive - normal jitter riding on a
+              // still-declining trend can dip below "current" for one
+              // sample and wrongly veto every window. Instead, compare the
+              // median of the OLDER half of the last 30 min against the
+              // median of the NEWER half: only a real, sustained climb
+              // counts as recovery.
+              const halfWindowMs = 15 * 60 * 1000;
+              const olderHalfMedian = getMedian(nowMs - 2 * halfWindowMs, nowMs - halfWindowMs);
+              const newerHalfMedian = getMedian(nowMs - halfWindowMs, nowMs);
+              if (olderHalfMedian !== null && newerHalfMedian !== null) {
+                if (newerHalfMedian > olderHalfMedian + 6.0) {
+                  continue; // Tank is genuinely recovering (sustained rise, not a noise blip)
                 }
               }
 

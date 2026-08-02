@@ -1,8 +1,4 @@
-// ─── Debug Simulator Panel ──────────────────────────────────────────────────
-// Gated behind a settings toggle (default OFF). When enabled, shows a
-// 🧪 button in the header that opens a panel to pick a historical date/time
-// and replay BOTH the water-leak detector and the appliance-offline
-// detector against real feed data for that moment - no faked results.
+// ─── Debug Simulator Panel (Floating Widget) ─────────────────────────────
 
 function isSimulatorEnabled() {
   return localStorage.getItem('debugSimulatorEnabled') === 'true';
@@ -18,58 +14,109 @@ function updateSimulatorButtonVisibility() {
   if (btn) btn.style.display = isSimulatorEnabled() ? '' : 'none';
 }
 
-function closeSimulatorPanel() {
+let simulatorOpen = false;
+
+function toggleSimulatorPanel() {
   const panel = document.getElementById('simulator-panel');
-  if (panel) panel.classList.remove('open');
+  if (!panel) buildSimulatorPanel();
+  const p = document.getElementById('simulator-panel');
+  if (p) {
+    simulatorOpen = !simulatorOpen;
+    p.classList.toggle('visible', simulatorOpen);
+  }
 }
 
-function buildSimulatorPanelIfNeeded() {
+function closeSimulatorPanel() {
+  const panel = document.getElementById('simulator-panel');
+  if (panel) {
+    panel.classList.remove('visible');
+    simulatorOpen = false;
+  }
+}
+
+function buildSimulatorPanel() {
   if (document.getElementById('simulator-panel')) return;
 
   const panel = document.createElement('div');
   panel.id = 'simulator-panel';
-  panel.className = 'slide-panel';
   panel.innerHTML = `
-    <div class="panel-header">
+    <div class="panel-header" id="sim-drag-handle">
       <span style="font-weight:700">🧪 Detection Simulator</span>
-      <button id="btn-simulator-close" class="btn-primary">Close</button>
+      <button id="btn-simulator-close" class="btn-primary" style="padding:2px 8px; font-size:11px;">✕</button>
     </div>
     <div class="panel-body">
-      <p style="font-size:11px; color:var(--text-muted); margin-bottom:14px; line-height:1.5;">
-        Pick a past date and time. This replays the real water-leak and appliance-offline
-        detectors against actual historical feed data for that moment — nothing here is faked.
+      <p style="font-size:11px; color:var(--text-muted); margin-bottom:12px; line-height:1.4;">
+        Pick a past date/time. Replays real water‑leak and appliance‑offline detectors against actual historical feed data.
       </p>
-
-      <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px;">
-        <input type="date" id="sim2-date" style="flex:1 1 130px; min-width:0;">
-        <input type="time" id="sim2-time" value="15:00" style="flex:1 1 110px; min-width:0;">
+      <div style="display:flex; gap:6px; margin-bottom:10px;">
+        <input type="date" id="sim2-date" style="flex:2;">
+        <input type="time" id="sim2-time" value="15:00" style="flex:1;">
       </div>
-
-      <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px;">
-        <button id="sim2-run" class="btn-primary" style="flex:1 1 140px;">▶ Run Simulation</button>
-        <button id="sim2-restore" style="flex:1 1 140px;">↺ Restore Live</button>
+      <div style="display:flex; gap:6px; margin-bottom:12px;">
+        <button id="sim2-run" class="btn-primary" style="flex:1;">▶ Run</button>
+        <button id="sim2-restore" style="flex:1;">↺ Restore Live</button>
       </div>
-
-      <div id="sim2-water-result" style="font-size:12px; line-height:1.6; background:var(--bg-card); border:1px solid var(--border); border-radius:8px; padding:10px 12px; margin-bottom:10px; white-space:pre-wrap;">💧 Water leak result will appear here…</div>
-
-      <div id="sim2-appliance-result" style="font-size:12px; line-height:1.6; background:var(--bg-card); border:1px solid var(--border); border-radius:8px; padding:10px 12px; white-space:pre-wrap;">🔌 Appliance offline result will appear here…</div>
+      <div id="sim2-water-result" class="sim-result-box" style="border-left-color: var(--accent-env);">💧 Water leak result will appear here…</div>
+      <div id="sim2-appliance-result" class="sim-result-box" style="border-left-color: var(--accent-w);">🔌 Appliance offline result will appear here…</div>
     </div>
   `;
+
   document.body.appendChild(panel);
 
-  const yesterday = new Date(Date.now() - 86400000);
-  document.getElementById('sim2-date').value = yesterday.toISOString().split('T')[0];
+  // ---- Drag functionality ----
+  let isDragging = false;
+  let startX, startY, startLeft, startTop;
 
+  const header = document.getElementById('sim-drag-handle');
+  const onDragStart = (e) => {
+    if (e.target.closest('button')) return;
+    isDragging = true;
+    const touch = e.touches ? e.touches[0] : e;
+    startX = touch.clientX;
+    startY = touch.clientY;
+    const rect = panel.getBoundingClientRect();
+    startLeft = rect.left;
+    startTop = rect.top;
+    panel.style.transition = 'none';
+    document.addEventListener('mousemove', onDragMove);
+    document.addEventListener('mouseup', onDragEnd);
+    document.addEventListener('touchmove', onDragMove, { passive: false });
+    document.addEventListener('touchend', onDragEnd);
+    e.preventDefault();
+  };
+
+  const onDragMove = (e) => {
+    if (!isDragging) return;
+    const touch = e.touches ? e.touches[0] : e;
+    const dx = touch.clientX - startX;
+    const dy = touch.clientY - startY;
+    let newLeft = startLeft + dx;
+    let newTop = startTop + dy;
+    const maxX = window.innerWidth - panel.offsetWidth - 20;
+    const maxY = window.innerHeight - panel.offsetHeight - 20;
+    newLeft = Math.max(10, Math.min(newLeft, maxX));
+    newTop = Math.max(10, Math.min(newTop, maxY));
+    panel.style.left = newLeft + 'px';
+    panel.style.top = newTop + 'px';
+    panel.style.right = 'auto';
+    e.preventDefault();
+  };
+
+  const onDragEnd = () => {
+    isDragging = false;
+    document.removeEventListener('mousemove', onDragMove);
+    document.removeEventListener('mouseup', onDragEnd);
+    document.removeEventListener('touchmove', onDragMove);
+    document.removeEventListener('touchend', onDragEnd);
+  };
+
+  header.addEventListener('mousedown', onDragStart);
+  header.addEventListener('touchstart', onDragStart);
+
+  // ---- Close button ----
   document.getElementById('btn-simulator-close').addEventListener('click', closeSimulatorPanel);
 
-  // Backdrop-style close: clicking directly on the panel's own background
-  // (not on any of its inner controls) closes it, matching the feel of the
-  // other slide panels. Since .panel-body scrolls, we only close on clicks
-  // that land on the outer panel element itself.
-  panel.addEventListener('click', (e) => {
-    if (e.target === panel) closeSimulatorPanel();
-  });
-
+  // ---- Run & Restore logic ----
   const originalDateNow = Date.now;
   const waterBox = document.getElementById('sim2-water-result');
   const applianceBox = document.getElementById('sim2-appliance-result');
@@ -77,7 +124,7 @@ function buildSimulatorPanelIfNeeded() {
   document.getElementById('sim2-run').addEventListener('click', async () => {
     const d = document.getElementById('sim2-date').value;
     const t = document.getElementById('sim2-time').value;
-    if (!d || !t) { alert('Please select both date and time.'); return; }
+    if (!d || !t) { alert('Select both date and time.'); return; }
 
     const simTimeMs = new Date(`${d}T${t}:00+05:00`).getTime();
     const btn = document.getElementById('sim2-run');
@@ -90,7 +137,6 @@ function buildSimulatorPanelIfNeeded() {
 
     Date.now = () => simTimeMs;
 
-    // Reset in-memory + persisted history so both detectors re-fetch fresh
     localStorage.removeItem('water_tank_history');
     window.tankHistory = [];
     window._lastWaterWasteNotified = 0;
@@ -98,11 +144,6 @@ function buildSimulatorPanelIfNeeded() {
 
     try {
       const nowSec = Math.floor(simTimeMs / 1000);
-
-      // Need lastResultsMap for the "motor running" check inside the leak
-      // detector, and for live appliance readings - reuse whatever is
-      // currently cached rather than forcing a full poll (poll() would
-      // also flip the header/footer UI, which we don't want mid-panel).
       const waterResult = await checkWaterTankWastage(null, nowSec);
       const applianceResults = await checkApplianceOffline(nowSec);
 
@@ -138,7 +179,7 @@ function buildSimulatorPanelIfNeeded() {
     } finally {
       Date.now = originalDateNow;
       btn.disabled = false;
-      btn.textContent = '▶ Run Simulation';
+      btn.textContent = '▶ Run';
     }
   });
 
@@ -164,19 +205,28 @@ function buildSimulatorPanelIfNeeded() {
     btn.textContent = '↺ Restore Live';
   });
 
-  // Escape key closes the panel, matching typical modal/panel expectations.
+  // ---- Set default date (yesterday) ----
+  const yesterday = new Date(Date.now() - 86400000);
+  document.getElementById('sim2-date').value = yesterday.toISOString().split('T')[0];
+
+  // ---- Escape key closes ----
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && panel.classList.contains('open')) {
+    if (e.key === 'Escape' && panel.classList.contains('visible')) {
       closeSimulatorPanel();
     }
   });
 }
 
 function openSimulatorPanel() {
-  buildSimulatorPanelIfNeeded();
-  document.getElementById('simulator-panel').classList.add('open');
+  buildSimulatorPanel();
+  const panel = document.getElementById('simulator-panel');
+  if (panel) {
+    panel.classList.add('visible');
+    simulatorOpen = true;
+  }
 }
 
+// Expose to global
 window.isSimulatorEnabled = isSimulatorEnabled;
 window.setSimulatorEnabled = setSimulatorEnabled;
 window.updateSimulatorButtonVisibility = updateSimulatorButtonVisibility;

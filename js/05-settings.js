@@ -9,6 +9,12 @@ async function loadSettings() {
   document.getElementById('debug-info').style.display = debugEnabled ? 'block' : 'none';
   const offlineToggle = document.getElementById('offline-warn-toggle');
   if (offlineToggle) offlineToggle.checked = offlineWarnEnabled;
+
+  const simEnabled = localStorage.getItem('debugSimulatorEnabled') === 'true';
+  const simToggleEl = document.getElementById('simulator-toggle');
+  if (simToggleEl) simToggleEl.checked = simEnabled;
+  if (typeof updateSimulatorButtonVisibility === 'function') updateSimulatorButtonVisibility();
+
   if (savedLayout) {
     const parsed = JSON.parse(savedLayout);
     userOrderedFeeds = parsed.map(saved => {
@@ -50,6 +56,12 @@ async function saveSettings() {
   if (offlineToggle) {
     localStorage.setItem('offlineWarnEnabled', offlineToggle.checked);
   }
+
+  const simToggle = document.getElementById('simulator-toggle');
+  if (simToggle && typeof setSimulatorEnabled === 'function') {
+    setSimulatorEnabled(simToggle.checked);
+  }
+
   document.getElementById('debug-info').style.display = document.getElementById('debug-toggle').checked ? 'block' : 'none';
   document.getElementById('settings').classList.remove('open');
 

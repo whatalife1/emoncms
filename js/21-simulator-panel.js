@@ -122,11 +122,34 @@ function buildSimulatorPanel() {
   const applianceBox = document.getElementById('sim2-appliance-result');
 
   document.getElementById('sim2-run').addEventListener('click', async () => {
-    const d = document.getElementById('sim2-date').value;
-    const t = document.getElementById('sim2-time').value;
-    if (!d || !t) { alert('Select both date and time.'); return; }
+    const dStr = document.getElementById('sim2-date').value;
+    const tStr = document.getElementById('sim2-time').value;
+    if (!dStr || !tStr) { alert('Select both date and time.'); return; }
 
-    const simTimeMs = new Date(`${d}T${t}:00+05:00`).getTime();
+    // Parse date (YYYY-MM-DD or MM/DD/YYYY)
+    let year, month, day;
+    if (dStr.includes('-')) {
+      [year, month, day] = dStr.split('-').map(Number);
+    } else if (dStr.includes('/')) {
+      const parts = dStr.split('/').map(Number);
+      month = parts[0]; day = parts[1]; year = parts[2];
+    }
+
+    // Parse time (handles 24h "22:00" or 12h "10:00 PM")
+    let hours = 0, minutes = 0;
+    const isPm = /pm/i.test(tStr);
+    const isAm = /am/i.test(tStr);
+    const cleanT = tStr.replace(/(am|pm)/i, '').trim();
+    const tParts = cleanT.split(':').map(Number);
+    hours = tParts[0] || 0;
+    minutes = tParts[1] || 0;
+
+    if (isPm && hours < 12) hours += 12;
+    if (isAm && hours === 12) hours = 0;
+
+    // Construct PKT Timestamp (UTC+5)
+    const simTimeMs = Date.UTC(year, month - 1, day, hours - 5, minutes, 0);
+
     const btn = document.getElementById('sim2-run');
     btn.disabled = true;
     btn.textContent = 'Running…';
@@ -135,6 +158,7 @@ function buildSimulatorPanel() {
     applianceBox.textContent = 'Running appliance-offline detection...';
     applianceBox.style.color = 'var(--text-muted)';
 
+    window.isSimulating = true;
     Date.now = () => simTimeMs;
 
     localStorage.removeItem('water_tank_history');
@@ -145,7 +169,7 @@ function buildSimulatorPanel() {
     try {
       const nowSec = Math.floor(simTimeMs / 1000);
       const waterResult = await checkWaterTankWastage(null, nowSec);
-      const applianceResults = await checkApplianceOffline(nowSec);
+      const applianceResults = await checkApplianceOffline(nowSec, true); // Pass true to force simulation mode
 
       if (waterResult && waterResult.active) {
         waterBox.style.color = '#4ade80';
@@ -169,14 +193,12 @@ function buildSimulatorPanel() {
         applianceBox.textContent = '✅ All monitored appliances look normal at this timestamp.';
       }
 
-      console.log('Simulated time:', new Date(simTimeMs).toLocaleString());
-      console.log('waterResult:', waterResult);
-      console.log('applianceResults:', applianceResults);
     } catch (e) {
       console.error('Simulator error:', e);
       waterBox.style.color = '#f87171';
-      waterBox.textContent = '❌ Error — check console: ' + e.message;
+      waterBox.textContent = '❌ Error: ' + e.message;
     } finally {
+      window.isSimulating = false;
       Date.now = originalDateNow;
       btn.disabled = false;
       btn.textContent = '▶ Run';
@@ -188,6 +210,7 @@ function buildSimulatorPanel() {
     btn.disabled = true;
     btn.textContent = 'Restoring…';
 
+    window.isSimulating = false;
     Date.now = originalDateNow;
     localStorage.removeItem('water_tank_history');
     window.tankHistory = [];

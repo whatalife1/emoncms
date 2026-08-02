@@ -1,21 +1,17 @@
-// ─── Appliance "unexpectedly off" detection ────────────────────────────────
-// Flags an appliance that was drawing meaningful power and then dropped to
-// ~0W and STAYED there for longer than its own normal off-cycle would
-// suggest. This is NOT meant to flag normal thermostat cycling (fridges,
-// ACs turning off for 10-20 min routinely) - only sustained, abnormal
-// silence after a period of active use.
+// ─── Appliance & Grid "unexpectedly off / loadshedding" detection ───────────
 
 const APPLIANCE_MONITOR_LIST = [
-  { name: 'Fridge',         label: 'Fridge 1',        minActiveW: 15, offMinutes: 90  },
-  { name: 'Fridge2',        label: 'Fridge 2',        minActiveW: 15, offMinutes: 90  },
-  { name: 'Kenwood 1.5Ton', label: 'Kenwood 1.5T',     minActiveW: 100, offMinutes: 60 },
-  { name: 'Kenwood 1Ton',   label: 'Kenwood 1T',       minActiveW: 100, offMinutes: 60 },
-  { name: 'Haier 1Ton',     label: 'Haier 1T',         minActiveW: 100, offMinutes: 60 },
-  { name: 'PC',             label: 'PC',               minActiveW: 20, offMinutes: 45  },
-  { name: 'Water Motor',    label: 'Water Motor',      minActiveW: 50, offMinutes: 30  }
+  { name: 'AC Volts',       label: '⚡ Grid Power (Loadshedding)', minActiveW: 100, offThresholdW: 20, offMinutes: 10, isVolts: true },
+  { name: 'Fridge',         label: 'Fridge 1',        minActiveW: 40,  offThresholdW: 28, offMinutes: 20 },
+  { name: 'Fridge2',        label: 'Fridge 2',        minActiveW: 40,  offThresholdW: 28, offMinutes: 20 },
+  { name: 'Kenwood 1.5Ton', label: 'Kenwood 1.5T',     minActiveW: 100, offThresholdW: 30, offMinutes: 60 },
+  { name: 'Kenwood 1Ton',   label: 'Kenwood 1T',       minActiveW: 100, offThresholdW: 30, offMinutes: 60 },
+  { name: 'Haier 1Ton',     label: 'Haier 1T',         minActiveW: 100, offThresholdW: 30, offMinutes: 60 },
+  { name: 'PC',             label: 'PC',               minActiveW: 30,  offThresholdW: 15, offMinutes: 45 },
+  { name: 'Water Motor',    label: 'Water Motor',      minActiveW: 100, offThresholdW: 20, offMinutes: 30 }
 ];
 
-// History buffers keyed by appliance name, same shape as tankHistory: {t, v}
+// History buffers keyed by appliance name: {t, v}
 window.applianceHistory = window.applianceHistory || {};
 
 const APPLIANCE_HISTORY_HOURS = 5;
@@ -31,18 +27,33 @@ async function _fetchApplianceHistory(name, nowMs) {
   const feedId = _applianceFeedId(name);
   if (!feedId) return [];
   const startMs = nowMs - APPLIANCE_HISTORY_MS;
+  
   const url = `${PROXY_BASE}/feed/data.json?ids=${feedId}&start=${startMs}&end=${nowMs}&skipmissing=0&average=1&delta=0&interval=120`;
+  
   try {
     const text = await nativeFetch(url);
     if (!text || text.startsWith('ERROR')) return [];
-    const parsed = JSON.parse(text);
-    const dataPts = parsed[0]?.data || (Array.isArray(parsed) ? parsed : []);
+    
+    let parsed;
+    try { parsed = JSON.parse(text); } catch(e) { return []; }
+    
+    // Robust multi-format EmonCMS response parser
+    let dataPts = [];
+    if (Array.isArray(parsed)) {
+      dataPts = parsed[0]?.data || parsed;
+    } else if (parsed && typeof parsed === 'object') {
+      dataPts = parsed.data || Object.values(parsed)[0] || [];
+    }
+    
     if (!Array.isArray(dataPts)) return [];
+    
     const out = [];
     dataPts.forEach(pt => {
-      if (pt && pt[0] && pt[1] !== null && !isNaN(pt[1])) {
+      if (pt && pt[0] !== undefined && pt[0] !== null) {
         const tMs = pt[0] < 2000000000 ? pt[0] * 1000 : pt[0];
-        out.push({ t: tMs, v: parseFloat(pt[1]) });
+        const rawV = pt[1];
+        const v = (rawV === null || rawV === undefined || isNaN(rawV)) ? 0 : parseFloat(rawV);
+        out.push({ t: tMs, v: v });
       }
     });
     return out.sort((a, b) => a.t - b.t);
@@ -52,9 +63,9 @@ async function _fetchApplianceHistory(name, nowMs) {
   }
 }
 
-async function checkApplianceOffline(nowSec) {
+async function checkApplianceOffline(nowSec, forceSimulation = false) {
   const nowMs = nowSec * 1000;
-  const isSimulation = Math.abs(nowMs - Date.now()) > 120000;
+  const isSimulation = forceSimulation || window.isSimulating || Math.abs(nowMs - Date.now()) > 120000;
 
   const results = [];
 
@@ -65,7 +76,7 @@ async function checkApplianceOffline(nowSec) {
       // Always fetch fresh historical data in simulation mode
       hist = await _fetchApplianceHistory(item.name, nowMs);
     } else {
-      // Live mode: push current reading if available, then top up if sparse
+      // Live mode: push current reading if available
       const liveEntry = window.lastResultsMap?.get(item.name);
       const liveVal = liveEntry?.value;
       if (liveVal != null && !isNaN(liveVal)) {
@@ -89,31 +100,38 @@ async function checkApplianceOffline(nowSec) {
       window.applianceHistory[item.name] = hist;
     }
 
-    if (hist.length < 5) continue;
+    if (!hist || hist.length < 5) continue;
 
-    // Find the most recent contiguous run of "off" (below minActiveW),
-    // and check whether it was preceded by genuine activity.
-    const offThreshold = item.minActiveW * 0.3; // hysteresis: must drop well below active level
+    const offThreshold = item.offThresholdW !== undefined ? item.offThresholdW : (item.minActiveW * 0.5);
+    const sorted = hist.slice().sort((a, b) => b.t - a.t); // Newest first
 
-    // Walk backwards from "now" to find how long it's been continuously low.
-    const sorted = hist.slice().sort((a, b) => b.t - a.t); // newest first
     let offSinceMs = null;
+    let firstOffPointMs = null;
     let sawActivityBeforeOff = false;
 
     for (let i = 0; i < sorted.length; i++) {
       const pt = sorted[i];
       if (pt.t > nowMs) continue;
+
       if (pt.v <= offThreshold) {
-        offSinceMs = pt.t;
+        firstOffPointMs = pt.t; // Track earliest continuous idle/off timestamp
       } else if (pt.v >= item.minActiveW) {
         sawActivityBeforeOff = true;
+        offSinceMs = firstOffPointMs ? firstOffPointMs : pt.t;
         break;
-      } else {
-        // ambiguous mid-range reading; keep scanning but don't reset offSinceMs
       }
     }
 
-    if (offSinceMs === null || !sawActivityBeforeOff) continue; // never was active, or never went off
+    // Support prolonged outages where the entire 5-hour window is <= offThreshold
+    if (!sawActivityBeforeOff && hist.length >= 5) {
+      const allOff = hist.every(p => p.v <= offThreshold);
+      if (allOff) {
+        sawActivityBeforeOff = true;
+        offSinceMs = hist[0].t; // Oldest point in history
+      }
+    }
+
+    if (offSinceMs === null || !sawActivityBeforeOff) continue;
 
     const offDurationMin = (nowMs - offSinceMs) / 60000;
     if (offDurationMin >= item.offMinutes) {

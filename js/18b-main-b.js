@@ -203,6 +203,10 @@ function wireButtons() {
     if (typeof addAlert === 'function') addAlert();
   });
 
+  _btn('btn-simulator', () => {
+    if (typeof openSimulatorPanel === 'function') openSimulatorPanel();
+  });
+
   // Graph buttons
   _btn('btn-graphs', () => {
     if (typeof openGraphsPanel === 'function') {
@@ -291,6 +295,10 @@ function initApp() {
   try { 
     if (typeof initCompact === 'function') initCompact(); 
   } catch(e) { console.error('initCompact',e); }
+
+  try {
+    if (typeof updateSimulatorButtonVisibility === 'function') updateSimulatorButtonVisibility();
+  } catch(e) { console.error('updateSimulatorButtonVisibility', e); }
 
   try {
     wireButtons();

@@ -37,6 +37,15 @@ function updateOfflineWarningBanner(byName) {
     return;
   }
 
+  // 🛑 PREVENT INITIAL OFFLINE WARNING FLASH:
+  // If window.lastResultsMap is undefined, the app is rendering the old cached data on boot.
+  // We skip showing stale warnings until the first live network poll finishes.
+  if (!window.lastResultsMap && (!waste || !waste.active)) {
+    wrap.style.display = 'none';
+    wrap.innerHTML = '';
+    return;
+  }
+
   // Standard offline feeds check
   if (isEnabled && byName && byName.size > 0) {
     const STALE_CHECK_FEEDS = [

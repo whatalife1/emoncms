@@ -51,8 +51,8 @@ function updateOfflineWarningBanner(byName) {
       { name: "Temperature 2",  label: "Temp 2",       type: "temp",      enabled: true },
       { name: "Inverter Temp",  label: "Inv Temp",     type: "temp",      enabled: true },
       { name: "Water Tank",     label: "Water Tank",   type: "env",       enabled: true },
-      { name: "AC Volts",       label: "AC Volts",     type: "env",       enabled: true },
-      { name: "Breaker",        label: "Breaker",      type: "watts",     enabled: true },
+      { name: "AC Volts",       label: "Grid Voltage", type: "env",       enabled: true },
+      { name: "Breaker",        label: "Grid Watts",   type: "watts",     enabled: true },
       { name: "Solar",          label: "Solar",        type: "watts",     enabled: true },
       { name: "Tot Load",       label: "Tot Load",     type: "watts",     enabled: true }
     ];

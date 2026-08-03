@@ -126,13 +126,11 @@ function renderFlowDiagram(byName) {
   const vTime = byName.get('AC Volts')?.time;
   const vTimeStr = vTime ? new Date(vTime * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--';
 
-  // NEW: last-read time of the Grid (Breaker) watts feed itself
   const gTime = byName.get('Breaker')?.time;
   const gTimeStr = gTime ? new Date(gTime * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--';
 
   svg += `<rect class="${gClass}" style="--pulse-clr:${o.color}" x="${o.x}" y="${o.y}" width="${o.w}" height="${o.h}" rx="10" fill="${gFill}" stroke="${gStroke}" stroke-width="2"/>`;
   svg += `<text x="${cx(o)}" y="${o.y+o.ly1}" ${tpProps} font-size="${o.fs}" fill="${gridOff?'#ef4444':(grdAct?o.c1:'#777')}">${gridOff?'GRID OFF':o.label+': '+pF(b)}</text>`;
-  // NEW time line for Grid watts (positioned via ly6)
   if (o.ly6) svg += `<text x="${cx(o)}" y="${o.y+o.ly6}" ${tpProps} font-size="${o.fs6}" fill="${gridOff?'#ef4444':o.c6}">${gTimeStr}</text>`;
   svg += `<text x="${cx(o)}" y="${o.y+o.ly2}" ${tpProps} font-size="${o.fs2}" fill="${gridOff?'#ef4444':o.c2}">AC Input: ${Math.round(v)}V</text>`;
   if (o.ly5) svg += `<text x="${cx(o)}" y="${o.y+o.ly5}" ${tpProps} font-size="${o.fs5}" fill="${gridOff?'#ef4444':o.c5}">${vTimeStr}</text>`;
@@ -186,7 +184,7 @@ function renderFlowDiagram(byName) {
 
   // 4. APPLIANCES
   const drawApp = (k, name, suffix="Today") => {
-    const oA = L[k]; const val = getV(name); const act = val > 20;
+    const oA = L[k]; const val = getV(name); const act = val > 6;
     const t = getV(name + " " + suffix); const mon = mU[k] || 0;
     const aTime = byName.get(name)?.time;
     const aTimeStr = aTime ? new Date(aTime * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--';
@@ -202,25 +200,27 @@ function renderFlowDiagram(byName) {
   
   const f1W = getV('Fridge'); const f2W = getV('Fridge2');
   const f1T = getV('Fridge Today'); const f2T = getV('Fridge2 Today');
-  const fAct = (f1W + f2W) > 15; o = L.fridge;
+  const fAct = (f1W + f2W) > 6;
+  o = L.fridge;
   const f1Time = byName.get('Fridge')?.time;
   const f1TimeStr = f1Time ? new Date(f1Time * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--';
   const f2Time = byName.get('Fridge2')?.time;
   const f2TimeStr = (f2Time && !isNaN(f2Time)) ? new Date(f2Time * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--';
 
   svg += `<rect class="${fAct ? 'pulse-animation' : ''}" style="--pulse-clr:${o.color}" x="${o.x}" y="${o.y}" width="${o.w}" height="${o.h}" rx="10" fill="${fAct?'#141416':'#1a1a1c'}" stroke="${fAct?o.color:'#333'}" stroke-width="2"/>`;
-  svg += `<text x="${cx(o)}" y="${o.y+o.ly1}" ${tpProps} font-size="${o.fs}" fill="${f1W>5?o.c1:'#777'}">Fridge 1</text>`;
-  svg += `<text x="${cx(o)}" y="${o.y+o.ly2}" ${tpProps} font-size="${o.fs2}" fill="${f1W>5?o.c2:'#25f447'}">${pF(f1W)}</text>`;
+  svg += `<text x="${cx(o)}" y="${o.y+o.ly1}" ${tpProps} font-size="${o.fs}" fill="${f1W>6?o.c1:'#777'}">Fridge 1</text>`;
+  svg += `<text x="${cx(o)}" y="${o.y+o.ly2}" ${tpProps} font-size="${o.fs2}" fill="${f1W>6?o.c2:'#555'}">${pF(f1W)}</text>`;
   if (o.ly7) svg += `<text x="${cx(o)}" y="${o.y+o.ly7}" ${tpProps} font-size="${o.fs7}" fill="${o.c7}">${f1TimeStr}</text>`;
   svg += `<text x="${cx(o)}" y="${o.y+o.ly3}" ${tpProps} font-size="${o.fs3}" fill="${o.c3}">T: ${f1T.toFixed(2)} kWh M: ${(mU.f1||0).toFixed(1)} kWh</text>`;
   
-  svg += `<text x="${cx(o)}" y="${o.y+o.ly4}" ${tpProps} font-size="${o.fs4}" fill="${f2W>5?o.c4:'#777'}">Fridge 2</text>`;
-  svg += `<text x="${cx(o)}" y="${o.y+o.ly5}" ${tpProps} font-size="${o.fs5}" fill="${f2W>5?o.c5:'#25f447'}">${pF(f2W)}</text>`;
+  svg += `<text x="${cx(o)}" y="${o.y+o.ly4}" ${tpProps} font-size="${o.fs4}" fill="${f2W>6?o.c4:'#777'}">Fridge 2</text>`;
+  svg += `<text x="${cx(o)}" y="${o.y+o.ly5}" ${tpProps} font-size="${o.fs5}" fill="${f2W>6?o.c5:'#555'}">${pF(f2W)}</text>`;
   if (o.ly8) svg += `<text x="${cx(o)}" y="${o.y+o.ly8}" ${tpProps} font-size="${o.fs8}" fill="${o.c8}">${f2TimeStr}</text>`;
   svg += `<text x="${cx(o)}" y="${o.y+o.ly6}" ${tpProps} font-size="${o.fs6}" fill="${o.c6}">T: ${f2T.toFixed(2)} kWh M: ${(mU.f2||0).toFixed(1)} kWh</text>`;
 
   const motT = getV('Water Motor Today');
-  const motAct = motW > 20; o = L.motor;
+  const motAct = motW > 6;
+  o = L.motor;
   const motTime = byName.get('Water Motor')?.time;
   const motTimeStr = (motTime && !isNaN(motTime)) ? new Date(motTime * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--';
 

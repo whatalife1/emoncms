@@ -104,7 +104,7 @@ function renderFlowDiagram(byName) {
   o = L.solar;
   const predW = window.currentPredW || 0; 
   const pred2W = window.currentPred2W || 0;
-  const cloud = window.currentCloud || 0;
+const cloud = window.currentCloud || 0;
   const rain = window.currentRain || 0;
   const solAct = s > 20;
   const lTime = byName.get('Tot Load')?.time;
@@ -117,7 +117,7 @@ function renderFlowDiagram(byName) {
   svg += `<text x="${cx(o)}" y="${o.y+o.ly3}" ${tpProps} font-size="${o.fs3}" fill="${o.c3}">${Math.round(sv)}V | ${sa.toFixed(1)}A | ${invT.toFixed(1)}°C</text>`;
   const rainStr = rain > 0 ? ` 🌧 ${rain}%` : '';
   svg += `<text x="${cx(o)}" y="${o.y+o.ly4}" ${tpProps} font-size="${o.fs4}" fill="${o.c4}">Pred: ${predF(predW)} | ☁ ${cloud}%${rainStr}</text>`;
-  if (o.ly8) svg += `<text x="${cx(o)}" y="${o.y+o.ly8}" ${tpProps} font-size="${o.fs8}" fill="${o.c8}">Pred2: ${predF(pred2W)} | ☀️ ${Math.max(0, 100 - cloud)}%</text>`;
+  if (o.ly8) svg += `<text x="${cx(o)}" y="${o.y+o.ly8}" ${tpProps} font-size="${o.fs8}" fill="${o.c8}">Pred2: ${predF(pred2W)} | ☀️ ${window.currentPred2SunPct != null ? window.currentPred2SunPct : Math.max(0, 100 - cloud)}%</text>`;
   svg += `<text x="${cx(o)}" y="${o.y+o.ly5}" ${tpProps} font-size="${o.fs5}" fill="${o.c5}">Today: ${solar_t.toFixed(1)} kWh | ${kF(solar_t*rate)} PKR</text>`;
   svg += `<text x="${cx(o)}" y="${o.y+o.ly6}" ${tpProps} font-size="${o.fs6}" fill="${o.c6}">Month: ${nF(mU.solar||0)} kWh | ${kF((mU.solar||0)*rate)} PKR</text>`;
 

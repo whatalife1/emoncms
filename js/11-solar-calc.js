@@ -7,6 +7,12 @@ async function _calcHourly(y, mo, d) {
   let weatherAvailable = false; 
   for (let h = 5; h <= 18; h++) {
     const pos  = _solarPos(y, mo, d, h + 0.5);
+    
+    // Always calculate theoretical maximum clear-sky generation for this hour
+    const irrClear = _clearSky(pos.elev, doy);
+    const poaClear = _poa(pos.elev, pos.az, solarCfg.tiltDeg, solarCfg.azimuthDeg, irrClear);
+    const clearWatt = Math.max(0, (poaClear / 1000) * peakW * solarCfg.sysEff);
+
     let watt = 0, cloudHour = solarCfg.cloudPct, rainHour = 0;
     const wf = getWeatherForHour(weather, y, mo, d, h);
     if (wf && wf.ghi != null) {
@@ -31,11 +37,9 @@ async function _calcHourly(y, mo, d) {
       const poa = _poa(pos.elev, pos.az, solarCfg.tiltDeg, solarCfg.azimuthDeg, { ghi, dni, dhi });
       watt = Math.max(0, (poa / 1000) * peakW * solarCfg.sysEff);
     } else {
-      const irr = _clearSky(pos.elev, doy);
-      const poa = _poa(pos.elev, pos.az, solarCfg.tiltDeg, solarCfg.azimuthDeg, irr);
-      watt = Math.max(0, (poa / 1000) * peakW * solarCfg.sysEff * cloud);
+      watt = clearWatt * cloud;
     }
-    out.push({ h, elev: pos.elev, az: pos.az, watt, cloud: cloudHour, rain: rainHour });
+    out.push({ h, elev: pos.elev, az: pos.az, watt, clearWatt, cloud: cloudHour, rain: rainHour });
   }
   return { hourly: out, weatherAvailable }; 
 }

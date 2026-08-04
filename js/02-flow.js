@@ -1,6 +1,6 @@
 const LAYOUT = {
  weather: { x:5, y:10, w:708, h:49, color:'#0ea5e9', label:'Weather', ly1:25, fs:25, c1:'#ffffff',  },
- solar: { x:7, y:64, w:321, h:365, color:'#f59e0b', label:'Solar', ly1:42, fs:47, c1:'#ffff00', ly2:106, fs2:46, c2:'#2c8758', ly3:172, fs3:31, c3:'#b4b635', ly4:219, fs4:22, c4:'#21c442', ly5:289, fs5:24, c5:'#3de31c', ly6:330, fs6:22, c6:'#38bdf8', ly7:140, fs7:17, c7:'#a1a1aa',  },
+ solar: { x:5, y:66, w:321, h:365, color:'#f59e0b', label:'Solar', ly1:42, fs:47, c1:'#ffff00', ly2:106, fs2:46, c2:'#2c8758', ly3:172, fs3:31, c3:'#b4b635', ly4:219, fs4:22, c4:'#21c442', ly5:289, fs5:24, c5:'#3de31c', ly6:330, fs6:22, c6:'#38bdf8', ly7:140, fs7:17, c7:'#a1a1aa', ly8:246, fs8:22, c8:'#21c442',  },
  grid: { x:330, y:64, w:245, h:365, color:'#ef4444', label:'Grid', ly1:35, fs:38, c1:'#ef4444', ly2:154, fs2:28, c2:'#35c0b7', ly3:291, fs3:21, c3:'#3de3e4', ly4:332, fs4:19, c4:'#38bdf8', ly5:186, fs5:19, c5:'#a1a1aa', ly6:79, fs6:20, c6:'#a1a1aa',  },
  water: { x:579, y:62, w:146, h:365, color:'#0ea5e9', label:'Water', ly1:33, fs:46, c1:'#0ea5e9', ly2:158, fs2:56, c2:'#25f447', ly3:251, fs3:25, c3:'#9ca3af', ly4:295, fs4:20, c4:'#0ce4e0', ly5:320, fs5:19, c5:'#38bdf8', ly6:342, fs6:18, c6:'#a1a1aa',  },
  haier: { x:7, y:436, w:238, h:199, color:'#38bdf8', label:'Haier 1T', ly1:22, fs:34, c1:'#38bdf8', ly2:75, fs2:63, c2:'#25f447', ly3:143, fs3:25, c3:'#00c8f0', ly4:175, fs4:25, c4:'#518e35', ly5:113, fs5:16, c5:'#a1a1aa',  },
@@ -12,6 +12,8 @@ const LAYOUT = {
  temp: { x:502, y:642, w:225, h:40, color:'#22c55e', label:'temp', ly1:20, fs:26, c1:'#25f447',  },
  temp2: { x:8, y:639, w:238, h:35, color:'#22c55e', label:'temp2', ly1:16, fs:27, c1:'#25f447',  },
 };
+
+
 function renderFlowDiagram(byName) {
   if (!byName) return;
 
@@ -49,8 +51,8 @@ function renderFlowDiagram(byName) {
   const pF = x => Math.round(x) + ' w';
   
   const predF = x => {
-    if (x >= 1000) return (x / 1000).toFixed(1) + ' kWh';
-    return Math.round(x) + ' w';
+    if (x >= 1000) return (x / 1000).toFixed(1) + ' kW';
+    return Math.round(x) + ' W';
   };
 
   const kF = x => {
@@ -79,6 +81,7 @@ function renderFlowDiagram(byName) {
   }
   const cl = window.currentCloud !== undefined ? window.currentCloud : '--';
   const rn = window.currentRain !== undefined ? window.currentRain : '--';
+  const clearSky = cl !== '--' ? Math.max(0, 100 - cl) : '--';
 
   let wIcon = '🌤';
   if (wCode === 0) wIcon = '☀';
@@ -94,12 +97,13 @@ function renderFlowDiagram(byName) {
     const mFs = Math.round(o.fs * 0.72);
     const timeNow = getPktNow().toLocaleTimeString('en-PK', { hour: 'numeric', minute: '2-digit', hour12: true }).toLowerCase().replace(' ', '');
     svg += `<rect x="${o.x}" y="${o.y}" width="${o.w}" height="${o.h}" rx="10" fill="#0f172a" stroke="${o.color}" stroke-width="2"/>`;
-    svg += `<text x="${cx(o)}" y="${o.y+o.ly1}" ${tpProps} font-size="${o.fs}" fill="${o.c1}"><tspan fill="#a1a1aa" font-size="${sFs}">${timeNow}</tspan> <tspan fill="#334155" font-size="${mFs}">|</tspan> ${wIcon} ${tW}°C <tspan fill="#334155" font-size="${mFs}">|</tspan> <tspan fill="#f59e0b" font-size="${sFs}">Feels: ${feels}°C</tspan> <tspan fill="#334155" font-size="${mFs}">|</tspan> <tspan fill="#38bdf8" font-size="${sFs}">Hum: ${humW}%</tspan> <tspan fill="#334155" font-size="${mFs}">|</tspan> <tspan fill="#cbd5e1" font-size="${sFs}">☁ ${cl}%</tspan> <tspan fill="#334155" font-size="${mFs}">|</tspan> <tspan fill="#60a5fa" font-size="${sFs}">🌧 ${rn}%</tspan>${window.irradiancePct !== undefined && window.irradiancePct !== null ? ` <tspan fill="#334155" font-size="${mFs}">|</tspan> <tspan fill="#facc15" font-size="${sFs}">☀️ ${window.irradiancePct}%</tspan>` : ''}</text>`;
+    svg += `<text x="${cx(o)}" y="${o.y+o.ly1}" ${tpProps} font-size="${o.fs}" fill="${o.c1}"><tspan fill="#a1a1aa" font-size="${sFs}">${timeNow}</tspan> <tspan fill="#334155" font-size="${mFs}">|</tspan> ${wIcon} ${tW}°C <tspan fill="#334155" font-size="${mFs}">|</tspan> <tspan fill="#f59e0b" font-size="${sFs}">Feels: ${feels}°C</tspan> <tspan fill="#334155" font-size="${mFs}">|</tspan> <tspan fill="#38bdf8" font-size="${sFs}">Hum: ${humW}%</tspan> <tspan fill="#334155" font-size="${mFs}">|</tspan> <tspan fill="#cbd5e1" font-size="${sFs}">☁ ${cl}%</tspan> <tspan fill="#334155" font-size="${mFs}">|</tspan> <tspan fill="#60a5fa" font-size="${sFs}">🌧 ${rn}%</tspan> <tspan fill="#334155" font-size="${mFs}">|</tspan> <tspan fill="#facc15" font-size="${sFs}">☀️ ${clearSky}%</tspan></text>`;
   }
 
   // 1. SOLAR
   o = L.solar;
   const predW = window.currentPredW || 0; 
+  const pred2W = window.currentPred2W || 0;
   const cloud = window.currentCloud || 0;
   const rain = window.currentRain || 0;
   const solAct = s > 20;
@@ -113,6 +117,7 @@ function renderFlowDiagram(byName) {
   svg += `<text x="${cx(o)}" y="${o.y+o.ly3}" ${tpProps} font-size="${o.fs3}" fill="${o.c3}">${Math.round(sv)}V | ${sa.toFixed(1)}A | ${invT.toFixed(1)}°C</text>`;
   const rainStr = rain > 0 ? ` 🌧 ${rain}%` : '';
   svg += `<text x="${cx(o)}" y="${o.y+o.ly4}" ${tpProps} font-size="${o.fs4}" fill="${o.c4}">Pred: ${predF(predW)} | ☁ ${cloud}%${rainStr}</text>`;
+  if (o.ly8) svg += `<text x="${cx(o)}" y="${o.y+o.ly8}" ${tpProps} font-size="${o.fs8}" fill="${o.c8}">Pred2: ${predF(pred2W)} | ☀️ ${Math.max(0, 100 - cloud)}%</text>`;
   svg += `<text x="${cx(o)}" y="${o.y+o.ly5}" ${tpProps} font-size="${o.fs5}" fill="${o.c5}">Today: ${solar_t.toFixed(1)} kWh | ${kF(solar_t*rate)} PKR</text>`;
   svg += `<text x="${cx(o)}" y="${o.y+o.ly6}" ${tpProps} font-size="${o.fs6}" fill="${o.c6}">Month: ${nF(mU.solar||0)} kWh | ${kF((mU.solar||0)*rate)} PKR</text>`;
 

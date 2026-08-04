@@ -1,9 +1,8 @@
 const PROXY_ENDPOINTS = [
   'https://emon-proxy.new-life-786-786-786.workers.dev',
-  'https://crisp-blackbird-1172.newlife786786786.deno.net',
   'https://my-vercel-proxy-1.vercel.app',
-  'https://newlife-proxy.vercel.app',
-  'https://gxmbeybitqckkonxxtcr.supabase.co/functions/v1/proxy'
+  'https://gxmbeybitqckkonxxtcr.supabase.co/functions/v1/proxy',
+  'https://taupe-bunny-bb0a25.netlify.app/'
 ];
 
 let activeProxyIndex = 0;

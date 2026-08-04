@@ -9,12 +9,13 @@ async function updateMainPredicted() {
     const { hourly } = await _calcHourly(now.getFullYear(), now.getMonth()+1, now.getDate()); 
     const cur = now.getHours() + now.getMinutes()/60;
     
-    let watt = 0, cloud = 0, rain = 0;
+    let watt = 0, clearWatt = 0, cloud = 0, rain = 0;
     const firstHour = hourly[0]?.h ?? 5;
     const lastHour = hourly[hourly.length - 1]?.h ?? 18;
 
     if (cur < firstHour || cur >= lastHour + 1) {
       watt = 0;
+      clearWatt = 0;
       cloud = hourly[hourly.length - 1]?.cloud ?? 0;
       rain = hourly[hourly.length - 1]?.rain ?? 0;
     } else {
@@ -24,38 +25,27 @@ async function updateMainPredicted() {
           if (h1) {
             const t = (cur - h0.h)/(h1.h - h0.h);
             watt = h0.watt + t*(h1.watt - h0.watt);
+            clearWatt = (h0.clearWatt||0) + t*((h1.clearWatt||0) - (h0.clearWatt||0));
             cloud = (h0.cloud||0) + t*((h1.cloud||0)-(h0.cloud||0));
             rain = (h0.rain||0) + t*((h1.rain||0)-(h0.rain||0));
           } else {
-            watt = h0.watt; cloud = h0.cloud; rain = h0.rain;
+            watt = h0.watt; clearWatt = h0.clearWatt; cloud = h0.cloud; rain = h0.rain;
           }
           break;
         }
       }
     }
 
-    // ─── Compute real-time solar load coverage ratio (% of load covered by solar) ─────
     window.currentPredW = Math.round(watt);
     window.currentCloud = Math.round(cloud);
     window.currentRain = Math.round(rain);
+    
+    // Pred2 = Clear Sky Wattage * (1 - cloud_percentage)
+    window.currentPred2W = Math.round(clearWatt * Math.max(0, (100 - window.currentCloud) / 100));
 
-    let irradPct = null;
-    const liveSolarW = window.lastSolarActual || 0;
-    const liveLoadW  = window.lastResultsMap?.get('Tot Load')?.value || 0;
-
-    // Calculate solar load coverage % (e.g. 363W Solar / 400W Load = 91%)
-    if (liveLoadW > 20) {
-      irradPct = Math.min(100, Math.round((liveSolarW / liveLoadW) * 100));
-    } else if (liveSolarW > 20) {
-      irradPct = 100;
-    }
-    window.irradiancePct = irradPct;
-
-    // CRITICAL: If energy data exists, re-draw the flow chart with new pred values
     if (window.lastResultsMap) {
       renderFlowDiagram(window.lastResultsMap);
     }
-
   } catch(e) { console.log("Prediction Error:", e); }
 }
 

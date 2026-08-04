@@ -40,8 +40,25 @@ async function updateMainPredicted() {
     window.currentCloud = Math.round(cloud);
     window.currentRain = Math.round(rain);
     
-    // Pred2 = Clear Sky Wattage * (1 - cloud_percentage)
-    window.currentPred2W = Math.round(clearWatt * Math.max(0, (100 - window.currentCloud) / 100));
+
+    // ── Improved Pred2 v2 (strong live bias) ───────────────────────────
+    // Soft cloud curve + heavy trust in actual production when available.
+    const clearFrac = Math.max(0, (100 - (window.currentCloud || 0)) / 100);
+    // Soft power-law (0.60)
+    let cloudFactor = Math.pow(clearFrac, 0.60);
+
+    const actual = window.lastSolarActual || 0;
+    if (actual > 50 && clearWatt > 100) {
+      const liveRatio = Math.min(1.35, Math.max(0.25, actual / clearWatt));
+      // 20 % model + 80 % live
+      cloudFactor = 0.20 * cloudFactor + 0.80 * liveRatio;
+    }
+
+    window.currentPred2W = Math.round(clearWatt * cloudFactor);
+    window.currentPred2SunPct = Math.round(cloudFactor * 100);
+
+// Store effective sunshine % so the SVG label stays consistent
+    window.currentPred2SunPct = Math.round(cloudFactor * 100);
 
     if (window.lastResultsMap) {
       renderFlowDiagram(window.lastResultsMap);

@@ -1,3 +1,4 @@
+/* js\08b-render-b.js */
 function updateOfflineWarningBanner(byName) {
   const wrap = document.getElementById('offline-warning-wrap');
   if (!wrap) return;
@@ -8,7 +9,7 @@ function updateOfflineWarningBanner(byName) {
 
   const warnings = [];
   const nowSec = Math.floor(Date.now() / 1000);
-  const OFFLINE_THRESHOLD_SEC = 30 * 60;
+  const OFFLINE_THRESHOLD_SEC = 30 * 60; // Standard 30 mins
 
   // --- 🚨 EMERGENCY WATER WASTAGE BANNER (ALWAYS BYPASSES SETTINGS) ---
   const waste = window.waterWasteDetected;
@@ -56,14 +57,11 @@ function updateOfflineWarningBanner(byName) {
       { name: "Fridge2",        label: "Fridge 2",     type: "appliance", enabled: true },
       { name: "Water Motor",    label: "Water Motor",  type: "appliance", enabled: true },
       { name: "PC",             label: "PC",           type: "appliance", enabled: true },
-      { name: "Temperature",    label: "Temp 1",       type: "temp",      enabled: true },
-      { name: "Temperature 2",  label: "Temp 2",       type: "temp",      enabled: true },
-      { name: "Inverter Temp",  label: "Inv Temp",     type: "temp",      enabled: true },
       { name: "Water Tank",     label: "Water Tank",   type: "env",       enabled: true },
-      { name: "AC Volts",       label: "Grid Voltage", type: "env",       enabled: true },
-      { name: "Breaker",        label: "Grid Watts",   type: "watts",     enabled: true },
-      { name: "Solar",          label: "Solar",        type: "watts",     enabled: true },
-      { name: "Tot Load",       label: "Tot Load",     type: "watts",     enabled: true }
+      { name: "AC Volts",       label: "AC Volts",     type: "env",       enabled: true },
+      // Custom 20-minute threshold for Grid Power (Breaker)
+      { name: "Breaker",        label: "Grid Power",   type: "watts",     enabled: true, threshold: 20 * 60, offMsg: "OFF" },
+      { name: "Solar",          label: "Solar",        type: "watts",     enabled: true }
     ];
 
     const formatAge = (sec) => {
@@ -86,54 +84,58 @@ function updateOfflineWarningBanner(byName) {
       const feed = byName.get(item.name);
       const timeSec = (feed && feed.time && typeof feed.time === 'number' && feed.time > 0) ? feed.time : null;
       const ageSec = timeSec ? (nowSec - timeSec) : null;
-      const ageText = ageSec && ageSec > 60 ? ` (Off for ${formatAge(ageSec)})` : '';
+      const msgPrefix = item.offMsg || "Off";
+      const ageText = ageSec && ageSec > 60 ? ` (${msgPrefix} for ${formatAge(ageSec)})` : '';
 
       if (!feed || feed.value === null || feed.value === undefined) {
-        const detailStr = ageSec && ageSec > 60 ? `No Data (Off for ${formatAge(ageSec)})` : 'No Data';
+        const detailStr = ageSec && ageSec > 60 ? `No Data (${msgPrefix} for ${formatAge(ageSec)})` : 'No Data';
         warnings.push({ label: item.label, detail: detailStr });
         return;
       }
 
       if (item.type === 'temp' && feed.value <= 0) {
-        const detailStr = `${feed.value ?? 0}°C${ageText || ' (Offline)'}`;
+        const detailStr = `${feed.value ?? 0}°C${ageText || ` (${item.offMsg || "Offline"})`}`;
         warnings.push({ label: item.label, detail: detailStr });
         return;
       }
 
-      if (ageSec && ageSec > OFFLINE_THRESHOLD_SEC) {
-        warnings.push({ label: item.label, detail: `Off for ${formatAge(ageSec)}` });
+      const threshold = item.threshold || OFFLINE_THRESHOLD_SEC;
+      if (ageSec && ageSec > threshold) {
+        warnings.push({ label: item.label, detail: `${msgPrefix} for ${formatAge(ageSec)}` });
       }
     });
 
-    const f1Item = STALE_CHECK_FEEDS.find(i => i.name === "Fridge");
-    const f2Item = STALE_CHECK_FEEDS.find(i => i.name === "Fridge2");
-    const f1CodeEnabled = !f1Item || f1Item.enabled !== false;
-    const f2CodeEnabled = !f2Item || f2Item.enabled !== false;
-    const f1UiEnabled = !userOrderedFeeds || !userOrderedFeeds.some(f => f.name === "Fridge" && f.enabled === false);
-    const f2UiEnabled = !userOrderedFeeds || !userOrderedFeeds.some(f => f.name === "Fridge2" && f.enabled === false);
+    // Fridge 0W specific check (20 mins)
+    const checkFridge0W = (fName, fLabel) => {
+      const fItem = STALE_CHECK_FEEDS.find(i => i.name === fName);
+      if (!fItem || fItem.enabled === false) return;
+      if (typeof userOrderedFeeds !== 'undefined' && userOrderedFeeds.some(f => f.name === fName && f.enabled === false)) return;
 
-    if (f1CodeEnabled && f2CodeEnabled && f1UiEnabled && f2UiEnabled) {
-      const f1 = byName.get("Fridge");
-      const f2 = byName.get("Fridge2");
-      const f1Val = (f1 && f1.value !== null && f1.value !== undefined) ? f1.value : 0;
-      const f2Val = (f2 && f2.value !== null && f2.value !== undefined) ? f2.value : 0;
-      const bothZero = (f1Val <= 5) && (f2Val <= 5);
-
-      if (bothZero) {
-        let startStr = localStorage.getItem('both_fridges_zero_start');
-        if (!startStr) {
-          startStr = nowSec.toString();
-          localStorage.setItem('both_fridges_zero_start', startStr);
+      const fData = byName.get(fName);
+      if (fData && fData.value !== null && fData.value !== undefined) {
+        let lastActiveStr = localStorage.getItem(`${fName}_last_active`);
+        let lastActive = lastActiveStr ? parseInt(lastActiveStr, 10) : nowSec;
+        
+        if (fData.value > 5) {
+          localStorage.setItem(`${fName}_last_active`, nowSec.toString());
         } else {
-          const durSec = nowSec - parseInt(startStr, 10);
-          if (durSec >= 30 * 60) {
-            warnings.push({ label: "Both Fridges", detail: `0W for ${formatAge(durSec)}` });
+          if (!lastActiveStr) {
+            localStorage.setItem(`${fName}_last_active`, nowSec.toString());
+          }
+          const durSec = nowSec - lastActive;
+          if (durSec >= 20 * 60) {
+            // Prevent duplicate warnings if the feed is already marked as fully offline/stale
+            const existing = warnings.find(w => w.label === fLabel);
+            if (!existing) {
+              warnings.push({ label: fLabel, detail: `0W for ${formatAge(durSec)}` });
+            }
           }
         }
-      } else {
-        localStorage.removeItem('both_fridges_zero_start');
       }
-    }
+    };
+
+    checkFridge0W("Fridge", "Fridge 1");
+    checkFridge0W("Fridge2", "Fridge 2");
   }
 
   if (warnings.length === 0 && (!waste || !waste.active)) {

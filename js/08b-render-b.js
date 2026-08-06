@@ -9,9 +9,9 @@ function updateOfflineWarningBanner(byName) {
 
   const warnings = [];
   const nowSec = Math.floor(Date.now() / 1000);
-  const OFFLINE_THRESHOLD_SEC = 30 * 60; // Standard 30 mins
+  const OFFLINE_THRESHOLD_SEC = 30 * 60;
 
-  // --- 🚨 EMERGENCY WATER WASTAGE BANNER (ALWAYS BYPASSES SETTINGS) ---
+  // --- Emergency water wastage banner (always shown) ---
   const waste = window.waterWasteDetected;
   let emergencyHtml = "";
   if (waste && waste.active) {
@@ -31,16 +31,14 @@ function updateOfflineWarningBanner(byName) {
     `;
   }
 
-  // Hide banner only if NO emergency wastage and standard offline warnings are toggled OFF
+  // Hide banner if disabled and no emergency
   if (!isEnabled && (!waste || !waste.active)) {
     wrap.style.display = 'none';
     wrap.innerHTML = '';
     return;
   }
 
-  // 🛑 PREVENT INITIAL OFFLINE WARNING FLASH:
-  // If window.lastResultsMap is undefined, the app is rendering the old cached data on boot.
-  // We skip showing stale warnings until the first live network poll finishes.
+  // Skip initial stale warnings until first live poll
   if (!window.lastResultsMap && (!waste || !waste.active)) {
     wrap.style.display = 'none';
     wrap.innerHTML = '';
@@ -59,15 +57,12 @@ function updateOfflineWarningBanner(byName) {
       { name: "PC",             label: "PC",           type: "appliance", enabled: true },
       { name: "Water Tank",     label: "Water Tank",   type: "env",       enabled: true },
       { name: "AC Volts",       label: "AC Volts",     type: "env",       enabled: true },
-      // Custom 20-minute threshold for Grid Power (Breaker)
       { name: "Breaker",        label: "Grid Power",   type: "watts",     enabled: true, threshold: 20 * 60, offMsg: "OFF" },
       { name: "Solar",          label: "Solar",        type: "watts",     enabled: true }
     ];
 
     const formatAge = (sec) => {
-      if (sec < 3600) {
-        return `${Math.max(1, Math.floor(sec / 60))}m`;
-      }
+      if (sec < 3600) return `${Math.max(1, Math.floor(sec / 60))}m`;
       const hrs = Math.floor(sec / 3600);
       const mins = Math.floor((sec % 3600) / 60);
       return mins > 0 ? `${hrs}h ${mins}m` : `${hrs}h`;
@@ -75,7 +70,6 @@ function updateOfflineWarningBanner(byName) {
 
     STALE_CHECK_FEEDS.forEach(item => {
       if (item.enabled === false) return;
-
       if (typeof userOrderedFeeds !== 'undefined' && userOrderedFeeds.length > 0) {
         const userSetting = userOrderedFeeds.find(f => f.name === item.name);
         if (userSetting && userSetting.enabled === false) return;
@@ -105,39 +99,46 @@ function updateOfflineWarningBanner(byName) {
       }
     });
 
-    // Fridge 0W specific check (20 mins)
-    const checkFridge0W = (fName, fLabel) => {
+    // ── Zero‑W warning (corrected: only if feed is stale) ──
+    const checkFeed0W = (fName, fLabel, thresholdSec = 20 * 60) => {
       const fItem = STALE_CHECK_FEEDS.find(i => i.name === fName);
       if (!fItem || fItem.enabled === false) return;
       if (typeof userOrderedFeeds !== 'undefined' && userOrderedFeeds.some(f => f.name === fName && f.enabled === false)) return;
 
       const fData = byName.get(fName);
-      if (fData && fData.value !== null && fData.value !== undefined) {
-        let lastActiveStr = localStorage.getItem(`${fName}_last_active`);
-        let lastActive = lastActiveStr ? parseInt(lastActiveStr, 10) : nowSec;
-        
-        if (fData.value > 5) {
+      if (!fData || fData.value === null || fData.value === undefined) return;
+
+      // --- NEW: skip if feed is fresh (updating) ---
+      if (fData.time && (nowSec - fData.time) < thresholdSec) {
+        return; // feed is updating; do not warn based on stale last_active
+      }
+
+      let lastActiveStr = localStorage.getItem(`${fName}_last_active`);
+      let lastActive = lastActiveStr ? parseInt(lastActiveStr, 10) : nowSec;
+      
+      if (fData.value > 5) {
+        localStorage.setItem(`${fName}_last_active`, nowSec.toString());
+      } else {
+        if (!lastActiveStr) {
           localStorage.setItem(`${fName}_last_active`, nowSec.toString());
-        } else {
-          if (!lastActiveStr) {
-            localStorage.setItem(`${fName}_last_active`, nowSec.toString());
-          }
-          const durSec = nowSec - lastActive;
-          if (durSec >= 20 * 60) {
-            // Prevent duplicate warnings if the feed is already marked as fully offline/stale
-            const existing = warnings.find(w => w.label === fLabel);
-            if (!existing) {
-              warnings.push({ label: fLabel, detail: `0W for ${formatAge(durSec)}` });
-            }
+        }
+        const durSec = nowSec - lastActive;
+        if (durSec >= thresholdSec) {
+          // Prevent duplicate warnings if already flagged as stale
+          const existing = warnings.find(w => w.label === fLabel);
+          if (!existing) {
+            warnings.push({ label: fLabel, detail: `0W for ${formatAge(durSec)}` });
           }
         }
       }
     };
 
-    checkFridge0W("Fridge", "Fridge 1");
-    checkFridge0W("Fridge2", "Fridge 2");
+    checkFeed0W("Fridge", "Fridge 1", 20 * 60);
+    checkFeed0W("Fridge2", "Fridge 2", 20 * 60);
+    checkFeed0W("Breaker", "Grid Power", 10 * 60);
   }
 
+  // Render the banner
   if (warnings.length === 0 && (!waste || !waste.active)) {
     wrap.style.display = 'none';
     wrap.innerHTML = '';

@@ -493,6 +493,14 @@ async function poll() {
     window.lastResultsMap = bm; 
     window.lastSolarActual = bm.get('Solar')?.value || 0;
 
+  // Run offline detection (does not block UI)
+  try {
+    const offline = await checkApplianceOffline(Math.floor(Date.now() / 1000));
+    window.applianceOfflineDetected = offline || [];
+  } catch (e) {
+    console.warn('Offline detection error:', e);
+    window.applianceOfflineDetected = [];
+  }
     renderResults(results);
     
     if (typeof checkAlerts === 'function') checkAlerts(bm);

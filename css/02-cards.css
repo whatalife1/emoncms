@@ -147,3 +147,12 @@
   color: #f87171;
   font-weight: 700;
 }
+
+
+@keyframes offline-flash {
+  0%, 100% { stroke: #ef4444; stroke-width: 3; filter: drop-shadow(0 0 8px #ef4444); }
+  50% { stroke: #666; stroke-width: 2; filter: none; }
+}
+.offline-anim {
+  animation: offline-flash 1.5s infinite ease-in-out;
+}

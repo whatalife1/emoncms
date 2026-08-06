@@ -497,6 +497,7 @@ async function poll() {
     
     if (typeof checkAlerts === 'function') checkAlerts(bm);
     if (typeof updateMainPredicted === 'function') updateMainPredicted();
+    if (typeof checkApplianceOffline === 'function') await checkApplianceOffline(nowSec, bm);
     if (typeof updateOfflineWarningBanner === 'function') updateOfflineWarningBanner(bm);
     
     if (footer) {

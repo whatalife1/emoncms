@@ -2,7 +2,8 @@
 
 const APPLIANCE_MONITOR_LIST = [
   { name: 'AC Volts',       label: '⚡ Grid Power (Loadshedding)', minActiveW: 100, offThresholdW: 20, offMinutes: 10, isVolts: true },
-  { name: 'Fridge',         label: 'Fridge 1',        minActiveW: 40,  offThresholdW: 28, offMinutes: 20 },
+  { name: 'Breaker',        label: 'Grid Power',                   minActiveW: 50,  offThresholdW: 5,  offMinutes: 10 },
+  { name: 'Fridge',         label: 'Fridge 1',                     minActiveW: 40,  offThresholdW: 28, offMinutes: 20 },
   { name: 'Fridge2',        label: 'Fridge 2',        minActiveW: 40,  offThresholdW: 28, offMinutes: 20 },
   { name: 'Kenwood 1.5Ton', label: 'Kenwood 1.5T',     minActiveW: 100, offThresholdW: 30, offMinutes: 60 },
   { name: 'Kenwood 1Ton',   label: 'Kenwood 1T',       minActiveW: 100, offThresholdW: 30, offMinutes: 60 },

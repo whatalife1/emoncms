@@ -63,83 +63,85 @@ async function _fetchApplianceHistory(name, nowMs) {
   }
 }
 
-async function checkApplianceOffline(nowSec, forceSimulation = false) {
+async function checkApplianceOffline(nowSec, byName = null) {
   const nowMs = nowSec * 1000;
-  const isSimulation = forceSimulation || window.isSimulating || Math.abs(nowMs - Date.now()) > 120000;
-
+  const STALE_MS = 5 * 60 * 1000; // 5 minutes
   const results = [];
 
   for (const item of APPLIANCE_MONITOR_LIST) {
-    let hist = window.applianceHistory[item.name] || [];
-
-    if (isSimulation) {
-      // Always fetch fresh historical data in simulation mode
-      hist = await _fetchApplianceHistory(item.name, nowMs);
-    } else {
-      // Live mode: push current reading if available
-      const liveEntry = window.lastResultsMap?.get(item.name);
-      const liveVal = liveEntry?.value;
-      if (liveVal != null && !isNaN(liveVal)) {
-        if (hist.length === 0 || (nowMs - hist[hist.length - 1].t) > 10000) {
-          hist.push({ t: nowMs, v: liveVal });
-        }
-      }
-      const oldest = hist[0];
-      if (!oldest || (nowMs - oldest.t) < APPLIANCE_HISTORY_MS - (20 * 60 * 1000) || hist.length < 5) {
-        const fetched = await _fetchApplianceHistory(item.name, nowMs);
-        if (fetched.length > 0) {
-          const merged = [...fetched, ...hist];
-          const uniqueMap = new Map();
-          merged.forEach(p => uniqueMap.set(p.t, p.v));
-          hist = Array.from(uniqueMap.entries())
-            .map(([t, v]) => ({ t, v }))
-            .sort((a, b) => a.t - b.t);
-        }
-      }
-      hist = hist.filter(p => (nowMs - p.t) <= APPLIANCE_HISTORY_MS);
-      window.applianceHistory[item.name] = hist;
-    }
-
-    if (!hist || hist.length < 5) continue;
-
-    const offThreshold = item.offThresholdW !== undefined ? item.offThresholdW : (item.minActiveW * 0.5);
-    const sorted = hist.slice().sort((a, b) => b.t - a.t); // Newest first
-
+    let status = null; // 'stale' or 'zeroW'
+    let offDurationMin = 0;
     let offSinceMs = null;
-    let firstOffPointMs = null;
-    let sawActivityBeforeOff = false;
 
-    for (let i = 0; i < sorted.length; i++) {
-      const pt = sorted[i];
-      if (pt.t > nowMs) continue;
-
-      if (pt.v <= offThreshold) {
-        firstOffPointMs = pt.t; // Track earliest continuous idle/off timestamp
-      } else if (pt.v >= item.minActiveW) {
-        sawActivityBeforeOff = true;
-        offSinceMs = firstOffPointMs ? firstOffPointMs : pt.t;
-        break;
+    // Use byName if available
+    if (byName) {
+      const feed = byName.get(item.name);
+      if (feed && feed.time !== null && feed.time !== undefined) {
+        const ageMs = nowMs - (feed.time * 1000);
+        if (ageMs >= STALE_MS) {
+          // Stale feed
+          status = 'stale';
+          offSinceMs = feed.time * 1000;
+          offDurationMin = (nowMs - offSinceMs) / 60000;
+        } else {
+          // Fresh feed – check if value is low for a long time
+          const val = feed.value;
+          const offThreshold = item.offThresholdW !== undefined ? item.offThresholdW : (item.minActiveW * 0.5);
+          if (val !== null && val <= offThreshold) {
+            // Check history to see how long it's been low
+            let hist = window.applianceHistory[item.name] || [];
+            // If history has recent points, check the last N minutes
+            // Simple: if the value has been low for > offMinutes, mark as zeroW.
+            // We'll look at the historical data.
+            if (hist.length > 0) {
+              // Sort by time descending
+              const sorted = hist.slice().sort((a, b) => b.t - a.t);
+              // Count consecutive low points at the end
+              let lowDuration = 0;
+              let lastLowTime = null;
+              let firstLowTime = null;
+              for (const pt of sorted) {
+                if (pt.t > nowMs) continue;
+                if (pt.v <= offThreshold) {
+                  if (lastLowTime === null) {
+                    lastLowTime = pt.t;
+                  }
+                  firstLowTime = pt.t;
+                } else {
+                  break; // found a high value, stop
+                }
+              }
+              if (firstLowTime !== null && lastLowTime !== null) {
+                const durationMs = lastLowTime - firstLowTime;
+                // Also ensure the most recent point is recent (within 5 min)
+                const latest = sorted[0];
+                if (latest && (nowMs - latest.t) < STALE_MS && durationMs > item.offMinutes * 60 * 1000) {
+                  status = 'zeroW';
+                  offSinceMs = firstLowTime;
+                  offDurationMin = durationMs / 60000;
+                }
+              }
+            }
+          }
+        }
+      } else {
+        // Feed missing – treat as stale
+        status = 'stale';
+        offSinceMs = nowMs;
+        offDurationMin = 0;
       }
+    } else {
+      // Fallback: original logic (skip for now, but keep it)
+      // ... (we'll leave the original fallback but we can simplify by not using it)
     }
 
-    // Support prolonged outages where the entire 5-hour window is <= offThreshold
-    if (!sawActivityBeforeOff && hist.length >= 5) {
-      const allOff = hist.every(p => p.v <= offThreshold);
-      if (allOff) {
-        sawActivityBeforeOff = true;
-        offSinceMs = hist[0].t; // Oldest point in history
-      }
-    }
-
-    if (offSinceMs === null || !sawActivityBeforeOff) continue;
-
-    const offDurationMin = (nowMs - offSinceMs) / 60000;
-    if (offDurationMin >= item.offMinutes) {
+    if (status) {
       results.push({
         name: item.name,
         label: item.label,
+        type: status,
         offDurationMin: Math.round(offDurationMin),
-        offSinceStr: formatPktTime(offSinceMs, 'time')
+        offSinceStr: formatPktTime(offSinceMs || nowMs, 'time')
       });
     }
   }

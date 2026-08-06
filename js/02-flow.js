@@ -3,16 +3,15 @@ const LAYOUT = {
  solar: { x:5, y:66, w:321, h:365, color:'#f59e0b', label:'Solar', ly1:42, fs:47, c1:'#ffff00', ly2:106, fs2:46, c2:'#2c8758', ly3:172, fs3:31, c3:'#b4b635', ly4:219, fs4:22, c4:'#21c442', ly5:289, fs5:24, c5:'#3de31c', ly6:330, fs6:22, c6:'#38bdf8', ly7:140, fs7:17, c7:'#a1a1aa', ly8:246, fs8:22, c8:'#21c442',  },
  grid: { x:330, y:64, w:245, h:365, color:'#ef4444', label:'Grid', ly1:35, fs:38, c1:'#ef4444', ly2:154, fs2:28, c2:'#35c0b7', ly3:291, fs3:21, c3:'#3de3e4', ly4:332, fs4:19, c4:'#38bdf8', ly5:186, fs5:19, c5:'#a1a1aa', ly6:79, fs6:20, c6:'#a1a1aa',  },
  water: { x:579, y:62, w:146, h:365, color:'#0ea5e9', label:'Water', ly1:33, fs:46, c1:'#0ea5e9', ly2:158, fs2:56, c2:'#25f447', ly3:251, fs3:25, c3:'#9ca3af', ly4:295, fs4:20, c4:'#0ce4e0', ly5:320, fs5:19, c5:'#38bdf8', ly6:342, fs6:18, c6:'#a1a1aa',  },
- haier: { x:7, y:436, w:238, h:199, color:'#38bdf8', label:'Haier 1T', ly1:22, fs:34, c1:'#38bdf8', ly2:75, fs2:63, c2:'#25f447', ly3:143, fs3:25, c3:'#00c8f0', ly4:175, fs4:25, c4:'#518e35', ly5:113, fs5:16, c5:'#a1a1aa',  },
- k15: { x:252, y:436, w:238, h:199, color:'#38bdf8', label:'Kenwood 1.5T', ly1:21, fs:33, c1:'#38bdf8', ly2:68, fs2:60, c2:'#25f447', ly3:142, fs3:25, c3:'#00c8f0', ly4:175, fs4:25, c4:'#518e35', ly5:114, fs5:16, c5:'#a1a1aa',  },
- k1: { x:497, y:435, w:231, h:200, color:'#38bdf8', label:'Kenwood 1T', ly1:27, fs:34, c1:'#38bdf8', ly2:75, fs2:61, c2:'#25f447', ly3:143, fs3:25, c3:'#00c8f0', ly4:175, fs4:25, c4:'#518e35', ly5:114, fs5:16, c5:'#a1a1aa',  },
- fridge: { x:8, y:678, w:237, h:241, color:'#c084fc', label:'Fridges', ly1:16, fs:36, c1:'#38bdf8', ly2:53, fs2:52, c2:'#25f447', ly3:103, fs3:18, c3:'#518e35', ly4:132, fs4:36, c4:'#38bdf8', ly5:171, fs5:52, c5:'#25f447', ly6:228, fs6:18, c6:'#518e35', ly7:86, fs7:14, c7:'#a1a1aa', ly8:205, fs8:17, c8:'#a1a1aa',  },
- pc: { x:506, y:682, w:223, h:235, color:'#10b9f8', label:'PC', ly1:27, fs:47, c1:'#38bdf8', ly2:75, fs2:53, c2:'#25f447', ly3:178, fs3:23, c3:'#00c8f0', ly4:217, fs4:21, c4:'#518e35', ly5:135, fs5:17, c5:'#a1a1aa',  },
- motor: { x:249, y:678, w:246, h:241, color:'#fbbf24', label:'Water Motor', ly1:24, fs:35, c1:'#fbbf24', ly2:83, fs2:57, c2:'#38bdf8', ly3:182, fs3:21, c3:'#518e35', ly4:221, fs4:22, c4:'#518e35', ly5:129, fs5:18, c5:'#a1a1aa',  },
+ haier: { x:7, y:436, w:238, h:199, color:'#38bdf8', label:'Haier 1T', ly1:22, fs:34, c1:'#38bdf8', ly2:75, fs2:63, c2:'#25f447', ly3:156, fs3:25, c3:'#00c8f0', ly4:181, fs4:25, c4:'#518e35', ly5:119, fs5:16, c5:'#a1a1aa',  },
+ k15: { x:252, y:436, w:238, h:199, color:'#38bdf8', label:'Kenwood 1.5T', ly1:21, fs:33, c1:'#38bdf8', ly2:68, fs2:60, c2:'#25f447', ly3:155, fs3:25, c3:'#00c8f0', ly4:183, fs4:25, c4:'#518e35', ly5:119, fs5:16, c5:'#a1a1aa',  },
+ k1: { x:497, y:435, w:231, h:200, color:'#38bdf8', label:'Kenwood 1T', ly1:27, fs:34, c1:'#38bdf8', ly2:75, fs2:61, c2:'#25f447', ly3:159, fs3:25, c3:'#00c8f0', ly4:185, fs4:25, c4:'#518e35', ly5:119, fs5:16, c5:'#a1a1aa',  },
+ fridge: { x:8, y:678, w:265, h:242, color:'#c084fc', label:'Fridges', ly1:16, fs:36, c1:'#38bdf8', ly2:53, fs2:52, c2:'#25f447', ly3:103, fs3:18, c3:'#518e35', ly4:132, fs4:36, c4:'#38bdf8', ly5:171, fs5:52, c5:'#25f447', ly6:228, fs6:18, c6:'#518e35', ly7:86, fs7:14, c7:'#a1a1aa', ly8:205, fs8:17, c8:'#a1a1aa',  },
+ pc: { x:506, y:682, w:223, h:235, color:'#10b9f8', label:'PC', ly1:27, fs:47, c1:'#38bdf8', ly2:75, fs2:53, c2:'#25f447', ly3:188, fs3:23, c3:'#00c8f0', ly4:217, fs4:21, c4:'#518e35', ly5:135, fs5:17, c5:'#a1a1aa',  },
+ motor: { x:280, y:675, w:219, h:244, color:'#fbbf24', label:'Water Motor', ly1:24, fs:31, c1:'#fbbf24', ly2:83, fs2:57, c2:'#38bdf8', ly3:192, fs3:21, c3:'#518e35', ly4:221, fs4:22, c4:'#518e35', ly5:129, fs5:18, c5:'#a1a1aa',  },
  temp: { x:502, y:642, w:225, h:40, color:'#22c55e', label:'temp', ly1:20, fs:26, c1:'#25f447',  },
  temp2: { x:8, y:639, w:238, h:35, color:'#22c55e', label:'temp2', ly1:16, fs:27, c1:'#25f447',  },
 };
-
 
 function renderFlowDiagram(byName) {
   if (!byName) return;
@@ -203,42 +202,40 @@ const cloud = window.currentCloud || 0;
   };
   drawApp('haier', 'Haier 1Ton'); drawApp('k15', 'Kenwood 1.5Ton'); drawApp('k1', 'Kenwood 1Ton'); drawApp('pc', 'PC');
   
-  const f1W = getV('Fridge'); const f2W = getV('Fridge2');
-  const f1T = getV('Fridge Today'); const f2T = getV('Fridge2 Today');
-  const fAct = (f1W + f2W) > 6;
-  o = L.fridge;
-  const f1Time = byName.get('Fridge')?.time;
-  const f1TimeStr = f1Time ? new Date(f1Time * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--';
-  const f2Time = byName.get('Fridge2')?.time;
-  const f2TimeStr = (f2Time && !isNaN(f2Time)) ? new Date(f2Time * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--';
+const f1W = getV('Fridge'); const f2W = getV('Fridge2');
+const f1T = getV('Fridge Today'); const f2T = getV('Fridge2 Today');
+const fAct = (f1W + f2W) > 6;
 
-  svg += `<rect class="${fAct ? 'pulse-animation' : ''}" style="--pulse-clr:${o.color}" x="${o.x}" y="${o.y}" width="${o.w}" height="${o.h}" rx="10" fill="${fAct?'#141416':'#1a1a1c'}" stroke="${fAct?o.color:'#333'}" stroke-width="2"/>`;
-  svg += `<text x="${cx(o)}" y="${o.y+o.ly1}" ${tpProps} font-size="${o.fs}" fill="${f1W>6?o.c1:'#777'}">Fridge 1</text>`;
-  svg += `<text x="${cx(o)}" y="${o.y+o.ly2}" ${tpProps} font-size="${o.fs2}" fill="${f1W>6?o.c2:'#555'}">${pF(f1W)}</text>`;
-  if (o.ly7) svg += `<text x="${cx(o)}" y="${o.y+o.ly7}" ${tpProps} font-size="${o.fs7}" fill="${o.c7}">${f1TimeStr}</text>`;
-  svg += `<text x="${cx(o)}" y="${o.y+o.ly3}" ${tpProps} font-size="${o.fs3}" fill="${o.c3}">T: ${f1T.toFixed(2)} kWh M: ${(mU.f1||0).toFixed(1)} kWh</text>`;
-  
-  svg += `<text x="${cx(o)}" y="${o.y+o.ly4}" ${tpProps} font-size="${o.fs4}" fill="${f2W>6?o.c4:'#777'}">Fridge 2</text>`;
-  svg += `<text x="${cx(o)}" y="${o.y+o.ly5}" ${tpProps} font-size="${o.fs5}" fill="${f2W>6?o.c5:'#555'}">${pF(f2W)}</text>`;
-  if (o.ly8) svg += `<text x="${cx(o)}" y="${o.y+o.ly8}" ${tpProps} font-size="${o.fs8}" fill="${o.c8}">${f2TimeStr}</text>`;
-  svg += `<text x="${cx(o)}" y="${o.y+o.ly6}" ${tpProps} font-size="${o.fs6}" fill="${o.c6}">T: ${f2T.toFixed(2)} kWh M: ${(mU.f2||0).toFixed(1)} kWh</text>`;
+// Check offline status
+const offlineList = window.applianceOfflineDetected || [];
+const isFridge1Offline = offlineList.some(a => a.name === 'Fridge');
+const isFridge2Offline = offlineList.some(a => a.name === 'Fridge2');
+const anyFridgeOffline = isFridge1Offline || isFridge2Offline;
 
-  const motT = getV('Water Motor Today');
-  const motAct = motW > 6;
-  o = L.motor;
-  const motTime = byName.get('Water Motor')?.time;
-  const motTimeStr = (motTime && !isNaN(motTime)) ? new Date(motTime * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--';
+o = L.fridge;
+const rectClass = anyFridgeOffline ? 'offline-anim' : (fAct ? 'pulse-animation' : '');
+const rectStroke = anyFridgeOffline ? '#ef4444' : (fAct ? o.color : '#333');
+const rectFill = anyFridgeOffline ? '#2a0a0a' : (fAct ? '#141416' : '#1a1a1c');
 
-  if(o) {
-    svg += `<rect class="${motAct ? 'pulse-animation' : ''}" style="--pulse-clr:${o.color}" x="${o.x}" y="${o.y}" width="${o.w}" height="${o.h}" rx="10" fill="${motAct?'#141416':'#1a1a1c'}" stroke="${motAct?o.color:'#333'}" stroke-width="2"/>`;
-    svg += `<text x="${cx(o)}" y="${o.y+o.ly1}" ${tpProps} font-size="${o.fs}" fill="${motAct?o.c1:'#777'}">${o.label}</text>`;
-    svg += `<text x="${cx(o)}" y="${o.y+o.ly2}" ${tpProps} font-size="${o.fs2}" fill="${motAct?o.c2:'#555'}">${pF(motW)}</text>`;
-    if (o.ly5) svg += `<text x="${cx(o)}" y="${o.y+o.ly5}" ${tpProps} font-size="${o.fs5}" fill="${o.c5}">${motTimeStr}</text>`;
-    svg += `<text x="${cx(o)}" y="${o.y+o.ly3}" ${tpProps} font-size="${o.fs3}" fill="${o.c3}">Today ${motT.toFixed(2)} kWh</text>`;
-    svg += `<text x="${cx(o)}" y="${o.y+o.ly4}" ${tpProps} font-size="${o.fs4}" fill="${o.c4}">Month ${(mU.motor||0).toFixed(1)} kWh</text>`;
-  }
+svg += `<rect class="${rectClass}" style="--pulse-clr:${o.color}" x="${o.x}" y="${o.y}" width="${o.w}" height="${o.h}" rx="10" fill="${rectFill}" stroke="${rectStroke}" stroke-width="2"/>`;
+const f1Time = byName.get('Fridge')?.time;
+const f1TimeStr = f1Time ? new Date(f1Time * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--';
+const f2Time = byName.get('Fridge2')?.time;
+const f2TimeStr = (f2Time && !isNaN(f2Time)) ? new Date(f2Time * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--';
 
-  // 5. TEMP
+let offBadge1 = isFridge1Offline ? ' <tspan fill="#ef4444" font-weight="900">⚠ OFF</tspan>' : '';
+svg += `<text x="${cx(o)}" y="${o.y+o.ly1}" ${tpProps} font-size="${o.fs}" fill="${f1W>6?o.c1:'#777'}">Fridge 1${offBadge1}</text>`;
+svg += `<text x="${cx(o)}" y="${o.y+o.ly2}" ${tpProps} font-size="${o.fs2}" fill="${f1W>6?o.c2:'#555'}">${pF(f1W)}</text>`;
+if (o.ly7) svg += `<text x="${cx(o)}" y="${o.y+o.ly7}" ${tpProps} font-size="${o.fs7}" fill="${o.c7}">${f1TimeStr}</text>`;
+svg += `<text x="${cx(o)}" y="${o.y+o.ly3}" ${tpProps} font-size="${o.fs3}" fill="${o.c3}">T: ${f1T.toFixed(2)} kWh M: ${(mU.f1||0).toFixed(1)} kWh</text>`;
+
+let offBadge2 = isFridge2Offline ? ' <tspan fill="#ef4444" font-weight="900">⚠ OFF</tspan>' : '';
+svg += `<text x="${cx(o)}" y="${o.y+o.ly4}" ${tpProps} font-size="${o.fs4}" fill="${f2W>6?o.c4:'#777'}">Fridge 2${offBadge2}</text>`;
+svg += `<text x="${cx(o)}" y="${o.y+o.ly5}" ${tpProps} font-size="${o.fs5}" fill="${f2W>6?o.c5:'#555'}">${pF(f2W)}</text>`;
+if (o.ly8) svg += `<text x="${cx(o)}" y="${o.y+o.ly8}" ${tpProps} font-size="${o.fs8}" fill="${o.c8}">${f2TimeStr}</text>`;
+svg += `<text x="${cx(o)}" y="${o.y+o.ly6}" ${tpProps} font-size="${o.fs6}" fill="${o.c6}">T: ${f2T.toFixed(2)} kWh M: ${(mU.f2||0).toFixed(1)} kWh</text>`;
+
+// 5. TEMP
   const oT = L.temp;
   svg += `<rect x="${oT.x}" y="${oT.y}" width="${oT.w}" height="${oT.h}" rx="8" fill="#141416" stroke="${oT.color}" stroke-width="1.5"/><text x="${cx(oT)}" y="${oT.y+oT.ly1}" ${tpProps} font-size="${oT.fs}" fill="${oT.c1}">${tp.toFixed(1)}°C / ${Math.round(hm)}%</text>`;
   const oT2 = L.temp2;

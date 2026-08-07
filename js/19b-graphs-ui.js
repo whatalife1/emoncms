@@ -771,6 +771,7 @@ function renderGraphsPanel() {
         _renderGTimeTabs(); 
         _renderGNavBar(); 
         _renderChartTypeToggle(); 
+        if (typeof _renderGraphActionBtns === 'function') _renderGraphActionBtns();
         if (typeof _loadAndDraw === 'function') _loadAndDraw(); 
     }
     catch(e) { console.warn('Graph render error:', e); } finally { graphIsRendering = false; }
@@ -800,3 +801,31 @@ window.toggleGraphStartHour = function() {
     }
     updateGraphStartButton();
 };
+
+// ─── Graph Action Buttons (CSV, Snap, Avg) ─────────────────────────────────
+function _renderGraphActionBtns() {
+    const card = document.querySelector('.graph-chart-card');
+    if (!card) return;
+    let wrap = document.getElementById('graph-action-btns');
+    if (wrap) wrap.remove();
+
+    wrap = document.createElement('div');
+    wrap.id = 'graph-action-btns';
+    wrap.className = 'graph-action-btns';
+    
+    wrap.innerHTML = `
+        <button class="graph-action-btn" id="btn-graph-csv" title="Export Raw CSV">📥 CSV</button>
+        <button class="graph-action-btn" id="btn-graph-snap" title="Snap to Peak">🎯 Peak</button>
+        <button class="graph-action-btn ${window.graphShowAvg ? 'active' : ''}" id="btn-graph-avg" title="Moving Average">〰 Avg</button>
+    `;
+    card.appendChild(wrap);
+
+    document.getElementById('btn-graph-csv').onclick = () => window.downloadGraphCSV();
+    document.getElementById('btn-graph-snap').onclick = () => window.snapToPeak();
+    document.getElementById('btn-graph-avg').onclick = (e) => {
+        window.graphShowAvg = !window.graphShowAvg;
+        e.target.classList.toggle('active', window.graphShowAvg);
+        if (typeof _loadAndDraw === 'function') _loadAndDraw();
+    };
+}
+window._renderGraphActionBtns = _renderGraphActionBtns;

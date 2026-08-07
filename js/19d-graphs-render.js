@@ -83,7 +83,7 @@ function _fastRedraw() {
     if (canvas && graphDataCache) {
         const c = graphDataCache;
         _drawChart(canvas, c.bars1, c.bars2, c.labels, c.color1, c.color2, c.unit, c.isCombined, c.nav, c.lastIdx, c.multiData,
-                   c.minV, c.maxV, c.range, c.barsTemp, c.tempMinV, c.tempMaxV, c.tempRange, c.tempUnit, c.tempColor, c.overlayLabel, c.ghostData, c.avgData);
+                   c.minV, c.maxV, c.range, c.barsTemp, c.tempMinV, c.tempMaxV, c.tempRange, c.tempUnit, c.tempColor, c.overlayLabel);
     }
 }
 
@@ -584,7 +584,7 @@ function _handleGraphHover(e, pin) {
 }
 
 function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombined, nav, lastIdx, multiData,
-                   minV, maxV, range, barsTemp = [], tempMinV = 0, tempMaxV = 100, tempRange = 100, tempUnit = '°C', tempColor = '#10b981', overlayLabel = '', ghostData = null, avgData = null) {
+                   minV, maxV, range, barsTemp = [], tempMinV = 0, tempMaxV = 100, tempRange = 100, tempUnit = '°C', tempColor = '#10b981', overlayLabel = '') {
     
     _attachDirectZoom(canvas);
 
@@ -675,53 +675,6 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
         if (barsTemp && barsTemp.length > 0) {
             _renderPlot(ctx, barsTemp, n, tempColor, 'line', mapX, PL, PT, cW, cH, tempMinV, tempRange, lastIdx, false, true);
         }
-
-        // Draw Ghost Data (Yesterday)
-        if (ghostData && ghostData.length > 0) {
-            _renderPlot(ctx, ghostData, n, color1, 'line', mapX, PL, PT, cW, cH, minV, range, lastIdx, false, false, true);
-        }
-
-        // Draw Moving Average
-        if (avgData && avgData.length > 0) {
-            _renderPlot(ctx, avgData, n, '#ffffff', 'line', mapX, PL, PT, cW, cH, minV, range, lastIdx, false, true, false);
-        }
-
-        // Peak / Trough Markers
-        if (!isCombined && !multiData && chartType === 'line' && lastIdx > 0 && !ghostData) {
-            let maxVal = -Infinity, minVal = Infinity, maxIdx = -1, minIdx = -1;
-            for (let i = 0; i < lastIdx; i++) {
-                const v = bars1[i];
-                if (v != null && v > 0) { 
-                    if (v > maxVal) { maxVal = v; maxIdx = i; }
-                    if (v < minVal && (unit !== 'W' || v > 0)) { minVal = v; minIdx = i; }
-                }
-            }
-            
-            const drawMarker = (idx, val, clr, label) => {
-                if (idx < 0) return;
-                const mx = mapX(PL + (idx / n) * cW);
-                const my = PT + cH - ((val - minV) / range) * cH;
-                
-                ctx.fillStyle = clr;
-                ctx.beginPath();
-                ctx.arc(mx, my, 4, 0, Math.PI * 2);
-                ctx.fill();
-                
-                ctx.fillStyle = '#fff';
-                ctx.strokeStyle = 'rgba(0,0,0,0.8)';
-                ctx.lineWidth = 3;
-                ctx.font = 'bold 10px system-ui';
-                ctx.textAlign = 'center';
-                const text = `${label}: ${isTemp ? val.toFixed(1) : Math.round(val)}`;
-                ctx.strokeText(text, mx, my - 10);
-                ctx.fillText(text, mx, my - 10);
-            };
-
-            if (maxIdx !== -1) drawMarker(maxIdx, maxVal, '#4ade80', 'Max');
-            if (minIdx !== -1 && minVal > 0 && unit !== 'W') { 
-                drawMarker(minIdx, minVal, '#f87171', 'Min');
-            }
-        }
     }
     ctx.restore();
 
@@ -752,12 +705,13 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
     }
 }
 
-function _renderPlot(ctx, data, n, clr, type, mapX, PL, PT, cW, cH, min, range, lastIdx, isSecondary, isDashed = false, isGhost = false) {
+function _renderPlot(ctx, data, n, clr, type, mapX, PL, PT, cW, cH, min, range, lastIdx, isSecondary, isDashed = false) {
     if (type === 'bar' || type === 'hourly') {
         const barWidth = Math.max(1, (cW / n) * 0.7);
         const offset = isSecondary ? barWidth * 0.4 : 0;
         ctx.fillStyle = clr;
         ctx.globalAlpha = isSecondary ? 0.4 : 0.8;
+        
         for (let i = 0; i < lastIdx; i++) {
             const val = data[i];
             if (val == null) continue;
@@ -769,17 +723,9 @@ function _renderPlot(ctx, data, n, clr, type, mapX, PL, PT, cW, cH, min, range, 
     } else {
         ctx.beginPath();
         ctx.strokeStyle = clr;
-        ctx.lineWidth = isSecondary ? 1.5 : (isGhost ? 1.5 : 2.5);
-
-        if (isGhost) {
-            ctx.setLineDash([6, 4]);
-            ctx.globalAlpha = 0.35;
-        } else if (isDashed) {
-            ctx.setLineDash([4, 4]);
-        } else {
-            ctx.setLineDash([]);
-        }
-
+        ctx.lineWidth = isSecondary ? 1.5 : 2.5;
+        if (isDashed) ctx.setLineDash([4, 4]); else ctx.setLineDash([]);
+        
         let started = false;
         for (let i = 0; i < lastIdx; i++) {
             const val = data[i];
@@ -791,7 +737,6 @@ function _renderPlot(ctx, data, n, clr, type, mapX, PL, PT, cW, cH, min, range, 
         }
         ctx.stroke();
         ctx.setLineDash([]);
-        ctx.globalAlpha = 1.0;
     }
 }
 

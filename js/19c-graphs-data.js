@@ -147,11 +147,16 @@ function _calcStatsForRange(bars, startHour, endHour, nav, lastIdx) {
     if (!bars || bars.length === 0) return { avg: 0, activeAvg: 0, total: 0 };
     const isWrapping = startHour > endHour;
     let sum = 0, count = 0, activeCount = 0;
-    const step = nav.resSeconds / 3600;
     for (let i = 0; i < Math.min(bars.length, lastIdx || bars.length); i++) {
         const val = bars[i];
         if (val == null || val === undefined) continue;
-        const h = i * step;
+        
+        // Calculate absolute hour of the day (0-23.99) in Pakistan Time
+        const ts = nav.startMs + (i * nav.resSeconds * 1000);
+        const isPkt = (new Date().getTimezoneOffset() === -300);
+        const d = isPkt ? new Date(ts) : new Date(ts + 18000000);
+        const h = isPkt ? (d.getHours() + d.getMinutes() / 60) : (d.getUTCHours() + d.getUTCMinutes() / 60);
+
         if (isWrapping ? (h >= startHour || h < endHour) : (h >= startHour && h < endHour)) {
             sum += val;
             count++;
@@ -293,6 +298,112 @@ async function _loadAndDraw() {
             pts2 = await _gFetch(GRAPH_FEEDS.find(f => f.key === 'grid').id, nav.startMs, nav.endMs, nav.interval);
             bars1 = _pointsToBars(pts1, nav, 'solar'); bars2 = _pointsToBars(pts2, nav, 'grid');
         } else {
+
+        // ─── Others feed: compute from Solar + Grid - sum(appliances) ───
+        if (graphFeedKey === 'others') {
+            const applianceKeys = ['k15', 'k1', 'haier', 'fridge1', 'fridge2', 'pc', 'motor'];
+            const feedKeys = ['solar', 'grid', ...applianceKeys];
+            const fetchPromises = feedKeys.map(key => {
+                const feed = GRAPH_FEEDS.find(f => f.key === key);
+                return _gFetch(feed.id, nav.startMs, nav.endMs, nav.interval);
+            });
+            const results = await Promise.all(fetchPromises);
+            
+            // Align all data into perfectly timed bins before doing math
+            const barsArrays = results.map((res, idx) => _pointsToBars(res, nav, feedKeys[idx]));
+            const solarBars = barsArrays[0];
+            const gridBars = barsArrays[1];
+            
+            const bars = new Array(nav.nBars).fill(null);
+            
+            // Calculate cutoff line so we don't draw into the future at 0W
+            let computedLastIdx = nav.nBars;
+            if (graphTab === 'day' && graphDateNav === 0) {
+                computedLastIdx = Math.floor((Date.now() - 60000 - nav.startMs) / (nav.resSeconds * 1000)) + 1;
+            }
+            computedLastIdx = Math.min(Math.max(0, computedLastIdx), nav.nBars);
+
+            for (let i = 0; i < computedLastIdx; i++) {
+                const solar = solarBars[i] || 0;
+                const grid = gridBars[i] || 0;
+                let sumAppliances = 0;
+                for (let j = 2; j < barsArrays.length; j++) {
+                    sumAppliances += barsArrays[j][i] || 0;
+                }
+                bars[i] = Math.max(0, solar + grid - sumAppliances);
+            }
+
+            const feed = GRAPH_FEEDS.find(f => f.key === 'others');
+            const color1 = feed.color;
+            const unit = 'W';
+            const isCombined = false;
+            
+            // Filter nulls just for determining the dynamic Y-axis maximum
+            const validBars = bars.slice(0, computedLastIdx);
+            const maxV = validBars.length ? Math.max(...validBars, 1) * 1.1 : 1.1;
+
+            graphDataCache = {
+                bars1: bars, bars2: [],
+                labels: nav.labels,
+                timeLabels: nav.timeLabels || nav.labels,
+                fullLabels: nav.fullLabels || nav.labels,
+                color1, color2: null, unit, isCombined, nav, lastIdx: computedLastIdx,
+                multiData: null,
+                minV: 0,
+                maxV: maxV,
+                range: maxV,
+                barsTemp: [],
+                tempMinV: 0, tempMaxV: 0, tempRange: 0,
+                tempUnit: '', tempColor: '', overlayLabel: '',
+                isDualY: false,
+                isMomentFlow: false,
+                feedKey: 'others'
+            };
+            
+            _drawChart(canvas, bars, [], nav.labels, color1, null, unit, false, nav, computedLastIdx, null, 0, graphDataCache.maxV, graphDataCache.range);
+            
+            const totalKwh = validBars.reduce((a, b) => a + (b || 0), 0) * (nav.resSeconds / 3600) / 1000;
+            const peak = validBars.length ? Math.max(...validBars, 0) : 0;
+            const avg = validBars.length > 0 ? validBars.reduce((a, b) => a + (b || 0), 0) / validBars.length : 0;
+            
+            let dAv = null, dTt = null, nAv = null, nTt = null;
+            if (graphTab === 'day') {
+                const ds = _calcStatsForRange(bars, 8, 17, nav, computedLastIdx);
+                dAv = ds.activeAvg; dTt = ds.total;
+                const ns = _calcStatsForRange(bars, 17, 8, nav, computedLastIdx);
+                nAv = ns.activeAvg; nTt = ns.total;
+            } else if (graphTab === 'month' || graphTab === 'year') {
+                let dayTot = 0, nightTot = 0;
+                const length = results[0] ? results[0].length : 0;
+                for (let i = 0; i < length; i++) {
+                    const ts = results[0][i] ? results[0][i][0] : null;
+                    if (ts !== null) {
+                        const solarVal = results[0][i][1] || 0;
+                        const gridVal = results[1][i] ? results[1][i][1] : 0;
+                        let appSum = 0;
+                        for (let j = 2; j < results.length; j++) {
+                            appSum += results[j][i] ? results[j][i][1] : 0;
+                        }
+                        const v = Math.max(0, solarVal + gridVal - appSum);
+                        if (v > 0) {
+                            const pktDate = getKarachiDate(ts);
+                            const h = pktDate.hour;
+                            if (h >= 8 && h < 17) dayTot += v / 1000;
+                            else nightTot += v / 1000;
+                        }
+                    }
+                }
+                const numDays = Math.max(1, nav.nBars || 1);
+                dAv = dayTot / numDays; dTt = dayTot;
+                nAv = nightTot / numDays; nTt = nightTot;
+            }
+            
+            stat.innerHTML = _formatStatLine('💡', 'Others', totalKwh, color1, peak, avg, dAv, dTt, nAv, nTt, unit, true, graphTab);
+            _showGraphLoading(false);
+            graphIsLoading = false;
+            return;
+        }
+
             pts1 = await _gFetch(fA.id, nav.startMs, nav.endMs, nav.interval);
             bars1 = _pointsToBars(pts1, nav, graphFeedKey);
             if (['temp','temp2'].includes(graphFeedKey)) bars2 = _pointsToBars(await _gFetch(graphFeedKey==='temp'?'499429':'512474', nav.startMs, nav.endMs, nav.interval), nav, 'humidity');

@@ -44,11 +44,11 @@ function _gNavInfo() {
             fullLabels.push(`${hh}:${mm}${ampm}`);
         }
 
-        const nowDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        const isToday = (baseDate.getFullYear() === nowDate.getFullYear() &&
-                         baseDate.getMonth() === nowDate.getMonth() &&
-                         baseDate.getDate() === nowDate.getDate());
-        const labelText = isToday ? 'Today' : `${day} ${_MONTH_SHORT[month-1]}`;
+        let labelText = '';
+        if (graphDateNav === 0) labelText = 'Today';
+        else if (graphDateNav === -1) labelText = 'Yesterday';
+        else if (graphDateNav === 1) labelText = 'Tomorrow';
+        else labelText = d.toLocaleDateString('en-PK', { weekday:'short', day:'numeric', month:'short' });
 
         return {
             label: labelText,

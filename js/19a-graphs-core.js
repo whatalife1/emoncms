@@ -25,6 +25,11 @@ const GRAPH_FEEDS = [
     { key: 'pc',        name: 'PC',              id: '499422', color: '#4ade80', label: '💻 PC',          isWatts: true },
     { key: 'motor',     name: 'Water Motor',     id: '542850', color: '#fbbf24', label: '🚿 Motor',       isWatts: true },
     { key: 'water',     name: 'Water Tank',      id: '499431', color: '#0ea5e9', label: '💧 Water',       isWatts: false },
+  { key: 'others',    name: 'Others',          id: null,     color: '#f59e0b', label: '💡 Others',      isWatts: true, isComputed: true },
+
+
+
+
     { key: 'gridall',   name: 'All',             id: null,     color: '#ff6b6b', label: '⚡ All',         isWatts: true, isMultiLine: true }
 ];
 

@@ -126,14 +126,15 @@ function renderFlowDiagram(byName) {
   svg += `<text x="${cx(o)}" y="${o.y+o.ly5}" ${tpProps} font-size="${o.fs5}" fill="${o.c5}">Today: ${solar_t.toFixed(1)} kWh | ${kF(solar_t*rate)} PKR</text>`;
   svg += `<text x="${cx(o)}" y="${o.y+o.ly6}" ${tpProps} font-size="${o.fs6}" fill="${o.c6}">Month: ${nF(mU.solar||0)} kWh | ${kF((mU.solar||0)*rate)} PKR</text>`;
 
+    
   // 2. GRID 
   o = L.grid; 
   const grdAct = Math.abs(b) > 20;
-  const gridOff = v < 10;
+  const gridOff = v < 10;  // Only actual grid-off, not data stale
 
-  // Check offline status for Breaker (stale or zeroW)
+  // Check offline status for Breaker - only use the zeroW detection, not stale
   const breakerStatus = getStatus('Breaker') || getStatus('Grid Power');
-  const isBreakerStale = breakerStatus && breakerStatus.type === 'stale';
+  // Only treat as off if it's a zeroW detection (not just stale data)
   const isBreakerZero = breakerStatus && breakerStatus.type === 'zeroW';
 
   // Local storage tracking fallback for 10-min 0W check
@@ -158,26 +159,20 @@ function renderFlowDiagram(byName) {
   let gStroke = gridOff ? '#ef4444' : (grdAct ? o.color : '#666');
 
   if (gridOff) {
-    gClass = 'grid-off-anim'; // Blinks whole box in red glow
+    gClass = 'grid-off-anim';
     gFill = '#2a0a0a';
     gStroke = '#ef4444';
-  } else if (isBreakerStale) {
-    gClass = 'offline-anim';
-    gStroke = '#ef4444';
-    gFill = '#2a0a0a';
   } else if (showBreakerZeroWarn) {
-    gClass = 'zeroW-anim'; // Amber zeroW pulsing border
+    gClass = 'zeroW-anim'; // Amber zeroW pulsing border for actual 0W
     gStroke = '#f59e0b';
     gFill = '#1f1f23';
   } else if (grdAct) {
     gClass = 'pulse-animation';
   }
 
-  // Warning badges
+  // Warning badges - only show OFF for actual grid-off
   let gridBadge = '';
   if (gridOff) {
-    gridBadge = ' <tspan fill="#ef4444" font-weight="900">⚠ OFF</tspan>';
-  } else if (isBreakerStale) {
     gridBadge = ' <tspan fill="#ef4444" font-weight="900">⚠ OFF</tspan>';
   } else if (showBreakerZeroWarn) {
     gridBadge = ' <tspan fill="#f59e0b" font-weight="900">⚠ 0 W</tspan>';

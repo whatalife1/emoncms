@@ -354,3 +354,33 @@
     flex-wrap: wrap;
   }
 }
+
+/* ── Graph Action Buttons (CSV, Snap, Avg) ───────────────────────────────── */
+.graph-action-btns {
+    display: flex;
+    gap: 4px;
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    z-index: 15;
+}
+.graph-action-btn {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    color: var(--text-main);
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 10px;
+    font-weight: 700;
+    cursor: pointer;
+    opacity: 0.85;
+    transition: all 0.2s;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+.graph-action-btn:hover { opacity: 1; transform: translateY(-1px); }
+.graph-action-btn.active {
+    background: var(--accent-env);
+    color: #fff;
+    border-color: var(--accent-env);
+    opacity: 1;
+}

@@ -65,88 +65,134 @@ async function _fetchApplianceHistory(name, nowMs) {
 }
 
 async function checkApplianceOffline(nowSec, byName = null) {
-  const nowMs = nowSec * 1000;
-  const STALE_MS = 5 * 60 * 1000; // 5 minutes
-  const results = [];
+    const nowMs = nowSec * 1000;
+    const STALE_MS = 5 * 60 * 1000; // 5 minutes without an update = offline
+    const isSimulation = byName === true;
 
-  for (const item of APPLIANCE_MONITOR_LIST) {
-    let status = null; // 'stale' or 'zeroW'
-    let offDurationMin = 0;
-    let offSinceMs = null;
+    if (!isSimulation && (!byName || typeof byName.get !== 'function')) {
+        window.applianceOfflineDetected = [];
+        return [];
+    }
 
-    // Use byName if available
-    if (byName) {
-      const feed = byName.get(item.name);
-      if (feed && feed.time !== null && feed.time !== undefined) {
-        const ageMs = nowMs - (feed.time * 1000);
-        if (ageMs >= STALE_MS) {
-          // Stale feed
-          status = 'stale';
-          offSinceMs = feed.time * 1000;
-          offDurationMin = (nowMs - offSinceMs) / 60000;
-        } else {
-          // Fresh feed – check if value is low for a long time
-          const val = feed.value;
-          const offThreshold = item.offThresholdW !== undefined ? item.offThresholdW : (item.minActiveW * 0.5);
-          if (val !== null && val <= offThreshold) {
-            // Check history to see how long it's been low
-            let hist = window.applianceHistory[item.name] || [];
-            // If history has recent points, check the last N minutes
-            // Simple: if the value has been low for > offMinutes, mark as zeroW.
-            // We'll look at the historical data.
-            if (hist.length > 0) {
-              // Sort by time descending
-              const sorted = hist.slice().sort((a, b) => b.t - a.t);
-              // Count consecutive low points at the end
-              let lowDuration = 0;
-              let lastLowTime = null;
-              let firstLowTime = null;
-              for (const pt of sorted) {
-                if (pt.t > nowMs) continue;
-                if (pt.v <= offThreshold) {
-                  if (lastLowTime === null) {
-                    lastLowTime = pt.t;
-                  }
-                  firstLowTime = pt.t;
-                } else {
-                  break; // found a high value, stop
-                }
-              }
-              if (firstLowTime !== null && lastLowTime !== null) {
-                const durationMs = lastLowTime - firstLowTime;
-                // Also ensure the most recent point is recent (within 5 min)
-                const latest = sorted[0];
-                if (latest && (nowMs - latest.t) < STALE_MS && durationMs > item.offMinutes * 60 * 1000) {
-                  status = 'zeroW';
-                  offSinceMs = firstLowTime;
-                  offDurationMin = durationMs / 60000;
-                }
-              }
-            }
-          }
+    const tasks = APPLIANCE_MONITOR_LIST.map(async (item) => {
+        if (typeof userOrderedFeeds !== 'undefined' && Array.isArray(userOrderedFeeds) && userOrderedFeeds.length > 0) {
+            const cfg = userOrderedFeeds.find(f => f.name === item.name);
+            if (!cfg || cfg.enabled === false) return null;
         }
-      } else {
-        // Feed missing – treat as stale
-        status = 'stale';
-        offSinceMs = nowMs;
-        offDurationMin = 0;
-      }
-    } else {
-      // Fallback: original logic (skip for now, but keep it)
-      // ... (we'll leave the original fallback but we can simplify by not using it)
-    }
 
-    if (status) {
-      results.push({
-        name: item.name,
-        label: item.label,
-        type: status,
-        offDurationMin: Math.round(offDurationMin),
-        offSinceStr: formatPktTime(offSinceMs || nowMs, 'time')
-      });
-    }
-  }
+        const offThreshold = item.offThresholdW !== undefined
+            ? item.offThresholdW
+            : (item.minActiveW * 0.5);
+        const offMs = (item.offMinutes || 20) * 60 * 1000;
+        const storageKey = 'appliance_last_active_' + item.name;
 
-  window.applianceOfflineDetected = results;
-  return results;
+        let status = null;
+        let offSinceMs = null;
+
+        if (isSimulation) {
+            // ── Simulator mode: evaluate purely from historical data ──
+            const hist = await _fetchApplianceHistory(item.name, nowMs);
+
+            let latest = null;
+            for (let i = hist.length - 1; i >= 0; i--) {
+                if (hist[i].t <= nowMs) {
+                    latest = hist[i];
+                    break;
+                }
+            }
+
+            if (!latest) return null;
+
+            if ((nowMs - latest.t) >= STALE_MS) {
+                status = 'stale';
+                offSinceMs = latest.t;
+            } else if (latest.v <= offThreshold) {
+                let lastRun = null;
+                for (let i = hist.length - 1; i >= 0; i--) {
+                    if (hist[i].t <= nowMs && hist[i].v > offThreshold) {
+                        lastRun = hist[i].t;
+                        break;
+                    }
+                }
+
+                if (lastRun !== null && (nowMs - lastRun) >= offMs) {
+                    status = 'zeroW';
+                    offSinceMs = lastRun;
+                }
+            }
+        } else {
+            // ── Live mode ──
+            let val = null;
+            let feedTimeMs = null;
+
+            const feed = byName.get(item.name);
+            if (feed) {
+                val = feed.value;
+                feedTimeMs = feed.time
+                    ? (feed.time < 2000000000 ? feed.time * 1000 : feed.time)
+                    : null;
+            }
+
+            if (val === null || val === undefined) {
+                status = 'stale';
+                offSinceMs = feedTimeMs || nowMs;
+            } else {
+                const ageMs = feedTimeMs ? (nowMs - feedTimeMs) : Infinity;
+
+                if (ageMs >= STALE_MS) {
+                    status = 'stale';
+                    offSinceMs = feedTimeMs || nowMs;
+                } else if (val > offThreshold) {
+                    // Appliance is running: remember this moment.
+                    try {
+                        localStorage.setItem(storageKey, nowMs.toString());
+                    } catch (e) {}
+                } else {
+                    // Appliance is at/below its "off" threshold.
+                    let lastActive = parseInt(localStorage.getItem(storageKey), 10);
+
+                    if (isNaN(lastActive) || lastActive > nowMs) {
+                        // First low reading: backfill from 5h history so outages
+                        // that started before page load are detected immediately.
+                        const hist = await _fetchApplianceHistory(item.name, nowMs);
+                        let found = null;
+
+                        for (let i = hist.length - 1; i >= 0; i--) {
+                            if (hist[i].t <= nowMs && hist[i].v > offThreshold) {
+                                found = hist[i].t;
+                                break;
+                            }
+                        }
+
+                        lastActive = found !== null ? found : nowMs;
+
+                        try {
+                            localStorage.setItem(storageKey, lastActive.toString());
+                        } catch (e) {}
+                    }
+
+                    if ((nowMs - lastActive) >= offMs) {
+                        status = 'zeroW';
+                        offSinceMs = lastActive;
+                    }
+                }
+            }
+        }
+
+        if (!status) return null;
+
+        return {
+            name: item.name,
+            label: item.label,
+            type: status,
+            offDurationMin: Math.round((nowMs - (offSinceMs || nowMs)) / 60000),
+            offSinceStr: formatPktTime(offSinceMs || nowMs, 'time')
+        };
+    });
+
+    const settled = await Promise.all(tasks);
+    const results = settled.filter(Boolean);
+
+    window.applianceOfflineDetected = results;
+    return results;
 }

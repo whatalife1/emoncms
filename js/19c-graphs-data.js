@@ -215,7 +215,7 @@ async function _loadAndDraw() {
             { key: 'k1',      name: 'Kenwood 1T',   id: '499364', color: '#7dd3fc' },
             { key: 'haier',   name: 'Haier 1T',     id: '499367', color: '#a5f3fc' },
             { key: 'fridge1', name: 'Fridge 1',     id: '499373', color: '#c084fc' },
-            { key: 'fridge2', name: 'Fridge 2',     id: '541348', color: '#e879f9' },
+            { key: 'fridge2', name: 'Fridge 2',     id: '541348', color: '#22d3ee' },
             { key: 'pc',      name: 'PC',           id: '499422', color: '#4ade80' },
             { key: 'motor',   name: 'Water Motor',  id: '542850', color: '#fbbf24' }
         ];
@@ -382,7 +382,7 @@ async function _loadAndDraw() {
                 othersMultiData = [
                     { key: 'others',  label: 'Others',    color: feed.color, data: bars },
                     { key: 'fridge1', label: 'Fridge 1', color: '#c084fc', data: fridge1Bars },
-                    { key: 'fridge2', label: 'Fridge 2', color: '#e879f9', data: fridge2Bars }
+                    { key: 'fridge2', label: 'Fridge 2', color: '#22d3ee', data: fridge2Bars }
                 ];
             }
 
@@ -728,15 +728,46 @@ function _renderOthersFridgeToggle() {
 
     const on = !!window.graphOthersIncludeFridges;
 
+    const getFeedColor = function (key, fallback) {
+        try {
+            const feeds = (typeof GRAPH_FEEDS !== 'undefined')
+                ? GRAPH_FEEDS
+                : window.GRAPH_FEEDS;
+
+            if (!feeds) return fallback;
+
+            const feed = feeds.find(function (f) {
+                return f.key === key;
+            });
+
+            return feed && feed.color ? feed.color : fallback;
+        } catch (e) {
+            return fallback;
+        }
+    };
+
+    const othersColor = getFeedColor('others', '#f59e0b');
+    const fridge1Color = getFeedColor('fridge1', '#c084fc');
+    const fridge2Color = getFeedColor('fridge2', '#22d3ee');
+
     const wrap = document.createElement('div');
     wrap.id = 'others-fridge-toggle';
     wrap.style.cssText = [
         'display:flex',
+        'flex-direction:column',
+        'gap:6px',
+        'align-items:center',
+        'padding:0 0 8px',
+        'flex-shrink:0'
+    ].join(';');
+
+    const row = document.createElement('div');
+    row.style.cssText = [
+        'display:flex',
         'gap:8px',
         'align-items:center',
         'justify-content:center',
-        'padding:0 0 8px',
-        'flex-shrink:0'
+        'flex-wrap:wrap'
     ].join(';');
 
     const btn = document.createElement('button');
@@ -777,13 +808,59 @@ function _renderOthersFridgeToggle() {
     const hint = document.createElement('span');
     hint.style.cssText = 'font-size:10px;color:var(--text-muted);';
     hint.textContent = on
-        ? 'Showing Others, Fridge 1 and Fridge 2. Stats are combined.'
+        ? 'Stats show combined Others + Fridges.'
         : 'Add Fridge 1 + Fridge 2 to the Others graph.';
 
-    wrap.appendChild(btn);
-    wrap.appendChild(hint);
+    row.appendChild(btn);
+    row.appendChild(hint);
+    wrap.appendChild(row);
+
+    if (on) {
+        const legend = document.createElement('div');
+        legend.id = 'others-fridge-legend';
+        legend.style.cssText = [
+            'display:flex',
+            'gap:12px',
+            'flex-wrap:wrap',
+            'justify-content:center',
+            'align-items:center',
+            'font-size:10px'
+        ].join(';');
+
+        const items = [
+            { label: 'Others', color: othersColor },
+            { label: 'Fridge 1', color: fridge1Color },
+            { label: 'Fridge 2', color: fridge2Color }
+        ];
+
+        items.forEach(function (item) {
+            const chip = document.createElement('span');
+            chip.style.cssText = 'display:inline-flex;align-items:center;gap:5px;';
+
+            const dot = document.createElement('span');
+            dot.style.cssText = [
+                'width:10px',
+                'height:10px',
+                'border-radius:50%',
+                'display:inline-block',
+                'background:' + item.color,
+                'box-shadow:0 0 6px ' + item.color + '66'
+            ].join(';');
+
+            const txt = document.createElement('span');
+            txt.style.cssText = 'font-weight:800;color:var(--text-main);';
+            txt.textContent = item.label;
+
+            chip.appendChild(dot);
+            chip.appendChild(txt);
+            legend.appendChild(chip);
+        });
+
+        wrap.appendChild(legend);
+    }
 
     feedTabs.parentNode.insertBefore(wrap, feedTabs);
 }
 
 window._renderOthersFridgeToggle = _renderOthersFridgeToggle;
+

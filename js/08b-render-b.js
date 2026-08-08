@@ -99,43 +99,28 @@ function updateOfflineWarningBanner(byName) {
       }
     });
 
-    // ── Zero‑W warning (corrected: only if feed is stale) ──
-    const checkFeed0W = (fName, fLabel, thresholdSec = 20 * 60) => {
-      const fItem = STALE_CHECK_FEEDS.find(i => i.name === fName);
-      if (!fItem || fItem.enabled === false) return;
-      if (typeof userOrderedFeeds !== 'undefined' && userOrderedFeeds.some(f => f.name === fName && f.enabled === false)) return;
+    // ── Zero-W / unexpectedly-off warnings (from appliance monitor) ──
+    // Only feeds where continuous operation is expected should raise a
+    // "0W" banner pill (fridges must stay on; grid should have power).
+    // ACs / PC / Water Motor are allowed to be off intentionally.
+    const zeroWBannerFeeds = ['Fridge', 'Fridge2', 'Breaker'];
 
-      const fData = byName.get(fName);
-      if (!fData || fData.value === null || fData.value === undefined) return;
+    (window.applianceOfflineDetected || []).forEach(a => {
+        if (a.type !== 'zeroW') return;
+        if (!zeroWBannerFeeds.includes(a.name)) return;
 
-      // --- NEW: skip if feed is fresh (updating) ---
-      if (fData.time && (nowSec - fData.time) < thresholdSec) {
-        return; // feed is updating; do not warn based on stale last_active
-      }
-
-      let lastActiveStr = localStorage.getItem(`${fName}_last_active`);
-      let lastActive = lastActiveStr ? parseInt(lastActiveStr, 10) : nowSec;
-      
-      if (fData.value > 5) {
-        localStorage.setItem(`${fName}_last_active`, nowSec.toString());
-      } else {
-        if (!lastActiveStr) {
-          localStorage.setItem(`${fName}_last_active`, nowSec.toString());
+        if (typeof userOrderedFeeds !== 'undefined' &&
+            userOrderedFeeds.some(f => f.name === a.name && f.enabled === false)) {
+            return;
         }
-        const durSec = nowSec - lastActive;
-        if (durSec >= thresholdSec) {
-          // Prevent duplicate warnings if already flagged as stale
-          const existing = warnings.find(w => w.label === fLabel);
-          if (!existing) {
-            warnings.push({ label: fLabel, detail: `0W for ${formatAge(durSec)}` });
-          }
-        }
-      }
-    };
 
-    checkFeed0W("Fridge", "Fridge 1", 20 * 60);
-    checkFeed0W("Fridge2", "Fridge 2", 20 * 60);
-    checkFeed0W("Breaker", "Grid Power", 10 * 60);
+        if (warnings.find(w => w.label === a.label)) return;
+
+        warnings.push({
+            label: a.label,
+            detail: `0W for ${formatAge(a.offDurationMin * 60)}`
+        });
+    });
   }
 
   // Render the banner

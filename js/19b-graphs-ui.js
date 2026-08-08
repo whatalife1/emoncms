@@ -750,7 +750,7 @@ function _renderGFeedTabs() {
     const tabs = [GRAPH_COMBINED, GRAPH_MOMENT_FLOW, ...GRAPH_FEEDS];
     wrap.innerHTML = tabs.map(f => `<button class="gfeed-tab${graphFeedKey===f.key?' active':''}" data-gkey="${f.key}" style="${graphFeedKey===f.key?`border-color:${f.color};color:${f.color}`:''}">${f.label}</button>`).join('') + `<button class="gfeed-tab${graphFeedKey==='report'?' active':''}" data-gkey="report" style="${graphFeedKey==='report'?'border-color:#10b981;color:#10b981':''}">📄 Report</button>`;
     wrap.querySelectorAll('.gfeed-tab').forEach(b => { b.addEventListener('click', () => { graphFeedKey = b.dataset.gkey; graphZoomLevel = 1; graphPanOffset = 0; hideTooltip(); _renderGFeedTabs(); if (typeof _loadAndDraw === 'function') _loadAndDraw(); }); });
-    _renderGridAllToggles(); _renderOverlayToggles();
+    _renderGridAllToggles(); _renderOverlayToggles(); if (typeof _renderOthersFridgeToggle === 'function') _renderOthersFridgeToggle();
 }
 
 function hideTooltip() { const t = document.getElementById('graph-tooltip'); if (t) { t.style.display = 'none'; t.classList.remove('pinned'); } tooltipPinned = false; }

@@ -116,8 +116,8 @@ function renderFlowDiagram(byName) {
   const lTimeStr = lTime ? new Date(lTime * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--';
 
   svg += `<rect class="${solAct ? 'pulse-animation' : ''}" style="--pulse-clr:${o.color}" x="${o.x}" y="${o.y}" width="${o.w}" height="${o.h}" rx="10" fill="#1a1508" stroke="${o.color}" stroke-width="2"/>`;
-  svg += `<text x="${cx(o)}" y="${o.y+o.ly1}" ${tpProps} font-size="${o.fs}" fill="${o.c1}">${o.label}: ${pF(s)}</text>`;
-  svg += `<text x="${cx(o)}" y="${o.y+o.ly2}" ${tpProps} font-size="${o.fs2}" fill="${o.c2}">Load: ${pF(l)}</text>`;
+  svg += `<text x="${cx(o)}" y="${o.y+o.ly1}" ${tpProps} font-size="${o.fs}" fill="${o.c1}" data-maxw="${o.w-12}">${o.label}: ${pF(s)}</text>`;
+  svg += `<text x="${cx(o)}" y="${o.y+o.ly2}" ${tpProps} font-size="${o.fs2}" fill="${o.c2}" data-maxw="${o.w-12}">Load: ${pF(l)}</text>`;
   if (o.ly7) svg += `<text x="${cx(o)}" y="${o.y+o.ly7}" ${tpProps} font-size="${o.fs7}" fill="${o.c7}">${lTimeStr}</text>`;
   svg += `<text x="${cx(o)}" y="${o.y+o.ly3}" ${tpProps} font-size="${o.fs3}" fill="${o.c3}">${Math.round(sv)}V | ${sa.toFixed(1)}A | ${invT.toFixed(1)}°C</text>`;
   const rainStr = rain > 0 ? ` 🌧 ${rain}%` : '';
@@ -186,9 +186,9 @@ function renderFlowDiagram(byName) {
 
   svg += `<rect class="${gClass}" style="--pulse-clr:${o.color}" x="${o.x}" y="${o.y}" width="${o.w}" height="${o.h}" rx="10" fill="${gFill}" stroke="${gStroke}" stroke-width="2"/>`;
   if (gridOff) {
-    svg += `<text x="${cx(o)}" y="${o.y+o.ly1}" ${tpProps} font-size="${o.fs}" fill="#ef4444">GRID OFF${gridBadge}</text>`;
+    svg += `<text x="${cx(o)}" y="${o.y+o.ly1}" ${tpProps} font-size="${o.fs}" fill="#ef4444" data-maxw="${o.w-12}">GRID OFF${gridBadge}</text>`;
   } else {
-    svg += `<text x="${cx(o)}" y="${o.y+o.ly1}" ${tpProps} font-size="${o.fs}" fill="${grdAct ? o.c1 : (showBreakerZeroWarn ? '#f59e0b' : '#777')}">${o.label}: ${pF(b)}${gridBadge}</text>`;
+    svg += `<text x="${cx(o)}" y="${o.y+o.ly1}" ${tpProps} font-size="${o.fs}" fill="${grdAct ? o.c1 : (showBreakerZeroWarn ? '#f59e0b' : '#777')}" data-maxw="${o.w-12}">${o.label}: ${pF(b)}${gridBadge}</text>`;
   }
   if (o.ly6) svg += `<text x="${cx(o)}" y="${o.y+o.ly6}" ${tpProps} font-size="${o.fs6}" fill="${gridOff ? '#ef4444' : o.c6}">${gTimeStr}</text>`;
   svg += `<text x="${cx(o)}" y="${o.y+o.ly2}" ${tpProps} font-size="${o.fs2}" fill="${gridOff ? '#ef4444' : o.c2}">AC Input: ${Math.round(v)}V</text>`;
@@ -215,7 +215,7 @@ function renderFlowDiagram(byName) {
   svg += `<rect class="${boxClass}" style="--pulse-clr:#ef4444" x="${o.x}" y="${o.y}" width="${o.w}" height="${o.h}" rx="10" fill="${isWasting?'#2a0a0a':'#0f1a20'}" stroke="${wC}" stroke-width="2"/>`;
   svg += `<text x="${cx(o)}" y="${o.y+o.ly1}" ${tpProps} font-size="${o.fs}" fill="${isWasting?'#ef4444':o.c1}">${o.label}</text>`;
   svg += `<text x="${cx(o)}" y="${o.y+o.ly2}" ${tpProps} font-size="${o.fs2}" fill="${isWasting?'#fca5a5':o.c2}">${Math.round(tk)}%</text>`;
-  svg += `<text x="${cx(o)}" y="${o.y+o.ly3}" ${tpProps} font-size="${o.fs3}" fill="${wC}">${wS}</text>`;
+  svg += `<text x="${cx(o)}" y="${o.y+o.ly3}" ${tpProps} font-size="${o.fs3}" fill="${wC}" data-maxw="${o.w-8}">${wS}</text>`;
   if (tkTime) {
     const timeStr = new Date(tkTime * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     svg += `<text x="${cx(o)}" y="${o.y+o.ly4}" ${tpProps} font-size="${o.fs4}" fill="${o.c4}">${timeStr}</text>`;
@@ -249,7 +249,7 @@ function renderFlowDiagram(byName) {
     const aTimeStr = aTime ? new Date(aTime * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--';
     
     svg += `<rect class="${act ? 'pulse-animation' : ''}" style="--pulse-clr:${oA.color}" x="${oA.x}" y="${oA.y}" width="${oA.w}" height="${oA.h}" rx="10" fill="${act?'#141416':'#1a1a1c'}" stroke="${act?oA.color:'#333'}" stroke-width="2"/>`;
-    svg += `<text x="${cx(oA)}" y="${oA.y+oA.ly1}" ${tpProps} font-size="${oA.fs}" fill="${act?oA.c1:'#777'}">${oA.label}</text>`;
+    svg += `<text x="${cx(oA)}" y="${oA.y+oA.ly1}" ${tpProps} font-size="${oA.fs}" fill="${act?oA.c1:'#777'}" data-maxw="${oA.w-12}">${oA.label}</text>`;
     svg += `<text x="${cx(oA)}" y="${oA.y+oA.ly2}" ${tpProps} font-size="${oA.fs2}" fill="${act?oA.c2:'#555'}">${pF(val)}</text>`;
     if (oA.ly5) svg += `<text x="${cx(oA)}" y="${oA.y+oA.ly5}" ${tpProps} font-size="${oA.fs5}" fill="${oA.c5}">${aTimeStr}</text>`;
     svg += `<text x="${cx(oA)}" y="${oA.y+oA.ly3}" ${tpProps} font-size="${oA.fs3}" fill="${oA.c3}">Today: ${t.toFixed(1)} kWh</text>`;
@@ -293,7 +293,7 @@ function renderFlowDiagram(byName) {
   let badge1 = '';
   if (isFridge1Stale) badge1 = ' <tspan fill="#ef4444" font-weight="900">⚠ OFF</tspan>';
   else if (isFridge1Zero) badge1 = ' <tspan fill="#f59e0b" font-weight="900">⚠ 0 W</tspan>';
-  svg += `<text x="${cx(o)}" y="${o.y+o.ly1}" ${tpProps} font-size="${o.fs}" fill="${f1W>6?o.c1:'#777'}">Fridge 1${badge1}</text>`;
+  svg += `<text x="${cx(o)}" y="${o.y+o.ly1}" ${tpProps} font-size="${o.fs}" fill="${f1W>6?o.c1:'#777'}" data-maxw="${o.w-12}">Fridge 1${badge1}</text>`;
   svg += `<text x="${cx(o)}" y="${o.y+o.ly2}" ${tpProps} font-size="${o.fs2}" fill="${f1W>6?o.c2:'#555'}">${pF(f1W)}</text>`;
   if (o.ly7) svg += `<text x="${cx(o)}" y="${o.y+o.ly7}" ${tpProps} font-size="${o.fs7}" fill="${o.c7}">${f1TimeStr}</text>`;
   svg += `<text x="${cx(o)}" y="${o.y+o.ly3}" ${tpProps} font-size="${o.fs3}" fill="${o.c3}">T: ${f1T.toFixed(2)} kWh M: ${(mU.f1||0).toFixed(1)} kWh</text>`;
@@ -301,7 +301,7 @@ function renderFlowDiagram(byName) {
   let badge2 = '';
   if (isFridge2Stale) badge2 = ' <tspan fill="#ef4444" font-weight="900">⚠ OFF</tspan>';
   else if (isFridge2Zero) badge2 = ' <tspan fill="#f59e0b" font-weight="900">⚠ 0 W</tspan>';
-  svg += `<text x="${cx(o)}" y="${o.y+o.ly4}" ${tpProps} font-size="${o.fs4}" fill="${f2W>6?o.c4:'#777'}">Fridge 2${badge2}</text>`;
+  svg += `<text x="${cx(o)}" y="${o.y+o.ly4}" ${tpProps} font-size="${o.fs4}" fill="${f2W>6?o.c4:'#777'}" data-maxw="${o.w-12}">Fridge 2${badge2}</text>`;
   svg += `<text x="${cx(o)}" y="${o.y+o.ly5}" ${tpProps} font-size="${o.fs5}" fill="${f2W>6?o.c5:'#555'}">${pF(f2W)}</text>`;
   if (o.ly8) svg += `<text x="${cx(o)}" y="${o.y+o.ly8}" ${tpProps} font-size="${o.fs8}" fill="${o.c8}">${f2TimeStr}</text>`;
   svg += `<text x="${cx(o)}" y="${o.y+o.ly6}" ${tpProps} font-size="${o.fs6}" fill="${o.c6}">T: ${f2T.toFixed(2)} kWh M: ${(mU.f2||0).toFixed(1)} kWh</text>`;
@@ -312,5 +312,17 @@ function renderFlowDiagram(byName) {
   const oT2 = L.temp2;
   svg += `<rect x="${oT2.x}" y="${oT2.y}" width="${oT2.w}" height="${oT2.h}" rx="8" fill="#141416" stroke="${oT2.color}" stroke-width="1.5"/><text x="${cx(oT2)}" y="${oT2.y+oT2.ly1}" ${tpProps} font-size="${oT2.fs}" fill="${oT2.c1}">${tp2.toFixed(1)}°C / ${Math.round(hm2)}%</text></svg>`;
   
-  document.getElementById('flow-svg-wrap').innerHTML = svg;
+  const flowWrap = document.getElementById('flow-svg-wrap');
+  flowWrap.innerHTML = svg;
+  // ── Auto-fit: shrink any label whose rendered width exceeds its box ──
+  flowWrap.querySelectorAll('text[data-maxw]').forEach(t => {
+    try {
+      const maxW = parseFloat(t.getAttribute('data-maxw'));
+      const len  = t.getComputedTextLength(); // includes the badge tspan
+      if (len > maxW) {
+        const fs = parseFloat(t.getAttribute('font-size')) || 12;
+        t.setAttribute('font-size', Math.max(9, (fs * maxW) / len).toFixed(1));
+      }
+    } catch (e) {}
+  });
 }

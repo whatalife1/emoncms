@@ -188,7 +188,9 @@ function renderFlowDiagram(byName) {
   if (gridOff) {
     svg += `<text x="${cx(o)}" y="${o.y+o.ly1}" ${tpProps} font-size="${o.fs}" fill="#ef4444" data-maxw="${o.w-12}">GRID OFF${gridBadge}</text>`;
   } else {
-    svg += `<text x="${cx(o)}" y="${o.y+o.ly1}" ${tpProps} font-size="${o.fs}" fill="${grdAct ? o.c1 : (showBreakerZeroWarn ? '#f59e0b' : '#777')}" data-maxw="${o.w-12}">${o.label}: ${pF(b)}${gridBadge}</text>`;
+    // Hide raw '0 w' when ⚠ 0 W badge is active
+    const valText = showBreakerZeroWarn ? '' : ` ${pF(b)}`;
+    svg += `<text x="${cx(o)}" y="${o.y+o.ly1}" ${tpProps} font-size="${o.fs}" fill="${grdAct ? o.c1 : (showBreakerZeroWarn ? '#f59e0b' : '#777')}" data-maxw="${o.w-12}">${o.label}:${valText}${gridBadge}</text>`;
   }
   if (o.ly6) svg += `<text x="${cx(o)}" y="${o.y+o.ly6}" ${tpProps} font-size="${o.fs6}" fill="${gridOff ? '#ef4444' : o.c6}">${gTimeStr}</text>`;
   svg += `<text x="${cx(o)}" y="${o.y+o.ly2}" ${tpProps} font-size="${o.fs2}" fill="${gridOff ? '#ef4444' : o.c2}">AC Input: ${Math.round(v)}V</text>`;

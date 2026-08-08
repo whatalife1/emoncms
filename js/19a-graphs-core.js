@@ -21,7 +21,7 @@ const GRAPH_FEEDS = [
     { key: 'k1',        name: 'Kenwood 1T',      id: '499364', color: '#7dd3fc', label: '❄ Kenwood 1T',   isWatts: true },
     { key: 'haier',     name: 'Haier 1T',        id: '499367', color: '#a5f3fc', label: '❄ Haier 1T',     isWatts: true },
     { key: 'fridge1',   name: 'Fridge 1',        id: '499373', color: '#c084fc', label: '🧊 Fridge 1',    isWatts: true },
-    { key: 'fridge2',   name: 'Fridge 2',        id: '541348', color: '#e879f9', label: '🧊 Fridge 2',    isWatts: true },
+    { key: 'fridge2',   name: 'Fridge 2',        id: '541348', color: '#22d3ee', label: '🧊 Fridge 2',    isWatts: true },
     { key: 'pc',        name: 'PC',              id: '499422', color: '#4ade80', label: '💻 PC',          isWatts: true },
     { key: 'motor',     name: 'Water Motor',     id: '542850', color: '#fbbf24', label: '🚿 Motor',       isWatts: true },
     { key: 'water',     name: 'Water Tank',      id: '499431', color: '#0ea5e9', label: '💧 Water',       isWatts: false },
@@ -42,7 +42,7 @@ const GRID_ALL_FEEDS = [
     { key: 'k1',        id: '499364', color: '#7dd3fc', label: 'Kenwood 1T'   },
     { key: 'haier',     id: '499367', color: '#a5f3fc', label: 'Haier 1T'     },
     { key: 'fridge1',   id: '499373', color: '#c084fc', label: 'Fridge 1'     },
-    { key: 'fridge2',   id: '541348', color: '#e879f9', label: 'Fridge 2'     },
+    { key: 'fridge2',   id: '541348', color: '#22d3ee', label: 'Fridge 2'     },
     { key: 'pc',        id: '499422', color: '#4ade80', label: 'PC'           },
     { key: 'motor',     id: '542850', color: '#fbbf24', label: 'Motor'        }
 ];

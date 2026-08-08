@@ -9,7 +9,7 @@ function updateOfflineWarningBanner(byName) {
 
   const warnings = [];
   const nowSec = Math.floor(Date.now() / 1000);
-  const OFFLINE_THRESHOLD_SEC = 30 * 60;
+  const OFFLINE_THRESHOLD_SEC = 20 * 60;
 
   // --- Emergency water wastage banner (always shown) ---
   const waste = window.waterWasteDetected;

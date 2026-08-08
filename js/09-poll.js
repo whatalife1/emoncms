@@ -490,14 +490,16 @@ async function poll() {
     localStorage.setItem('last_known_results', JSON.stringify(results));
 
     const bm = new Map(results.map(r => [r.name, r]));
-    window.lastResultsMap = bm; 
+    window.lastResultsMap = bm;
     window.lastSolarActual = bm.get('Solar')?.value || 0;
 
+    // Detect offline/0W appliances BEFORE rendering so badges appear immediately
+    if (typeof checkApplianceOffline === 'function') await checkApplianceOffline(nowSec, bm);
+
     renderResults(results);
-    
+
     if (typeof checkAlerts === 'function') checkAlerts(bm);
     if (typeof updateMainPredicted === 'function') updateMainPredicted();
-    if (typeof checkApplianceOffline === 'function') await checkApplianceOffline(nowSec, bm);
     if (typeof updateOfflineWarningBanner === 'function') updateOfflineWarningBanner(bm);
     
     if (footer) {

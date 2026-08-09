@@ -4,12 +4,12 @@ const APPLIANCE_MONITOR_LIST = [
   { name: 'AC Volts',       label: '⚡ Grid Power (Loadshedding)', minActiveW: 100, offThresholdW: 20, offMinutes: 10, isVolts: true },
   { name: 'Breaker',        label: 'Grid Power',                   minActiveW: 50,  offThresholdW: 5,  offMinutes: 10 },
   { name: 'Fridge',         label: 'Fridge 1',                     minActiveW: 40,  offThresholdW: 28, offMinutes: 20 },
-  { name: 'Fridge2',        label: 'Fridge 2',        minActiveW: 40,  offThresholdW: 28, offMinutes: 20 },
-  { name: 'Kenwood 1.5Ton', label: 'Kenwood 1.5T',     minActiveW: 100, offThresholdW: 30, offMinutes: 60 },
-  { name: 'Kenwood 1Ton',   label: 'Kenwood 1T',       minActiveW: 100, offThresholdW: 30, offMinutes: 60 },
-  { name: 'Haier 1Ton',     label: 'Haier 1T',         minActiveW: 100, offThresholdW: 30, offMinutes: 60 },
-  { name: 'PC',             label: 'PC',               minActiveW: 30,  offThresholdW: 15, offMinutes: 45 },
-  { name: 'Water Motor',    label: 'Water Motor',      minActiveW: 100, offThresholdW: 20, offMinutes: 30 }
+  { name: 'Fridge2',        label: 'Fridge 2',                     minActiveW: 40,  offThresholdW: 28, offMinutes: 20 },
+  { name: 'Kenwood 1.5Ton', label: 'Kenwood 1.5T',                 minActiveW: 100, offThresholdW: 30, offMinutes: 60 },
+  { name: 'Kenwood 1Ton',   label: 'Kenwood 1T',                   minActiveW: 100, offThresholdW: 30, offMinutes: 60 },
+  { name: 'Haier 1Ton',     label: 'Haier 1T',                     minActiveW: 100, offThresholdW: 30, offMinutes: 60 },
+  { name: 'PC',             label: 'PC',                           minActiveW: 30,  offThresholdW: 15, offMinutes: 45 },
+  { name: 'Water Motor',    label: 'Water Motor',                  minActiveW: 100, offThresholdW: 20, offMinutes: 30 }
 ];
 
 // History buffers keyed by appliance name: {t, v}
@@ -114,10 +114,22 @@ async function checkApplianceOffline(nowSec, byName = null) {
                         break;
                     }
                 }
+                
+                // Find first time below threshold after lastRun
+                let firstDropBelow = null;
+                if (lastRun !== null) {
+                    for (let i = 0; i < hist.length; i++) {
+                        if (hist[i].t > lastRun && hist[i].t <= nowMs && hist[i].v <= offThreshold) {
+                            firstDropBelow = hist[i].t;
+                            break;
+                        }
+                    }
+                }
+                const offStart = firstDropBelow || lastRun || nowMs;
 
                 if (lastRun !== null && (nowMs - lastRun) >= offMs) {
                     status = 'zeroW';
-                    offSinceMs = lastRun;
+                    offSinceMs = offStart; // Use the time it actually dropped, not the last active time
                 }
             }
         } else {
@@ -146,6 +158,8 @@ async function checkApplianceOffline(nowSec, byName = null) {
                     // Appliance is running: remember this moment.
                     try {
                         localStorage.setItem(storageKey, nowMs.toString());
+                        localStorage.removeItem(storageKey + \'_offline_since\');
+                        localStorage.removeItem(storageKey + '_offline_since'); // Clear offline timer
                     } catch (e) {}
                 } else {
                     // Appliance is at/below its "off" threshold.
@@ -171,9 +185,20 @@ async function checkApplianceOffline(nowSec, byName = null) {
                         } catch (e) {}
                     }
 
+                    // Track when it FIRST dropped below threshold (for accurate duration)
+                    const offlineSinceKey = storageKey + '_offline_since';
+                    let offlineSince = parseInt(localStorage.getItem(offlineSinceKey), 10);
+                    if (isNaN(offlineSince) || offlineSince > nowMs) {
+                        // First time going offline - record it
+                        offlineSince = nowMs;
+                        try {
+                            localStorage.setItem(offlineSinceKey, offlineSince.toString());
+                        } catch (e) {}
+                    }
+
                     if ((nowMs - lastActive) >= offMs) {
                         status = 'zeroW';
-                        offSinceMs = lastActive;
+                        offSinceMs = offlineSince; // Use the time it actually dropped
                     }
                 }
             }

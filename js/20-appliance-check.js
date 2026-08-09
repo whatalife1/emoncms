@@ -1,7 +1,7 @@
 // ─── Appliance & Grid "unexpectedly off / loadshedding" detection ───────────
 
 const APPLIANCE_MONITOR_LIST = [
-  { name: 'AC Volts',       label: '⚡ Grid Power (Loadshedding)', minActiveW: 100, offThresholdW: 20, offMinutes: 10, isVolts: true },
+  { name: 'AC Volts',       label: 'Grid Loadshedding', minActiveW: 100, offThresholdW: 20, offMinutes: 10, isVolts: true },
   { name: 'Breaker',        label: 'Grid Power',                   minActiveW: 50,  offThresholdW: 5,  offMinutes: 10 },
   { name: 'Fridge',         label: 'Fridge 1',                     minActiveW: 40,  offThresholdW: 28, offMinutes: 20 },
   { name: 'Fridge2',        label: 'Fridge 2',                     minActiveW: 40,  offThresholdW: 28, offMinutes: 20 },

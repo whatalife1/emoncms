@@ -84,7 +84,7 @@ async function checkApplianceOffline(nowSec, byName = null) {
             ? item.offThresholdW
             : (item.minActiveW * 0.5);
         const offMs = (item.offMinutes || 20) * 60 * 1000;
-        const storageKey = 'appliance_last_active_' + item.name;
+        const storageKey = 'app_active_v2_' + item.name;
 
         let status = null;
         let offSinceMs = null;
@@ -158,8 +158,7 @@ async function checkApplianceOffline(nowSec, byName = null) {
                     // Appliance is running: remember this moment.
                     try {
                         localStorage.setItem(storageKey, nowMs.toString());
-                        localStorage.removeItem(storageKey + \'_offline_since\');
-                        localStorage.removeItem(storageKey + '_offline_since'); // Clear offline timer
+                                                localStorage.removeItem(storageKey + '_offline_since'); // Clear offline timer
                     } catch (e) {}
                 } else {
                     // Appliance is at/below its "off" threshold.
@@ -188,9 +187,20 @@ async function checkApplianceOffline(nowSec, byName = null) {
                     // Track when it FIRST dropped below threshold (for accurate duration)
                     const offlineSinceKey = storageKey + '_offline_since';
                     let offlineSince = parseInt(localStorage.getItem(offlineSinceKey), 10);
-                    if (isNaN(offlineSince) || offlineSince > nowMs) {
-                        // First time going offline - record it
-                        offlineSince = nowMs;
+                    
+                    // If missing, or stuck in the past from a previous cycle, recalculate accurately
+                    if (isNaN(offlineSince) || offlineSince > nowMs || (lastActive && offlineSince < lastActive)) {
+                        const hist = await _fetchApplianceHistory(item.name, nowMs);
+                        let exactDrop = null;
+                        if (lastActive) {
+                            for (let i = 0; i < hist.length; i++) {
+                                if (hist[i].t > lastActive && hist[i].t <= nowMs && hist[i].v <= offThreshold) {
+                                    exactDrop = hist[i].t;
+                                    break;
+                                }
+                            }
+                        }
+                        offlineSince = exactDrop || lastActive || nowMs;
                         try {
                             localStorage.setItem(offlineSinceKey, offlineSince.toString());
                         } catch (e) {}

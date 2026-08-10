@@ -1,10 +1,10 @@
 // ─── Appliance & Grid "unexpectedly off / loadshedding" detection ───────────
 
 const APPLIANCE_MONITOR_LIST = [
-  { name: 'AC Volts',       label: 'Grid Loadshedding', minActiveW: 100, offThresholdW: 20, offMinutes: 10, isVolts: true },
-  { name: 'Breaker',        label: 'Grid Power',                   minActiveW: 50,  offThresholdW: 5,  offMinutes: 10 },
-  { name: 'Fridge',         label: 'Fridge 1',                     minActiveW: 40,  offThresholdW: 28, offMinutes: 20 },
-  { name: 'Fridge2',        label: 'Fridge 2',                     minActiveW: 40,  offThresholdW: 28, offMinutes: 20 },
+  { name: 'AC Volts',       label: '⚡ Grid Power (Loadshedding)', minActiveW: 100, offThresholdW: 5, offMinutes: 10, isVolts: true },
+  { name: 'Breaker',        label: 'Grid Power',                   minActiveW: 50,  offThresholdW: 5, offMinutes: 10 },
+  { name: 'Fridge',         label: 'Fridge 1',                     minActiveW: 40,  offThresholdW: 5, offMinutes: 20 },
+  { name: 'Fridge2',        label: 'Fridge 2',                     minActiveW: 40,  offThresholdW: 5, offMinutes: 20 },
   { name: 'Kenwood 1.5Ton', label: 'Kenwood 1.5T',                 minActiveW: 100, offThresholdW: 30, offMinutes: 60 },
   { name: 'Kenwood 1Ton',   label: 'Kenwood 1T',                   minActiveW: 100, offThresholdW: 30, offMinutes: 60 },
   { name: 'Haier 1Ton',     label: 'Haier 1T',                     minActiveW: 100, offThresholdW: 30, offMinutes: 60 },
@@ -84,7 +84,7 @@ async function checkApplianceOffline(nowSec, byName = null) {
             ? item.offThresholdW
             : (item.minActiveW * 0.5);
         const offMs = (item.offMinutes || 20) * 60 * 1000;
-        const storageKey = 'app_active_v2_' + item.name;
+        const storageKey = 'appliance_last_active_' + item.name;
 
         let status = null;
         let offSinceMs = null;
@@ -155,60 +155,47 @@ async function checkApplianceOffline(nowSec, byName = null) {
                     status = 'stale';
                     offSinceMs = feedTimeMs || nowMs;
                 } else if (val > offThreshold) {
-                    // Appliance is running: remember this moment.
+                    // Appliance is running: remember this moment and clear any previous offline marker
                     try {
                         localStorage.setItem(storageKey, nowMs.toString());
-                                                localStorage.removeItem(storageKey + '_offline_since'); // Clear offline timer
+                        localStorage.removeItem(storageKey + '_offline_since');
                     } catch (e) {}
                 } else {
-                    // Appliance is at/below its "off" threshold.
-                    let lastActive = parseInt(localStorage.getItem(storageKey), 10);
+                    // Value is low → ALWAYS recalculate from recent history so duration is accurate
+                    const hist = await _fetchApplianceHistory(item.name, nowMs);
 
-                    if (isNaN(lastActive) || lastActive > nowMs) {
-                        // First low reading: backfill from 5h history so outages
-                        // that started before page load are detected immediately.
-                        const hist = await _fetchApplianceHistory(item.name, nowMs);
-                        let found = null;
+                    // Most recent time the appliance was clearly running
+                    let lastRun = null;
+                    for (let i = hist.length - 1; i >= 0; i--) {
+                        if (hist[i].t <= nowMs && hist[i].v > offThreshold) {
+                            lastRun = hist[i].t;
+                            break;
+                        }
+                    }
 
-                        for (let i = hist.length - 1; i >= 0; i--) {
-                            if (hist[i].t <= nowMs && hist[i].v > offThreshold) {
-                                found = hist[i].t;
+                    // First sample after lastRun that dropped ≤ threshold (true start of this low period)
+                    let firstDropBelow = null;
+                    if (lastRun !== null) {
+                        for (let i = 0; i < hist.length; i++) {
+                            if (hist[i].t > lastRun && hist[i].t <= nowMs && hist[i].v <= offThreshold) {
+                                firstDropBelow = hist[i].t;
                                 break;
                             }
                         }
-
-                        lastActive = found !== null ? found : nowMs;
-
-                        try {
-                            localStorage.setItem(storageKey, lastActive.toString());
-                        } catch (e) {}
                     }
 
-                    // Track when it FIRST dropped below threshold (for accurate duration)
-                    const offlineSinceKey = storageKey + '_offline_since';
-                    let offlineSince = parseInt(localStorage.getItem(offlineSinceKey), 10);
-                    
-                    // If missing, or stuck in the past from a previous cycle, recalculate accurately
-                    if (isNaN(offlineSince) || offlineSince > nowMs || (lastActive && offlineSince < lastActive)) {
-                        const hist = await _fetchApplianceHistory(item.name, nowMs);
-                        let exactDrop = null;
-                        if (lastActive) {
-                            for (let i = 0; i < hist.length; i++) {
-                                if (hist[i].t > lastActive && hist[i].t <= nowMs && hist[i].v <= offThreshold) {
-                                    exactDrop = hist[i].t;
-                                    break;
-                                }
-                            }
-                        }
-                        offlineSince = exactDrop || lastActive || nowMs;
-                        try {
-                            localStorage.setItem(offlineSinceKey, offlineSince.toString());
-                        } catch (e) {}
-                    }
+                    const lastActive = lastRun !== null ? lastRun : nowMs;
+                    const offlineSince = firstDropBelow || lastActive || nowMs;
+
+                    // Keep localStorage in sync for future polls
+                    try {
+                        localStorage.setItem(storageKey, lastActive.toString());
+                        localStorage.setItem(storageKey + '_offline_since', offlineSince.toString());
+                    } catch (e) {}
 
                     if ((nowMs - lastActive) >= offMs) {
                         status = 'zeroW';
-                        offSinceMs = offlineSince; // Use the time it actually dropped
+                        offSinceMs = offlineSince;   // real start of the current low period
                     }
                 }
             }

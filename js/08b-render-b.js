@@ -103,7 +103,7 @@ function updateOfflineWarningBanner(byName) {
     // Only feeds where continuous operation is expected should raise a
     // "0W" banner pill (fridges must stay on; grid should have power).
     // ACs / PC / Water Motor are allowed to be off intentionally.
-    const zeroWBannerFeeds = ['Fridge', 'Fridge2', 'Breaker', 'AC Volts'];
+    const zeroWBannerFeeds = ['Fridge', 'Fridge2', 'Breaker'];
 
     (window.applianceOfflineDetected || []).forEach(a => {
         if (a.type !== 'zeroW') return;
@@ -116,9 +116,13 @@ function updateOfflineWarningBanner(byName) {
 
         if (warnings.find(w => w.label === a.label)) return;
 
+        // Get current wattage from byName
+        const feedVal = byName.get(a.name)?.value;
+        const currentW = feedVal !== undefined ? Math.round(feedVal) : 0;
+
         warnings.push({
             label: a.label,
-            detail: `${a.name === 'AC Volts' ? '0V' : '0W'} for ${formatAge(a.offDurationMin * 60)}`
+            detail: `${currentW}W for ${formatAge(a.offDurationMin * 60)}`
         });
     });
   }

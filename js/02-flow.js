@@ -193,7 +193,7 @@ function renderFlowDiagram(byName) {
     svg += `<text x="${cx(o)}" y="${o.y+o.ly1}" ${tpProps} font-size="${o.fs}" fill="${grdAct ? o.c1 : (showBreakerZeroWarn ? '#f59e0b' : '#777')}" data-maxw="${o.w-12}">${o.label}:${valText}${gridBadge}</text>`;
   }
   if (o.ly6) svg += `<text x="${cx(o)}" y="${o.y+o.ly6}" ${tpProps} font-size="${o.fs6}" fill="${gridOff ? '#ef4444' : o.c6}">${gTimeStr}</text>`;
-  svg += `<text x="${cx(o)}" y="${o.y+o.ly2}" ${tpProps} font-size="${o.fs2}" fill="${gridOff ? '#ef4444' : o.c2}">AC Input: ${Math.round(v)}V${gridOff ? ' <tspan fill="#ef4444" font-weight="900">⚠</tspan>' : ''}</text>`;
+  svg += `<text x="${cx(o)}" y="${o.y+o.ly2}" ${tpProps} font-size="${o.fs2}" fill="${gridOff ? '#ef4444' : o.c2}">AC Input: ${Math.round(v)}V</text>`;
   if (o.ly5) svg += `<text x="${cx(o)}" y="${o.y+o.ly5}" ${tpProps} font-size="${o.fs5}" fill="${gridOff ? '#ef4444' : o.c5}">${vTimeStr}</text>`;
   svg += `<text x="${cx(o)}" y="${o.y+o.ly3}" ${tpProps} font-size="${o.fs3}" fill="${o.c3}">T: ${grid_t.toFixed(1)} kWh | ${kF(grid_t*rate)} PKR</text>`;
   svg += `<text x="${cx(o)}" y="${o.y+o.ly4}" ${tpProps} font-size="${o.fs4}" fill="${o.c4}">M: ${nF(mU.grid||0)} kWh | ${kF((mU.grid||0)*rate)} PKR</text>`;
@@ -294,7 +294,7 @@ function renderFlowDiagram(byName) {
 
   let badge1 = '';
   if (isFridge1Stale) badge1 = ' <tspan fill="#ef4444" font-weight="900">⚠ OFF</tspan>';
-  else if (isFridge1Zero) badge1 = ' <tspan fill="#f59e0b" font-weight="900">⚠ 0 W</tspan>';
+  else if (isFridge1Zero) badge1 = ' <tspan fill="#f59e0b" font-weight="900">⚠ Low (' + Math.round(f1W) + 'W)</tspan>';
   svg += `<text x="${cx(o)}" y="${o.y+o.ly1}" ${tpProps} font-size="${o.fs}" fill="${f1W>6?o.c1:'#777'}" data-maxw="${o.w-12}">Fridge 1${badge1}</text>`;
   svg += `<text x="${cx(o)}" y="${o.y+o.ly2}" ${tpProps} font-size="${o.fs2}" fill="${f1W>6?o.c2:'#555'}">${pF(f1W)}</text>`;
   if (o.ly7) svg += `<text x="${cx(o)}" y="${o.y+o.ly7}" ${tpProps} font-size="${o.fs7}" fill="${o.c7}">${f1TimeStr}</text>`;
@@ -302,7 +302,7 @@ function renderFlowDiagram(byName) {
 
   let badge2 = '';
   if (isFridge2Stale) badge2 = ' <tspan fill="#ef4444" font-weight="900">⚠ OFF</tspan>';
-  else if (isFridge2Zero) badge2 = ' <tspan fill="#f59e0b" font-weight="900">⚠ 0 W</tspan>';
+  else if (isFridge2Zero) badge2 = ' <tspan fill="#f59e0b" font-weight="900">⚠ Low (' + Math.round(f2W) + 'W)</tspan>';
   svg += `<text x="${cx(o)}" y="${o.y+o.ly4}" ${tpProps} font-size="${o.fs4}" fill="${f2W>6?o.c4:'#777'}" data-maxw="${o.w-12}">Fridge 2${badge2}</text>`;
   svg += `<text x="${cx(o)}" y="${o.y+o.ly5}" ${tpProps} font-size="${o.fs5}" fill="${f2W>6?o.c5:'#555'}">${pF(f2W)}</text>`;
   if (o.ly8) svg += `<text x="${cx(o)}" y="${o.y+o.ly8}" ${tpProps} font-size="${o.fs8}" fill="${o.c8}">${f2TimeStr}</text>`;

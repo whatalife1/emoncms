@@ -368,11 +368,13 @@ async function _loadAndDraw() {
 
             let statBars = bars;
             let othersMultiData = null;
+            let maskedFridge1 = [];
+            let maskedFridge2 = [];
 
             if (includeFridges) {
                 statBars = new Array(nav.nBars || bars.length).fill(0);
-                const maskedFridge1 = new Array(nav.nBars || bars.length).fill(0);
-                const maskedFridge2 = new Array(nav.nBars || bars.length).fill(0);
+                maskedFridge1 = new Array(nav.nBars || bars.length).fill(0);
+                maskedFridge2 = new Array(nav.nBars || bars.length).fill(0);
 
                 for (let i = 0; i < computedLastIdx; i++) {
                     const ts = nav.startMs + (i * nav.resSeconds * 1000);
@@ -414,20 +416,39 @@ async function _loadAndDraw() {
                 }
             }
 
-            // Calculate Cumulative/Incremental kWh
-            let cumulativeKwhArray = [];
-            let runningTotal = 0;
+            // Calculate Cumulative/Incremental kWh for Others AND Fridges
+            let cumOthers = [];
+            let cumF1 = [];
+            let cumF2 = [];
+            let runOthers = 0, runF1 = 0, runF2 = 0;
             const isKwhView = nav && (nav.isMonthBilling || nav.isYearly);
             
             for (let i = 0; i < computedLastIdx; i++) {
-                let val = statBars[i] || 0;
+                let valO = bars[i] || 0;
+                let valF1 = includeFridges ? (maskedFridge1[i] || 0) : 0;
+                let valF2 = includeFridges ? (maskedFridge2[i] || 0) : 0;
+                
                 if (!isKwhView) {
-                    val = val * (nav.resSeconds / 3600) / 1000; // Convert Watts to kWh for this interval
+                    valO = valO * (nav.resSeconds / 3600) / 1000;
+                    valF1 = valF1 * (nav.resSeconds / 3600) / 1000;
+                    valF2 = valF2 * (nav.resSeconds / 3600) / 1000;
                 }
-                runningTotal += val;
-                cumulativeKwhArray.push(runningTotal);
+                
+                runOthers += valO;
+                cumOthers.push(runOthers);
+
+                if (includeFridges) {
+                    runF1 += valF1;
+                    cumF1.push(runF1);
+                    runF2 += valF2;
+                    cumF2.push(runF2);
+                }
             }
-            let maxCumKwh = cumulativeKwhArray.length ? Math.max(...cumulativeKwhArray, 0.1) : 0.1;
+            
+            let maxCumKwh = cumOthers.length ? Math.max(...cumOthers, 0.1) : 0.1;
+            if (includeFridges) {
+                maxCumKwh = Math.max(maxCumKwh, (cumF1.length ? Math.max(...cumF1) : 0), (cumF2.length ? Math.max(...cumF2) : 0));
+            }
 
             graphDataCache = {
                 bars1: statBars, bars2: [],
@@ -439,10 +460,14 @@ async function _loadAndDraw() {
                 minV: 0,
                 maxV: maxV,
                 range: maxV,
-                barsTemp: cumulativeKwhArray,
+                barsTemp: cumOthers,
                 tempMinV: 0, tempMaxV: maxCumKwh * 1.1, tempRange: maxCumKwh * 1.1,
-                tempUnit: 'kWh', tempColor: '#ec4899', overlayLabel: 'Cumul. kWh',
+                tempUnit: 'kWh', tempColor: color1, overlayLabel: includeFridges ? 'Others Cumul.' : 'Cumul. kWh',
                 isDualY: true,
+                barsTemp2: includeFridges ? cumF1 : null,
+                tempColor2: '#c084fc', overlayLabel2: 'Fridge 1',
+                barsTemp3: includeFridges ? cumF2 : null,
+                tempColor3: '#22d3ee', overlayLabel3: 'Fridge 2',
                 isMomentFlow: false,
                 feedKey: 'others'
             };

@@ -399,6 +399,21 @@ async function _loadAndDraw() {
                 }
             }
 
+            // Calculate Cumulative/Incremental kWh
+            let cumulativeKwhArray = [];
+            let runningTotal = 0;
+            const isKwhView = nav && (nav.isMonthBilling || nav.isYearly);
+            
+            for (let i = 0; i < computedLastIdx; i++) {
+                let val = statBars[i] || 0;
+                if (!isKwhView) {
+                    val = val * (nav.resSeconds / 3600) / 1000; // Convert Watts to kWh for this interval
+                }
+                runningTotal += val;
+                cumulativeKwhArray.push(runningTotal);
+            }
+            let maxCumKwh = cumulativeKwhArray.length ? Math.max(...cumulativeKwhArray, 0.1) : 0.1;
+
             graphDataCache = {
                 bars1: statBars, bars2: [],
                 labels: nav.labels,
@@ -409,10 +424,10 @@ async function _loadAndDraw() {
                 minV: 0,
                 maxV: maxV,
                 range: maxV,
-                barsTemp: [],
-                tempMinV: 0, tempMaxV: 0, tempRange: 0,
-                tempUnit: '', tempColor: '', overlayLabel: '',
-                isDualY: false,
+                barsTemp: cumulativeKwhArray,
+                tempMinV: 0, tempMaxV: maxCumKwh * 1.1, tempRange: maxCumKwh * 1.1,
+                tempUnit: 'kWh', tempColor: '#ec4899', overlayLabel: 'Cumul. kWh',
+                isDualY: true,
                 isMomentFlow: false,
                 feedKey: 'others'
             };
@@ -524,20 +539,47 @@ async function _loadAndDraw() {
 
         let barsTemp = []; 
         let ovAc = null;
+        let tUnit = 'W';
+        let tColor = '#38bdf8';
+        let tLabel = 'AC';
+
         if (['temp','temp2'].includes(graphFeedKey) && window.graphOverlayAc) {
             ovAc = GRAPH_FEEDS.find(f => f.key === window.graphOverlayAc);
             barsTemp = _pointsToBars(await _gFetch(ovAc.id, nav.startMs, nav.endMs, nav.interval), nav, window.graphOverlayAc);
+            tColor = ovAc ? ovAc.color : '#38bdf8';
+            tLabel = ovAc ? ovAc.label : 'AC';
         }
 
         let lastIdx = bars1.length || multiData?.[0]?.data?.length || 0;
         if (graphTab === 'day' && graphDateNav === 0) {
             lastIdx = Math.floor((Date.now() - 60000 - nav.startMs) / (nav.resSeconds * 1000)) + 1;
+            lastIdx = Math.max(0, Math.min(lastIdx, nav.nBars));
+        }
+
+        // --- Calculate Cumulative kWh for ALL standard power feeds ---
+        if (!isCombined && !isGridAll && fA && fA.isWatts && graphFeedKey !== 'others') {
+            let cumulativeKwhArray = [];
+            let runningTotal = 0;
+            const isKwhView = nav && (nav.isMonthBilling || nav.isYearly);
+            
+            for (let i = 0; i < lastIdx; i++) {
+                let val = bars1[i] || 0;
+                if (!isKwhView) {
+                    val = val * (nav.resSeconds / 3600) / 1000;
+                }
+                runningTotal += val;
+                cumulativeKwhArray.push(runningTotal);
+            }
+            barsTemp = cumulativeKwhArray;
+            tUnit = 'kWh';
+            tColor = '#ec4899';
+            tLabel = 'Cumul. kWh';
         }
 
         let maxV = 1, minV = 0; const all = (multiData?multiData.flatMap(m=>m.data):[...bars1,...bars2]).filter(v=>v>0);
         if (all.length) { maxV = Math.max(...all)*1.1; if(isTemp){ minV = Math.max(0, Math.min(...all)-5); maxV = Math.max(maxV, minV+10); } }
 
-        const maxBT = barsTemp.length > 0 ? Math.max(...barsTemp, 1) : 1;
+        const maxBT = barsTemp.length > 0 ? Math.max(...barsTemp, 0.1) : 1;
         graphDataCache = { 
             bars1, bars2, 
             labels: nav.labels, 
@@ -545,7 +587,7 @@ async function _loadAndDraw() {
             fullLabels: nav.fullLabels || nav.labels,
             color1, color2, unit, isCombined, nav, lastIdx, multiData, minV, maxV, range: maxV-minV, 
             barsTemp, tempMinV: 0, tempMaxV: maxBT * 1.1, tempRange: maxBT * 1.1, 
-            tempUnit: 'W', tempColor: ovAc ? ovAc.color : '#38bdf8', overlayLabel: ovAc ? ovAc.label : 'AC', isDualY: barsTemp.length > 0 
+            tempUnit: tUnit, tempColor: tColor, overlayLabel: tLabel, isDualY: barsTemp.length > 0 
         };
         _drawChart(canvas, bars1, bars2, nav.labels, color1, color2, unit, isCombined, nav, lastIdx, multiData, minV, maxV, maxV-minV, barsTemp, graphDataCache.tempMinV, graphDataCache.tempMaxV, graphDataCache.tempRange, graphDataCache.tempUnit, graphDataCache.tempColor, graphDataCache.overlayLabel);
 

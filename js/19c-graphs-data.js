@@ -371,18 +371,33 @@ async function _loadAndDraw() {
 
             if (includeFridges) {
                 statBars = new Array(nav.nBars || bars.length).fill(0);
+                const maskedFridge1 = new Array(nav.nBars || bars.length).fill(0);
+                const maskedFridge2 = new Array(nav.nBars || bars.length).fill(0);
 
                 for (let i = 0; i < computedLastIdx; i++) {
-                    statBars[i] =
-                        (bars[i] || 0) +
-                        (fridge1Bars[i] || 0) +
-                        (fridge2Bars[i] || 0);
+                    const ts = nav.startMs + (i * nav.resSeconds * 1000);
+                    const pktDate = getKarachiDate(ts);
+                    const h = pktDate.hour;
+                    const isNight = h >= 17 || h < 8; // Night time: 5pm to 8am
+
+                    let f1 = fridge1Bars[i] || 0;
+                    let f2 = fridge2Bars[i] || 0;
+                    
+                    if (isNight) {
+                        maskedFridge1[i] = f1;
+                        maskedFridge2[i] = f2;
+                        statBars[i] = (bars[i] || 0) + f1 + f2;
+                    } else {
+                        maskedFridge1[i] = 0;
+                        maskedFridge2[i] = 0;
+                        statBars[i] = (bars[i] || 0);
+                    }
                 }
 
                 othersMultiData = [
                     { key: 'others',  label: 'Others',    color: feed.color, data: bars },
-                    { key: 'fridge1', label: 'Fridge 1', color: '#c084fc', data: fridge1Bars },
-                    { key: 'fridge2', label: 'Fridge 2', color: '#22d3ee', data: fridge2Bars }
+                    { key: 'fridge1', label: 'Fridge 1 (Night)', color: '#c084fc', data: maskedFridge1 },
+                    { key: 'fridge2', label: 'Fridge 2 (Night)', color: '#22d3ee', data: maskedFridge2 }
                 ];
             }
 
@@ -485,7 +500,11 @@ async function _loadAndDraw() {
 
                         let v = Math.max(0, solarVal + gridVal - appSum);
 
-                        if (includeFridges) {
+                        const pktDate = getKarachiDate(ts);
+                        const h = pktDate.hour;
+                        const isNight = h >= 17 || h < 8; // 5pm to 8am
+
+                        if (includeFridges && isNight) {
                             const f1Val = (fridge1Idx >= 0 && results[fridge1Idx] && results[fridge1Idx][i])
                                 ? (results[fridge1Idx][i][1] || 0)
                                 : 0;
@@ -498,9 +517,6 @@ async function _loadAndDraw() {
                         }
 
                         if (v > 0) {
-                            const pktDate = getKarachiDate(ts);
-                            const h = pktDate.hour;
-
                             if (h >= 8 && h < 17) dayTot += v / 1000;
                             else nightTot += v / 1000;
                         }
@@ -512,7 +528,7 @@ async function _loadAndDraw() {
                 nAv = nightTot / numDays; nTt = nightTot;
             }
 
-            const othersLabel = includeFridges ? 'Others + Fridges' : 'Others';
+            const othersLabel = includeFridges ? 'Others + Fridges (Night)' : 'Others';
             stat.innerHTML = _formatStatLine('💡', othersLabel, totalKwh, color1, peak, avg, dAv, dTt, nAv, nTt, unit, true, graphTab);
 
             _showGraphLoading(false);
@@ -826,7 +842,7 @@ function _renderOthersFridgeToggle() {
         'width:auto'
     ].join(';');
 
-    btn.textContent = on ? '🧊 Fridges: Included' : '🧊 Add Fridges';
+    btn.textContent = on ? '🧊 Fridges: Added (Night)' : '🧊 Add Fridges (Night)';
 
     btn.addEventListener('click', function () {
         window.graphOthersIncludeFridges = !window.graphOthersIncludeFridges;
@@ -850,8 +866,8 @@ function _renderOthersFridgeToggle() {
     const hint = document.createElement('span');
     hint.style.cssText = 'font-size:10px;color:var(--text-muted);';
     hint.textContent = on
-        ? 'Stats show combined Others + Fridges.'
-        : 'Add Fridge 1 + Fridge 2 to the Others graph.';
+        ? 'Stats show combined Others + Fridges (Night only).'
+        : 'Add Fridge 1 + Fridge 2 (Night only) to the Others graph.';
 
     row.appendChild(btn);
     row.appendChild(hint);

@@ -562,7 +562,14 @@ function _handleGraphHover(e, pin) {
 
     if (isDualY && barsTemp && idx < barsTemp.length) {
         const tVal = barsTemp[idx] ?? 0;
-        const tValStr = isKwhView ? tVal.toFixed(2) + ' kWh' : Math.round(tVal) + ' W';
+        let tValStr = '';
+        if (tempUnit === 'kWh') {
+            tValStr = tVal.toFixed(2) + ' kWh';
+        } else if (tempUnit === '°C') {
+            tValStr = tVal.toFixed(1) + ' °C';
+        } else {
+            tValStr = isKwhView ? tVal.toFixed(2) + ' kWh' : Math.round(tVal) + ' W';
+        }
         html += `<div style="color:${tempColor};margin-top:4px;border-top:1px dashed var(--border);padding-top:4px;">
             <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${tempColor};margin-right:5px;"></span>
             <b>${overlayLabel || 'AC'}:</b> ${tValStr}
@@ -649,7 +656,8 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
         for (let i = 0; i <= numGridLines; i++) {
             const val = tempMinV + (i / numGridLines) * tempRange;
             const y = PT + cH - (i / numGridLines) * cH;
-            ctx.fillText(Math.round(val).toLocaleString(), rightX, y + 3);
+            const lbl = (tempUnit === 'kWh') ? val.toFixed(1) : Math.round(val).toLocaleString();
+            ctx.fillText(lbl, rightX, y + 3);
         }
     }
 

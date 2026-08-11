@@ -575,11 +575,18 @@ function _handleGraphHover(e, pin) {
             <b>${overlayLabel || 'AC'}:</b> ${tValStr}
         </div>`;
     }
-    if (graphDataCache.barsTemp2 && idx < graphDataCache.barsTemp2.length) {
+if (graphDataCache.barsTemp2 && idx < graphDataCache.barsTemp2.length) {
         const tVal2 = graphDataCache.barsTemp2[idx] ?? 0;
         html += `<div style="color:${graphDataCache.tempColor2};margin-top:2px;">
             <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${graphDataCache.tempColor2};margin-right:5px;"></span>
             <b>${graphDataCache.overlayLabel2}:</b> ${tVal2.toFixed(2)} kWh
+        </div>`;
+    }
+    if (graphDataCache.barsTemp3 && idx < graphDataCache.barsTemp3.length) {
+        const tVal3 = graphDataCache.barsTemp3[idx] ?? 0;
+        html += `<div style="color:${graphDataCache.tempColor3};margin-top:2px;">
+            <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${graphDataCache.tempColor3};margin-right:5px;"></span>
+            <b>${graphDataCache.overlayLabel3}:</b> ${tVal3.toFixed(2)} kWh
         </div>`;
     }
 
@@ -693,8 +700,13 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
         if (graphDataCache.barsTemp2 && graphDataCache.barsTemp2.length > 0) {
             _renderPlot(ctx, graphDataCache.barsTemp2, n, graphDataCache.tempColor2, 'line', mapX, PL, PT, cW, cH, tempMinV, tempRange, lastIdx, false, true);
         }
+        if (graphDataCache.barsTemp3 && graphDataCache.barsTemp3.length > 0) {
+            _renderPlot(ctx, graphDataCache.barsTemp3, n, graphDataCache.tempColor3, 'line', mapX, PL, PT, cW, cH, tempMinV, tempRange, lastIdx, false, true);
+        }
     }
     ctx.restore();
+
+
 
     ctx.fillStyle = '#71717a';
     ctx.textAlign = 'center';

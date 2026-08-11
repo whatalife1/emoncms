@@ -465,7 +465,14 @@ async function _loadAndDraw() {
                 othersMultiData,
                 0,
                 graphDataCache.maxV,
-                graphDataCache.range
+                graphDataCache.range,
+                graphDataCache.barsTemp,
+                graphDataCache.tempMinV,
+                graphDataCache.tempMaxV,
+                graphDataCache.tempRange,
+                graphDataCache.tempUnit,
+                graphDataCache.tempColor,
+                graphDataCache.overlayLabel
             );
 
             graphChartType = savedChartType;
@@ -572,8 +579,12 @@ async function _loadAndDraw() {
             lastIdx = Math.max(0, Math.min(lastIdx, nav.nBars));
         }
 
-        // --- Calculate Cumulative kWh for ALL standard power feeds ---
-        if (!isCombined && !isGridAll && fA && fA.isWatts && graphFeedKey !== 'others') {
+        let barsTemp2 = [];
+        let tColor2 = '#ef4444';
+        let tLabel2 = 'Grid Cumul.';
+
+        // --- Calculate Cumulative kWh for ALL standard power feeds (Supports Dual Lines for Solar+Grid) ---
+        if ((!isGridAll && fA && fA.isWatts && graphFeedKey !== 'others') || isCombined) {
             let cumulativeKwhArray = [];
             let runningTotal = 0;
             const isKwhView = nav && (nav.isMonthBilling || nav.isYearly);
@@ -588,22 +599,40 @@ async function _loadAndDraw() {
             }
             barsTemp = cumulativeKwhArray;
             tUnit = 'kWh';
-            tColor = '#ec4899';
-            tLabel = 'Cumul. kWh';
+            tColor = '#facc15';
+            tLabel = 'Solar Cumul.';
+
+            if (isCombined) {
+                let cumulativeKwhArray2 = [];
+                let runningTotal2 = 0;
+                for (let i = 0; i < lastIdx; i++) {
+                    let val2 = bars2[i] || 0;
+                    if (!isKwhView) {
+                        val2 = val2 * (nav.resSeconds / 3600) / 1000;
+                    }
+                    runningTotal2 += val2;
+                    cumulativeKwhArray2.push(runningTotal2);
+                }
+                barsTemp2 = cumulativeKwhArray2;
+            }
         }
 
         let maxV = 1, minV = 0; const all = (multiData?multiData.flatMap(m=>m.data):[...bars1,...bars2]).filter(v=>v>0);
         if (all.length) { maxV = Math.max(...all)*1.1; if(isTemp){ minV = Math.max(0, Math.min(...all)-5); maxV = Math.max(maxV, minV+10); } }
 
         const maxBT = barsTemp.length > 0 ? Math.max(...barsTemp, 0.1) : 1;
+        const maxBT2 = barsTemp2.length > 0 ? Math.max(...barsTemp2, 0.1) : 1;
+        const combinedMaxBT = Math.max(maxBT, maxBT2);
+
         graphDataCache = { 
             bars1, bars2, 
             labels: nav.labels, 
             timeLabels: nav.timeLabels || nav.labels,
             fullLabels: nav.fullLabels || nav.labels,
             color1, color2, unit, isCombined, nav, lastIdx, multiData, minV, maxV, range: maxV-minV, 
-            barsTemp, tempMinV: 0, tempMaxV: maxBT * 1.1, tempRange: maxBT * 1.1, 
-            tempUnit: tUnit, tempColor: tColor, overlayLabel: tLabel, isDualY: barsTemp.length > 0 
+            barsTemp, tempMinV: 0, tempMaxV: combinedMaxBT * 1.1, tempRange: combinedMaxBT * 1.1, 
+            tempUnit: tUnit, tempColor: tColor, overlayLabel: tLabel, isDualY: barsTemp.length > 0,
+            barsTemp2, tempColor2: tColor2, overlayLabel2: tLabel2
         };
         _drawChart(canvas, bars1, bars2, nav.labels, color1, color2, unit, isCombined, nav, lastIdx, multiData, minV, maxV, maxV-minV, barsTemp, graphDataCache.tempMinV, graphDataCache.tempMaxV, graphDataCache.tempRange, graphDataCache.tempUnit, graphDataCache.tempColor, graphDataCache.overlayLabel);
 

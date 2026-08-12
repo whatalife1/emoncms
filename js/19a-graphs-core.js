@@ -26,7 +26,7 @@ const GRAPH_FEEDS = [
     { key: 'motor',     name: 'Water Motor',     id: '542850', color: '#fbbf24', label: '🚿 Motor',       isWatts: true },
     { key: 'water',     name: 'Water Tank',      id: '499431', color: '#0ea5e9', label: '💧 Water',       isWatts: false },
   
-    { key: 'wm',        name: 'Washing Machine', id: '544694', color: '#e879f9', label: '👕 W/M',       isWatts: true },
+    { key: 'wm',        name: 'Washing Machine', id: '544694', color: '#e879f9', label: '👕 W/M', statLabel: "👕 Washing Machine",       isWatts: true },
 { key: 'others',    name: 'Others',          id: null,     color: '#f59e0b', label: '💡 Others',      isWatts: true, isComputed: true },
 
 

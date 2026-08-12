@@ -97,6 +97,8 @@ const FEEDS_BASE = [
   { id: "499408", name: "Haier 1Ton Total",     unit: "kWh", type: "units" },
   { id: "499422", name: "PC",                   unit: "W",   type: "watts" },
   { id: "499424", name: "PC Today",             unit: "kWh", type: "units" },
+    { id: "544694", name: "Washing Machine",       unit: "W",   type: "watts" },
+    { id: "544695", name: "Washing Machine Today",  unit: "kWh", type: "units" },
   { id: "499428", name: "Temperature",          unit: "°C",  type: "env"   },
   { id: "499382", name: "Solar Amps",           unit: "A",   type: "env"   },
   { id: "499429", name: "Humidity",             unit: "%",   type: "env"   },
@@ -112,6 +114,7 @@ const LINKED_GROUPS = [
   ["Breaker", "AC Volts", "Breaker Today", "Breaker Total"],
   ["Utility", "Utility Today", "Utility Total"],
   ["PC", "PC Today"],
+    ["Washing Machine", "Washing Machine Today"],
   ["Water Motor", "Water Motor Today"],
   ["Kenwood 1Ton", "Kenwood 1Ton Today", "Kenwood 1Ton Total"],
   ["Kenwood 1.5Ton", "Kenwood 1.5Ton Today", "Kenwood 1.5Ton Total"],
@@ -137,7 +140,8 @@ const WIDGET_CATALOG = [
     { name: "Emon PC",             desc: "PC W" },
     { name: "Emon Kenwood 1.5Ton", desc: "Kenwood 1.5Ton W" },
     { name: "Emon Kenwood 1Ton",   desc: "Kenwood 1Ton W" },
-    { name: "Emon Haier 1Ton",     desc: "Haier 1Ton W" }
+    { name: "Emon Haier 1Ton",     desc: "Haier 1Ton W" },
+        { name: "Emon Washing Machine", desc: "Washing Machine W" }
   ]},
   { category: "📅 Today / Total kWh", items: [
     { name: "Emon Solar Today",           desc: "Solar kWh today" },
@@ -149,7 +153,8 @@ const WIDGET_CATALOG = [
     { name: "Emon Kenwood 1.5Ton Today",  desc: "Kenwood 1.5Ton kWh today" },
     { name: "Emon Kenwood 1Ton Today",    desc: "Kenwood 1Ton kWh today" },
     { name: "Emon Kenwood 1.5Ton Total",  desc: "Kenwood 1.5Ton lifetime kWh" },
-    { name: "Emon Kenwood 1Ton Total",    desc: "Kenwood 1Ton lifetime kWh" }
+    { name: "Emon Kenwood 1Ton Total",    desc: "Kenwood 1Ton lifetime kWh" },
+        { name: "Emon Washing Machine Today", desc: "Washing Machine kWh today" }
   ]},
   { category: "🌡 Environment", items: [
     { name: "Emon Temperature",   desc: "Temperature °C" },

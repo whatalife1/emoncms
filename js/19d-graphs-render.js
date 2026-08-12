@@ -31,7 +31,8 @@ function replayFlowDiagramAtMoment(multiData, idx, timestampSec) {
     const f2W     = getVal('fridge2');
     const pcW     = getVal('pc');
     const motorW  = getVal('motor');
-    const totLoad = k15W + k1W + haierW + f1W + f2W + pcW + motorW;
+    const wmW     = getVal('wm');
+    const totLoad = k15W + k1W + haierW + f1W + f2W + pcW + motorW + wmW;
 
     const solarCumKwh = getCumKwh('solar');
     const gridCumKwh  = getCumKwh('grid');
@@ -42,6 +43,7 @@ function replayFlowDiagramAtMoment(multiData, idx, timestampSec) {
     const f2CumKwh    = getCumKwh('fridge2');
     const pcCumKwh    = getCumKwh('pc');
     const motorCumKwh = getCumKwh('motor');
+    const wmCumKwh    = getCumKwh('wm');
 
     const mockMap = new Map();
     mockMap.set('Solar',           { value: solarW, time: timestampSec });
@@ -74,6 +76,10 @@ function replayFlowDiagramAtMoment(multiData, idx, timestampSec) {
     mockMap.set('PC Today',             { value: pcCumKwh, time: timestampSec });
     mockMap.set('Water Motor',         { value: motorW, time: timestampSec });
     mockMap.set('Water Motor Today',   { value: motorCumKwh, time: timestampSec });
+    mockMap.set('Washing Machine',         { value: wmW,      time: timestampSec });
+    mockMap.set('Washing Machine Today', { value: wmCumKwh,  time: timestampSec });
+    mockMap.set('Washing Machine',         { value: wmW,      time: timestampSec });
+    mockMap.set('Washing Machine Today', { value: wmCumKwh,  time: timestampSec });
 
     renderFlowDiagram(mockMap);
 }

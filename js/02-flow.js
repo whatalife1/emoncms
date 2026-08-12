@@ -2,17 +2,20 @@
 const LAYOUT = {
  weather: { x:5, y:10, w:708, h:49, color:'#0ea5e9', label:'Weather', ly1:25, fs:25, c1:'#ffffff',  },
  solar: { x:5, y:66, w:321, h:365, color:'#f59e0b', label:'Solar', ly1:42, fs:47, c1:'#ffff00', ly2:106, fs2:46, c2:'#2c8758', ly3:172, fs3:31, c3:'#b4b635', ly4:219, fs4:22, c4:'#21c442', ly5:289, fs5:24, c5:'#3de31c', ly6:330, fs6:22, c6:'#38bdf8', ly7:140, fs7:17, c7:'#a1a1aa', ly8:246, fs8:22, c8:'#21c442',  },
- grid: { x:330, y:64, w:245, h:365, color:'#ef4444', label:'Grid', ly1:35, fs:38, c1:'#ef4444', ly2:154, fs2:28, c2:'#35c0b7', ly3:291, fs3:21, c3:'#3de3e4', ly4:332, fs4:19, c4:'#38bdf8', ly5:186, fs5:19, c5:'#a1a1aa', ly6:79, fs6:20, c6:'#a1a1aa',  },
- water: { x:579, y:62, w:146, h:365, color:'#0ea5e9', label:'Water', ly1:33, fs:46, c1:'#0ea5e9', ly2:158, fs2:56, c2:'#25f447', ly3:251, fs3:25, c3:'#9ca3af', ly4:295, fs4:20, c4:'#0ce4e0', ly5:320, fs5:19, c5:'#38bdf8', ly6:342, fs6:18, c6:'#a1a1aa',  },
+ grid: { x:330, y:64, w:245, h:365, color:'#ef4444', label:'Grid', ly1:35, fs:38, c1:'#ef4444', ly2:154, fs2:28, c2:'#35c0b7', ly3:291, fs3:21, c3:'#3de3e4', ly4:332, fs4:16, c4:'#38bdf8', ly5:186, fs5:19, c5:'#a1a1aa', ly6:79, fs6:20, c6:'#a1a1aa',  },
+ water: { x:579, y:62, w:146, h:365, color:'#0ea5e9', label:'Water', ly1:33, fs:44, c1:'#0ea5e9', ly2:158, fs2:56, c2:'#25f447', ly3:251, fs3:25, c3:'#9ca3af', ly4:295, fs4:20, c4:'#0ce4e0', ly5:320, fs5:19, c5:'#38bdf8', ly6:342, fs6:18, c6:'#a1a1aa',  },
  haier: { x:7, y:436, w:238, h:199, color:'#38bdf8', label:'Haier 1T', ly1:22, fs:34, c1:'#38bdf8', ly2:75, fs2:63, c2:'#25f447', ly3:143, fs3:25, c3:'#00c8f0', ly4:175, fs4:25, c4:'#518e35', ly5:113, fs5:16, c5:'#a1a1aa',  },
  k15: { x:252, y:436, w:238, h:199, color:'#38bdf8', label:'Kenwood 1.5T', ly1:21, fs:33, c1:'#38bdf8', ly2:68, fs2:60, c2:'#25f447', ly3:142, fs3:25, c3:'#00c8f0', ly4:175, fs4:25, c4:'#518e35', ly5:114, fs5:16, c5:'#a1a1aa',  },
- k1: { x:497, y:435, w:231, h:200, color:'#38bdf8', label:'Kenwood 1T', ly1:27, fs:34, c1:'#38bdf8', ly2:75, fs2:57, c2:'#25f447', ly3:143, fs3:25, c3:'#00c8f0', ly4:175, fs4:25, c4:'#518e35', ly5:114, fs5:16, c5:'#a1a1aa',  },
- fridge: { x:8, y:678, w:255, h:241, color:'#c084fc', label:'Fridges', ly1:16, fs:36, c1:'#38bdf8', ly2:53, fs2:52, c2:'#25f447', ly3:103, fs3:18, c3:'#518e35', ly4:132, fs4:36, c4:'#38bdf8', ly5:171, fs5:52, c5:'#25f447', ly6:228, fs6:18, c6:'#518e35', ly7:86, fs7:14, c7:'#a1a1aa', ly8:205, fs8:17, c8:'#a1a1aa',  },
- pc: { x:506, y:682, w:223, h:235, color:'#10b9f8', label:'PC', ly1:27, fs:47, c1:'#38bdf8', ly2:75, fs2:53, c2:'#25f447', ly3:178, fs3:23, c3:'#00c8f0', ly4:217, fs4:21, c4:'#518e35', ly5:135, fs5:17, c5:'#a1a1aa',  },
- motor: { x:268, y:676, w:231, h:238, color:'#fbbf24', label:'Water Motor', ly1:24, fs:35, c1:'#fbbf24', ly2:83, fs2:57, c2:'#38bdf8', ly3:182, fs3:21, c3:'#518e35', ly4:221, fs4:22, c4:'#518e35', ly5:129, fs5:18, c5:'#a1a1aa',  },
+ k1: { x:497, y:435, w:231, h:200, color:'#38bdf8', label:'Kenwood 1T', ly1:27, fs:34, c1:'#38bdf8', ly2:75, fs2:57, c2:'#25f447', ly3:143, fs3:21, c3:'#00c8f0', ly4:175, fs4:22, c4:'#518e35', ly5:114, fs5:16, c5:'#a1a1aa',  },
+ fridge: { x:8, y:678, w:227, h:241, color:'#c084fc', label:'Fridges', ly1:16, fs:36, c1:'#38bdf8', ly2:53, fs2:52, c2:'#25f447', ly3:103, fs3:18, c3:'#518e35', ly4:132, fs4:36, c4:'#38bdf8', ly5:171, fs5:52, c5:'#25f447', ly6:228, fs6:18, c6:'#518e35', ly7:86, fs7:14, c7:'#a1a1aa', ly8:205, fs8:17, c8:'#a1a1aa',  },
+ pc: { x:445, y:684, w:133, h:240, color:'#10b9f8', label:'PC', ly1:25, fs:45, c1:'#38bdf8', ly2:83, fs2:46, c2:'#25f447', ly3:187, fs3:21, c3:'#00c8f0', ly4:225, fs4:20, c4:'#518e35', ly5:128, fs5:18, c5:'#a1a1aa',  },
+ wm: { x:582, y:687, w:139, h:238, color:'#e879f9', label:'Washing|Machine', ly1:19, fs:30, c1:'#e879f9', ly2:92, fs2:43, c2:'#25f447', ly3:180, fs3:21, c3:'#00c8f0', ly4:219, fs4:21, c4:'#518e35',  },
+ motor: { x:241, y:681, w:199, h:241, color:'#fbbf24', label:'Water Motor', ly1:24, fs:31, c1:'#fbbf24', ly2:83, fs2:57, c2:'#38bdf8', ly3:188, fs3:21, c3:'#518e35', ly4:221, fs4:22, c4:'#518e35', ly5:129, fs5:18, c5:'#a1a1aa',  },
  temp: { x:502, y:642, w:225, h:40, color:'#22c55e', label:'temp', ly1:20, fs:26, c1:'#25f447',  },
  temp2: { x:8, y:639, w:238, h:35, color:'#22c55e', label:'temp2', ly1:16, fs:27, c1:'#25f447',  },
 };
+
+
 
 function renderFlowDiagram(byName) {
   if (!byName) return;
@@ -245,19 +248,24 @@ function renderFlowDiagram(byName) {
 
   // 4. APPLIANCES
   const drawApp = (k, name, suffix="Today") => {
+    if (!L[k]) { console.warn('drawApp: missing layout key', k); return; }
     const oA = L[k]; const val = getV(name); const act = val > 6;
     const t = getV(name + " " + suffix); const mon = mU[k] || 0;
     const aTime = byName.get(name)?.time;
     const aTimeStr = aTime ? new Date(aTime * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--';
     
     svg += `<rect class="${act ? 'pulse-animation' : ''}" style="--pulse-clr:${oA.color}" x="${oA.x}" y="${oA.y}" width="${oA.w}" height="${oA.h}" rx="10" fill="${act?'#141416':'#1a1a1c'}" stroke="${act?oA.color:'#333'}" stroke-width="2"/>`;
-    svg += `<text x="${cx(oA)}" y="${oA.y+oA.ly1}" ${tpProps} font-size="${oA.fs}" fill="${act?oA.c1:'#777'}" data-maxw="${oA.w-12}">${oA.label}</text>`;
+    const lblParts = String(oA.label).split('|');
+const isMulti  = lblParts.length > 1;
+const lblHtml  = isMulti ? lblParts.map((pp, i) => `<tspan x="${cx(oA)}" dy="${i === 0 ? 0 : oA.fs + 2}">${pp}</tspan>`).join('') : oA.label;
+svg += `<text x="${cx(oA)}" y="${oA.y+oA.ly1}" ${tpProps} font-size="${oA.fs}" fill="${act?oA.c1:'#777'}"${isMulti ? '' : ` data-maxw="${oA.w-12}"`}>${lblHtml}</text>`;
     svg += `<text x="${cx(oA)}" y="${oA.y+oA.ly2}" ${tpProps} font-size="${oA.fs2}" fill="${act?oA.c2:'#555'}">${pF(val)}</text>`;
     if (oA.ly5) svg += `<text x="${cx(oA)}" y="${oA.y+oA.ly5}" ${tpProps} font-size="${oA.fs5}" fill="${oA.c5}">${aTimeStr}</text>`;
-    svg += `<text x="${cx(oA)}" y="${oA.y+oA.ly3}" ${tpProps} font-size="${oA.fs3}" fill="${oA.c3}">Today: ${t.toFixed(1)} kWh</text>`;
-    svg += `<text x="${cx(oA)}" y="${oA.y+oA.ly4}" ${tpProps} font-size="${oA.fs4}" fill="${oA.c4}">Month: ${mon.toFixed(1)} kWh</text>`;
+    svg += `<text x="${cx(oA)}" y="${oA.y+oA.ly3}" ${tpProps} font-size="${oA.fs3}" fill="${oA.c3}">T: ${t.toFixed(1)} kWh</text>`;
+    svg += `<text x="${cx(oA)}" y="${oA.y+oA.ly4}" ${tpProps} font-size="${oA.fs4}" fill="${oA.c4}">M: ${mon.toFixed(1)} kWh</text>`;
   };
   drawApp('haier', 'Haier 1Ton'); drawApp('k15', 'Kenwood 1.5Ton'); drawApp('k1', 'Kenwood 1Ton'); drawApp('pc', 'PC'); drawApp('motor', 'Water Motor');
+drawApp('wm', 'Washing Machine');
   
   const f1W = getV('Fridge'); const f2W = getV('Fridge2');
   const f1T = getV('Fridge Today'); const f2T = getV('Fridge2 Today');

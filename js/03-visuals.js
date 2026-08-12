@@ -32,10 +32,11 @@ async function fetchMonthlyUnits() {
     { key: 'k15', id: '499405' }, { key: 'pc', id: '499424' }, 
     { key: 'f1', id: '499411' }, { key: 'f2', id: '541350' },
     { key: 'solar', id: '499415' }, { key: 'grid', id: '499413' },
-    { key: 'motor', id: '542853' }
+    { key: 'motor', id: '542853' },
+        { key: 'wm', id: '544695' }
   ];
 
-  const results = { haier:0, k1:0, k15:0, pc:0, f1:0, f2:0, solar:0, grid:0, motor:0 };
+  const results = { haier:0, k1:0, k15:0, pc:0, f1:0, f2:0, solar:0, grid:0, motor:0, wm:0 };
 
   try {
     const promises = feeds.map(f => {
@@ -67,7 +68,8 @@ async function fetchMonthlyUnits() {
     f2: results.f2,
     motor: results.motor,
     solar: results.solar,
-    grid:  results.grid
+    grid:  results.grid,
+        wm:    results.wm
   };
 }
 

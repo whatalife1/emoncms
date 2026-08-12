@@ -9,7 +9,8 @@ const APPLIANCE_MONITOR_LIST = [
   { name: 'Kenwood 1Ton',   label: 'Kenwood 1T',                   minActiveW: 100, offThresholdW: 30, offMinutes: 60 },
   { name: 'Haier 1Ton',     label: 'Haier 1T',                     minActiveW: 100, offThresholdW: 30, offMinutes: 60 },
   { name: 'PC',             label: 'PC',                           minActiveW: 30,  offThresholdW: 15, offMinutes: 45 },
-  { name: 'Water Motor',    label: 'Water Motor',                  minActiveW: 100, offThresholdW: 20, offMinutes: 30 }
+  { name: 'Water Motor',    label: 'Water Motor',                  minActiveW: 100, offThresholdW: 20, offMinutes: 30 },
+    { name: 'Washing Machine', label: 'W/M',                      minActiveW: 50,  offThresholdW: 10, offMinutes: 30 }
 ];
 
 // History buffers keyed by appliance name: {t, v}

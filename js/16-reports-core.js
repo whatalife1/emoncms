@@ -7,7 +7,8 @@ const EXPORT_FEEDS = [
   { id: FEEDS_BASE.find(f => f.name === "Fridge")?.id,      name: "Fridge 1" },
   { id: FEEDS_BASE.find(f => f.name === "Fridge2")?.id,     name: "Fridge 2" },
   { id: FEEDS_BASE.find(f => f.name === "PC")?.id,          name: "PC",           isPc: true },
-  { id: FEEDS_BASE.find(f => f.name === "Water Motor")?.id, name: "Motor" }
+  { id: FEEDS_BASE.find(f => f.name === "Water Motor")?.id, name: "Motor" },
+    { id: FEEDS_BASE.find(f => f.name === "Washing Machine")?.id, name: "W/M" }
 ].filter(f => f.id); 
 
 const EXPORT_DAY_START   = 8;

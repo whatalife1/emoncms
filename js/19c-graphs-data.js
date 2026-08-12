@@ -217,7 +217,8 @@ async function _loadAndDraw() {
             { key: 'fridge1', name: 'Fridge 1',     id: '499373', color: '#c084fc' },
             { key: 'fridge2', name: 'Fridge 2',     id: '541348', color: '#22d3ee' },
             { key: 'pc',      name: 'PC',           id: '499422', color: '#4ade80' },
-            { key: 'motor',   name: 'Water Motor',  id: '542850', color: '#fbbf24' }
+            { key: 'motor',   name: 'Water Motor',  id: '542850', color: '#fbbf24' },
+                { key: 'wm',      name: 'Washing M/C', id: '544694', color: '#e879f9' }
         ];
 
         const results = await Promise.all(
@@ -322,7 +323,7 @@ async function _loadAndDraw() {
 
         // ─── Others feed: compute from Solar + Grid - sum(appliances) ───
         if (graphFeedKey === 'others') {
-            const applianceKeys = ['k15', 'k1', 'haier', 'fridge1', 'fridge2', 'pc', 'motor'];
+            const applianceKeys = ['k15', 'k1', 'haier', 'fridge1', 'fridge2', 'pc', 'motor', 'wm'];
             const feedKeys = ['solar', 'grid', ...applianceKeys];
             const fetchPromises = feedKeys.map(key => {
                 const feed = GRAPH_FEEDS.find(f => f.key === key);

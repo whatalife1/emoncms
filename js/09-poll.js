@@ -475,7 +475,8 @@ async function poll() {
 
     const timeFixIds = [
         { name: 'Water Motor', id: '542850' },
-        { name: 'Fridge2', id: '541348' }
+        { name: 'Fridge2', id: '541348' },
+        { name: 'Washing Machine', id: '544694' }
     ];
     for (const feed of timeFixIds) {
         const result = results.find(r => r.name === feed.name);

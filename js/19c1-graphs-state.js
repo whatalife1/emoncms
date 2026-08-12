@@ -1,0 +1,70 @@
+// js/19c1-graphs-state.js
+// ─── Global graph state variables ───────────────────────────────────────────
+
+if (typeof graphIsLoading === 'undefined') window.graphIsLoading = false;
+if (typeof graphDataCache === 'undefined') window.graphDataCache = null;
+if (typeof graphTab === 'undefined') window.graphTab = 'day';
+if (typeof graphFeedKey === 'undefined') window.graphFeedKey = 'solar';
+if (typeof graphDateNav === 'undefined') window.graphDateNav = 0;
+if (typeof graphMonthNav === 'undefined') window.graphMonthNav = 0;
+if (typeof graphYearNav === 'undefined') window.graphYearNav = 0;
+if (typeof graphChartType === 'undefined') window.graphChartType = 'line';
+if (typeof graphZoomLevel === 'undefined') window.graphZoomLevel = 1;
+if (typeof graphPanOffset === 'undefined') window.graphPanOffset = 0;
+if (typeof graphIsRendering === 'undefined') window.graphIsRendering = false;
+if (typeof graphIsPanning === 'undefined') window.graphIsPanning = false;
+if (typeof window.gridAllDisabled === 'undefined') window.gridAllDisabled = new Set();
+if (typeof window.graphOverlayAc === 'undefined') window.graphOverlayAc = null;
+
+// ─── Others: optional Fridge 1 + Fridge 2 overlay state ────────────────────
+if (typeof window.graphOthersIncludeFridges === 'undefined') {
+  window.graphOthersIncludeFridges = false;
+}
+try {
+  if (localStorage.getItem('graphOthersIncludeFridges') !== null) {
+    window.graphOthersIncludeFridges =
+      localStorage.getItem('graphOthersIncludeFridges') === 'true';
+  }
+} catch (e) {}
+
+// ─── Stat line formatter ────────────────────────────────────────────────────
+function _formatStatLine(icon, label, mainVal, accentColor, peakVal, avgVal, dayAvgVal, dayTotalVal, nightAvgVal, nightTotalVal, unit, isKwh, currentTab, isCompact = false) {
+  if (currentTab === 'month' || currentTab === 'year') { unit = 'kWh'; isKwh = true; }
+  const lblLower = (label || '').toLowerCase();
+  const isSolar = lblLower.includes('solar') && !lblLower.includes('grid');
+  const isTemp = lblLower.includes('temp') || lblLower.includes('°c');
+  const isWater = lblLower.includes('water') || lblLower.includes('tank');
+  const isDay = currentTab === 'day';
+  const hideNight = isSolar || isTemp || isWater;
+  const peakLabel = isDay ? "Peak" : (currentTab === 'year' ? "Max Month" : "Max Day");
+  const avgLabel  = isDay ? "Avg"  : (currentTab === 'month' ? "Daily Avg" : "Monthly Avg");
+  let peakColor = accentColor; if (peakVal > 1500 && isDay && !isTemp) peakColor = '#ef4444';
+  const fsMain = isCompact ? '12px' : '15px'; const fsLabel = isCompact ? '11px' : '13px';
+  const boldStyle = `font-size: ${isCompact ? '10px' : '12px'}; font-weight: 900;`;
+  let avgHtml = '';
+  if (avgVal && avgVal > 0.01) {
+    const avgDisp = isTemp ? avgVal.toFixed(1) : (isDay ? Math.round(avgVal) : avgVal.toFixed(1));
+    avgHtml = ` <span style="color:var(--border)">·</span> <span style="color:${accentColor}; ${boldStyle}">${avgLabel}: ${avgDisp} ${unit}</span>`;
+  }
+  let dayHtml = '';
+  if ((dayAvgVal && dayAvgVal > 0.01) || (dayTotalVal && dayTotalVal > 0.01)) {
+    const dayAvgDisp = isDay ? Math.round(dayAvgVal) : dayAvgVal.toFixed(1);
+    const dKwhDisp = dayTotalVal ? dayTotalVal.toFixed(1) + ' kWh ' : '';
+    const dAvgUnit = isDay ? 'W' : 'kWh/d';
+    dayHtml = `<span style="color:var(--accent-solar); ${boldStyle}">Day: ${dKwhDisp}(Avg: ${dayAvgDisp} ${dAvgUnit})</span>`;
+  }
+  let nightHtml = '';
+  if (!hideNight && ((nightAvgVal && nightAvgVal > 0.01) || (nightTotalVal && nightTotalVal > 0.01))) {
+    const nightAvgDisp = isDay ? Math.round(nightAvgVal) : nightAvgVal.toFixed(1);
+    const nKwhDisp = nightTotalVal ? nightTotalVal.toFixed(1) + ' kWh ' : '';
+    const nAvgUnit = isDay ? 'W' : 'kWh/d';
+    nightHtml = `<span style="color:#c084fc; ${boldStyle}">Night: ${nKwhDisp}(Avg: ${nightAvgDisp} ${nAvgUnit})</span>`;
+  }
+  let dayNightRow = '';
+  if (dayHtml || nightHtml) {
+    dayNightRow = `<div style="margin-top:2px; display:flex; gap:8px;">${dayHtml}${nightHtml}</div>`;
+  }
+  const mainDisplay = isKwh ? `${mainVal.toFixed(1)} kWh` : `${mainVal.toFixed(1)} ${unit}`;
+  const peakDisp = isTemp ? peakVal.toFixed(1) : (isDay ? Math.round(peakVal).toLocaleString() : peakVal.toFixed(1));
+  return `<div style="margin-bottom: 6px; line-height:1.2;"><div style="display:flex; align-items:center; gap:6px;"><span style="color:${accentColor}; font-size:${fsLabel}; font-weight:700;">${icon?icon+' ':''}${label}:</span><span style="color:var(--text-main); font-size:${fsMain}; font-weight:900;">${mainDisplay}</span></div><div style="color:var(--text-muted); font-size:11px; font-weight:600; margin-left: 1px; margin-top: 2px;"><div>(${peakLabel}: <span style="color:${peakColor}; ${boldStyle}">${peakDisp}</span> ${unit}${avgHtml})</div>${dayNightRow}</div></div>`;
+}

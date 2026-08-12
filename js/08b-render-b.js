@@ -55,6 +55,7 @@ function updateOfflineWarningBanner(byName) {
       { name: "Fridge2",        label: "Fridge 2",     type: "appliance", enabled: true },
       { name: "Water Motor",    label: "Water Motor",  type: "appliance", enabled: true },
       { name: "PC",             label: "PC",           type: "appliance", enabled: true },
+            { name: "Washing Machine", label: "W/M",         type: "appliance", enabled: true },
       { name: "Water Tank",     label: "Water Tank",   type: "env",       enabled: true },
       { name: "AC Volts",       label: "AC Volts",     type: "env",       enabled: true },
       { name: "Breaker",        label: "Grid Power",   type: "watts",     enabled: true, threshold: 20 * 60, offMsg: "OFF" },

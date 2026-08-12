@@ -785,7 +785,7 @@ async function _loadAndDraw() {
             } else { 
                 av = bars1.filter(v=>v>0).length > 0 ? t1 / bars1.filter(v=>v>0).length : 0; 
             }
-            stat.innerHTML = _formatStatLine('', fA?.label||graphFeedKey, t1, color1, pk, av, dAv, dTt, nAv, nTt, unit, !isAvgF, graphTab);
+            stat.innerHTML = _formatStatLine('', (fA?.statLabel || fA?.label || graphFeedKey), t1, color1, pk, av, dAv, dTt, nAv, nTt, unit, !isAvgF, graphTab);
         }
     } catch (e) { 
         stat.textContent = 'Error: ' + e.message; 

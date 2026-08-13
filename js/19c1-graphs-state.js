@@ -28,6 +28,7 @@ try {
 } catch (e) {}
 
 // ─── Stat line formatter ────────────────────────────────────────────────────
+function _fmtKwh(v) { return v >= 1 ? v.toFixed(1) : (v >= 0.01 ? v.toFixed(2) : v.toFixed(3)); }
 function _formatStatLine(icon, label, mainVal, accentColor, peakVal, avgVal, dayAvgVal, dayTotalVal, nightAvgVal, nightTotalVal, unit, isKwh, currentTab, isCompact = false) {
   if (currentTab === 'month' || currentTab === 'year') { unit = 'kWh'; isKwh = true; }
   const lblLower = (label || '').toLowerCase();
@@ -49,14 +50,14 @@ function _formatStatLine(icon, label, mainVal, accentColor, peakVal, avgVal, day
   let dayHtml = '';
   if ((dayAvgVal && dayAvgVal > 0.01) || (dayTotalVal && dayTotalVal > 0.01)) {
     const dayAvgDisp = isDay ? Math.round(dayAvgVal) : dayAvgVal.toFixed(1);
-    const dKwhDisp = dayTotalVal ? dayTotalVal.toFixed(1) + ' kWh ' : '';
+    const dKwhDisp = dayTotalVal ? _fmtKwh(dayTotalVal) + ' kWh ' : '';
     const dAvgUnit = isDay ? 'W' : 'kWh/d';
     dayHtml = `<span style="color:var(--accent-solar); ${boldStyle}">Day: ${dKwhDisp}(Avg: ${dayAvgDisp} ${dAvgUnit})</span>`;
   }
   let nightHtml = '';
   if (!hideNight && ((nightAvgVal && nightAvgVal > 0.01) || (nightTotalVal && nightTotalVal > 0.01))) {
     const nightAvgDisp = isDay ? Math.round(nightAvgVal) : nightAvgVal.toFixed(1);
-    const nKwhDisp = nightTotalVal ? nightTotalVal.toFixed(1) + ' kWh ' : '';
+    const nKwhDisp = nightTotalVal ? _fmtKwh(nightTotalVal) + ' kWh ' : '';
     const nAvgUnit = isDay ? 'W' : 'kWh/d';
     nightHtml = `<span style="color:#c084fc; ${boldStyle}">Night: ${nKwhDisp}(Avg: ${nightAvgDisp} ${nAvgUnit})</span>`;
   }
@@ -64,7 +65,7 @@ function _formatStatLine(icon, label, mainVal, accentColor, peakVal, avgVal, day
   if (dayHtml || nightHtml) {
     dayNightRow = `<div style="margin-top:2px; display:flex; gap:8px;">${dayHtml}${nightHtml}</div>`;
   }
-  const mainDisplay = isKwh ? `${mainVal.toFixed(1)} kWh` : `${mainVal.toFixed(1)} ${unit}`;
+  const mainDisplay = isKwh ? `${_fmtKwh(mainVal)} kWh` : `${mainVal.toFixed(1)} ${unit}`;
   const peakDisp = isTemp ? peakVal.toFixed(1) : (isDay ? Math.round(peakVal).toLocaleString() : peakVal.toFixed(1));
   return `<div style="margin-bottom: 6px; line-height:1.2;"><div style="display:flex; align-items:center; gap:6px;"><span style="color:${accentColor}; font-size:${fsLabel}; font-weight:700;">${icon?icon+' ':''}${label}:</span><span style="color:var(--text-main); font-size:${fsMain}; font-weight:900;">${mainDisplay}</span></div><div style="color:var(--text-muted); font-size:11px; font-weight:600; margin-left: 1px; margin-top: 2px;"><div>(${peakLabel}: <span style="color:${peakColor}; ${boldStyle}">${peakDisp}</span> ${unit}${avgHtml})</div>${dayNightRow}</div></div>`;
 }

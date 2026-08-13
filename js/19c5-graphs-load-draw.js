@@ -143,8 +143,14 @@ async function _loadAndDraw() {
       }
       barsTemp = cumulativeKwhArray;
       tUnit = 'kWh';
-      tColor = '#facc15';
-      tLabel = 'Solar Cumul.';
+      if (isCombined) {
+        tColor = '#facc15';
+        tLabel = 'Solar Cumul.';
+      } else {
+        // Single feed: name & color the cumulative line after the feed itself
+        tColor = fA.color || '#facc15';
+        tLabel = `${fA.statLabel || fA.label || fA.name} Cumul.`;
+      }
       if (isCombined) {
         let cumulativeKwhArray2 = [];
         let runningTotal2 = 0;

@@ -151,14 +151,9 @@
 
 @media (min-width: 480px) {
   .graph-feed-tabs, .graph-sub-tabs {
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     justify-content: flex-start;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-  }
-  .graph-feed-tabs::-webkit-scrollbar, .graph-sub-tabs::-webkit-scrollbar {
-    display: none;
+    overflow-x: visible;
   }
 }
 

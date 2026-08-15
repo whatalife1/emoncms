@@ -1,7 +1,6 @@
 // js/19c2-graphs-data-utils.js
 // ─── Data fetching & transformation utilities ───────────────────────────────
 
-// Merge multiple raw point arrays by summing values at matching timestamps.
 function _mergePointsSum(ptsArrays) {
   const byTs = new Map();
   for (const pts of ptsArrays) {
@@ -18,8 +17,24 @@ function _mergePointsSum(ptsArrays) {
 }
 
 function _pointsToBars(pts, nav, feedKey) {
-  if (!pts || !pts.length) return [];
-  if (nav.isMonthBilling) {
+  if (nav && nav.isMonthBilling) {
+    const days = Math.ceil((nav.endMs - nav.startMs) / 86400000);
+    if (!pts || !pts.length) {
+      if (!nav.labels || !nav.labels.length) {
+        const start = new Date(nav.startMs);
+        const labels = [];
+        for (let i = 0; i < days; i++) {
+          const d = new Date(start.getTime() + i * 86400000);
+          const pktDate = getKarachiDate(d.getTime());
+          labels.push(`${pktDate.day}/${pktDate.month}`);
+        }
+        nav.labels = labels;
+        nav.timeLabels = labels;
+        nav.fullLabels = labels;
+      }
+      nav.nBars = days;
+      return Array(days).fill(0);
+    }
     const daily = {};
     for (let i = 0; i < pts.length; i++) {
       const p = pts[i];
@@ -29,7 +44,6 @@ function _pointsToBars(pts, nav, feedKey) {
       daily[key] = (daily[key] || 0) + p[1];
     }
     const start = new Date(nav.startMs);
-    const days = Math.ceil((nav.endMs - nav.startMs) / 86400000);
     const bars = [], labels = [];
     for (let i = 0; i < days; i++) {
       const d = new Date(start.getTime() + i * 86400000);
@@ -44,7 +58,11 @@ function _pointsToBars(pts, nav, feedKey) {
     nav.nBars = bars.length;
     return bars;
   }
-  if (nav.isYearBilling) {
+  if (nav && nav.isYearBilling) {
+    if (!pts || !pts.length) {
+      nav.nBars = 12;
+      return Array(12).fill(0);
+    }
     const monthly = new Array(12).fill(0);
     for (let i = 0; i < pts.length; i++) {
       const p = pts[i];
@@ -56,6 +74,12 @@ function _pointsToBars(pts, nav, feedKey) {
     nav.nBars = 12;
     return monthly;
   }
+
+  const numBars = (nav && nav.nBars) ? nav.nBars : (pts && pts.length ? pts.length : 720);
+  if (!pts || !pts.length) {
+    return Array(numBars).fill(0);
+  }
+
   const isAvg = feedKey && (
     feedKey.startsWith('temp') ||
     feedKey.startsWith('humidity') ||
@@ -65,8 +89,8 @@ function _pointsToBars(pts, nav, feedKey) {
     feedKey === 'solarv' ||
     feedKey === 'solv'
   );
-  const bars = Array(nav.nBars || 1).fill(0), counts = Array(nav.nBars || 1).fill(0);
-  const resMs = nav.resSeconds * 1000;
+  const bars = Array(numBars).fill(0), counts = Array(numBars).fill(0);
+  const resMs = (nav && nav.resSeconds ? nav.resSeconds : 120) * 1000;
   for (let i = 0; i < pts.length; i++) {
     const p = pts[i];
     let idx;

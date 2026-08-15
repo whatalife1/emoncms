@@ -88,9 +88,9 @@ async function _loadAndDraw() {
       if (window.graphWmIncludeWater) promises.push(_gFetch(feedWater.id, nav.startMs, nav.endMs, nav.interval));
 
       const res = await Promise.all(promises);
-      const resWm = res[0];
-      const resMotor = window.graphWmIncludeMotor ? res[1] : null;
-      const resWater = window.graphWmIncludeWater ? (window.graphWmIncludeMotor ? res[2] : res[1]) : null;
+      const resWm = res[0] || [];
+      const resMotor = window.graphWmIncludeMotor ? (res[1] || []) : null;
+      const resWater = window.graphWmIncludeWater ? (window.graphWmIncludeMotor ? (res[2] || []) : (res[1] || [])) : null;
 
       bars1 = _pointsToBars(resWm, nav, 'wm');
       const motorBars = resMotor ? _pointsToBars(resMotor, nav, 'motor') : [];
@@ -99,7 +99,7 @@ async function _loadAndDraw() {
       multiData = [{ key: 'wm', label: 'W/M', color: fA.color, data: bars1, rawPts: resWm }];
       if (window.graphWmIncludeMotor) multiData.push({ key: 'motor', label: 'Water Motor', color: feedMotor.color, data: motorBars, rawPts: resMotor });
 
-      let lastIdx = bars1.length;
+      let lastIdx = nav.nBars || bars1.length || 720;
       if (graphTab === 'day' && graphDateNav === 0) {
         lastIdx = Math.floor((Date.now() - 60000 - nav.startMs) / (nav.resSeconds * 1000)) + 1;
         lastIdx = Math.max(0, Math.min(lastIdx, nav.nBars));
@@ -116,9 +116,9 @@ async function _loadAndDraw() {
         }
       }
 
-      const allPower = [...bars1, ...motorBars].filter(v => v > 0);
+      const allPower = [...(bars1.length ? bars1 : []), ...(motorBars.length ? motorBars : [])].filter(v => v > 0);
       const maxV = allPower.length ? Math.max(...allPower) * 1.1 : 100;
-      let maxCum = Math.max(...cumWm, ...(cumMotor.length ? cumMotor : [0]), 0.1);
+      let maxCum = Math.max(...(cumWm.length ? cumWm : [0]), ...(cumMotor.length ? cumMotor : [0]), 0.1);
       const rightMax = window.graphWmIncludeWater ? Math.max(maxCum * 1.1, 100) : maxCum * 1.1;
 
       graphDataCache = {
@@ -138,12 +138,13 @@ async function _loadAndDraw() {
       _drawChart(canvas, bars1, motorBars, nav.labels, fA.color, feedMotor.color, 'W', false, nav, lastIdx, multiData, 0, maxV, maxV,
         cumWm, 0, rightMax, rightMax, 'kWh', fA.color, 'W/M Cumul.');
 
-      let statHtml = _formatStatLine('👕', 'Washing Machine', (cumWm[lastIdx-1] || 0), fA.color, Math.max(...bars1,0), (bars1.reduce((a,b)=>a+b,0)/(bars1.length||1)), null, null, null, null, 'W', true, graphTab);
+      let statHtml = _formatStatLine('👕', 'Washing Machine', (cumWm[lastIdx-1] || 0), fA.color, Math.max(...(bars1.length ? bars1 : [0]), 0), (bars1.length ? (bars1.reduce((a,b)=>a+b,0)/bars1.length) : 0), null, null, null, null, 'W', true, graphTab);
       if (window.graphWmIncludeMotor) {
-        statHtml += _formatStatLine('🚿', 'Water Motor', (cumMotor[lastIdx-1] || 0), feedMotor.color, Math.max(...motorBars,0), (motorBars.reduce((a,b)=>a+b,0)/(motorBars.length||1)), null, null, null, null, 'W', true, graphTab);
+        statHtml += _formatStatLine('🚿', 'Water Motor', (cumMotor[lastIdx-1] || 0), feedMotor.color, Math.max(...(motorBars.length ? motorBars : [0]), 0), (motorBars.length ? (motorBars.reduce((a,b)=>a+b,0)/motorBars.length) : 0), null, null, null, null, 'W', true, graphTab);
       }
       if (window.graphWmIncludeWater) {
-        statHtml += _formatStatLine('💧', 'Water Tank Level', (waterBars[lastIdx-1] || 0), feedWater.color, Math.max(...waterBars,0), (waterBars.reduce((a,b)=>a+b,0)/(waterBars.length||1)), null, null, null, null, '%', false, graphTab);
+        const lastWater = waterBars.length ? (waterBars[lastIdx-1] || 0) : 0;
+        statHtml += _formatStatLine('💧', 'Water Tank Level', lastWater, feedWater.color, Math.max(...(waterBars.length ? waterBars : [0]), 0), (waterBars.length ? (waterBars.reduce((a,b)=>a+b,0)/waterBars.length) : 0), null, null, null, null, '%', false, graphTab);
       }
       stat.innerHTML = statHtml;
       _showGraphLoading(false); graphIsLoading = false; return;
@@ -158,15 +159,15 @@ async function _loadAndDraw() {
       if (window.graphWaterIncludeWm) promises.push(_gFetch(feedWm.id, nav.startMs, nav.endMs, nav.interval));
 
       const res = await Promise.all(promises);
-      const resWater = res[0];
-      const resMotor = window.graphWaterIncludeMotor ? res[1] : null;
-      const resWm = window.graphWaterIncludeWm ? (window.graphWaterIncludeMotor ? res[2] : res[1]) : null;
+      const resWater = res[0] || [];
+      const resMotor = window.graphWaterIncludeMotor ? (res[1] || []) : null;
+      const resWm = window.graphWaterIncludeWm ? (window.graphWaterIncludeMotor ? (res[2] || []) : (res[1] || [])) : null;
 
       bars1 = _pointsToBars(resWater, nav, 'water');
       const motorBars = resMotor ? _pointsToBars(resMotor, nav, 'motor') : [];
       const wmBars = resWm ? _pointsToBars(resWm, nav, 'wm') : [];
 
-      let lastIdx = bars1.length;
+      let lastIdx = nav.nBars || bars1.length || 720;
       if (graphTab === 'day' && graphDateNav === 0) {
         lastIdx = Math.floor((Date.now() - 60000 - nav.startMs) / (nav.resSeconds * 1000)) + 1;
         lastIdx = Math.max(0, Math.min(lastIdx, nav.nBars));
@@ -190,14 +191,14 @@ async function _loadAndDraw() {
       _drawChart(canvas, bars1, [], nav.labels, fA.color, null, '%', false, nav, lastIdx, null, 0, 100, 100,
         graphDataCache.barsTemp, 0, maxW, maxW, 'W', graphDataCache.tempColor, graphDataCache.overlayLabel);
 
-      let statHtml = _formatStatLine('💧', 'Water Tank Level', (bars1[lastIdx - 1] || 0), fA.color, Math.max(...bars1,0), (bars1.reduce((a,b)=>a+b,0)/(bars1.length||1)), null, null, null, null, '%', false, graphTab);
+      let statHtml = _formatStatLine('💧', 'Water Tank Level', (bars1[lastIdx - 1] || 0), fA.color, Math.max(...(bars1.length ? bars1 : [0]), 0), (bars1.length ? (bars1.reduce((a,b)=>a+b,0)/bars1.length) : 0), null, null, null, null, '%', false, graphTab);
       if (window.graphWaterIncludeMotor) {
         const motKwh = motorBars.slice(0, lastIdx).reduce((a,b)=>a+b,0) * (nav.resSeconds / 3600) / 1000;
-        statHtml += _formatStatLine('🚿', 'Water Motor', motKwh, feedMotor.color, Math.max(...motorBars,0), (motorBars.reduce((a,b)=>a+b,0)/(motorBars.length||1)), null, null, null, null, 'W', true, graphTab);
+        statHtml += _formatStatLine('🚿', 'Water Motor', motKwh, feedMotor.color, Math.max(...(motorBars.length ? motorBars : [0]), 0), (motorBars.length ? (motorBars.reduce((a,b)=>a+b,0)/motorBars.length) : 0), null, null, null, null, 'W', true, graphTab);
       }
       if (window.graphWaterIncludeWm) {
         const wmKwh = wmBars.slice(0, lastIdx).reduce((a,b)=>a+b,0) * (nav.resSeconds / 3600) / 1000;
-        statHtml += _formatStatLine('👕', 'Washing Machine', wmKwh, feedWm.color, Math.max(...wmBars,0), (wmBars.reduce((a,b)=>a+b,0)/(wmBars.length||1)), null, null, null, null, 'W', true, graphTab);
+        statHtml += _formatStatLine('👕', 'Washing Machine', wmKwh, feedWm.color, Math.max(...(wmBars.length ? wmBars : [0]), 0), (wmBars.length ? (wmBars.reduce((a,b)=>a+b,0)/wmBars.length) : 0), null, null, null, null, 'W', true, graphTab);
       }
       stat.innerHTML = statHtml;
       _showGraphLoading(false); graphIsLoading = false; return;
@@ -212,9 +213,9 @@ async function _loadAndDraw() {
       if (window.graphMotorIncludeWm) promises.push(_gFetch(feedWm.id, nav.startMs, nav.endMs, nav.interval));
 
       const res = await Promise.all(promises);
-      const resMotor = res[0];
-      const resWater = window.graphMotorIncludeWater ? res[1] : null;
-      const resWm = window.graphMotorIncludeWm ? (window.graphMotorIncludeWater ? res[2] : res[1]) : null;
+      const resMotor = res[0] || [];
+      const resWater = window.graphMotorIncludeWater ? (res[1] || []) : null;
+      const resWm = window.graphMotorIncludeWm ? (window.graphMotorIncludeWater ? (res[2] || []) : (res[1] || [])) : null;
 
       bars1 = _pointsToBars(resMotor, nav, 'motor');
       const waterBars = resWater ? _pointsToBars(resWater, nav, 'water') : [];
@@ -223,7 +224,7 @@ async function _loadAndDraw() {
       multiData = [{ key: 'motor', label: 'Water Motor', color: fA.color, data: bars1, rawPts: resMotor }];
       if (window.graphMotorIncludeWm) multiData.push({ key: 'wm', label: 'W/M', color: feedWm.color, data: wmBars, rawPts: resWm });
 
-      let lastIdx = bars1.length;
+      let lastIdx = nav.nBars || bars1.length || 720;
       if (graphTab === 'day' && graphDateNav === 0) {
         lastIdx = Math.floor((Date.now() - 60000 - nav.startMs) / (nav.resSeconds * 1000)) + 1;
         lastIdx = Math.max(0, Math.min(lastIdx, nav.nBars));
@@ -240,9 +241,9 @@ async function _loadAndDraw() {
         }
       }
 
-      const allPower = [...bars1, ...wmBars].filter(v => v > 0);
+      const allPower = [...(bars1.length ? bars1 : []), ...(wmBars.length ? wmBars : [])].filter(v => v > 0);
       const maxV = allPower.length ? Math.max(...allPower) * 1.1 : 100;
-      let maxCum = Math.max(...cumMotor, ...(cumWm.length ? cumWm : [0]), 0.1);
+      let maxCum = Math.max(...(cumMotor.length ? cumMotor : [0]), ...(cumWm.length ? cumWm : [0]), 0.1);
       const rightMax = window.graphMotorIncludeWater ? Math.max(maxCum * 1.1, 100) : maxCum * 1.1;
 
       graphDataCache = {
@@ -262,12 +263,13 @@ async function _loadAndDraw() {
       _drawChart(canvas, bars1, wmBars, nav.labels, fA.color, feedWm.color, 'W', false, nav, lastIdx, multiData, 0, maxV, maxV,
         cumMotor, 0, rightMax, rightMax, 'kWh', fA.color, 'Motor Cumul.');
 
-      let statHtml = _formatStatLine('🚿', 'Water Motor', (cumMotor[lastIdx-1] || 0), fA.color, Math.max(...bars1,0), (bars1.reduce((a,b)=>a+b,0)/(bars1.length||1)), null, null, null, null, 'W', true, graphTab);
+      let statHtml = _formatStatLine('🚿', 'Water Motor', (cumMotor[lastIdx-1] || 0), fA.color, Math.max(...(bars1.length ? bars1 : [0]), 0), (bars1.length ? (bars1.reduce((a,b)=>a+b,0)/bars1.length) : 0), null, null, null, null, 'W', true, graphTab);
       if (window.graphMotorIncludeWater) {
-        statHtml += _formatStatLine('💧', 'Water Tank Level', (waterBars[lastIdx-1] || 0), feedWater.color, Math.max(...waterBars,0), (waterBars.reduce((a,b)=>a+b,0)/(waterBars.length||1)), null, null, null, null, '%', false, graphTab);
+        const lastWater = waterBars.length ? (waterBars[lastIdx-1] || 0) : 0;
+        statHtml += _formatStatLine('💧', 'Water Tank Level', lastWater, feedWater.color, Math.max(...(waterBars.length ? waterBars : [0]), 0), (waterBars.length ? (waterBars.reduce((a,b)=>a+b,0)/waterBars.length) : 0), null, null, null, null, '%', false, graphTab);
       }
       if (window.graphMotorIncludeWm) {
-        statHtml += _formatStatLine('👕', 'Washing Machine', (cumWm[lastIdx-1] || 0), feedWm.color, Math.max(...wmBars,0), (wmBars.reduce((a,b)=>a+b,0)/(wmBars.length||1)), null, null, null, null, 'W', true, graphTab);
+        statHtml += _formatStatLine('👕', 'Washing Machine', (cumWm[lastIdx-1] || 0), feedWm.color, Math.max(...(wmBars.length ? wmBars : [0]), 0), (wmBars.length ? (wmBars.reduce((a,b)=>a+b,0)/wmBars.length) : 0), null, null, null, null, 'W', true, graphTab);
       }
       stat.innerHTML = statHtml;
       _showGraphLoading(false); graphIsLoading = false; return;
@@ -312,7 +314,7 @@ async function _loadAndDraw() {
       tLabel = ovAc ? ovAc.label : 'AC';
     }
 
-    let lastIdx = bars1.length || multiData?.[0]?.data?.length || 0;
+    let lastIdx = nav.nBars || bars1.length || multiData?.[0]?.data?.length || 720;
     if (graphTab === 'day' && graphDateNav === 0) {
       lastIdx = Math.floor((Date.now() - 60000 - nav.startMs) / (nav.resSeconds * 1000)) + 1;
       lastIdx = Math.max(0, Math.min(lastIdx, nav.nBars));

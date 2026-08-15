@@ -33,7 +33,7 @@ async function fetchMonthlyUnits() {
     { key: 'f1', id: '499411' }, { key: 'f2', id: '541350' },
     { key: 'solar', id: '499415' }, { key: 'grid', id: '499413' },
     { key: 'motor', id: '542853' },
-        { key: 'wm', id: '544695' }
+        { key: 'wm', id: '544696' }
   ];
 
   const results = { haier:0, k1:0, k15:0, pc:0, f1:0, f2:0, solar:0, grid:0, motor:0, wm:0 };

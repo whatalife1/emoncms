@@ -50,7 +50,7 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
   }
   ctx.save();
   ctx.beginPath(); ctx.rect(PL, PT, cW, cH); ctx.clip();
-  const n = bars1.length || (multiData?.[0]?.data?.length ?? 0);
+  const n = (nav && nav.nBars) ? nav.nBars : (bars1.length || (multiData?.[0]?.data?.length ?? 0));
   if (n > 0) {
     if (multiData && multiData.length > 0) {
       multiData.forEach(line => {

@@ -15,8 +15,6 @@ const LAYOUT = {
  temp2: { x:8, y:639, w:238, h:35, color:'#22c55e', label:'temp2', ly1:16, fs:27, c1:'#25f447',  },
 };
 
-
-
 function renderFlowDiagram(byName) {
   if (!byName) return;
 
@@ -30,7 +28,6 @@ function renderFlowDiagram(byName) {
 
   const getV = (n) => byName.get(n)?.value ?? 0;
   
-  // Declared ONLY ONCE here and reused for Grid and Fridges below
   const offlineList = window.applianceOfflineDetected || [];
   const getStatus = (name) => offlineList.find(a => a.name === name);
 
@@ -129,18 +126,14 @@ function renderFlowDiagram(byName) {
   svg += `<text x="${cx(o)}" y="${o.y+o.ly5}" ${tpProps} font-size="${o.fs5}" fill="${o.c5}">Today: ${solar_t.toFixed(1)} kWh | ${kF(solar_t*rate)} PKR</text>`;
   svg += `<text x="${cx(o)}" y="${o.y+o.ly6}" ${tpProps} font-size="${o.fs6}" fill="${o.c6}">Month: ${nF(mU.solar||0)} kWh | ${kF((mU.solar||0)*rate)} PKR</text>`;
 
-    
   // 2. GRID 
   o = L.grid; 
   const grdAct = Math.abs(b) > 20;
-  const gridOff = v < 10;  // Only actual grid-off, not data stale
+  const gridOff = v < 10;
 
-  // Check offline status for Breaker - only use the zeroW detection, not stale
   const breakerStatus = getStatus('Breaker') || getStatus('Grid Power');
-  // Only treat as off if it's a zeroW detection (not just stale data)
   const isBreakerZero = breakerStatus && breakerStatus.type === 'zeroW';
 
-  // Local storage tracking fallback for 10-min 0W check
   const nowSec = Math.floor(Date.now() / 1000);
   let breaker0WLocal = false;
   let bLastActiveStr = localStorage.getItem('Breaker_last_active');
@@ -166,14 +159,13 @@ function renderFlowDiagram(byName) {
     gFill = '#2a0a0a';
     gStroke = '#ef4444';
   } else if (showBreakerZeroWarn) {
-    gClass = 'zeroW-anim'; // Amber zeroW pulsing border for actual 0W
+    gClass = 'zeroW-anim';
     gStroke = '#f59e0b';
     gFill = '#1f1f23';
   } else if (grdAct) {
     gClass = 'pulse-animation';
   }
 
-  // Warning badges - only show OFF for actual grid-off
   let gridBadge = '';
   if (gridOff) {
     gridBadge = ' <tspan fill="#ef4444" font-weight="900">⚠ OFF</tspan>';
@@ -191,7 +183,6 @@ function renderFlowDiagram(byName) {
   if (gridOff) {
     svg += `<text x="${cx(o)}" y="${o.y+o.ly1}" ${tpProps} font-size="${o.fs}" fill="#ef4444" data-maxw="${o.w-12}">GRID OFF${gridBadge}</text>`;
   } else {
-    // Hide raw '0 w' when ⚠ 0 W badge is active
     const valText = showBreakerZeroWarn ? '' : ` ${pF(b)}`;
     svg += `<text x="${cx(o)}" y="${o.y+o.ly1}" ${tpProps} font-size="${o.fs}" fill="${grdAct ? o.c1 : (showBreakerZeroWarn ? '#f59e0b' : '#777')}" data-maxw="${o.w-12}">${o.label}:${valText}${gridBadge}</text>`;
   }
@@ -256,22 +247,23 @@ function renderFlowDiagram(byName) {
     
     svg += `<rect class="${act ? 'pulse-animation' : ''}" style="--pulse-clr:${oA.color}" x="${oA.x}" y="${oA.y}" width="${oA.w}" height="${oA.h}" rx="10" fill="${act?'#141416':'#1a1a1c'}" stroke="${act?oA.color:'#333'}" stroke-width="2"/>`;
     const lblParts = String(oA.label).split('|');
-const isMulti  = lblParts.length > 1;
-const lblHtml  = isMulti ? lblParts.map((pp, i) => `<tspan x="${cx(oA)}" dy="${i === 0 ? 0 : oA.fs + 2}">${pp}</tspan>`).join('') : oA.label;
-svg += `<text x="${cx(oA)}" y="${oA.y+oA.ly1}" ${tpProps} font-size="${oA.fs}" fill="${act?oA.c1:'#777'}"${isMulti ? '' : ` data-maxw="${oA.w-12}"`}>${lblHtml}</text>`;
+    const isMulti  = lblParts.length > 1;
+    const lblHtml  = isMulti ? lblParts.map((pp, i) => `<tspan x="${cx(oA)}" dy="${i === 0 ? 0 : oA.fs + 2}">${pp}</tspan>`).join('') : oA.label;
+    svg += `<text x="${cx(oA)}" y="${oA.y+oA.ly1}" ${tpProps} font-size="${oA.fs}" fill="${act?oA.c1:'#777'}"${isMulti ? '' : ` data-maxw="${oA.w-12}"`}>${lblHtml}</text>`;
     svg += `<text x="${cx(oA)}" y="${oA.y+oA.ly2}" ${tpProps} font-size="${oA.fs2}" fill="${act?oA.c2:'#555'}">${pF(val)}</text>`;
     if (oA.ly5) svg += `<text x="${cx(oA)}" y="${oA.y+oA.ly5}" ${tpProps} font-size="${oA.fs5}" fill="${oA.c5}">${aTimeStr}</text>`;
-    svg += `<text x="${cx(oA)}" y="${oA.y+oA.ly3}" ${tpProps} font-size="${oA.fs3}" fill="${oA.c3}">T: ${t.toFixed(1)} kWh</text>`;
+    
+    // Use 2 decimal places specifically for Washing Machine (wm)
+    svg += `<text x="${cx(oA)}" y="${oA.y+oA.ly3}" ${tpProps} font-size="${oA.fs3}" fill="${oA.c3}">T: ${t.toFixed(k === 'wm' ? 2 : 1)} kWh</text>`;
     svg += `<text x="${cx(oA)}" y="${oA.y+oA.ly4}" ${tpProps} font-size="${oA.fs4}" fill="${oA.c4}">M: ${mon.toFixed(1)} kWh</text>`;
   };
   drawApp('haier', 'Haier 1Ton'); drawApp('k15', 'Kenwood 1.5Ton'); drawApp('k1', 'Kenwood 1Ton'); drawApp('pc', 'PC'); drawApp('motor', 'Water Motor');
-drawApp('wm', 'Washing Machine');
+  drawApp('wm', 'Washing Machine');
   
   const f1W = getV('Fridge'); const f2W = getV('Fridge2');
   const f1T = getV('Fridge Today'); const f2T = getV('Fridge2 Today');
   const fAct = (f1W + f2W) > 6;
 
-  // Fridge offline/zeroW checking reusing the common `getStatus` method
   const f1Status = getStatus('Fridge');
   const f2Status = getStatus('Fridge2');
   const isFridge1Stale = f1Status && f1Status.type === 'stale';
@@ -324,11 +316,10 @@ drawApp('wm', 'Washing Machine');
   
   const flowWrap = document.getElementById('flow-svg-wrap');
   flowWrap.innerHTML = svg;
-  // ── Auto-fit: shrink any label whose rendered width exceeds its box ──
   flowWrap.querySelectorAll('text[data-maxw]').forEach(t => {
     try {
       const maxW = parseFloat(t.getAttribute('data-maxw'));
-      const len  = t.getComputedTextLength(); // includes the badge tspan
+      const len  = t.getComputedTextLength();
       if (len > maxW) {
         const fs = parseFloat(t.getAttribute('font-size')) || 12;
         t.setAttribute('font-size', Math.max(9, (fs * maxW) / len).toFixed(1));

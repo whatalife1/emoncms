@@ -188,22 +188,34 @@ function _handleGraphHover(e, pin) {
       html += `<div style="color:${c2};">● <b>${l2}:</b> ${val2Str}</div>`;
     }
   }
+
+  // Dual Y overlays (Secondary lines)
+  const formatOverlayVal = (val, label) => {
+    if (!label) label = '';
+    if (label.includes('(W)')) return Math.round(val) + ' W';
+    if (label.includes('%')) return Math.round(val) + ' %';
+    if (label.includes('Cumul') || label.includes('kWh')) return val.toFixed(2) + ' kWh';
+    if (tempUnit === '°C') return val.toFixed(1) + ' °C';
+    if (tempUnit === 'V') return Math.round(val) + ' V';
+    return isKwhView ? val.toFixed(2) + ' kWh' : Math.round(val) + ' W';
+  };
+
   if (isDualY && barsTemp && idx < barsTemp.length) {
     const tVal = barsTemp[idx] ?? 0;
-    let tValStr = '';
-    if (tempUnit === 'kWh') tValStr = tVal.toFixed(2) + ' kWh';
-    else if (tempUnit === '°C') tValStr = tVal.toFixed(1) + ' °C';
-    else tValStr = isKwhView ? tVal.toFixed(2) + ' kWh' : Math.round(tVal) + ' W';
-    html += `<div style="color:${tempColor};margin-top:4px;border-top:1px dashed var(--border);padding-top:4px;"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${tempColor};margin-right:5px;"></span><b>${overlayLabel || 'AC'}:</b> ${tValStr}</div>`;
+    const tValStr = formatOverlayVal(tVal, overlayLabel);
+    html += `<div style="color:${tempColor};margin-top:4px;border-top:1px dashed var(--border);padding-top:4px;"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${tempColor};margin-right:5px;"></span><b>${overlayLabel || 'Overlay'}:</b> ${tValStr}</div>`;
   }
   if (graphDataCache.barsTemp2 && idx < graphDataCache.barsTemp2.length) {
     const tVal2 = graphDataCache.barsTemp2[idx] ?? 0;
-    html += `<div style="color:${graphDataCache.tempColor2};margin-top:2px;"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${graphDataCache.tempColor2};margin-right:5px;"></span><b>${graphDataCache.overlayLabel2}:</b> ${tVal2.toFixed(2)} kWh</div>`;
+    const tVal2Str = formatOverlayVal(tVal2, graphDataCache.overlayLabel2);
+    html += `<div style="color:${graphDataCache.tempColor2};margin-top:2px;"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${graphDataCache.tempColor2};margin-right:5px;"></span><b>${graphDataCache.overlayLabel2}:</b> ${tVal2Str}</div>`;
   }
   if (graphDataCache.barsTemp3 && idx < graphDataCache.barsTemp3.length) {
     const tVal3 = graphDataCache.barsTemp3[idx] ?? 0;
-    html += `<div style="color:${graphDataCache.tempColor3};margin-top:2px;"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${graphDataCache.tempColor3};margin-right:5px;"></span><b>${graphDataCache.overlayLabel3}:</b> ${tVal3.toFixed(2)} kWh</div>`;
+    const tVal3Str = formatOverlayVal(tVal3, graphDataCache.overlayLabel3);
+    html += `<div style="color:${graphDataCache.tempColor3};margin-top:2px;"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${graphDataCache.tempColor3};margin-right:5px;"></span><b>${graphDataCache.overlayLabel3}:</b> ${tVal3Str}</div>`;
   }
+
   tooltip.innerHTML = html;
   tooltip.style.display = 'block';
   tooltip.classList.toggle('pinned', pin);

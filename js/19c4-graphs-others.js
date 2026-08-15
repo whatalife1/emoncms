@@ -1,5 +1,5 @@
 // js/19c4-graphs-others.js
-// ─── "Others" feed computation + Fridge toggle ──────────────────────────────
+// ─── "Others" feed computation + Separate Overlay Toggles ───────────────────
 
 async function _handleOthersFeed(nav, stat, canvas) {
   const applianceKeys = ['k15', 'k1', 'haier', 'fridge1', 'fridge2', 'pc', 'motor', 'wm'];
@@ -183,126 +183,171 @@ async function _handleOthersFeed(nav, stat, canvas) {
   graphIsLoading = false;
 }
 
-// ─── Others Fridge Toggle UI ────────────────────────────────────────────────
+// ─── Others: Fridge Toggle UI ───────────────────────────────────────────────
 function _renderOthersFridgeToggle() {
   const existing = document.getElementById('others-fridge-toggle');
   if (existing) existing.remove();
-  const currentFeed = (typeof graphFeedKey !== 'undefined')
-    ? graphFeedKey
-    : window.graphFeedKey;
+  const currentFeed = (typeof graphFeedKey !== 'undefined') ? graphFeedKey : window.graphFeedKey;
   if (currentFeed !== 'others') return;
   const feedTabs = document.getElementById('graph-feed-tabs');
   if (!feedTabs || !feedTabs.parentNode) return;
+
   const on = !!window.graphOthersIncludeFridges;
-  const getFeedColor = function (key, fallback) {
-    try {
-      const feeds = (typeof GRAPH_FEEDS !== 'undefined')
-        ? GRAPH_FEEDS
-        : window.GRAPH_FEEDS;
-      if (!feeds) return fallback;
-      const feed = feeds.find(function (f) {
-        return f.key === key;
-      });
-      return feed && feed.color ? feed.color : fallback;
-    } catch (e) {
-      return fallback;
-    }
-  };
-  const othersColor = getFeedColor('others', '#f59e0b');
-  const fridge1Color = getFeedColor('fridge1', '#c084fc');
-  const fridge2Color = getFeedColor('fridge2', '#22d3ee');
+  const othersColor = '#f59e0b', fridge1Color = '#c084fc', fridge2Color = '#22d3ee';
   const wrap = document.createElement('div');
   wrap.id = 'others-fridge-toggle';
-  wrap.style.cssText = [
-    'display:flex',
-    'flex-direction:column',
-    'gap:6px',
-    'align-items:center',
-    'padding:0 0 8px',
-    'flex-shrink:0'
-  ].join(';');
+  wrap.style.cssText = 'display:flex;flex-direction:column;gap:6px;align-items:center;padding:0 0 8px;flex-shrink:0;';
+
   const row = document.createElement('div');
-  row.style.cssText = [
-    'display:flex',
-    'gap:8px',
-    'align-items:center',
-    'justify-content:center',
-    'flex-wrap:wrap'
-  ].join(';');
+  row.style.cssText = 'display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:wrap;';
+
   const btn = document.createElement('button');
-  btn.style.cssText = [
-    'padding:5px 12px',
-    'border-radius:20px',
-    'font-size:11px',
-    'font-weight:800',
-    'cursor:pointer',
-    'border:1.5px solid #c084fc',
-    'background:' + (on ? 'rgba(192,132,252,0.18)' : 'transparent'),
-    'color:' + (on ? '#c084fc' : 'var(--text-muted)'),
-    'opacity:' + (on ? '1' : '0.75'),
-    'width:auto'
-  ].join(';');
+  btn.style.cssText = `padding:5px 12px;border-radius:20px;font-size:11px;font-weight:800;cursor:pointer;border:1.5px solid #c084fc;background:${on ? 'rgba(192,132,252,0.18)' : 'transparent'};color:${on ? '#c084fc' : 'var(--text-muted)'};opacity:${on ? '1' : '0.75'};width:auto;`;
   btn.textContent = on ? '🧊 Fridges: Added (Night)' : '🧊 Add Fridges (Night)';
   btn.addEventListener('click', function () {
     window.graphOthersIncludeFridges = !window.graphOthersIncludeFridges;
-    try {
-      localStorage.setItem(
-        'graphOthersIncludeFridges',
-        window.graphOthersIncludeFridges ? 'true' : 'false'
-      );
-    } catch (e) {}
-    if (typeof _renderOthersFridgeToggle === 'function') {
-      _renderOthersFridgeToggle();
-    }
-    if (typeof _loadAndDraw === 'function') {
-      _loadAndDraw();
-    }
+    try { localStorage.setItem('graphOthersIncludeFridges', window.graphOthersIncludeFridges ? 'true' : 'false'); } catch (e) {}
+    _renderOthersFridgeToggle();
+    if (typeof _loadAndDraw === 'function') _loadAndDraw();
   });
-  const hint = document.createElement('span');
-  hint.style.cssText = 'font-size:10px;color:var(--text-muted);';
-  hint.textContent = on
-    ? 'Stats show combined Others + Fridges (Night only).'
-    : 'Add Fridge 1 + Fridge 2 (Night only) to the Others graph.';
   row.appendChild(btn);
-  row.appendChild(hint);
   wrap.appendChild(row);
-  if (on) {
-    const legend = document.createElement('div');
-    legend.id = 'others-fridge-legend';
-    legend.style.cssText = [
-      'display:flex',
-      'gap:12px',
-      'flex-wrap:wrap',
-      'justify-content:center',
-      'align-items:center',
-      'font-size:10px'
-    ].join(';');
-    const items = [
-      { label: 'Others', color: othersColor },
-      { label: 'Fridge 1', color: fridge1Color },
-      { label: 'Fridge 2', color: fridge2Color }
-    ];
-    items.forEach(function (item) {
-      const chip = document.createElement('span');
-      chip.style.cssText = 'display:inline-flex;align-items:center;gap:5px;';
-      const dot = document.createElement('span');
-      dot.style.cssText = [
-        'width:10px',
-        'height:10px',
-        'border-radius:50%',
-        'display:inline-block',
-        'background:' + item.color,
-        'box-shadow:0 0 6px ' + item.color + '66'
-      ].join(';');
-      const txt = document.createElement('span');
-      txt.style.cssText = 'font-weight:800;color:var(--text-main);';
-      txt.textContent = item.label;
-      chip.appendChild(dot);
-      chip.appendChild(txt);
-      legend.appendChild(chip);
-    });
-    wrap.appendChild(legend);
-  }
+
   feedTabs.parentNode.insertBefore(wrap, feedTabs);
 }
 window._renderOthersFridgeToggle = _renderOthersFridgeToggle;
+
+// ─── W/M tab: Separate Toggles for Water Motor & Water Tank ──────────────────
+function _renderWmToggles() {
+  const existing = document.getElementById('wm-overlay-toggles');
+  if (existing) existing.remove();
+  const currentFeed = (typeof graphFeedKey !== 'undefined') ? graphFeedKey : window.graphFeedKey;
+  if (currentFeed !== 'wm') return;
+  const feedTabs = document.getElementById('graph-feed-tabs');
+  if (!feedTabs || !feedTabs.parentNode) return;
+
+  const motorOn = !!window.graphWmIncludeMotor;
+  const waterOn = !!window.graphWmIncludeWater;
+  const motorColor = '#fbbf24', waterColor = '#0ea5e9';
+
+  const wrap = document.createElement('div');
+  wrap.id = 'wm-overlay-toggles';
+  wrap.style.cssText = 'display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:wrap;padding:0 0 8px;flex-shrink:0;';
+
+  // Button 1: Water Motor
+  const btnMotor = document.createElement('button');
+  btnMotor.style.cssText = `padding:5px 12px;border-radius:20px;font-size:11px;font-weight:800;cursor:pointer;border:1.5px solid ${motorColor};background:${motorOn ? 'rgba(251,191,36,0.18)' : 'transparent'};color:${motorOn ? motorColor : 'var(--text-muted)'};opacity:${motorOn ? '1' : '0.75'};width:auto;`;
+  btnMotor.textContent = motorOn ? '🚿 Water Motor: Added' : '🚿 + Water Motor';
+  btnMotor.addEventListener('click', function () {
+    window.graphWmIncludeMotor = !window.graphWmIncludeMotor;
+    try { localStorage.setItem('graphWmIncludeMotor', window.graphWmIncludeMotor ? 'true' : 'false'); } catch (e) {}
+    _renderWmToggles();
+    if (typeof _loadAndDraw === 'function') _loadAndDraw();
+  });
+
+  // Button 2: Water Tank
+  const btnWater = document.createElement('button');
+  btnWater.style.cssText = `padding:5px 12px;border-radius:20px;font-size:11px;font-weight:800;cursor:pointer;border:1.5px solid ${waterColor};background:${waterOn ? 'rgba(14,165,233,0.18)' : 'transparent'};color:${waterOn ? waterColor : 'var(--text-muted)'};opacity:${waterOn ? '1' : '0.75'};width:auto;`;
+  btnWater.textContent = waterOn ? '💧 Water Tank: Added' : '💧 + Water Tank';
+  btnWater.addEventListener('click', function () {
+    window.graphWmIncludeWater = !window.graphWmIncludeWater;
+    try { localStorage.setItem('graphWmIncludeWater', window.graphWmIncludeWater ? 'true' : 'false'); } catch (e) {}
+    _renderWmToggles();
+    if (typeof _loadAndDraw === 'function') _loadAndDraw();
+  });
+
+  wrap.appendChild(btnMotor);
+  wrap.appendChild(btnWater);
+  feedTabs.parentNode.insertBefore(wrap, feedTabs);
+}
+window._renderWmToggles = _renderWmToggles;
+
+// ─── Water Tank tab: Separate Toggles for Water Motor & W/M ─────────────────
+function _renderWaterToggles() {
+  const existing = document.getElementById('water-overlay-toggles');
+  if (existing) existing.remove();
+  const currentFeed = (typeof graphFeedKey !== 'undefined') ? graphFeedKey : window.graphFeedKey;
+  if (currentFeed !== 'water') return;
+  const feedTabs = document.getElementById('graph-feed-tabs');
+  if (!feedTabs || !feedTabs.parentNode) return;
+
+  const motorOn = !!window.graphWaterIncludeMotor;
+  const wmOn = !!window.graphWaterIncludeWm;
+  const motorColor = '#fbbf24', wmColor = '#e879f9';
+
+  const wrap = document.createElement('div');
+  wrap.id = 'water-overlay-toggles';
+  wrap.style.cssText = 'display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:wrap;padding:0 0 8px;flex-shrink:0;';
+
+  // Button 1: Water Motor
+  const btnMotor = document.createElement('button');
+  btnMotor.style.cssText = `padding:5px 12px;border-radius:20px;font-size:11px;font-weight:800;cursor:pointer;border:1.5px solid ${motorColor};background:${motorOn ? 'rgba(251,191,36,0.18)' : 'transparent'};color:${motorOn ? motorColor : 'var(--text-muted)'};opacity:${motorOn ? '1' : '0.75'};width:auto;`;
+  btnMotor.textContent = motorOn ? '🚿 Water Motor: Added' : '🚿 + Water Motor';
+  btnMotor.addEventListener('click', function () {
+    window.graphWaterIncludeMotor = !window.graphWaterIncludeMotor;
+    try { localStorage.setItem('graphWaterIncludeMotor', window.graphWaterIncludeMotor ? 'true' : 'false'); } catch (e) {}
+    _renderWaterToggles();
+    if (typeof _loadAndDraw === 'function') _loadAndDraw();
+  });
+
+  // Button 2: W/M
+  const btnWm = document.createElement('button');
+  btnWm.style.cssText = `padding:5px 12px;border-radius:20px;font-size:11px;font-weight:800;cursor:pointer;border:1.5px solid ${wmColor};background:${wmOn ? 'rgba(232,121,249,0.18)' : 'transparent'};color:${wmOn ? wmColor : 'var(--text-muted)'};opacity:${wmOn ? '1' : '0.75'};width:auto;`;
+  btnWm.textContent = wmOn ? '👕 W/M: Added' : '👕 + W/M';
+  btnWm.addEventListener('click', function () {
+    window.graphWaterIncludeWm = !window.graphWaterIncludeWm;
+    try { localStorage.setItem('graphWaterIncludeWm', window.graphWaterIncludeWm ? 'true' : 'false'); } catch (e) {}
+    _renderWaterToggles();
+    if (typeof _loadAndDraw === 'function') _loadAndDraw();
+  });
+
+  wrap.appendChild(btnMotor);
+  wrap.appendChild(btnWm);
+  feedTabs.parentNode.insertBefore(wrap, feedTabs);
+}
+window._renderWaterToggles = _renderWaterToggles;
+
+// ─── Motor tab: Separate Toggles for Water Tank & W/M ───────────────────────
+function _renderMotorToggles() {
+  const existing = document.getElementById('motor-overlay-toggles');
+  if (existing) existing.remove();
+  const currentFeed = (typeof graphFeedKey !== 'undefined') ? graphFeedKey : window.graphFeedKey;
+  if (currentFeed !== 'motor') return;
+  const feedTabs = document.getElementById('graph-feed-tabs');
+  if (!feedTabs || !feedTabs.parentNode) return;
+
+  const waterOn = !!window.graphMotorIncludeWater;
+  const wmOn = !!window.graphMotorIncludeWm;
+  const waterColor = '#0ea5e9', wmColor = '#e879f9';
+
+  const wrap = document.createElement('div');
+  wrap.id = 'motor-overlay-toggles';
+  wrap.style.cssText = 'display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:wrap;padding:0 0 8px;flex-shrink:0;';
+
+  // Button 1: Water Tank
+  const btnWater = document.createElement('button');
+  btnWater.style.cssText = `padding:5px 12px;border-radius:20px;font-size:11px;font-weight:800;cursor:pointer;border:1.5px solid ${waterColor};background:${waterOn ? 'rgba(14,165,233,0.18)' : 'transparent'};color:${waterOn ? waterColor : 'var(--text-muted)'};opacity:${waterOn ? '1' : '0.75'};width:auto;`;
+  btnWater.textContent = waterOn ? '💧 Water Tank: Added' : '💧 + Water Tank';
+  btnWater.addEventListener('click', function () {
+    window.graphMotorIncludeWater = !window.graphMotorIncludeWater;
+    try { localStorage.setItem('graphMotorIncludeWater', window.graphMotorIncludeWater ? 'true' : 'false'); } catch (e) {}
+    _renderMotorToggles();
+    if (typeof _loadAndDraw === 'function') _loadAndDraw();
+  });
+
+  // Button 2: W/M
+  const btnWm = document.createElement('button');
+  btnWm.style.cssText = `padding:5px 12px;border-radius:20px;font-size:11px;font-weight:800;cursor:pointer;border:1.5px solid ${wmColor};background:${wmOn ? 'rgba(232,121,249,0.18)' : 'transparent'};color:${wmOn ? wmColor : 'var(--text-muted)'};opacity:${wmOn ? '1' : '0.75'};width:auto;`;
+  btnWm.textContent = wmOn ? '👕 W/M: Added' : '👕 + W/M';
+  btnWm.addEventListener('click', function () {
+    window.graphMotorIncludeWm = !window.graphMotorIncludeWm;
+    try { localStorage.setItem('graphMotorIncludeWm', window.graphMotorIncludeWm ? 'true' : 'false'); } catch (e) {}
+    _renderMotorToggles();
+    if (typeof _loadAndDraw === 'function') _loadAndDraw();
+  });
+
+  wrap.appendChild(btnWater);
+  wrap.appendChild(btnWm);
+  feedTabs.parentNode.insertBefore(wrap, feedTabs);
+}
+window._renderMotorToggles = _renderMotorToggles;

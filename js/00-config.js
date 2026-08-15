@@ -98,7 +98,7 @@ const FEEDS_BASE = [
   { id: "499422", name: "PC",                   unit: "W",   type: "watts" },
   { id: "499424", name: "PC Today",             unit: "kWh", type: "units" },
     { id: "544694", name: "Washing Machine",       unit: "W",   type: "watts" },
-    { id: "544695", name: "Washing Machine Today",  unit: "kWh", type: "units" },
+    { id: "544696", name: "Washing Machine Today",  unit: "kWh", type: "units" },
   { id: "499428", name: "Temperature",          unit: "°C",  type: "env"   },
   { id: "499382", name: "Solar Amps",           unit: "A",   type: "env"   },
   { id: "499429", name: "Humidity",             unit: "%",   type: "env"   },

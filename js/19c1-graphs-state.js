@@ -22,8 +22,64 @@ if (typeof window.graphOthersIncludeFridges === 'undefined') {
 }
 try {
   if (localStorage.getItem('graphOthersIncludeFridges') !== null) {
-    window.graphOthersIncludeFridges =
-      localStorage.getItem('graphOthersIncludeFridges') === 'true';
+    window.graphOthersIncludeFridges = localStorage.getItem('graphOthersIncludeFridges') === 'true';
+  }
+} catch (e) {}
+
+// ─── W/M: independent Motor and Water Tank overlay states ───────────────────
+if (typeof window.graphWmIncludeMotor === 'undefined') {
+  window.graphWmIncludeMotor = false;
+}
+try {
+  if (localStorage.getItem('graphWmIncludeMotor') !== null) {
+    window.graphWmIncludeMotor = localStorage.getItem('graphWmIncludeMotor') === 'true';
+  }
+} catch (e) {}
+
+if (typeof window.graphWmIncludeWater === 'undefined') {
+  window.graphWmIncludeWater = false;
+}
+try {
+  if (localStorage.getItem('graphWmIncludeWater') !== null) {
+    window.graphWmIncludeWater = localStorage.getItem('graphWmIncludeWater') === 'true';
+  }
+} catch (e) {}
+
+// ─── Water Tank: independent Motor and W/M overlay states ───────────────────
+if (typeof window.graphWaterIncludeMotor === 'undefined') {
+  window.graphWaterIncludeMotor = false;
+}
+try {
+  if (localStorage.getItem('graphWaterIncludeMotor') !== null) {
+    window.graphWaterIncludeMotor = localStorage.getItem('graphWaterIncludeMotor') === 'true';
+  }
+} catch (e) {}
+
+if (typeof window.graphWaterIncludeWm === 'undefined') {
+  window.graphWaterIncludeWm = false;
+}
+try {
+  if (localStorage.getItem('graphWaterIncludeWm') !== null) {
+    window.graphWaterIncludeWm = localStorage.getItem('graphWaterIncludeWm') === 'true';
+  }
+} catch (e) {}
+
+// ─── Motor: independent Water Tank and W/M overlay states ───────────────────
+if (typeof window.graphMotorIncludeWater === 'undefined') {
+  window.graphMotorIncludeWater = false;
+}
+try {
+  if (localStorage.getItem('graphMotorIncludeWater') !== null) {
+    window.graphMotorIncludeWater = localStorage.getItem('graphMotorIncludeWater') === 'true';
+  }
+} catch (e) {}
+
+if (typeof window.graphMotorIncludeWm === 'undefined') {
+  window.graphMotorIncludeWm = false;
+}
+try {
+  if (localStorage.getItem('graphMotorIncludeWm') !== null) {
+    window.graphMotorIncludeWm = localStorage.getItem('graphMotorIncludeWm') === 'true';
   }
 } catch (e) {}
 

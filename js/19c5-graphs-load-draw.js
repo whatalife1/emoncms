@@ -70,7 +70,7 @@ async function _loadAndDraw() {
     return;
   }
 
-  // ─── Standard Feeds (combined / gridall / single) ───
+  // ─── Standard Feeds (combined / gridall / single / overlaid) ───
   try {
     const nav = _gNavInfo(); const fA = GRAPH_FEEDS.find(f => f.key === graphFeedKey);
     const isCombined = graphFeedKey === 'combined', isGridAll = graphFeedKey === 'gridall';
@@ -78,6 +78,200 @@ async function _loadAndDraw() {
     const isTemp = graphFeedKey.startsWith('temp') || graphFeedKey === 'invtemp';
     const unit = isTemp ? '°C' : (graphFeedKey === 'water' ? '%' : (graphFeedKey === 'acvolts' ? 'V' : 'W'));
     let pts1 = [], pts2 = [], bars1 = [], bars2 = [], multiData = null;
+
+    // ── Special Case: W/M tab with Water Motor and/or Water Tank overlay ──
+    if (graphFeedKey === 'wm' && (window.graphWmIncludeMotor || window.graphWmIncludeWater)) {
+      const feedMotor = GRAPH_FEEDS.find(f => f.key === 'motor');
+      const feedWater = GRAPH_FEEDS.find(f => f.key === 'water');
+      const promises = [_gFetch(fA.id, nav.startMs, nav.endMs, nav.interval)];
+      if (window.graphWmIncludeMotor) promises.push(_gFetch(feedMotor.id, nav.startMs, nav.endMs, nav.interval));
+      if (window.graphWmIncludeWater) promises.push(_gFetch(feedWater.id, nav.startMs, nav.endMs, nav.interval));
+
+      const res = await Promise.all(promises);
+      const resWm = res[0];
+      const resMotor = window.graphWmIncludeMotor ? res[1] : null;
+      const resWater = window.graphWmIncludeWater ? (window.graphWmIncludeMotor ? res[2] : res[1]) : null;
+
+      bars1 = _pointsToBars(resWm, nav, 'wm');
+      const motorBars = resMotor ? _pointsToBars(resMotor, nav, 'motor') : [];
+      const waterBars = resWater ? _pointsToBars(resWater, nav, 'water') : [];
+
+      multiData = [{ key: 'wm', label: 'W/M', color: fA.color, data: bars1, rawPts: resWm }];
+      if (window.graphWmIncludeMotor) multiData.push({ key: 'motor', label: 'Water Motor', color: feedMotor.color, data: motorBars, rawPts: resMotor });
+
+      let lastIdx = bars1.length;
+      if (graphTab === 'day' && graphDateNav === 0) {
+        lastIdx = Math.floor((Date.now() - 60000 - nav.startMs) / (nav.resSeconds * 1000)) + 1;
+        lastIdx = Math.max(0, Math.min(lastIdx, nav.nBars));
+      }
+
+      let cumWm = [], cumMotor = [], rWm = 0, rMot = 0;
+      const isKwhView = nav && (nav.isMonthBilling || nav.isYearly);
+      for (let i = 0; i < lastIdx; i++) {
+        let vWm = (bars1[i] || 0) * (isKwhView ? 1 : (nav.resSeconds / 3600) / 1000);
+        rWm += vWm; cumWm.push(rWm);
+        if (window.graphWmIncludeMotor) {
+          let vMot = (motorBars[i] || 0) * (isKwhView ? 1 : (nav.resSeconds / 3600) / 1000);
+          rMot += vMot; cumMotor.push(rMot);
+        }
+      }
+
+      const allPower = [...bars1, ...motorBars].filter(v => v > 0);
+      const maxV = allPower.length ? Math.max(...allPower) * 1.1 : 100;
+      let maxCum = Math.max(...cumWm, ...(cumMotor.length ? cumMotor : [0]), 0.1);
+      const rightMax = window.graphWmIncludeWater ? Math.max(maxCum * 1.1, 100) : maxCum * 1.1;
+
+      graphDataCache = {
+        bars1, bars2: motorBars,
+        labels: nav.labels, timeLabels: nav.timeLabels || nav.labels, fullLabels: nav.fullLabels || nav.labels,
+        color1: fA.color, color2: feedMotor.color, unit: 'W', isCombined: false, nav, lastIdx,
+        multiData, minV: 0, maxV, range: maxV,
+        barsTemp: cumWm, tempMinV: 0, tempMaxV: rightMax, tempRange: rightMax,
+        tempUnit: 'kWh', tempColor: fA.color, overlayLabel: 'W/M Cumul.', isDualY: true,
+        barsTemp2: window.graphWmIncludeMotor ? cumMotor : (window.graphWmIncludeWater ? waterBars : null),
+        tempColor2: window.graphWmIncludeMotor ? feedMotor.color : feedWater.color,
+        overlayLabel2: window.graphWmIncludeMotor ? 'Motor Cumul.' : 'Water Tank %',
+        barsTemp3: (window.graphWmIncludeMotor && window.graphWmIncludeWater) ? waterBars : null,
+        tempColor3: feedWater.color, overlayLabel3: 'Water Tank %'
+      };
+
+      _drawChart(canvas, bars1, motorBars, nav.labels, fA.color, feedMotor.color, 'W', false, nav, lastIdx, multiData, 0, maxV, maxV,
+        cumWm, 0, rightMax, rightMax, 'kWh', fA.color, 'W/M Cumul.');
+
+      let statHtml = _formatStatLine('👕', 'Washing Machine', (cumWm[lastIdx-1] || 0), fA.color, Math.max(...bars1,0), (bars1.reduce((a,b)=>a+b,0)/(bars1.length||1)), null, null, null, null, 'W', true, graphTab);
+      if (window.graphWmIncludeMotor) {
+        statHtml += _formatStatLine('🚿', 'Water Motor', (cumMotor[lastIdx-1] || 0), feedMotor.color, Math.max(...motorBars,0), (motorBars.reduce((a,b)=>a+b,0)/(motorBars.length||1)), null, null, null, null, 'W', true, graphTab);
+      }
+      if (window.graphWmIncludeWater) {
+        statHtml += _formatStatLine('💧', 'Water Tank Level', (waterBars[lastIdx-1] || 0), feedWater.color, Math.max(...waterBars,0), (waterBars.reduce((a,b)=>a+b,0)/(waterBars.length||1)), null, null, null, null, '%', false, graphTab);
+      }
+      stat.innerHTML = statHtml;
+      _showGraphLoading(false); graphIsLoading = false; return;
+    }
+
+    // ── Special Case: Water Tank tab with Water Motor and/or W/M overlay ──
+    if (graphFeedKey === 'water' && (window.graphWaterIncludeMotor || window.graphWaterIncludeWm)) {
+      const feedMotor = GRAPH_FEEDS.find(f => f.key === 'motor');
+      const feedWm = GRAPH_FEEDS.find(f => f.key === 'wm');
+      const promises = [_gFetch(fA.id, nav.startMs, nav.endMs, nav.interval)];
+      if (window.graphWaterIncludeMotor) promises.push(_gFetch(feedMotor.id, nav.startMs, nav.endMs, nav.interval));
+      if (window.graphWaterIncludeWm) promises.push(_gFetch(feedWm.id, nav.startMs, nav.endMs, nav.interval));
+
+      const res = await Promise.all(promises);
+      const resWater = res[0];
+      const resMotor = window.graphWaterIncludeMotor ? res[1] : null;
+      const resWm = window.graphWaterIncludeWm ? (window.graphWaterIncludeMotor ? res[2] : res[1]) : null;
+
+      bars1 = _pointsToBars(resWater, nav, 'water');
+      const motorBars = resMotor ? _pointsToBars(resMotor, nav, 'motor') : [];
+      const wmBars = resWm ? _pointsToBars(resWm, nav, 'wm') : [];
+
+      let lastIdx = bars1.length;
+      if (graphTab === 'day' && graphDateNav === 0) {
+        lastIdx = Math.floor((Date.now() - 60000 - nav.startMs) / (nav.resSeconds * 1000)) + 1;
+        lastIdx = Math.max(0, Math.min(lastIdx, nav.nBars));
+      }
+
+      const allWatts = [...motorBars, ...wmBars].filter(v => v > 0);
+      const maxW = allWatts.length ? Math.max(...allWatts) * 1.1 : 1000;
+
+      graphDataCache = {
+        bars1, bars2: [],
+        labels: nav.labels, timeLabels: nav.timeLabels || nav.labels, fullLabels: nav.fullLabels || nav.labels,
+        color1: fA.color, color2: null, unit: '%', isCombined: false, nav, lastIdx,
+        multiData: null, minV: 0, maxV: 100, range: 100,
+        barsTemp: window.graphWaterIncludeMotor ? motorBars : wmBars, tempMinV: 0, tempMaxV: maxW, tempRange: maxW,
+        tempUnit: 'W', tempColor: window.graphWaterIncludeMotor ? feedMotor.color : feedWm.color,
+        overlayLabel: window.graphWaterIncludeMotor ? 'Motor (W)' : 'W/M (W)', isDualY: true,
+        barsTemp2: (window.graphWaterIncludeMotor && window.graphWaterIncludeWm) ? wmBars : null,
+        tempColor2: feedWm.color, overlayLabel2: 'W/M (W)'
+      };
+
+      _drawChart(canvas, bars1, [], nav.labels, fA.color, null, '%', false, nav, lastIdx, null, 0, 100, 100,
+        graphDataCache.barsTemp, 0, maxW, maxW, 'W', graphDataCache.tempColor, graphDataCache.overlayLabel);
+
+      let statHtml = _formatStatLine('💧', 'Water Tank Level', (bars1[lastIdx - 1] || 0), fA.color, Math.max(...bars1,0), (bars1.reduce((a,b)=>a+b,0)/(bars1.length||1)), null, null, null, null, '%', false, graphTab);
+      if (window.graphWaterIncludeMotor) {
+        const motKwh = motorBars.slice(0, lastIdx).reduce((a,b)=>a+b,0) * (nav.resSeconds / 3600) / 1000;
+        statHtml += _formatStatLine('🚿', 'Water Motor', motKwh, feedMotor.color, Math.max(...motorBars,0), (motorBars.reduce((a,b)=>a+b,0)/(motorBars.length||1)), null, null, null, null, 'W', true, graphTab);
+      }
+      if (window.graphWaterIncludeWm) {
+        const wmKwh = wmBars.slice(0, lastIdx).reduce((a,b)=>a+b,0) * (nav.resSeconds / 3600) / 1000;
+        statHtml += _formatStatLine('👕', 'Washing Machine', wmKwh, feedWm.color, Math.max(...wmBars,0), (wmBars.reduce((a,b)=>a+b,0)/(wmBars.length||1)), null, null, null, null, 'W', true, graphTab);
+      }
+      stat.innerHTML = statHtml;
+      _showGraphLoading(false); graphIsLoading = false; return;
+    }
+
+    // ── Special Case: Water Motor tab with Water Tank and/or W/M overlay ──
+    if (graphFeedKey === 'motor' && (window.graphMotorIncludeWater || window.graphMotorIncludeWm)) {
+      const feedWater = GRAPH_FEEDS.find(f => f.key === 'water');
+      const feedWm = GRAPH_FEEDS.find(f => f.key === 'wm');
+      const promises = [_gFetch(fA.id, nav.startMs, nav.endMs, nav.interval)];
+      if (window.graphMotorIncludeWater) promises.push(_gFetch(feedWater.id, nav.startMs, nav.endMs, nav.interval));
+      if (window.graphMotorIncludeWm) promises.push(_gFetch(feedWm.id, nav.startMs, nav.endMs, nav.interval));
+
+      const res = await Promise.all(promises);
+      const resMotor = res[0];
+      const resWater = window.graphMotorIncludeWater ? res[1] : null;
+      const resWm = window.graphMotorIncludeWm ? (window.graphMotorIncludeWater ? res[2] : res[1]) : null;
+
+      bars1 = _pointsToBars(resMotor, nav, 'motor');
+      const waterBars = resWater ? _pointsToBars(resWater, nav, 'water') : [];
+      const wmBars = resWm ? _pointsToBars(resWm, nav, 'wm') : [];
+
+      multiData = [{ key: 'motor', label: 'Water Motor', color: fA.color, data: bars1, rawPts: resMotor }];
+      if (window.graphMotorIncludeWm) multiData.push({ key: 'wm', label: 'W/M', color: feedWm.color, data: wmBars, rawPts: resWm });
+
+      let lastIdx = bars1.length;
+      if (graphTab === 'day' && graphDateNav === 0) {
+        lastIdx = Math.floor((Date.now() - 60000 - nav.startMs) / (nav.resSeconds * 1000)) + 1;
+        lastIdx = Math.max(0, Math.min(lastIdx, nav.nBars));
+      }
+
+      let cumMotor = [], cumWm = [], rMot = 0, rWm = 0;
+      const isKwhView = nav && (nav.isMonthBilling || nav.isYearly);
+      for (let i = 0; i < lastIdx; i++) {
+        let vMot = (bars1[i] || 0) * (isKwhView ? 1 : (nav.resSeconds / 3600) / 1000);
+        rMot += vMot; cumMotor.push(rMot);
+        if (window.graphMotorIncludeWm) {
+          let vWm = (wmBars[i] || 0) * (isKwhView ? 1 : (nav.resSeconds / 3600) / 1000);
+          rWm += vWm; cumWm.push(rWm);
+        }
+      }
+
+      const allPower = [...bars1, ...wmBars].filter(v => v > 0);
+      const maxV = allPower.length ? Math.max(...allPower) * 1.1 : 100;
+      let maxCum = Math.max(...cumMotor, ...(cumWm.length ? cumWm : [0]), 0.1);
+      const rightMax = window.graphMotorIncludeWater ? Math.max(maxCum * 1.1, 100) : maxCum * 1.1;
+
+      graphDataCache = {
+        bars1, bars2: wmBars,
+        labels: nav.labels, timeLabels: nav.timeLabels || nav.labels, fullLabels: nav.fullLabels || nav.labels,
+        color1: fA.color, color2: feedWm.color, unit: 'W', isCombined: false, nav, lastIdx,
+        multiData, minV: 0, maxV, range: maxV,
+        barsTemp: cumMotor, tempMinV: 0, tempMaxV: rightMax, tempRange: rightMax,
+        tempUnit: 'kWh', tempColor: fA.color, overlayLabel: 'Motor Cumul.', isDualY: true,
+        barsTemp2: window.graphMotorIncludeWm ? cumWm : (window.graphMotorIncludeWater ? waterBars : null),
+        tempColor2: window.graphMotorIncludeWm ? feedWm.color : feedWater.color,
+        overlayLabel2: window.graphMotorIncludeWm ? 'W/M Cumul.' : 'Water Tank %',
+        barsTemp3: (window.graphMotorIncludeWm && window.graphMotorIncludeWater) ? waterBars : null,
+        tempColor3: feedWater.color, overlayLabel3: 'Water Tank %'
+      };
+
+      _drawChart(canvas, bars1, wmBars, nav.labels, fA.color, feedWm.color, 'W', false, nav, lastIdx, multiData, 0, maxV, maxV,
+        cumMotor, 0, rightMax, rightMax, 'kWh', fA.color, 'Motor Cumul.');
+
+      let statHtml = _formatStatLine('🚿', 'Water Motor', (cumMotor[lastIdx-1] || 0), fA.color, Math.max(...bars1,0), (bars1.reduce((a,b)=>a+b,0)/(bars1.length||1)), null, null, null, null, 'W', true, graphTab);
+      if (window.graphMotorIncludeWater) {
+        statHtml += _formatStatLine('💧', 'Water Tank Level', (waterBars[lastIdx-1] || 0), feedWater.color, Math.max(...waterBars,0), (waterBars.reduce((a,b)=>a+b,0)/(waterBars.length||1)), null, null, null, null, '%', false, graphTab);
+      }
+      if (window.graphMotorIncludeWm) {
+        statHtml += _formatStatLine('👕', 'Washing Machine', (cumWm[lastIdx-1] || 0), feedWm.color, Math.max(...wmBars,0), (wmBars.reduce((a,b)=>a+b,0)/(wmBars.length||1)), null, null, null, null, 'W', true, graphTab);
+      }
+      stat.innerHTML = statHtml;
+      _showGraphLoading(false); graphIsLoading = false; return;
+    }
 
     if (isGridAll) {
       const visible = GRID_ALL_FEEDS.filter(f => !window.gridAllDisabled.has(f.key));
@@ -89,7 +283,6 @@ async function _loadAndDraw() {
       pts2 = await _gFetch(GRAPH_FEEDS.find(f => f.key === 'grid').id, nav.startMs, nav.endMs, nav.interval);
       bars1 = _pointsToBars(pts1, nav, 'solar'); bars2 = _pointsToBars(pts2, nav, 'grid');
     } else {
-      // ─── Sum feeds (e.g., Fridges 1+2 combined) ───
       if (fA && fA.isSum && Array.isArray(fA.sumFeeds) && fA.sumFeeds.length) {
         const componentPts = await Promise.all(
           fA.sumFeeds.map(key => {
@@ -147,7 +340,6 @@ async function _loadAndDraw() {
         tColor = '#facc15';
         tLabel = 'Solar Cumul.';
       } else {
-        // Single feed: name & color the cumulative line after the feed itself
         tColor = fA.color || '#facc15';
         tLabel = `${fA.statLabel || fA.label || fA.name} Cumul.`;
       }

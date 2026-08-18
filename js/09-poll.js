@@ -436,7 +436,7 @@ async function poll() {
       }
     }
 
-    const results = await Promise.all(userOrderedFeeds.filter(f => f.enabled).map(async f => {
+        const results = await Promise.all(userOrderedFeeds.filter(f => f.enabled).map(async f => {
       const entry = bulkData.get(String(f.id));
       let val = entry ? entry.v : null;
       let time = entry ? entry.t : null;
@@ -458,15 +458,27 @@ async function poll() {
         }
       }
 
-      if (!STALE_EXEMPT.has(f.name) && val !== null && time) {
+      // --- Staleness Logic ---
+      if (val !== null && time) {
         const tsMs = time < 2000000000 ? time * 1000 : time;
         const age = Date.now() - tsMs;
         const isAccumulator = f.name.toLowerCase().includes('today') || f.name.toLowerCase().includes('total');
-        if (age > STALE_MS && !isAccumulator) {
-          if (window.addDebugLog) {
-            window.addDebugLog(`<b style="color:#f59e0b">Stale→0:</b> ${f.name} (no update in ${Math.round(age/60000)}m)`);
+        
+        if (!isAccumulator) {
+          if (STALE_EXEMPT.has(f.name)) {
+            // Temperature / Sensors: Show last value for 10 mins, then 0
+            const TEN_MINS_MS = 10 * 60 * 1000;
+            if (age > TEN_MINS_MS) {
+              if (window.addDebugLog) window.addDebugLog(`<b style="color:#ef4444">Sensor Timeout:</b> ${f.name} (no update in ${Math.round(age/60000)}m) set to 0`);
+              val = 0;
+            }
+          } else {
+            // Standard Power Feeds: Set to 0 after 5 mins (STALE_MS)
+            if (age > STALE_MS) {
+              if (window.addDebugLog) window.addDebugLog(`<b style="color:#f59e0b">Power Stale:</b> ${f.name} (no update in ${Math.round(age/60000)}m) set to 0`);
+              val = 0;
+            }
           }
-          val = 0;
         }
       }
 

@@ -17,6 +17,16 @@ function _mergePointsSum(ptsArrays) {
 }
 
 function _pointsToBars(pts, nav, feedKey) {
+  const isAvg = feedKey && (
+    feedKey.startsWith('temp') ||
+    feedKey.startsWith('humidity') ||
+    feedKey === 'invtemp' ||
+    feedKey === 'water' ||
+    feedKey === 'acvolts' ||
+    feedKey === 'solarv' ||
+    feedKey === 'solv'
+  );
+
   if (nav && nav.isMonthBilling) {
     const days = Math.ceil((nav.endMs - nav.startMs) / 86400000);
     if (!pts || !pts.length) {
@@ -35,14 +45,33 @@ function _pointsToBars(pts, nav, feedKey) {
       nav.nBars = days;
       return Array(days).fill(0);
     }
+
     const daily = {};
+    const counts = {};
+
     for (let i = 0; i < pts.length; i++) {
       const p = pts[i];
       if (p[1] == null) continue;
       const pktDate = getKarachiDate(p[0]);
       const key = `${pktDate.year}-${String(pktDate.month).padStart(2,'0')}-${String(pktDate.day).padStart(2,'0')}`;
-      daily[key] = (daily[key] || 0) + p[1];
+      const v = parseFloat(p[1]);
+
+      if (isAvg) {
+        if (feedKey === 'acvolts') {
+          if (v >= 50) {
+            daily[key] = (daily[key] || 0) + v;
+            counts[key] = (counts[key] || 0) + 1;
+          }
+        } else {
+          daily[key] = (daily[key] || 0) + v;
+          counts[key] = (counts[key] || 0) + 1;
+        }
+      } else {
+        // Hourly watts * 1 hr = Watt-hours (Wh)
+        daily[key] = (daily[key] || 0) + v;
+      }
     }
+
     const start = new Date(nav.startMs);
     const bars = [], labels = [];
     for (let i = 0; i < days; i++) {
@@ -50,28 +79,59 @@ function _pointsToBars(pts, nav, feedKey) {
       const pktDate = getKarachiDate(d.getTime());
       labels.push(`${pktDate.day}/${pktDate.month}`);
       const key = `${pktDate.year}-${String(pktDate.month).padStart(2,'0')}-${String(pktDate.day).padStart(2,'0')}`;
-      bars.push(daily[key] || 0);
+      
+      if (isAvg) {
+        const cnt = counts[key] || 0;
+        bars.push(cnt > 0 ? (daily[key] / cnt) : 0);
+      } else {
+        // Convert daily Wh to kWh (e.g. 4237 Wh -> 4.237 kWh)
+        const dayWh = daily[key] || 0;
+        bars.push(dayWh / 1000);
+      }
     }
+
     nav.labels = labels;
     nav.timeLabels = labels;
     nav.fullLabels = labels;
     nav.nBars = bars.length;
     return bars;
   }
+
   if (nav && nav.isYearBilling) {
     if (!pts || !pts.length) {
       nav.nBars = 12;
       return Array(12).fill(0);
     }
     const monthly = new Array(12).fill(0);
+    const mCounts = new Array(12).fill(0);
+
     for (let i = 0; i < pts.length; i++) {
       const p = pts[i];
       if (p[1] == null) continue;
       const pktDate = getKarachiDate(p[0]);
       const month = pktDate.month - 1;
-      monthly[month] = (monthly[month] || 0) + (p[1] / 1000);
+      const v = parseFloat(p[1]);
+
+      if (isAvg) {
+        if (feedKey === 'acvolts') {
+          if (v >= 50) {
+            monthly[month] += v;
+            mCounts[month]++;
+          }
+        } else {
+          monthly[month] += v;
+          mCounts[month]++;
+        }
+      } else {
+        // Hourly watts * 1 hr / 1000 = kWh
+        monthly[month] = (monthly[month] || 0) + (v / 1000);
+      }
     }
+
     nav.nBars = 12;
+    if (isAvg) {
+      return monthly.map((v, i) => mCounts[i] > 0 ? v / mCounts[i] : 0);
+    }
     return monthly;
   }
 
@@ -80,15 +140,6 @@ function _pointsToBars(pts, nav, feedKey) {
     return Array(numBars).fill(0);
   }
 
-  const isAvg = feedKey && (
-    feedKey.startsWith('temp') ||
-    feedKey.startsWith('humidity') ||
-    feedKey === 'invtemp' ||
-    feedKey === 'water' ||
-    feedKey === 'acvolts' ||
-    feedKey === 'solarv' ||
-    feedKey === 'solv'
-  );
   const bars = Array(numBars).fill(0), counts = Array(numBars).fill(0);
   const resMs = (nav && nav.resSeconds ? nav.resSeconds : 120) * 1000;
   for (let i = 0; i < pts.length; i++) {
@@ -110,8 +161,7 @@ function _pointsToBars(pts, nav, feedKey) {
 
 async function _gFetch(feedId, startMs, endMs, interval) {
   if (!feedId) return [];
-  const useDelta = (window.graphTab === "month") ? 1 : 0;
-  const url = `${PROXY_BASE}/feed/data.json?ids=${feedId}&start=${startMs}&end=${endMs}&skipmissing=0&average=1&delta=${useDelta}&interval=${interval}`;
+  const url = `${PROXY_BASE}/feed/data.json?ids=${feedId}&start=${startMs}&end=${endMs}&skipmissing=0&average=1&delta=0&interval=${interval}`;
   try {
     const text = await nativeFetch(url);
     if (!text || text.startsWith('ERROR')) return [];

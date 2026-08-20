@@ -1,4 +1,4 @@
-function renderDetailedReport(feedData, startMs, endMs, pkrPerKwh) {
+function renderDetailedReport(feedData, startMs, endMs, pkrPerKwh, acBreakdown = null) {
   const out = document.getElementById('usage-report-content');
   if (!out) return;
 
@@ -47,7 +47,7 @@ function renderDetailedReport(feedData, startMs, endMs, pkrPerKwh) {
   const daysInCycle = Math.round((endMs - startMs) / 86400000.0);
   const avgSolar = totalSolarKwh / dates.length, avgGrid = gridImportKwh / dates.length;
 
-  let headerHtml = `<tr class=h1><th rowspan=2>Date</th>`;
+  let headerHtml = `<tr class=h1><th rowspan=2>Date</th><th rowspan=2 class='dv' style='color:#ef4444;'>Outage<div class='head-split'>Hours</div></th>`;
   EXPORT_FEEDS.forEach(f => headerHtml += f.isSolar ? `<th rowspan=2 class=dv>${f.name}</th>` : `<th colspan=3 class=dv>${f.name}</th>`);
   headerHtml += `<th rowspan=2 class=tot>Solar+Breaker<div class='head-split'>kWh / Rs</div></th><th rowspan=2 class=col-save>Solar Saved<div class='head-split'>kWh / Rs</div></th><th rowspan=2 class=col-bill>Grid Bill<div class='head-split'>kWh / Rs</div></th></tr><tr class=h2>`;
   EXPORT_FEEDS.forEach(f => { if (!f.isSolar) headerHtml += `<th class=c24>24hr</th><th class=cday>${f.isPc ? "Day*" : "Day"}</th><th class='dv cnight'>Night</th>`; });
@@ -56,7 +56,12 @@ function renderDetailedReport(feedData, startMs, endMs, pkrPerKwh) {
   let tableRows = headerHtml;
   dates.forEach(date => {
     const fmtDate = date.split('-').reverse().join('-');
-    tableRows += `<tr><td class=dt>${fmtDate}</td>`;
+    const dOutage = acBreakdown?.dailyMap?.[date];
+    const dOutageStr = dOutage && dOutage.offMinutes > 0 
+      ? (dOutage.offMinutes >= 60 ? (dOutage.offMinutes / 60).toFixed(1) + 'h' : dOutage.offMinutes + 'm') 
+      : '-';
+
+    tableRows += `<tr><td class=dt>${fmtDate}</td><td class='dv' style='color:${dOutage && dOutage.offMinutes > 0 ? "#ef4444" : "inherit"};font-weight:${dOutage && dOutage.offMinutes > 0 ? "bold" : "normal"};'>${dOutageStr}</td>`;
     let dSolarWh = (sums[solarF.id].h24[date]||0), dBreakerWh = (sums[breakerF.id].h24[date]||0);
     EXPORT_FEEDS.forEach(f => {
       const h24 = (sums[f.id].h24[date]||0), day = (sums[f.id].day[date]||0), night = (sums[f.id].night[date]||0);
@@ -74,6 +79,12 @@ function renderDetailedReport(feedData, startMs, endMs, pkrPerKwh) {
     
     tableRows += `<tr class="tr"><td class="dt">${rowLabel}</td>`;
     
+    const outageValStr = isAvg
+      ? `${((acBreakdown?.totalMinutes || 0) / dayCount / 60).toFixed(1)}h`
+      : `${acBreakdown?.totalHours || '0.0'}h`;
+
+    tableRows += `<td class="dv" style="color:#ef4444; font-weight:bold;">${outageValStr}</td>`;
+
     const solKwh = (colTotals[solarF.id].h24 / 1000) / divisor;
     tableRows += `<td class="dv c24">${solKwh.toFixed(2)}</td>`;
 
@@ -96,11 +107,11 @@ function renderDetailedReport(feedData, startMs, endMs, pkrPerKwh) {
     </tr>`;
   });
 
-  tableRows += `<tr class="h2"><td></td><td></td>`;
+  tableRows += `<tr class="h2"><td></td><td></td><td></td>`;
   EXPORT_FEEDS.forEach(f => { if (!f.isSolar) tableRows += `<td class="c24">24hr</td><td class="cday">Day</td><td class="dv cnight">Night</td>`; });
   tableRows += `<td></td><td></td><td></td></tr>`;
   
-  tableRows += `<tr class="h1"><td class="dt">Date (PKT)</td><td class="dv">Solar</td>`;
+  tableRows += `<tr class="h1"><td class="dt">Date (PKT)</td><td class="dv" style="color:#ef4444;">Outage</td><td class="dv">Solar</td>`;
   EXPORT_FEEDS.forEach(f => { if (!f.isSolar) tableRows += `<td colspan="3" class="dv">${f.name}</td>`; });
   tableRows += `<td class="tot">Solar+Breaker</td><td class="col-save">Solar Saved</td><td class="col-bill">Grid Bill</td></tr>`;
 
@@ -122,6 +133,10 @@ Visual Daily Summary (Scale: ${dates.length} days)
 `;
   });
 
+  if (acBreakdown) {
+    sparkTxt += `\n⚡ Electricity Outages Total: ${acBreakdown.formattedDuration} (${acBreakdown.totalHours} hrs across ${acBreakdown.outageCount} times)\n`;
+  }
+
   const avgSavingPkr = (totalSolarKwh * pkrPerKwh) / (dates.length || 1);
   const avgSolarPerDay = totalSolarKwh / (dates.length || 1);
   const projectedSolarKwh = avgSolarPerDay * daysInCycle;
@@ -139,6 +154,7 @@ Visual Daily Summary (Scale: ${dates.length} days)
             <div class="pkr-item pkr-bill"><div class="pkr-item-label">Est. grid bill</div><div class="pkr-item-val">PKR ${fmtPkr(gridImportKwh * pkrPerKwh)}</div><div class="pkr-item-sub">${gridImportKwh.toFixed(1)} kWh from Breaker</div></div>
             <div class="pkr-item pkr-without"><div class="pkr-item-label">Without solar</div><div class="pkr-item-val">PKR ${fmtPkr(withoutSolarKwh * pkrPerKwh)}</div><div class="pkr-item-sub">${withoutSolarKwh.toFixed(1)} kWh total consumption</div></div>
             <div class="pkr-item pkr-avg"><div class="pkr-item-label">Avg saving / day</div><div class="pkr-item-val">PKR ${fmtPkr(avgSavingPkr)}</div><div class="pkr-item-sub">${avgSolarPerDay.toFixed(1)} kWh / day over ${dates.length} days</div></div>
+            <div class="pkr-item pkr-bill" style="border-left-color: #ef4444; background: rgba(239, 68, 68, 0.12);"><div class="pkr-item-label">⚡ Power Outages</div><div class="pkr-item-val" style="color: #ef4444;">${acBreakdown?.totalHours || '0.0'} hrs</div><div class="pkr-item-sub">${acBreakdown?.formattedDuration || '0m'} (${acBreakdown?.outageCount || 0} times)</div></div>
         </div>
         
         <div class="pkr-bar-wrap" style="margin-top: 16px;">
@@ -186,8 +202,12 @@ async function calculateDetailedReport(forceRefresh = false) {
     const promises = EXPORT_FEEDS.map(async (f) => {
       feedData[f.id] = await fetchWithCache(f.id, startMs, endMs, forceRefresh);
     });
-    await Promise.all(promises);
-    renderDetailedReport(feedData, startMs, endMs, pkrRate);
+    const acBreakdownPromise = typeof fetchAcBreakdown === 'function'
+      ? fetchAcBreakdown(startMs, endMs)
+      : Promise.resolve(null);
+
+    const [, acBreakdown] = await Promise.all([Promise.all(promises), acBreakdownPromise]);
+    renderDetailedReport(feedData, startMs, endMs, pkrRate, acBreakdown);
   } catch (e) {
     console.error("Report Calc Failed:", e);
     if (out) out.innerHTML = `<div class="sol-loading" style="color:#ef4444">Error: ${e.message}</div>`;

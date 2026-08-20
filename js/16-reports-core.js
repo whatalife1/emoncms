@@ -8,7 +8,7 @@ const EXPORT_FEEDS = [
   { id: FEEDS_BASE.find(f => f.name === "Fridge2")?.id,     name: "Fridge 2" },
   { id: FEEDS_BASE.find(f => f.name === "PC")?.id,          name: "PC",           isPc: true },
   { id: FEEDS_BASE.find(f => f.name === "Water Motor")?.id, name: "Motor" },
-    { id: FEEDS_BASE.find(f => f.name === "Washing Machine")?.id, name: "Washing Machine" }
+  { id: FEEDS_BASE.find(f => f.name === "Washing Machine")?.id, name: "Washing Machine" }
 ].filter(f => f.id); 
 
 const EXPORT_DAY_START   = 8;
@@ -19,7 +19,6 @@ const EXPORT_PC_DAY_START = 6;
 const EXPORT_PC_DAY_END   = 17;
 
 function getKarachiDate(ms) {
-    // Determine if device is native GMT+5
     const isPkt = (new Date().getTimezoneOffset() === -300);
     const d = isPkt ? new Date(ms) : new Date(ms + 18000000);
     
@@ -32,7 +31,6 @@ function getKarachiDate(ms) {
 }
 
 function billingRangeFor(year, month) {
-    // Always calculate using UTC and offset to ensure stability
     const start = new Date(Date.UTC(year, month - 2, 25, 0, 0, 0));
     const end = new Date(Date.UTC(year, month - 1, 26, 0, 0, 0));
     return { 
@@ -59,10 +57,24 @@ function saveReportCache() {
   try { localStorage.setItem('report_cache', JSON.stringify(reportCache)); } catch (e) {}
 }
 
+window._acDayOutageCache = window._acDayOutageCache || {};
+try {
+  const cachedAc = localStorage.getItem('ac_outage_cache');
+  if (cachedAc) Object.assign(window._acDayOutageCache, JSON.parse(cachedAc));
+} catch(e) {}
+
+function saveAcOutageCache() {
+  try {
+    localStorage.setItem('ac_outage_cache', JSON.stringify(window._acDayOutageCache));
+  } catch(e) {}
+}
+
 function clearReportCache() {
   reportCache = {};
   localStorage.removeItem('report_cache');
-  if (window.addDebugLog) window.addDebugLog(`<b style="color:#10b981">Cache Cleared:</b> Report cache wiped.`);
+  window._acDayOutageCache = {};
+  localStorage.removeItem('ac_outage_cache');
+  if (window.addDebugLog) window.addDebugLog(`<b style="color:#10b981">Cache Cleared:</b> Report & Outage caches wiped.`);
 }
 
 async function fetchWithCache(feedId, startMs, endMs, forceRefresh = false) {
@@ -89,7 +101,6 @@ async function fetchWithCache(feedId, startMs, endMs, forceRefresh = false) {
     const fetchFrom = forceRefresh ? startMs : fetchStartMs;
     const freshData = await fetchHourly(feedId, fetchFrom, endMs);
     
-    // Correctly merge freshData into feedCache
     for (const [ts, val] of Object.entries(freshData)) {
       feedCache[ts] = val;
     }
@@ -127,6 +138,116 @@ function parseHourlyData(json) {
   } catch (e) {}
   return result;
 }
+
+// ─── Shared Accurate AC Volts Outage / Breakdown Engine ───────────────────────
+async function fetchAcBreakdown(startMs, endMs) {
+  const feed = FEEDS_BASE.find(f => f.name === 'AC Volts');
+  const feedId = feed ? feed.id : '499383';
+  const nowMs = Date.now();
+  const days = Math.max(1, Math.ceil((endMs - startMs) / 86400000));
+
+  const dayPromises = [];
+  for (let i = 0; i < days; i++) {
+    const dayStart = startMs + i * 86400000;
+    if (dayStart > nowMs) break;
+    const dayEnd = Math.min(nowMs, dayStart + 86400000 - 1);
+    const p = getKarachiDate(dayStart);
+    const dayKey = `${p.year}-${String(p.month).padStart(2,'0')}-${String(p.day).padStart(2,'0')}`;
+    const dayLabel = `${p.day} ${_MONTH_SHORT[p.month - 1] || ''}`;
+    const isPastDay = (dayEnd < nowMs - 3600000);
+
+    if (isPastDay && window._acDayOutageCache[dayKey]) {
+      dayPromises.push(Promise.resolve(window._acDayOutageCache[dayKey]));
+    } else {
+      const prm = (async () => {
+        const url = `${PROXY_BASE}/feed/data.json?ids=${feedId}&start=${dayStart}&end=${dayEnd}&skipmissing=0&average=1&delta=0&interval=120`;
+        try {
+          const text = await nativeFetch(url);
+          if (!text || text.startsWith('ERROR')) return { dayKey, dayLabel, offMinutes: 0, count: 0 };
+          const root = JSON.parse(text);
+          const data = root[0]?.data || (Array.isArray(root) ? root : []);
+
+          let offSec = 0;
+          let count = 0;
+          let inOutage = false;
+          const stepSec = 120;
+
+          for (let k = 0; k < data.length; k++) {
+            const pt = data[k];
+            if (!pt || pt[0] == null) continue;
+            const v = (pt[1] !== null && pt[1] !== undefined) ? parseFloat(pt[1]) : 0;
+            const isOff = v < 50;
+
+            if (isOff) {
+              offSec += stepSec;
+              if (!inOutage) {
+                inOutage = true;
+                count++;
+              }
+            } else {
+              inOutage = false;
+            }
+          }
+
+          const resObj = {
+            dayKey,
+            dayLabel,
+            offMinutes: Math.round(offSec / 60),
+            count
+          };
+
+          if (isPastDay) {
+            window._acDayOutageCache[dayKey] = resObj;
+            saveAcOutageCache();
+          }
+          return resObj;
+        } catch (e) {
+          return { dayKey, dayLabel, offMinutes: 0, count: 0 };
+        }
+      })();
+      dayPromises.push(prm);
+    }
+  }
+
+  const results = await Promise.all(dayPromises);
+  let totalMinutes = 0;
+  let totalCount = 0;
+  const dailyBreakdown = [];
+  const dailyMap = {};
+
+  for (const d of results) {
+    totalMinutes += d.offMinutes;
+    totalCount += d.count;
+    dailyMap[d.dayKey] = d;
+    if (d.offMinutes > 0) {
+      dailyBreakdown.push(d);
+    }
+  }
+
+  dailyBreakdown.sort((a, b) => b.dayKey.localeCompare(a.dayKey));
+
+  const hrs = Math.floor(totalMinutes / 60);
+  const mins = totalMinutes % 60;
+  const formattedDuration = hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`;
+  const numDays = Math.max(1, days);
+  const avgMinPerDay = Math.round(totalMinutes / numDays);
+  const avgHrs = Math.floor(avgMinPerDay / 60);
+  const avgMins = avgMinPerDay % 60;
+  const avgPerDayFormatted = avgHrs > 0 ? `${avgHrs}h ${avgMins}m / day` : `${avgMins}m / day`;
+
+  return {
+    totalMinutes,
+    totalHours: (totalMinutes / 60).toFixed(1),
+    formattedDuration,
+    outageCount: totalCount,
+    dailyBreakdown,
+    dailyMap,
+    avgPerDayFormatted,
+    numDays
+  };
+}
+
+window.fetchAcBreakdown = fetchAcBreakdown;
 
 function sumByDay(data, startHour, endHour) {
   const result = {};

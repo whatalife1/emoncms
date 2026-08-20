@@ -21,7 +21,12 @@ window.generateGraphReport = async function() {
     const data = await fetchWithCache(feed.id, startMs, endMs);
     return { feed, data };
   });
-  const results = await Promise.all(fetchPromises);
+  
+  const acBreakdownPromise = typeof fetchAcBreakdown === 'function'
+    ? fetchAcBreakdown(startMs, endMs)
+    : Promise.resolve({ totalHours: '0.0', formattedDuration: '0m', outageCount: 0 });
+
+  const [results, acBreakdown] = await Promise.all([Promise.all(fetchPromises), acBreakdownPromise]);
   const sums = {};
   const hourlyData = {};
   results.forEach(r => {
@@ -98,9 +103,11 @@ window.generateGraphReport = async function() {
   totalLoadKwh = rows.filter(r => !r.isSolar && !r.isBreaker).reduce((sum, r) => sum + r.totalKwh, 0);
   totalDayLoadKwh = rows.filter(r => !r.isSolar && !r.isBreaker).reduce((sum, r) => sum + r.dayKwh, 0);
   totalNightLoadKwh = rows.filter(r => !r.isSolar && !r.isBreaker).reduce((sum, r) => sum + r.nightKwh, 0);
+  
   // Text report
   let txt = `📄 Energy Usage Report: ${label}\n`;
   txt += `Generated: ${new Date().toLocaleString()}\n`;
+  txt += `⚡ Total Electricity Outages: ${acBreakdown.formattedDuration} (${acBreakdown.totalHours} hrs across ${acBreakdown.outageCount} times)\n`;
   txt += `Time Period Definitions:\n`;
   txt += `  • Day   = 8:00 AM  → 5:00 PM  (9 hours)\n`;
   txt += `  • Night = 5:00 PM  → 8:00 AM  (15 hours)\n`;
@@ -149,9 +156,18 @@ window.generateGraphReport = async function() {
     ];
     txt += parts.join(' ') + '\n';
   }
+
   // HTML report
   let html = `<div class="report-wrapper" style="background:#fff;color:#18181b;border:1px solid #d4d4d8;border-radius:10px;padding:10px;margin-top:20px;font-family:system-ui,sans-serif;">`;
   html += `<h4 style="margin:0 0 10px 0;font-size:14px;border-bottom:1px solid #d4d4d8;padding-bottom:5px;color:#18181b;">Consumption Breakdown</h4>`;
+  
+  html += `
+    <div style="font-size:11.5px; font-weight:700; color:#ef4444; margin-bottom:10px; padding:8px 12px; background:rgba(239, 68, 68, 0.08); border:1px solid rgba(239, 68, 68, 0.3); border-radius:6px; display:flex; justify-content:space-between; align-items:center;">
+      <span>⚡ Electricity Breakdown / Outages:</span>
+      <span style="font-size:12.5px; font-weight:800;">${acBreakdown.formattedDuration} (${acBreakdown.totalHours} hrs &bull; ${acBreakdown.outageCount} ${acBreakdown.outageCount === 1 ? 'time' : 'times'})</span>
+    </div>
+  `;
+
   html += `<div style="font-size:11px;color:#71717a;margin-bottom:12px;padding:8px 12px;background:#f4f4f5;border-radius:6px;border-left:3px solid #f59e0b;">`;
   html += `<span style="font-weight:700;">⏰ Time Periods:</span> `;
   html += `<span style="color:#f59e0b;">Day</span> = 8:00 AM → 5:00 PM (9 hrs) &nbsp;|&nbsp; `;

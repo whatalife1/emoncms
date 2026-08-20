@@ -1,111 +1,11 @@
 // js/19c5-graphs-load-draw.js
 // ─── Main _loadAndDraw orchestrator + loading overlay ───────────────────────
 
-window._acDayOutageCache = window._acDayOutageCache || {};
-
 async function _fetchMonthAcBreakdown(nav) {
-  const days = Math.ceil((nav.endMs - nav.startMs) / 86400000);
-  const feed = GRAPH_FEEDS.find(f => f.key === 'acvolts');
-  const feedId = feed ? feed.id : '499383';
-  const nowMs = Date.now();
-
-  const dayPromises = [];
-  for (let i = 0; i < days; i++) {
-    const dayStart = nav.startMs + i * 86400000;
-    if (dayStart > nowMs) break;
-    const dayEnd = Math.min(nowMs, dayStart + 86400000 - 1);
-    const p = getKarachiDate(dayStart);
-    const dayKey = `${p.year}-${String(p.month).padStart(2,'0')}-${String(p.day).padStart(2,'0')}`;
-    const dayLabel = `${p.day} ${_MONTH_SHORT[p.month - 1] || ''}`;
-    const isPastDay = (dayEnd < nowMs - 3600000);
-
-    if (isPastDay && window._acDayOutageCache[dayKey]) {
-      dayPromises.push(Promise.resolve(window._acDayOutageCache[dayKey]));
-    } else {
-      const prm = (async () => {
-        const url = `${PROXY_BASE}/feed/data.json?ids=${feedId}&start=${dayStart}&end=${dayEnd}&skipmissing=0&average=1&delta=0&interval=120`;
-        try {
-          const text = await nativeFetch(url);
-          if (!text || text.startsWith('ERROR')) return { dayKey, dayLabel, offMinutes: 0, count: 0 };
-          const root = JSON.parse(text);
-          const data = root[0]?.data || (Array.isArray(root) ? root : []);
-
-          let offSec = 0;
-          let count = 0;
-          let inOutage = false;
-          const stepSec = 120;
-
-          for (let k = 0; k < data.length; k++) {
-            const pt = data[k];
-            if (!pt || pt[0] == null) continue;
-            const v = (pt[1] !== null && pt[1] !== undefined) ? parseFloat(pt[1]) : 0;
-            const isOff = v < 50;
-
-            if (isOff) {
-              offSec += stepSec;
-              if (!inOutage) {
-                inOutage = true;
-                count++;
-              }
-            } else {
-              inOutage = false;
-            }
-          }
-
-          const resObj = {
-            dayKey,
-            dayLabel,
-            offMinutes: Math.round(offSec / 60),
-            count
-          };
-
-          if (isPastDay) {
-            window._acDayOutageCache[dayKey] = resObj;
-          }
-          return resObj;
-        } catch (e) {
-          return { dayKey, dayLabel, offMinutes: 0, count: 0 };
-        }
-      })();
-      dayPromises.push(prm);
-    }
+  if (typeof fetchAcBreakdown === 'function') {
+    return await fetchAcBreakdown(nav.startMs, nav.endMs);
   }
-
-  const results = await Promise.all(dayPromises);
-  
-  let totalMinutes = 0;
-  let totalCount = 0;
-  const daysWithOutages = [];
-
-  for (const d of results) {
-    totalMinutes += d.offMinutes;
-    totalCount += d.count;
-    if (d.offMinutes > 0) {
-      daysWithOutages.push(d);
-    }
-  }
-
-  daysWithOutages.sort((a, b) => b.dayKey.localeCompare(a.dayKey));
-
-  const hrs = Math.floor(totalMinutes / 60);
-  const mins = totalMinutes % 60;
-  const formattedDuration = hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`;
-  const numDays = Math.max(1, days);
-  const avgMinPerDay = Math.round(totalMinutes / numDays);
-  const avgHrs = Math.floor(avgMinPerDay / 60);
-  const avgMins = avgMinPerDay % 60;
-  const avgPerDayFormatted = avgHrs > 0 ? `${avgHrs}h ${avgMins}m / day` : `${avgMins}m / day`;
-
-  return {
-    isMonth: true,
-    totalMinutes,
-    totalHours: (totalMinutes / 60).toFixed(1),
-    formattedDuration,
-    outageCount: totalCount,
-    dailyBreakdown: daysWithOutages,
-    avgPerDayFormatted,
-    numDays
-  };
+  return null;
 }
 
 function _showGraphLoading(s) {
@@ -407,7 +307,6 @@ async function _loadAndDraw() {
         bars1 = _pointsToBars(pts1, nav, graphFeedKey);
         if (['temp','temp2'].includes(graphFeedKey)) bars2 = _pointsToBars(await _gFetch(graphFeedKey==='temp'?'499429':'512474', nav.startMs, nav.endMs, nav.interval), nav, 'humidity');
         
-        // Accurate month breakdown aggregator for AC Volts
         if (graphFeedKey === 'acvolts' && (graphTab === 'month' || graphTab === 'year')) {
           monthAcBreakdown = await _fetchMonthAcBreakdown(nav);
         }

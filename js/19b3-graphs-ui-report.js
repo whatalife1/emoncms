@@ -1,7 +1,7 @@
 // js/19b3-graphs-ui-report.js
 // ─── Graph report generation & download ─────────────────────────────────────
 
-window.generateGraphReport = async function() {
+window.generateGraphReport = async function(forceRefresh = false) {
   const nav = _gNavInfo();
   const isDay = graphTab === 'day';
   const isMonth = graphTab === 'month';
@@ -18,7 +18,7 @@ window.generateGraphReport = async function() {
     label = nav.label;
   }
   const fetchPromises = EXPORT_FEEDS.map(async (feed) => {
-    const data = await fetchWithCache(feed.id, startMs, endMs);
+    const data = await fetchWithCache(feed.id, startMs, endMs, forceRefresh);
     return { feed, data };
   });
   

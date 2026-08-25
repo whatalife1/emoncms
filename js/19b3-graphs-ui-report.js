@@ -158,22 +158,22 @@ window.generateGraphReport = async function() {
   }
 
   // HTML report
-  let html = `<div class="report-wrapper" style="background:#fff;color:#18181b;border:1px solid #d4d4d8;border-radius:10px;padding:10px;margin-top:20px;font-family:system-ui,sans-serif;">`;
+  let html = `<div class="report-wrapper" style="background:#fff;color:#18181b;border:1px solid #d4d4d8;border-radius:10px;padding:12px;margin-top:10px;font-family:system-ui,sans-serif;box-sizing:border-box;width:100%;max-width:100%;">`;
   html += `<h4 style="margin:0 0 10px 0;font-size:14px;border-bottom:1px solid #d4d4d8;padding-bottom:5px;color:#18181b;">Consumption Breakdown</h4>`;
   
   html += `
-    <div style="font-size:11.5px; font-weight:700; color:#ef4444; margin-bottom:10px; padding:8px 12px; background:rgba(239, 68, 68, 0.08); border:1px solid rgba(239, 68, 68, 0.3); border-radius:6px; display:flex; justify-content:space-between; align-items:center;">
+    <div style="font-size:11.5px; font-weight:700; color:#ef4444; margin-bottom:10px; padding:8px 12px; background:rgba(239, 68, 68, 0.08); border:1px solid rgba(239, 68, 68, 0.3); border-radius:6px; display:flex; justify-content:space-between; align-items:center; box-sizing:border-box; width:100%;">
       <span>⚡ Electricity Breakdown / Outages:</span>
-      <span style="font-size:12.5px; font-weight:800;">${acBreakdown.formattedDuration} (${acBreakdown.totalHours} hrs &bull; ${acBreakdown.outageCount} ${acBreakdown.outageCount === 1 ? 'time' : 'times'})</span>
+      <span style="font-size:12.5px; font-weight:800; white-space:nowrap; margin-left:12px;">${acBreakdown.formattedDuration} (${acBreakdown.totalHours} hrs &bull; ${acBreakdown.outageCount} ${acBreakdown.outageCount === 1 ? 'time' : 'times'})</span>
     </div>
   `;
 
-  html += `<div style="font-size:11px;color:#71717a;margin-bottom:12px;padding:8px 12px;background:#f4f4f5;border-radius:6px;border-left:3px solid #f59e0b;">`;
+  html += `<div style="font-size:11px;color:#71717a;margin-bottom:12px;padding:8px 12px;background:#f4f4f5;border-radius:6px;border-left:3px solid #f59e0b;box-sizing:border-box;width:100%;">`;
   html += `<span style="font-weight:700;">⏰ Time Periods:</span> `;
   html += `<span style="color:#f59e0b;">Day</span> = 8:00 AM → 5:00 PM (9 hrs) &nbsp;|&nbsp; `;
   html += `<span style="color:#c084fc;">Night</span> = 5:00 PM → 8:00 AM (15 hrs)`;
   html += `</div>`;
-  html += `<div class="table-scroll" style="overflow-x:auto;max-width:100%;"><table style="width:100%;border-collapse:collapse;font-size:11px;font-family:monospace;min-width:900px;">`;
+  html += `<div class="table-scroll" style="overflow-x:auto;max-width:100%;width:100%;box-sizing:border-box;"><table style="width:100%;border-collapse:collapse;font-size:11px;font-family:monospace;min-width:900px;">`;
   html += `<tr style="background:#f4f4f5;border-bottom:2px solid #d4d4d8;">`;
   html += `<th style="border:1px solid #d4d4d8;padding:6px;text-align:left;">Appliance</th>`;
   html += `<th style="border:1px solid #d4d4d8;padding:6px;text-align:right;">Total (kWh)</th>`;
@@ -257,45 +257,99 @@ window.downloadDayGraphReportPng = function() {
   const wrapper = reportDiv.querySelector('.report-wrapper');
   if (!wrapper) { alert('No report content to capture.'); return; }
   if (typeof html2canvas === 'undefined') { alert('html2canvas library not loaded.'); return; }
+  
   const btn = document.getElementById('btn-graph-report-png');
   if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+
+  // 1. Measure the natural table width needed so no elements blowout to screen width
+  const origTable = wrapper.querySelector('table');
+  const tableWidth = origTable ? Math.max(origTable.scrollWidth, 900) : 900;
+  const cardWidth = tableWidth + 24; // padding allowance
+  const containerWidth = cardWidth + 40;
+
+  // 2. Clone the report card
   const clone = wrapper.cloneNode(true);
-  function setOverflowVisible(el) {
-    el.style.overflow = 'visible'; el.style.width = 'auto'; el.style.maxWidth = 'none'; el.style.minWidth = '100%';
-    for (let child of el.children) { setOverflowVisible(child); }
+  clone.style.width = cardWidth + 'px';
+  clone.style.maxWidth = cardWidth + 'px';
+  clone.style.boxSizing = 'border-box';
+  clone.style.margin = '0 auto';
+
+  const tableScroll = clone.querySelector('.table-scroll');
+  if (tableScroll) {
+    tableScroll.style.overflow = 'visible';
+    tableScroll.style.width = '100%';
+    tableScroll.style.maxWidth = 'none';
   }
-  setOverflowVisible(clone);
+
   const table = clone.querySelector('table');
   if (table) {
-    table.style.width = 'auto'; table.style.minWidth = '100%'; table.style.whiteSpace = 'nowrap';
+    table.style.width = '100%';
+    table.style.minWidth = '100%';
+    table.style.whiteSpace = 'nowrap';
     table.style.borderCollapse = 'collapse';
     table.querySelectorAll('th, td').forEach(cell => {
-      cell.style.border = '1px solid #999'; cell.style.padding = '6px 10px';
-      cell.style.textAlign = 'right'; cell.style.backgroundColor = '#ffffff'; cell.style.color = '#18181b';
+      cell.style.border = '1px solid #999';
+      cell.style.padding = '6px 10px';
+      cell.style.textAlign = 'right';
+      cell.style.backgroundColor = '#ffffff';
+      cell.style.color = '#18181b';
     });
     table.querySelectorAll('td:first-child, th:first-child').forEach(cell => {
-      cell.style.textAlign = 'left'; cell.style.fontWeight = 'bold';
+      cell.style.textAlign = 'left';
+      cell.style.fontWeight = 'bold';
     });
     table.querySelectorAll('th').forEach(th => {
-      th.style.backgroundColor = '#f0f0f0'; th.style.fontWeight = 'bold'; th.style.textAlign = 'center';
+      th.style.backgroundColor = '#f0f0f0';
+      th.style.fontWeight = 'bold';
+      th.style.textAlign = 'center';
     });
   }
+
+  // 3. Wrapper container for html2canvas
+  const captureWrapper = document.createElement('div');
+  captureWrapper.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: ${containerWidth}px;
+    min-width: ${containerWidth}px;
+    max-width: ${containerWidth}px;
+    background: #ffffff;
+    padding: 20px;
+    z-index: -9999;
+    opacity: 1;
+    font-family: system-ui, -apple-system, sans-serif;
+    font-size: 12px;
+    color: #18181b;
+    box-sizing: border-box;
+  `;
+
   const title = document.createElement('div');
-  title.style.cssText = 'font-size:18px;font-weight:bold;margin-bottom:10px;border-bottom:2px solid #ddd;padding-bottom:8px;background:#fff;';
+  title.style.cssText = 'font-size:18px;font-weight:bold;margin-bottom:12px;border-bottom:2px solid #ddd;padding-bottom:8px;background:#fff;';
   title.textContent = '📄 Energy Usage Report – ' + new Date().toLocaleDateString('en-PK', { year:'numeric', month:'long', day:'numeric' });
-  clone.insertBefore(title, clone.firstChild);
-  clone.style.cssText = `position:fixed;top:0;left:0;display:inline-block;background:#ffffff;padding:20px;z-index:-9999;opacity:1;font-family:system-ui,-apple-system,sans-serif;font-size:12px;color:#18181b;overflow:visible;width:auto;height:auto;`;
-  document.body.appendChild(clone);
-  html2canvas(clone, { backgroundColor:'#ffffff', scale:2.5, useCORS:true, logging:false, width:clone.scrollWidth, height:clone.scrollHeight }).then(canvas => {
+
+  captureWrapper.appendChild(title);
+  captureWrapper.appendChild(clone);
+  document.body.appendChild(captureWrapper);
+
+  html2canvas(captureWrapper, {
+    backgroundColor: '#ffffff',
+    scale: 2.5,
+    useCORS: true,
+    logging: false,
+    width: containerWidth,
+    height: captureWrapper.scrollHeight,
+    windowWidth: containerWidth
+  }).then(canvas => {
     const a = document.createElement('a');
     a.download = `Graph_Report_${new Date().toISOString().split('T')[0]}.png`;
     a.href = canvas.toDataURL('image/png');
     a.click();
-    document.body.removeChild(clone);
+    document.body.removeChild(captureWrapper);
     if (btn) { btn.disabled = false; btn.textContent = 'Save PNG'; }
   }).catch(err => {
     console.error('PNG capture error:', err);
-    document.body.removeChild(clone);
+    if (captureWrapper.parentNode) document.body.removeChild(captureWrapper);
     if (btn) { btn.disabled = false; btn.textContent = 'Save PNG'; }
     alert('Failed to capture PNG: ' + err.message);
   });

@@ -24,7 +24,7 @@ function _showGraphLoading(s) {
   } else if (o) o.style.display = 'none';
 }
 
-async function _loadAndDraw() {
+async function _loadAndDraw(forceRefresh = false) {
   if (graphIsLoading) return; graphIsLoading = true; _showGraphLoading(true);
   const stat = document.getElementById('graph-stat'), canvas = document.getElementById('graph-canvas');
   if (!canvas || !stat) { graphIsLoading = false; return; }
@@ -46,22 +46,30 @@ async function _loadAndDraw() {
     const nav = _gNavInfo();
     const displayLabel = (graphTab === 'day' && nav.sub) ? nav.sub : nav.label;
     stat.innerHTML = `
-      <div style="display:flex; justify-content:space-between; align-items:center; width:100%; padding-right:4px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; width:100%; padding-right:4px; flex-wrap:wrap; gap:6px;">
         <span style="color:#10b981;font-weight:700;font-size:13px;">📄 Energy Usage Report &nbsp; <span style="color:var(--text-muted); font-weight:normal; font-size:11px;">${displayLabel}</span></span>
-        <div style="display:flex; gap:4px;">
+        <div style="display:flex; gap:4px; align-items:center;">
+          <button id="btn-graph-report-clear-cache" style="background:#f59e0b; color:#fff; border:none; padding:3px 8px; border-radius:6px; font-size:10px; font-weight:800; cursor:pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.2);" title="Clear local cache and re-fetch entire period">↻ Clear Cache</button>
           <button id="btn-graph-report-txt" style="background:#3b82f6; color:#fff; border:none; padding:3px 8px; border-radius:6px; font-size:10px; font-weight:800; cursor:pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">Save TXT</button>
           <button id="btn-graph-report-png" style="background:#10b981; color:#fff; border:none; padding:3px 8px; border-radius:6px; font-size:10px; font-weight:800; cursor:pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">Save PNG</button>
         </div>
       </div>
     `;
     setTimeout(() => {
+      const bClear = document.getElementById('btn-graph-report-clear-cache');
+      if (bClear) {
+        bClear.onclick = () => {
+          if (typeof clearReportCache === 'function') clearReportCache();
+          _loadAndDraw(true);
+        };
+      }
       const bTxt = document.getElementById('btn-graph-report-txt');
       if (bTxt) bTxt.onclick = () => { if(window.downloadDayGraphReport) window.downloadDayGraphReport(); };
       const bPng = document.getElementById('btn-graph-report-png');
       if (bPng) bPng.onclick = () => { if(window.downloadDayGraphReportPng) window.downloadDayGraphReportPng(); };
     }, 50);
     try {
-      const report = await window.generateGraphReport();
+      const report = await window.generateGraphReport(forceRefresh);
       const txt = report.text || ""; const html = report.html || "";
       reportDiv.innerHTML = html + `<pre style="white-space:pre; margin:20px 0 0 0; font-family:monospace; border-top:1px dashed var(--border); padding-top:20px; color:var(--text-muted); opacity:0.8;">${txt}</pre>`;
     } catch(e) { reportDiv.textContent = "Error: " + e.message; }

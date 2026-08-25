@@ -83,8 +83,20 @@ try {
   }
 } catch (e) {}
 
-// ─── Stat line formatter ────────────────────────────────────────────────────
-function _fmtKwh(v) { return v >= 1 ? v.toFixed(1) : (v >= 0.01 ? v.toFixed(2) : v.toFixed(3)); }
+// ─── Energy & Stat line formatter ───────────────────────────────────────────
+function _fmtKwh(v) { 
+  return v >= 1 ? v.toFixed(1) : (v >= 0.01 ? v.toFixed(2) : v.toFixed(3)); 
+}
+
+// Automatically switches to Wh when energy is under 1 kWh
+function _fmtEnergy(v) {
+  if (v == null || isNaN(v) || v <= 0) return '0 Wh';
+  if (v < 1) {
+    const wh = Math.round(v * 1000);
+    return `${wh} Wh`;
+  }
+  return `${_fmtKwh(v)} kWh`;
+}
 
 function _formatStatLine(icon, label, mainVal, accentColor, peakVal, avgVal, dayAvgVal, dayTotalVal, nightAvgVal, nightTotalVal, unit, isKwh, currentTab, isCompact = false) {
   const lblLower = (label || '').toLowerCase();
@@ -93,7 +105,7 @@ function _formatStatLine(icon, label, mainVal, accentColor, peakVal, avgVal, day
   const isVolts = lblLower.includes('volt') || unit === 'V';
   const isNonEnergy = isTemp || isWater || isVolts;
 
-  // Only energy feeds become kWh in Month/Year
+  // Only energy feeds become kWh/Wh in Month/Year
   if ((currentTab === 'month' || currentTab === 'year') && !isNonEnergy) {
     unit = 'kWh';
     isKwh = true;
@@ -121,7 +133,7 @@ function _formatStatLine(icon, label, mainVal, accentColor, peakVal, avgVal, day
   let dayHtml = '';
   if ((dayAvgVal && dayAvgVal > 0.01) || (dayTotalVal && dayTotalVal > 0.01)) {
     const dayAvgDisp = (isDay && !isNonEnergy) ? Math.round(dayAvgVal) : dayAvgVal.toFixed(1);
-    const dKwhDisp = (dayTotalVal && !isNonEnergy) ? _fmtKwh(dayTotalVal) + ' kWh ' : '';
+    const dKwhDisp = (dayTotalVal && !isNonEnergy) ? _fmtEnergy(dayTotalVal) + ' ' : '';
     const dAvgUnit = isNonEnergy ? unit : (isDay ? 'W' : 'kWh/d');
     dayHtml = `<span style="color:var(--accent-solar); ${boldStyle}">Day: ${dKwhDisp}(Avg: ${dayAvgDisp} ${dAvgUnit})</span>`;
   }
@@ -129,7 +141,7 @@ function _formatStatLine(icon, label, mainVal, accentColor, peakVal, avgVal, day
   let nightHtml = '';
   if (!hideNight && ((nightAvgVal && nightAvgVal > 0.01) || (nightTotalVal && nightTotalVal > 0.01))) {
     const nightAvgDisp = (isDay && !isNonEnergy) ? Math.round(nightAvgVal) : nightAvgVal.toFixed(1);
-    const nKwhDisp = (nightTotalVal && !isNonEnergy) ? _fmtKwh(nightTotalVal) + ' kWh ' : '';
+    const nKwhDisp = (nightTotalVal && !isNonEnergy) ? _fmtEnergy(nightTotalVal) + ' ' : '';
     const nAvgUnit = isNonEnergy ? unit : (isDay ? 'W' : 'kWh/d');
     nightHtml = `<span style="color:#c084fc; ${boldStyle}">Night: ${nKwhDisp}(Avg: ${nightAvgDisp} ${nAvgUnit})</span>`;
   }
@@ -139,7 +151,7 @@ function _formatStatLine(icon, label, mainVal, accentColor, peakVal, avgVal, day
     dayNightRow = `<div style="margin-top:2px; display:flex; gap:8px;">${dayHtml}${nightHtml}</div>`;
   }
 
-  const mainDisplay = isKwh ? `${_fmtKwh(mainVal)} kWh` : `${mainVal.toFixed(1)} ${unit}`;
+  const mainDisplay = isKwh ? _fmtEnergy(mainVal) : `${mainVal.toFixed(1)} ${unit}`;
   const peakDisp = isNonEnergy ? peakVal.toFixed(1) : (isDay ? Math.round(peakVal).toLocaleString() : peakVal.toFixed(1));
 
   return `<div style="margin-bottom: 6px; line-height:1.2;"><div style="display:flex; align-items:center; gap:6px;"><span style="color:${accentColor}; font-size:${fsLabel}; font-weight:700;">${icon ? icon + ' ' : ''}${label}:</span><span style="color:var(--text-main); font-size:${fsMain}; font-weight:900;">${mainDisplay}</span></div><div style="color:var(--text-muted); font-size:11px; font-weight:600; margin-left: 1px; margin-top: 2px;"><div>(${peakLabel}: <span style="color:${peakColor}; ${boldStyle}">${peakDisp}</span> ${unit}${avgHtml})</div>${dayNightRow}</div></div>`;

@@ -198,12 +198,14 @@ function _renderGNavBar() {
 window._renderGNavBar = _renderGNavBar;
 
 function countNightHours(startMs, endMs) {
+  const effectiveEnd = Math.min(endMs, Date.now());
+  if (effectiveEnd <= startMs) return 0;
   let count = 0;
   const step = 3600 * 1000;
-  for (let t = startMs; t < endMs; t += step) {
-    const d = new Date(t);
-    const h = d.getHours();
+  for (let t = startMs; t < effectiveEnd; t += step) {
+    const pkt = getKarachiDate(t);
+    const h = pkt.hour;
     if (h >= 17 || h < 8) count++;
   }
-  return count;
+  return Math.max(1, count);
 }

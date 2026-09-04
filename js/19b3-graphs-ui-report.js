@@ -99,7 +99,7 @@ window.generateGraphReport = async function(forceRefresh = false) {
   });
   let numDays = allDays.size || 1;
   if (isDay) numDays = 1;
-  const totalNightHours = countNightHours(startMs, endMs);
+  const totalNightHours = countNightHours(startMs, Math.min(endMs, Date.now()));
   totalLoadKwh = rows.filter(r => !r.isSolar && !r.isBreaker).reduce((sum, r) => sum + r.totalKwh, 0);
   totalDayLoadKwh = rows.filter(r => !r.isSolar && !r.isBreaker).reduce((sum, r) => sum + r.dayKwh, 0);
   totalNightLoadKwh = rows.filter(r => !r.isSolar && !r.isBreaker).reduce((sum, r) => sum + r.nightKwh, 0);
@@ -112,11 +112,12 @@ window.generateGraphReport = async function(forceRefresh = false) {
   txt += `  • Day   = 8:00 AM  → 5:00 PM  (9 hours)\n`;
   txt += `  • Night = 5:00 PM  → 8:00 AM  (15 hours)\n`;
   txt += `  • Solar hours = 8:00 AM → 5:00 PM\n`;
-  const colWidths = { name:22, total:12, day:10, night:10, avgNight:12, avgDay:10, dayPct:8, nightPct:8, dayShare:10, nightShare:10, totalPct:10 };
+  const colWidths = { name:22, total:12, day:10, night:10, avgNightKwh:15, avgNight:21, avgDay:10, dayPct:8, nightPct:8, dayShare:10, nightShare:10, totalPct:10 };
   const headerParts = [
     'Appliance'.padEnd(colWidths.name), 'Total (kWh)'.padStart(colWidths.total),
     'Day (kWh)'.padStart(colWidths.day), 'Night (kWh)'.padStart(colWidths.night),
-    'Avg Night (W)'.padStart(colWidths.avgNight), 'Avg/Day'.padStart(colWidths.avgDay),
+    'Avg Night (kWh)'.padStart(colWidths.avgNightKwh),
+    'Avg Night Hourly (W)'.padStart(colWidths.avgNight), 'Avg/Day'.padStart(colWidths.avgDay),
     'Day %'.padStart(colWidths.dayPct), 'Night %'.padStart(colWidths.nightPct),
     'Day Share'.padStart(colWidths.dayShare), 'Night Share'.padStart(colWidths.nightShare),
     '% of Total'.padStart(colWidths.totalPct)
@@ -146,6 +147,7 @@ window.generateGraphReport = async function(forceRefresh = false) {
       total.toFixed(2).padStart(colWidths.total),
       isSolar ? '-'.padStart(colWidths.day) : day.toFixed(2).padStart(colWidths.day),
       isSolar ? '-'.padStart(colWidths.night) : night.toFixed(2).padStart(colWidths.night),
+      isSolar ? '-'.padStart(colWidths.avgNightKwh) : (night / numDays).toFixed(2).padStart(colWidths.avgNightKwh),
       isSolar ? '-'.padStart(colWidths.avgNight) : (Math.round(avgNightW) + ' W').padStart(colWidths.avgNight),
       avgDay.toFixed(2).padStart(colWidths.avgDay),
       isSolar ? '-'.padStart(colWidths.dayPct) : dayPct.toFixed(1).padStart(colWidths.dayPct) + '%',
@@ -179,7 +181,8 @@ window.generateGraphReport = async function(forceRefresh = false) {
   html += `<th style="border:1px solid #d4d4d8;padding:6px;text-align:right;">Total (kWh)</th>`;
   html += `<th style="border:1px solid #d4d4d8;padding:6px;text-align:right;">Day (kWh)</th>`;
   html += `<th style="border:1px solid #d4d4d8;padding:6px;text-align:right;">Night (kWh)</th>`;
-  html += `<th style="border:1px solid #d4d4d8;padding:6px;text-align:right;">Avg Night (W)</th>`;
+  html += `<th style="border:1px solid #d4d4d8;padding:6px;text-align:right;">Avg Night (kWh)</th>`;
+  html += `<th style="border:1px solid #d4d4d8;padding:6px;text-align:right;">Avg Night Hourly (W)</th>`;
   html += `<th style="border:1px solid #d4d4d8;padding:6px;text-align:right;">Avg/Day</th>`;
   html += `<th style="border:1px solid #d4d4d8;padding:6px;text-align:right;">Day %</th>`;
   html += `<th style="border:1px solid #d4d4d8;padding:6px;text-align:right;">Night %</th>`;
@@ -209,6 +212,7 @@ window.generateGraphReport = async function(forceRefresh = false) {
     html += `<td style="border:1px solid #d4d4d8;padding:6px;text-align:right;color:${color};">${total.toFixed(2)}</td>`;
     html += `<td style="border:1px solid #d4d4d8;padding:6px;text-align:right;color:${isSolar?'#71717a':'#f59e0b'};">${isSolar?'-':day.toFixed(2)}</td>`;
     html += `<td style="border:1px solid #d4d4d8;padding:6px;text-align:right;color:${isSolar?'#71717a':'#c084fc'};">${isSolar?'-':night.toFixed(2)}</td>`;
+    html += `<td style="border:1px solid #d4d4d8;padding:6px;text-align:right;color:${isSolar?'#71717a':'#c084fc'};">${isSolar?'-':(night/numDays).toFixed(2)}</td>`;
     html += `<td style="border:1px solid #d4d4d8;padding:6px;text-align:right;color:${isSolar?'#71717a':'#c084fc'};">${isSolar?'-':Math.round(avgNightW)+' W'}</td>`;
     html += `<td style="border:1px solid #d4d4d8;padding:6px;text-align:right;">${avgDay.toFixed(2)}</td>`;
     html += `<td style="border:1px solid #d4d4d8;padding:6px;text-align:right;color:${isSolar?'#71717a':'#f59e0b'};">${isSolar?'-':dayPct.toFixed(1)+'%'}</td>`;
@@ -223,6 +227,7 @@ window.generateGraphReport = async function(forceRefresh = false) {
   html += `<td style="border:1px solid #d4d4d8;padding:6px;text-align:right;">${totalLoadKwh.toFixed(2)}</td>`;
   html += `<td style="border:1px solid #d4d4d8;padding:6px;text-align:right;color:#f59e0b;">${totalDayLoadKwh.toFixed(2)}</td>`;
   html += `<td style="border:1px solid #d4d4d8;padding:6px;text-align:right;color:#c084fc;">${totalNightLoadKwh.toFixed(2)}</td>`;
+  html += `<td style="border:1px solid #d4d4d8;padding:6px;text-align:right;color:#c084fc;">${(totalNightLoadKwh/numDays).toFixed(2)}</td>`;
   html += `<td style="border:1px solid #d4d4d8;padding:6px;text-align:right;">-</td>`;
   html += `<td style="border:1px solid #d4d4d8;padding:6px;text-align:right;">${(totalLoadKwh/numDays).toFixed(2)}</td>`;
   const dayPctTotal = totalLoadKwh === 0 ? 0 : (totalDayLoadKwh / totalLoadKwh * 100);
@@ -245,7 +250,9 @@ window.downloadDayGraphReport = function() {
   const text = pre.textContent;
   const blob = new Blob([text], { type: 'text/plain' });
   const a = document.createElement('a');
-  a.download = `Graph_Report_${new Date().toISOString().split('T')[0]}.txt`;
+  const nav = typeof _gNavInfo === 'function' ? _gNavInfo() : null;
+  const cleanTxtLabel = (nav && nav.label) ? nav.label.replace(/[^a-zA-Z0-9_-]/g, '_') : new Date().toISOString().split('T')[0];
+  a.download = `Graph_Report_${cleanTxtLabel}.txt`;
   a.href = URL.createObjectURL(blob);
   a.click();
   URL.revokeObjectURL(a.href);
@@ -324,9 +331,11 @@ window.downloadDayGraphReportPng = function() {
     box-sizing: border-box;
   `;
 
+  const nav = typeof _gNavInfo === 'function' ? _gNavInfo() : null;
+  const reportPeriod = (nav && nav.label) ? nav.label : new Date().toLocaleDateString('en-PK', { year:'numeric', month:'long', day:'numeric' });
   const title = document.createElement('div');
   title.style.cssText = 'font-size:18px;font-weight:bold;margin-bottom:12px;border-bottom:2px solid #ddd;padding-bottom:8px;background:#fff;';
-  title.textContent = '📄 Energy Usage Report – ' + new Date().toLocaleDateString('en-PK', { year:'numeric', month:'long', day:'numeric' });
+  title.textContent = '📄 Energy Usage Report – ' + reportPeriod;
 
   captureWrapper.appendChild(title);
   captureWrapper.appendChild(clone);
@@ -342,7 +351,8 @@ window.downloadDayGraphReportPng = function() {
     windowWidth: containerWidth
   }).then(canvas => {
     const a = document.createElement('a');
-    a.download = `Graph_Report_${new Date().toISOString().split('T')[0]}.png`;
+    const cleanFileLabel = (nav && nav.label) ? nav.label.replace(/[^a-zA-Z0-9_-]/g, '_') : new Date().toISOString().split('T')[0];
+    a.download = `Graph_Report_${cleanFileLabel}.png`;
     a.href = canvas.toDataURL('image/png');
     a.click();
     document.body.removeChild(captureWrapper);

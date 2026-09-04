@@ -54,10 +54,9 @@ window.backgroundFetchMonthly = async function() {
 };
 
 // ─── Water tank leak detection ─────────────────────────────────────────────
-// TANK_HISTORY_HOURS must be >= the longest span in checkWindows below,
-// or the longer windows will never find data to compare against.
 const TANK_HISTORY_HOURS = 5;
 const TANK_HISTORY_MS = TANK_HISTORY_HOURS * 3600 * 1000;
+const GLITCH_FLOOR = 5.0; // Ultrasonic sensor dropout threshold (< 5% is treated as disconnected/halted)
 
 async function checkWaterTankWastage(curTank, nowSec) {
   if (!window.tankHistory) {
@@ -70,11 +69,9 @@ async function checkWaterTankWastage(curTank, nowSec) {
   }
 
   const nowMs = nowSec * 1000;
-  // Detect if we are running in Simulator Mode (i.e. nowSec is a historical simulated time)
   const isSimulation = Math.abs(nowMs - Date.now()) > 120000;
 
   if (isSimulation) {
-    // In Simulation Mode: ALWAYS fetch historical data for [nowMs - TANK_HISTORY_MS, nowMs]
     try {
       const startMs = nowMs - TANK_HISTORY_MS;
       const url = `${PROXY_BASE}/feed/data.json?ids=499431&start=${startMs}&end=${nowMs}&skipmissing=0&average=1&delta=0&interval=120`;
@@ -87,7 +84,10 @@ async function checkWaterTankWastage(curTank, nowSec) {
           dataPts.forEach(pt => {
             if (pt && pt[0] && pt[1] !== null && !isNaN(pt[1])) {
               const tMs = pt[0] < 2000000000 ? pt[0] * 1000 : pt[0];
-              fetchedHistory.push({ t: tMs, v: parseFloat(pt[1]) });
+              const val = parseFloat(pt[1]);
+              if (val >= GLITCH_FLOOR) {
+                fetchedHistory.push({ t: tMs, v: val });
+              }
             }
           });
           if (fetchedHistory.length > 0) {
@@ -99,8 +99,8 @@ async function checkWaterTankWastage(curTank, nowSec) {
       console.warn("Water tank simulation history fetch warning:", e);
     }
   } else {
-    // Live Real-Time Mode: Push curTank if valid
-    if (curTank != null && !isNaN(curTank)) {
+    // Live Mode: Only push valid, non-zero sensor readings
+    if (curTank != null && !isNaN(curTank) && curTank >= GLITCH_FLOOR) {
       if (window.tankHistory.length === 0 || (nowMs - window.tankHistory[window.tankHistory.length - 1].t) > 10000) {
         window.tankHistory.push({ t: nowMs, v: curTank });
       }
@@ -121,7 +121,10 @@ async function checkWaterTankWastage(curTank, nowSec) {
             dataPts.forEach(pt => {
               if (pt && pt[0] && pt[1] !== null && !isNaN(pt[1])) {
                 const tMs = pt[0] < 2000000000 ? pt[0] * 1000 : pt[0];
-                fetchedHistory.push({ t: tMs, v: parseFloat(pt[1]) });
+                const val = parseFloat(pt[1]);
+                if (val >= GLITCH_FLOOR) {
+                  fetchedHistory.push({ t: tMs, v: val });
+                }
               }
             });
             if (fetchedHistory.length > 0) {
@@ -131,7 +134,7 @@ async function checkWaterTankWastage(curTank, nowSec) {
               window.tankHistory = Array.from(uniqueMap.entries())
                 .map(([t, v]) => ({ t, v }))
                 .sort((a, b) => a.t - b.t)
-                .filter(pt => (nowMs - pt.t) <= TANK_HISTORY_MS);
+                .filter(pt => (nowMs - pt.t) <= TANK_HISTORY_MS && pt.v >= GLITCH_FLOOR);
             }
           }
         }
@@ -141,12 +144,68 @@ async function checkWaterTankWastage(curTank, nowSec) {
     }
   }
 
-  // Filter to keep last TANK_HISTORY_HOURS relative to nowMs
-  window.tankHistory = window.tankHistory.filter(pt => (nowMs - pt.t) <= TANK_HISTORY_MS);
+  // Filter to keep last TANK_HISTORY_HOURS and valid readings only
+  window.tankHistory = window.tankHistory.filter(pt => (nowMs - pt.t) <= TANK_HISTORY_MS && pt.v >= GLITCH_FLOOR);
 
   try {
     localStorage.setItem('water_tank_history', JSON.stringify(window.tankHistory));
   } catch(e) {}
+
+  // ─── TRANSIENT V-SHAPE DIP & OUTLIER FILTER ─────────────────────────────
+  // Detect readings that temporarily drop and rebound within <= 15 minutes
+  // without the motor running. These are transient echo bounce/condensation glitches.
+  const rawPts = window.tankHistory;
+  const isTransientGlitch = new Set();
+
+  for (let i = 0; i < rawPts.length; i++) {
+    const pt = rawPts[i];
+    
+    // Find pre-dip stable reference reading
+    let preVal = null;
+    for (let j = i - 1; j >= Math.max(0, i - 6); j--) {
+      if ((pt.t - rawPts[j].t) <= 15 * 60 * 1000) {
+        preVal = rawPts[j].v;
+        break;
+      }
+    }
+
+    if (preVal !== null && pt.v < preVal - 7.0) {
+      // Look ahead up to 15 min for rebound back to pre-dip level
+      for (let k = i + 1; k < Math.min(rawPts.length, i + 10); k++) {
+        if ((rawPts[k].t - pt.t) <= 15 * 60 * 1000) {
+          if (rawPts[k].v >= preVal - 4.0) {
+            // Rebounded back without pump running -> mark all points in the trough as transient glitches
+            for (let g = i; g < k; g++) {
+              if (rawPts[g].v < preVal - 5.0) {
+                isTransientGlitch.add(rawPts[g].t);
+              }
+            }
+            break;
+          }
+        } else {
+          break;
+        }
+      }
+    }
+  }
+
+  // Clean history: valid values only, transient dip artifacts removed
+  const cleanHistory = rawPts.filter(p => !isTransientGlitch.has(p.t));
+
+  const MIN_MEDIAN_SAMPLES = 3;
+  const getMedian = (startMs, endMs) => {
+    const pts = cleanHistory.filter(p => p.t >= startMs && p.t <= endMs);
+    if (pts.length < MIN_MEDIAN_SAMPLES) return null;
+    const vals = pts.map(p => p.v).sort((a, b) => a - b);
+    return vals[Math.floor(vals.length / 2)];
+  };
+
+  const getSpread = (startMs, endMs) => {
+    const pts = cleanHistory.filter(p => p.t >= startMs && p.t <= endMs);
+    if (pts.length < MIN_MEDIAN_SAMPLES) return 999;
+    const vals = pts.map(p => p.v);
+    return Math.max(...vals) - Math.min(...vals);
+  };
 
   let isWasting = false;
   let wastageMsg = "";
@@ -156,121 +215,65 @@ async function checkWaterTankWastage(curTank, nowSec) {
   let startTStr = "";
   let endTStr = "";
 
-  // ─── SENSOR GLITCH DETECTION ────────────────────────────────────────────
-  // The ultrasonic sensor sometimes halts and reports 0% until restarted.
-  // A glitch signature = a point at/near 0, OR a point within a short
-  // window of a near-zero point (the up-ramp as it snaps back after
-  // restart). These must be excluded from BOTH the "current level" and
-  // the "recovery check" — otherwise a restart's snap-back looks exactly
-  // like a real refill and hides genuine leaks.
-  const GLITCH_FLOOR = 5.0;      // values below this = sensor halted
-  const GLITCH_GUARD_MIN = 6;    // minutes around a glitch point to also exclude (the up/down ramp)
-
-  const glitchTimes = window.tankHistory
-    .filter(p => p.v < GLITCH_FLOOR)
-    .map(p => p.t);
-
-  const isNearGlitch = (t) => glitchTimes.some(gt => Math.abs(t - gt) <= GLITCH_GUARD_MIN * 60 * 1000);
-
-  // Clean history: real sensor readings only, glitch points and their
-  // recovery ramps removed entirely.
-  const cleanHistory = window.tankHistory.filter(p => p.v >= GLITCH_FLOOR && !isNearGlitch(p.t));
-
-  // --- NOISE-TOLERANT MEDIAN FILTER (using cleaned, glitch-free data) ---
-  // MIN_MEDIAN_SAMPLES: with readings this noisy (single points can swing
-  // +/-15% in 2 minutes), a 2-3 point median is not trustworthy - it can
-  // land squarely on a noise trough/peak. Require at least 4 real samples.
-  const MIN_MEDIAN_SAMPLES = 4;
-  const getMedian = (startMs, endMs) => {
-    const pts = cleanHistory.filter(p => p.t >= startMs && p.t <= endMs);
-    if (pts.length < MIN_MEDIAN_SAMPLES) return null;
-    const vals = pts.map(p => p.v).sort((a, b) => a - b);
-    return vals[Math.floor(vals.length / 2)];
-  };
-
-  // CURRENT_WINDOW_MIN: window used to establish "now". If the sensor was
-  // offline (glitch) for part or all of this window, cleanHistory will be
-  // sparse or empty here - getMedian's sample-count guard above already
-  // returns null in that case, so detection is safely skipped for this
-  // cycle rather than risking a comparison against a stale/contaminated
-  // reading pulled in from just outside the outage.
   const CURRENT_WINDOW_MIN = 10;
 
   if (cleanHistory.length >= 5) {
     const motorW = window.lastResultsMap?.get('Water Motor')?.value || 0;
 
-    // Only detect depletion if motor is NOT running
+    // Only detect depletion if water motor is NOT running
     if (motorW <= 20) {
-
-      // Current level is median of the last CURRENT_WINDOW_MIN minutes
-      // (glitch-free).
       const currentMedian = getMedian(nowMs - CURRENT_WINDOW_MIN * 60 * 1000, nowMs);
+      const currentSpread = getSpread(nowMs - CURRENT_WINDOW_MIN * 60 * 1000, nowMs);
 
-      if (currentMedian !== null) {
+      // Require stable readings in current window (spread < 8%)
+      if (currentMedian !== null && currentSpread < 8.0) {
+        const recentPts = cleanHistory.filter(p => p.t >= nowMs - 8 * 60 * 1000);
+        const isSustained = recentPts.length >= 3;
 
-        const checkWindows = [
-          { span: 15,  minDrop: 2.5 },
-          { span: 20,  minDrop: 3.0 },
-          { span: 30,  minDrop: 3.5 },
-          { span: 45,  minDrop: 5.0 },
-          { span: 60,  minDrop: 6.0 },
-          { span: 90,  minDrop: 8.0 },
-          { span: 120, minDrop: 8.0 },
-          { span: 180, minDrop: 10.0 },
-          { span: 240, minDrop: 10.0 },
-          { span: 300, minDrop: 12.0 }
-        ];
+        if (isSustained) {
+          const checkWindows = [
+            { span: 15,  minDrop: 3.5,  maxRate: 35.0 },
+            { span: 20,  minDrop: 4.0,  maxRate: 35.0 },
+            { span: 30,  minDrop: 5.0,  maxRate: 30.0 },
+            { span: 45,  minDrop: 6.0,  maxRate: 25.0 },
+            { span: 60,  minDrop: 7.0,  maxRate: 20.0 },
+            { span: 90,  minDrop: 8.5,  maxRate: 18.0 },
+            { span: 120, minDrop: 10.0, maxRate: 15.0 },
+            { span: 180, minDrop: 12.0, maxRate: 12.0 },
+            { span: 240, minDrop: 14.0, maxRate: 10.0 }
+          ];
 
-        for (const win of checkWindows) {
-          const targetMs = nowMs - (win.span * 60 * 1000);
+          for (const win of checkWindows) {
+            const targetMs = nowMs - (win.span * 60 * 1000);
+            const pastMedian = getMedian(targetMs - 6 * 60 * 1000, targetMs + 6 * 60 * 1000);
+            const pastSpread = getSpread(targetMs - 6 * 60 * 1000, targetMs + 6 * 60 * 1000);
 
-          // Past level is median of a wider (+/-6 min) window around target,
-          // glitch-free. Widened from +/-3 min because a tight window often
-          // sampled only 2-3 points - not enough to reject noise swinging
-          // +/-15% between consecutive readings.
-          const pastMedian = getMedian(targetMs - 6 * 60 * 1000, targetMs + 6 * 60 * 1000);
+            if (pastMedian !== null && pastSpread < 8.0) {
+              const drop = pastMedian - currentMedian;
+              const rateHr = drop / (win.span / 60);
 
-          if (pastMedian !== null) {
-            const drop = pastMedian - currentMedian;
-            const rateHr = drop / (win.span / 60);
-
-            // Rate check: real leaks are steady (<45%/hr). Extreme rates
-            // combined with a near-zero current reading indicate a sensor
-            // cutout, not a real leak — skip those explicitly.
-            if (currentMedian < 3.0 && rateHr > 20.0) {
-              continue;
-            }
-
-            if (drop >= win.minDrop && rateHr <= 45.0) {
-
-              // Recovery check: distinguish a REAL refill (sustained rise
-              // over many samples) from ordinary noise producing one low
-              // point in the last 30 minutes. Comparing against a single
-              // min-point was too aggressive - normal jitter riding on a
-              // still-declining trend can dip below "current" for one
-              // sample and wrongly veto every window. Instead, compare the
-              // median of the OLDER half of the last 30 min against the
-              // median of the NEWER half: only a real, sustained climb
-              // counts as recovery.
-              const halfWindowMs = 15 * 60 * 1000;
-              const olderHalfMedian = getMedian(nowMs - 2 * halfWindowMs, nowMs - halfWindowMs);
-              const newerHalfMedian = getMedian(nowMs - halfWindowMs, nowMs);
-              if (olderHalfMedian !== null && newerHalfMedian !== null) {
-                if (newerHalfMedian > olderHalfMedian + 6.0) {
-                  continue; // Tank is genuinely recovering (sustained rise, not a noise blip)
+              if (drop >= win.minDrop && rateHr <= win.maxRate) {
+                // Recovery check: ensure tank isn't currently rising/rebounding
+                const halfWindowMs = 15 * 60 * 1000;
+                const olderHalfMedian = getMedian(nowMs - 2 * halfWindowMs, nowMs - halfWindowMs);
+                const newerHalfMedian = getMedian(nowMs - halfWindowMs, nowMs);
+                if (olderHalfMedian !== null && newerHalfMedian !== null) {
+                  if (newerHalfMedian > olderHalfMedian + 4.0) {
+                    continue; // Tank is recovering
+                  }
                 }
+
+                isWasting = true;
+                droppedPct = drop;
+                timeSpanMin = win.span;
+                dropRateHr = rateHr;
+
+                startTStr = formatPktTime(targetMs, 'time');
+                endTStr = formatPktTime(nowMs, 'time');
+                wastageMsg = `🚨 WATER WASTAGE / VALVE OPEN ALERT! Tank dropped ${drop.toFixed(1)}% in ~${timeSpanMin}m (between ${startTStr} and ${endTStr}). Rate: -${dropRateHr.toFixed(1)}%/hr. Check for open valves or leaks!`;
+
+                break;
               }
-
-              isWasting = true;
-              droppedPct = drop;
-              timeSpanMin = win.span;
-              dropRateHr = rateHr;
-
-              startTStr = formatPktTime(targetMs, 'time');
-              endTStr = formatPktTime(nowMs, 'time');
-              wastageMsg = `🚨 WATER WASTAGE / VALVE OPEN ALERT! Tank dropped ${drop.toFixed(1)}% in ~${timeSpanMin}m (between ${startTStr} and ${endTStr}). Rate: -${dropRateHr.toFixed(1)}%/hr. Check for open valves or leaks!`;
-
-              break;
             }
           }
         }
@@ -289,7 +292,6 @@ async function checkWaterTankWastage(curTank, nowSec) {
       msg: wastageMsg
     };
 
-    // System Notification & Toast (throttled to once every 10 mins)
     const lastNotified = window._lastWaterWasteNotified || 0;
     if (nowMs - lastNotified > 10 * 60 * 1000) {
       window._lastWaterWasteNotified = nowMs;
@@ -305,6 +307,7 @@ async function checkWaterTankWastage(curTank, nowSec) {
       }
     }
   } else {
+    // Reset immediately when level normalizes
     window.waterWasteDetected = { active: false };
   }
 
@@ -359,47 +362,47 @@ async function poll() {
     const curTankVal = tankEntry ? tankEntry.v : null;
     const nowSec = Math.floor(Date.now() / 1000);
     
-    // Execute water tank depletion check
+    // Execute water tank depletion check with noise filtering
     await checkWaterTankWastage(curTankVal, nowSec);
     
-    if (tankEntry && tankEntry.v != null) {
+    // Process flow rate only on valid readings (>= 5%) to avoid phantom flow spikes
+    if (tankEntry && tankEntry.v != null && tankEntry.v >= GLITCH_FLOOR) {
       const curTank = tankEntry.v;
       const now = Date.now();
       
-      if (window.prevTankLevel === undefined || window.prevTankTime === undefined) {
+      if (window.prevTankLevel === undefined || window.prevTankTime === undefined || window.prevTankLevel < GLITCH_FLOOR) {
         window.prevTankLevel = curTank;
         window.prevTankTime = now;
         window.waterFlowRate = 0;
       } else {
         const pctDiff = curTank - window.prevTankLevel;
+        const timeDiffMin = (now - window.prevTankTime) / 60000;
         
-        if (pctDiff > 0) {
-          const timeDiffMin = (now - window.prevTankTime) / 60000;
-          if (timeDiffMin > 0.1) {
-            const calculatedFlow = (pctDiff * 10) / timeDiffMin;
-            if (calculatedFlow > 0.5 && calculatedFlow < 150) {
-              window.waterFlowRate = calculatedFlow;
-              window.lastFlowRate = calculatedFlow;
-              window.lastMotorOnTime = now;
-              localStorage.setItem('water_last_flow_rate', calculatedFlow.toString());
-              localStorage.setItem('water_last_motor_on_time', now.toString());
-              
-              if (window.fillSessionStartTime === null || window.fillSessionStartLevel === null) {
-                window.fillSessionStartTime = window.prevTankTime;
-                window.fillSessionStartLevel = window.prevTankLevel;
-                localStorage.setItem('water_session_start_time', window.fillSessionStartTime.toString());
-                localStorage.setItem('water_session_start_level', window.fillSessionStartLevel.toString());
-              }
-              
-              const totalElapsedMin = (now - window.fillSessionStartTime) / 60000;
-              if (totalElapsedMin > 0.1) {
-                const totalPctDiff = curTank - window.fillSessionStartLevel;
-                if (totalPctDiff > 0) {
-                  const avgFlow = (totalPctDiff * 10) / totalElapsedMin;
-                  if (avgFlow > 0.5 && avgFlow < 150) {
-                    window.waterAvgFlowRate = avgFlow;
-                    localStorage.setItem('water_session_avg_flow', avgFlow.toString());
-                  }
+        // Reject step-jumps (> 25% in under 1 minute) from echo bounce glitches
+        if (pctDiff > 0 && pctDiff < 25 && timeDiffMin > 0.1) {
+          const calculatedFlow = (pctDiff * 10) / timeDiffMin;
+          if (calculatedFlow > 0.5 && calculatedFlow < 150) {
+            window.waterFlowRate = calculatedFlow;
+            window.lastFlowRate = calculatedFlow;
+            window.lastMotorOnTime = now;
+            localStorage.setItem('water_last_flow_rate', calculatedFlow.toString());
+            localStorage.setItem('water_last_motor_on_time', now.toString());
+            
+            if (window.fillSessionStartTime === null || window.fillSessionStartLevel === null) {
+              window.fillSessionStartTime = window.prevTankTime;
+              window.fillSessionStartLevel = window.prevTankLevel;
+              localStorage.setItem('water_session_start_time', window.fillSessionStartTime.toString());
+              localStorage.setItem('water_session_start_level', window.fillSessionStartLevel.toString());
+            }
+            
+            const totalElapsedMin = (now - window.fillSessionStartTime) / 60000;
+            if (totalElapsedMin > 0.1) {
+              const totalPctDiff = curTank - window.fillSessionStartLevel;
+              if (totalPctDiff > 0) {
+                const avgFlow = (totalPctDiff * 10) / totalElapsedMin;
+                if (avgFlow > 0.5 && avgFlow < 150) {
+                  window.waterAvgFlowRate = avgFlow;
+                  localStorage.setItem('water_session_avg_flow', avgFlow.toString());
                 }
               }
             }
@@ -417,7 +420,6 @@ async function poll() {
             localStorage.removeItem('water_session_avg_flow');
           }
         }
-        // Always update tank variables to prevent state machine lockup
         window.prevTankLevel = curTank;
         window.prevTankTime = now;
       }
@@ -436,7 +438,7 @@ async function poll() {
       }
     }
 
-        const results = await Promise.all(userOrderedFeeds.filter(f => f.enabled).map(async f => {
+    const results = await Promise.all(userOrderedFeeds.filter(f => f.enabled).map(async f => {
       const entry = bulkData.get(String(f.id));
       let val = entry ? entry.v : null;
       let time = entry ? entry.t : null;
@@ -466,14 +468,12 @@ async function poll() {
         
         if (!isAccumulator) {
           if (STALE_EXEMPT.has(f.name)) {
-            // Temperature / Sensors: Show last value for 10 mins, then 0
             const TEN_MINS_MS = 10 * 60 * 1000;
             if (age > TEN_MINS_MS) {
               if (window.addDebugLog) window.addDebugLog(`<b style="color:#ef4444">Sensor Timeout:</b> ${f.name} (no update in ${Math.round(age/60000)}m) set to 0`);
               val = 0;
             }
           } else {
-            // Standard Power Feeds: Set to 0 after 5 mins (STALE_MS)
             if (age > STALE_MS) {
               if (window.addDebugLog) window.addDebugLog(`<b style="color:#f59e0b">Power Stale:</b> ${f.name} (no update in ${Math.round(age/60000)}m) set to 0`);
               val = 0;
@@ -506,7 +506,7 @@ async function poll() {
     window.lastResultsMap = bm;
     window.lastSolarActual = bm.get('Solar')?.value || 0;
 
-    // Detect offline/0W appliances BEFORE rendering so badges appear immediately
+    // Detect offline/0W appliances BEFORE rendering
     if (typeof checkApplianceOffline === 'function') await checkApplianceOffline(nowSec, bm);
 
     renderResults(results);

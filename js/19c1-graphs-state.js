@@ -14,6 +14,34 @@ if (typeof graphPanOffset === 'undefined') window.graphPanOffset = 0;
 if (typeof graphIsRendering === 'undefined') window.graphIsRendering = false;
 if (typeof graphIsPanning === 'undefined') window.graphIsPanning = false;
 if (typeof window.gridAllDisabled === 'undefined') window.gridAllDisabled = new Set();
+
+// ─── Moment Flow toggles state ──────────────────────────────────────────────
+if (typeof window.momentFlowDisabled === 'undefined') {
+  window.momentFlowDisabled = new Set();
+  try {
+    const saved = localStorage.getItem('momentFlowDisabled');
+    if (saved) {
+      const arr = JSON.parse(saved);
+      if (Array.isArray(arr)) window.momentFlowDisabled = new Set(arr);
+    }
+  } catch (e) {}
+}
+
+const MOMENT_FLOW_FEEDS = [
+  { key: 'grid',    label: 'Grid',         color: '#ef4444', isGrid: true },
+  { key: 'solar',   label: 'Solar',        color: '#facc15', isSolar: true },
+  { key: 'k15',     label: 'Kenwood 1.5T', color: '#38bdf8', isAc: true },
+  { key: 'k1',      label: 'Kenwood 1T',   color: '#7dd3fc', isAc: true },
+  { key: 'haier',   label: 'Haier 1T',     color: '#a5f3fc', isAc: true },
+  { key: 'fridge1', label: 'Fridge 1',     color: '#c084fc' },
+  { key: 'fridge2', label: 'Fridge 2',     color: '#22d3ee' },
+  { key: 'pc',      label: 'PC',           color: '#4ade80' },
+  { key: 'motor',   label: 'Motor',        color: '#fbbf24' },
+  { key: 'wm',      label: 'W/M',          color: '#e879f9' },
+  { key: 'others',  label: 'Others',       color: '#f59e0b' }
+];
+window.MOMENT_FLOW_FEEDS = MOMENT_FLOW_FEEDS;
+
 if (typeof window.graphOverlayAc === 'undefined') window.graphOverlayAc = null;
 
 // ─── Others: optional Fridge 1 + Fridge 2 overlay state ────────────────────

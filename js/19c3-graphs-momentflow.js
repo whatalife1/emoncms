@@ -1,7 +1,7 @@
 // js/19c3-graphs-momentflow.js
 // ─── Moment Flow Inspector mode ─────────────────────────────────────────────
 
-async function _handleMomentFlowMode(nav, stat, canvas) {
+async function _handleMomentFlowMode(nav, stat, canvas, forceRefresh = false) {
   const allInspFeeds = [
     { key: 'solar',   name: 'Solar',        id: '499380', color: '#facc15' },
     { key: 'grid',    name: 'Grid',         id: '499374', color: '#ef4444' },
@@ -14,39 +14,128 @@ async function _handleMomentFlowMode(nav, stat, canvas) {
     { key: 'motor',   name: 'Water Motor',  id: '542850', color: '#fbbf24' },
     { key: 'wm',      name: 'Washing M/C', id: '544694', color: '#e879f9' }
   ];
-  const results = await Promise.all(
-    allInspFeeds.map(f => _gFetch(f.id, nav.startMs, nav.endMs, nav.interval))
-  );
-  const multiData = allInspFeeds.map((f, i) => ({
+
+  // In-memory cache so clicking toggle pills updates instantaneously
+  const cacheKey = `${nav.startMs}_${nav.endMs}_${nav.interval}`;
+  let results;
+  const isCacheValid = window._mfDataCache && 
+                       window._mfDataCache.key === cacheKey && 
+                       (Date.now() - window._mfDataCache.ts < 50000);
+
+  if (!forceRefresh && isCacheValid) {
+    results = window._mfDataCache.results;
+  } else {
+    results = await Promise.all(
+      allInspFeeds.map(f => _gFetch(f.id, nav.startMs, nav.endMs, nav.interval))
+    );
+    window._mfDataCache = { key: cacheKey, results, ts: Date.now() };
+  }
+
+  const allMultiData = allInspFeeds.map((f, i) => ({
     key: f.key,
     label: f.name,
     color: f.color,
     data: _pointsToBars(results[i], nav, f.key),
     rawPts: results[i]
   }));
-  const bars1 = multiData.find(m => m.key === 'solar')?.data || [];
-  const bars2 = multiData.find(m => m.key === 'grid')?.data || [];
-  let maxV = 1;
-  const allVals = multiData.flatMap(m => m.data).filter(v => v > 0);
+
+  const origSolarBars = allMultiData.find(m => m.key === 'solar')?.data || [];
+  const origGridBars  = allMultiData.find(m => m.key === 'grid')?.data || [];
+  const nPoints       = nav.nBars || origSolarBars.length || 720;
+
+  // Calculate untracked "Others" (Fans, Lights...) from raw original feeds
+  const othersBars = new Array(nPoints).fill(0);
+  const trackedLoads = allMultiData.filter(m => m.key !== 'solar' && m.key !== 'grid');
+
+  for (let k = 0; k < nPoints; k++) {
+    const sW = (origSolarBars[k] != null && origSolarBars[k] > 0) ? origSolarBars[k] : 0;
+    const gW = (origGridBars[k] != null && origGridBars[k] > 0) ? origGridBars[k] : 0;
+    const totalPower = sW + gW;
+    let trackedSum = 0;
+    for (let j = 0; j < trackedLoads.length; j++) {
+      const v = trackedLoads[j].data?.[k];
+      if (v != null && v > 0) trackedSum += v;
+    }
+    othersBars[k] = Math.max(0, totalPower - trackedSum);
+  }
+
+  allMultiData.push({
+    key: 'others',
+    label: 'Others',
+    color: '#f59e0b',
+    data: othersBars,
+    rawPts: []
+  });
+
+  // ── Adjust Grid: remove night-time usage of any disabled appliances ───────
+  const disabled = window.momentFlowDisabled || new Set();
+  const disabledLoads = allMultiData.filter(m => m.key !== 'solar' && m.key !== 'grid' && disabled.has(m.key));
+  const adjustedGridBars = new Array(nPoints).fill(0);
+
+  for (let k = 0; k < nPoints; k++) {
+    const origG = (origGridBars[k] != null && origGridBars[k] > 0) ? origGridBars[k] : 0;
+    const ts = nav.startMs + (k * nav.resSeconds * 1000);
+    const pkt = getKarachiDate(ts);
+    const isNight = (pkt.hour >= 17 || pkt.hour < 8);
+
+    if (isNight && disabledLoads.length > 0) {
+      let disabledNightW = 0;
+      for (let d = 0; d < disabledLoads.length; d++) {
+        const val = disabledLoads[d].data?.[k];
+        if (val != null && val > 0) disabledNightW += val;
+      }
+      adjustedGridBars[k] = Math.max(0, origG - disabledNightW);
+    } else {
+      adjustedGridBars[k] = origG;
+    }
+  }
+
+  // Update Grid entry with adjusted night values
+  const gridItem = allMultiData.find(m => m.key === 'grid');
+  if (gridItem) {
+    gridItem.origRawData = origGridBars;
+    gridItem.data = adjustedGridBars;
+  }
+
+  // Filter visible feeds based on toggle state
+  const visibleLines = allMultiData.filter(m => !disabled.has(m.key));
+  const activeMultiData = visibleLines.length > 0 ? visibleLines : allMultiData;
+
+  // Autoscale Y-axis dynamically to visible lines only
+  let maxV = 100;
+  const allVals = activeMultiData.flatMap(m => m.data).filter(v => v > 0);
   if (allVals.length) maxV = Math.max(...allVals) * 1.1;
+
   graphDataCache = {
-    bars1, bars2,
+    bars1: origSolarBars,
+    bars2: adjustedGridBars,
     labels: nav.labels,
     timeLabels: nav.timeLabels || nav.labels,
     fullLabels: nav.fullLabels || nav.labels,
     color1: '#facc15', color2: '#ef4444', unit: 'W',
     isCombined: true, isMomentFlow: true, nav,
-    lastIdx: bars1.length, multiData,
+    lastIdx: origSolarBars.length,
+    multiData: activeMultiData,
+    allMultiData: allMultiData,
     minV: 0, maxV, range: maxV
   };
+
   canvas.style.display = 'block';
   const reportDiv = document.getElementById('graph-report-view');
   if (reportDiv) reportDiv.style.display = 'none';
-  _drawChart(canvas, bars1, bars2, nav.labels, '#facc15', '#ef4444', 'W', true, nav, bars1.length, multiData, 0, maxV, maxV);
+
+  _drawChart(canvas, origSolarBars, adjustedGridBars, nav.labels, '#facc15', '#ef4444', 'W', true, nav, origSolarBars.length, activeMultiData, 0, maxV, maxV);
+
+  const visCount = activeMultiData.length;
+  const totCount = allMultiData.length;
+  const filterLabel = visCount < totCount 
+    ? `<span style="color:#38bdf8; font-weight:800;">(${visCount}/${totCount} feeds enabled &bull; Night grid adjusted)</span>`
+    : '<span style="color:#4ade80; font-weight:800;">(All feeds enabled)</span>';
+
   stat.innerHTML = `
     <div style="background:var(--bg-card); border:1px solid var(--accent-solar); border-radius:8px; padding:8px 12px; font-size:11px; color:var(--text-main); margin-bottom:6px;">
-      <span style="color:var(--accent-solar); font-weight:800; font-size:12px;">🔍 Moment Flow Inspector Active</span><br>
-      Scrub across the graph starting from <b>${window.graphDayStartHour}:00 AM</b>. The top Power Flow SVG diagram and tooltip show live Grid, Solar, Load, and Appliance Day/Night Watts & kWh.
+      <span style="color:var(--accent-solar); font-weight:800; font-size:12px;">🔍 Moment Flow Inspector Active &bull; ${filterLabel}</span><br>
+      Scrub across graph to inspect moments. Disabled appliances have their night usage subtracted from Grid & Load.
     </div>
   `;
   _showGraphLoading(false);

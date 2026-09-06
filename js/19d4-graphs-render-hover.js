@@ -39,7 +39,9 @@ function _handleGraphHover(e, pin) {
   // ─── Moment Flow Inspector tooltip ───
   if (graphDataCache.isMomentFlow && multiData) {
     const timestampSec = Math.floor((nav.startMs + (idx * nav.resSeconds * 1000)) / 1000);
-    replayFlowDiagramAtMoment(multiData, idx, timestampSec);
+    const sourceData = graphDataCache.allMultiData || multiData;
+    replayFlowDiagramAtMoment(sourceData, idx, timestampSec);
+
     const factor = (nav.resSeconds || 120) / 3600000;
     const startMs = nav.startMs || 0;
     const getCumStats = (dataArr, key = '') => {
@@ -66,65 +68,82 @@ function _handleGraphHover(e, pin) {
         nightAvgW: nightCount > 0 ? Math.round(nightSum / nightCount) : 0
       };
     };
-    const loads = multiData.filter(m => m.key !== 'solar' && m.key !== 'grid').map(m => {
+
+    const solarItem = sourceData.find(m => m.key === 'solar');
+    const gridItem  = sourceData.find(m => m.key === 'grid');
+    const solarW     = Math.round(solarItem?.data[idx] || 0);
+    const solarStats = getCumStats(solarItem?.data, 'solar');
+
+    // gridItem.data is already adjusted (disabled appliances subtracted at night)
+    const gridW      = Math.round(gridItem?.data[idx] || 0);
+    const gridStats  = getCumStats(gridItem?.data, 'grid');
+
+    const loads = sourceData.filter(m => m.key !== 'solar' && m.key !== 'grid' && m.key !== 'others').map(m => {
       const watts = Math.max(0, Math.round(m.data[idx] || 0));
       const stats = getCumStats(m.data, m.key);
       return { key: m.key, label: m.label, color: m.color, watts, stats };
     });
-    const solarItem = multiData.find(m => m.key === 'solar');
-    const gridItem  = multiData.find(m => m.key === 'grid');
-    const solarW     = Math.round(solarItem?.data[idx] || 0);
-    const solarStats = getCumStats(solarItem?.data, 'solar');
-    const gridW      = Math.round(gridItem?.data[idx] || 0);
-    const gridStats  = getCumStats(gridItem?.data, 'grid');
-    const othersData = new Array(n).fill(0);
-    for (let k = 0; k < n; k++) {
-      const sW = (solarItem?.data?.[k] != null && solarItem.data[k] > 0) ? solarItem.data[k] : 0;
-      const gW = (gridItem?.data?.[k] != null && gridItem.data[k] > 0) ? gridItem.data[k] : 0;
-      const totSupplied = sW + gW;
-      let trackedSum = 0;
-      loads.forEach(l => {
-        const item = multiData.find(m => m.key === l.key);
-        if (item && item.data?.[k] != null && item.data[k] > 0) trackedSum += item.data[k];
-      });
-      othersData[k] = Math.max(0, totSupplied - trackedSum);
-    }
-    const othersW = Math.round(othersData[idx] || 0);
-    const othersStats = getCumStats(othersData, 'others');
+
+    const othersItem = sourceData.find(m => m.key === 'others');
+    const othersW = Math.round(othersItem?.data?.[idx] || 0);
+    const othersStats = getCumStats(othersItem?.data, 'others');
     loads.push({ key: 'others', label: 'Others (Fans, Lights...)', color: '#f59e0b', watts: othersW, stats: othersStats });
-    const trackedWatts = loads.filter(l => l.key !== 'others').reduce((sum, l) => sum + l.watts, 0);
-    const totLoad      = Math.max(trackedWatts, solarW + gridW);
-    const totLoadKwh   = loads.reduce((sum, l) => sum + l.stats.totalKwh, 0);
-    const totDayKwh    = loads.reduce((sum, l) => sum + l.stats.dayKwh, 0);
-    const totNightKwh  = loads.reduce((sum, l) => sum + l.stats.nightKwh, 0);
-    const totDayAvgW   = Math.round(loads.reduce((sum, l) => sum + l.stats.dayAvgW, 0));
-    const totNightAvgW = Math.round(loads.reduce((sum, l) => sum + l.stats.nightAvgW, 0));
+
+    // Filter cards and appliances by toggle state
+    const disabled = window.momentFlowDisabled || new Set();
+    const isSolarVisible = !disabled.has('solar');
+    const isGridVisible  = !disabled.has('grid');
+    const visibleLoads   = loads.filter(l => !disabled.has(l.key));
+
+    // Calculate Load accurately based on active visible loads and adjusted grid
+    const visibleTrackedWatts = visibleLoads.filter(l => l.key !== 'others').reduce((sum, l) => sum + l.watts, 0);
+    const totLoad      = Math.max(visibleTrackedWatts, solarW + gridW);
+    const totLoadKwh   = visibleLoads.reduce((sum, l) => sum + l.stats.totalKwh, 0);
+    const totDayKwh    = visibleLoads.reduce((sum, l) => sum + l.stats.dayKwh, 0);
+    const totNightKwh  = visibleLoads.reduce((sum, l) => sum + l.stats.nightKwh, 0);
+    const totDayAvgW   = Math.round(visibleLoads.reduce((sum, l) => sum + l.stats.dayAvgW, 0));
+    const totNightAvgW = Math.round(visibleLoads.reduce((sum, l) => sum + l.stats.nightAvgW, 0));
+
     const isMobileScreen = window.innerWidth <= 600;
     let htmlStr = `
       <div style="font-weight:800; font-size:${isMobileScreen ? '13px' : '14px'}; color:var(--text-main); border-bottom:1px solid var(--border); padding-bottom:4px; margin-bottom:6px; display:flex; justify-content:space-between; align-items:center;">
         <span>🕒 ${timeLabel}</span> ${closeBtn}
       </div>`;
+
     if (isMobileScreen) {
+      const cards = [];
+      if (isGridVisible) {
+        cards.push(`<div><div style="color:#ef4444; font-weight:800;">⚡ Grid</div><div style="font-weight:800; color:var(--text-main); font-size:12px;">${gridW} W</div><div style="font-size:9.5px; color:var(--text-muted);">${gridStats.totalKwh.toFixed(2)} kWh</div></div>`);
+      }
+      if (isSolarVisible) {
+        cards.push(`<div><div style="color:#facc15; font-weight:800;">☀ Solar</div><div style="font-weight:800; color:var(--text-main); font-size:12px;">${solarW} W</div><div style="font-size:9.5px; color:var(--text-muted);">${solarStats.totalKwh.toFixed(2)} kWh</div></div>`);
+      }
+      cards.push(`<div><div style="color:#38bdf8; font-weight:800;">💡 Load</div><div style="font-weight:800; color:var(--text-main); font-size:12px;">${totLoad} W</div><div style="font-size:9.5px; color:var(--text-muted);">${totLoadKwh.toFixed(2)} kWh</div></div>`);
+
       htmlStr += `
-      <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:4px; margin-bottom:6px; font-size:11px; background:var(--bg-card); padding:6px 8px; border-radius:8px; border:1px solid var(--border); text-align:center;">
-        <div><div style="color:#ef4444; font-weight:800;">⚡ Grid</div><div style="font-weight:800; color:var(--text-main); font-size:12px;">${gridW} W</div><div style="font-size:9.5px; color:var(--text-muted);">${gridStats.totalKwh.toFixed(2)} kWh</div></div>
-        <div style="border-left:1px solid var(--border); border-right:1px solid var(--border);"><div style="color:#facc15; font-weight:800;">☀ Solar</div><div style="font-weight:800; color:var(--text-main); font-size:12px;">${solarW} W</div><div style="font-size:9.5px; color:var(--text-muted);">${solarStats.totalKwh.toFixed(2)} kWh</div></div>
-        <div><div style="color:#38bdf8; font-weight:800;">💡 Load</div><div style="font-weight:800; color:var(--text-main); font-size:12px;">${totLoad} W</div><div style="font-size:9.5px; color:var(--text-muted);">${totLoadKwh.toFixed(2)} kWh</div></div>
+      <div style="display:grid; grid-template-columns:repeat(${cards.length}, 1fr); gap:4px; margin-bottom:6px; font-size:11px; background:var(--bg-card); padding:6px 8px; border-radius:8px; border:1px solid var(--border); text-align:center;">
+        ${cards.join('')}
       </div>
-      <div style="font-size:9.5px; font-weight:700; color:var(--text-muted); text-transform:uppercase; margin-bottom:4px; border-bottom:1px dashed var(--border); padding-bottom:2px;">Appliance Breakdown at ${timeLabel}:</div>`;
+      <div style="font-size:9.5px; font-weight:700; color:var(--text-muted); text-transform:uppercase; margin-bottom:4px; border-bottom:1px dashed var(--border); padding-bottom:2px;">Appliance Breakdown at ${timeLabel}${visibleLoads.length < loads.length ? ` (${visibleLoads.length}/${loads.length} shown)` : ''}:</div>`;
     } else {
-      htmlStr += `
-      <div style="display:flex; flex-direction:column; gap:5px; margin-bottom:8px; font-size:12px; background:var(--bg-card); padding:8px 10px; border-radius:8px; border:1px solid var(--border);">
-        <div><div style="display:flex; justify-content:space-between; align-items:center;"><span style="color:#ef4444; font-weight:800;">⚡ Grid: ${gridW} W</span><span style="color:#ef4444; font-weight:700;">Tot: ${gridStats.totalKwh.toFixed(2)} kWh</span></div>
-        <div style="display:flex; justify-content:space-between; font-size:11px; color:var(--text-muted); margin-top:2px;"><span>☀️ Day: ${gridStats.dayKwh.toFixed(2)} kWh (${gridStats.dayAvgW} W)</span><span>🌙 Night: ${gridStats.nightKwh.toFixed(2)} kWh (${gridStats.nightAvgW} W)</span></div></div>
-        <div style="border-top:1px dashed var(--border); padding-top:4px;"><div style="display:flex; justify-content:space-between; align-items:center;"><span style="color:#facc15; font-weight:800;">☀ Solar: ${solarW} W</span><span style="color:#facc15; font-weight:700;">Tot: ${solarStats.totalKwh.toFixed(2)} kWh</span></div>
-        <div style="display:flex; justify-content:space-between; font-size:11px; color:var(--text-muted); margin-top:2px;"><span>☀️ Day: ${solarStats.dayKwh.toFixed(2)} kWh (${solarStats.dayAvgW} W)</span><span></span></div></div>
-        <div style="border-top:1px dashed var(--border); padding-top:4px;"><div style="display:flex; justify-content:space-between; align-items:center;"><span style="color:#38bdf8; font-weight:800;">💡 Load: ${totLoad} W</span><span style="color:#38bdf8; font-weight:700;">Tot: ${totLoadKwh.toFixed(2)} kWh</span></div>
-        <div style="display:flex; justify-content:space-between; font-size:11px; color:var(--text-muted); margin-top:2px;"><span>☀️ Day: ${totDayKwh.toFixed(2)} kWh (${totDayAvgW} W)</span><span>🌙 Night: ${totNightKwh.toFixed(2)} kWh (${totNightAvgW} W)</span></div></div>
-      </div>
-      <div style="font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase; margin-bottom:6px; border-bottom:1px dashed var(--border); padding-bottom:3px;">Appliance Current & Total at ${timeLabel}:</div>`;
+      htmlStr += `<div style="display:flex; flex-direction:column; gap:5px; margin-bottom:8px; font-size:12px; background:var(--bg-card); padding:8px 10px; border-radius:8px; border:1px solid var(--border);">`;
+      if (isGridVisible) {
+        htmlStr += `<div><div style="display:flex; justify-content:space-between; align-items:center;"><span style="color:#ef4444; font-weight:800;">⚡ Grid: ${gridW} W</span><span style="color:#ef4444; font-weight:700;">Tot: ${gridStats.totalKwh.toFixed(2)} kWh</span></div>
+        <div style="display:flex; justify-content:space-between; font-size:11px; color:var(--text-muted); margin-top:2px;"><span>☀️ Day: ${gridStats.dayKwh.toFixed(2)} kWh (${gridStats.dayAvgW} W)</span><span>🌙 Night: ${gridStats.nightKwh.toFixed(2)} kWh (${gridStats.nightAvgW} W)</span></div></div>`;
+      }
+      if (isSolarVisible) {
+        const border = isGridVisible ? 'border-top:1px dashed var(--border); padding-top:4px;' : '';
+        htmlStr += `<div style="${border}"><div style="display:flex; justify-content:space-between; align-items:center;"><span style="color:#facc15; font-weight:800;">☀ Solar: ${solarW} W</span><span style="color:#facc15; font-weight:700;">Tot: ${solarStats.totalKwh.toFixed(2)} kWh</span></div>
+        <div style="display:flex; justify-content:space-between; font-size:11px; color:var(--text-muted); margin-top:2px;"><span>☀️ Day: ${solarStats.dayKwh.toFixed(2)} kWh (${solarStats.dayAvgW} W)</span><span></span></div></div>`;
+      }
+      const borderLoad = (isGridVisible || isSolarVisible) ? 'border-top:1px dashed var(--border); padding-top:4px;' : '';
+      htmlStr += `<div style="${borderLoad}"><div style="display:flex; justify-content:space-between; align-items:center;"><span style="color:#38bdf8; font-weight:800;">💡 Load: ${totLoad} W</span><span style="color:#38bdf8; font-weight:700;">Tot: ${totLoadKwh.toFixed(2)} kWh</span></div>
+      <div style="display:flex; justify-content:space-between; font-size:11px; color:var(--text-muted); margin-top:2px;"><span>☀️ Day: ${totDayKwh.toFixed(2)} kWh (${totDayAvgW} W)</span><span>🌙 Night: ${totNightKwh.toFixed(2)} kWh (${totNightAvgW} W)</span></div></div></div>`;
+
+      htmlStr += `<div style="font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase; margin-bottom:6px; border-bottom:1px dashed var(--border); padding-bottom:3px;">Appliance Current & Total at ${timeLabel}${visibleLoads.length < loads.length ? ` (${visibleLoads.length}/${loads.length} shown)` : ''}:</div>`;
     }
-    loads.forEach(l => {
+
+    visibleLoads.forEach(l => {
       const isActive = l.watts > 5;
       const opacity = isActive ? '1' : '0.5';
       const fontWt  = isActive ? '800' : '600';
@@ -134,13 +153,14 @@ function _handleGraphHover(e, pin) {
         htmlStr += `<div style="display:flex; justify-content:space-between; align-items:flex-start; font-size:${isMobileScreen ? '10.5px' : '12px'}; margin:${isMobileScreen ? '2px 0' : '4px 0'}; padding:1px 0; opacity:${opacity}; border-bottom:1px solid rgba(255,255,255,0.03);"><div style="display:flex; align-items:center; gap:4px; white-space:nowrap; flex-shrink:0;"><span style="display:inline-block; width:6px; height:6px; border-radius:50%; background:${l.color};"></span><span style="color:${l.color}; font-weight:700;">${l.label}</span></div><div style="text-align:right; font-family:monospace; white-space:nowrap; margin-left:8px;"><span style="font-weight:${fontWt}; color:var(--text-main);">${l.watts} W</span><span style="font-size:${isMobileScreen ? '9.5px' : '11px'}; color:var(--accent-kwh); margin-left:3px;">(${l.stats.totalKwh.toFixed(2)} kWh)</span><div style="font-size:${isMobileScreen ? '9px' : '10.5px'}; color:var(--text-muted); font-weight:normal; margin-top:1px;">☀️ ${l.stats.dayKwh.toFixed(2)} kWh (${l.stats.dayAvgW}W) &bull; 🌙 ${l.stats.nightKwh.toFixed(2)} kWh (${l.stats.nightAvgW}W)</div></div></div>`;
       }
     });
+
     tooltip.innerHTML = htmlStr;
     tooltip.style.display = 'block';
     tooltip.classList.toggle('pinned', pin);
     let left = clientX + 15; let top = clientY - 15;
     const tRect = tooltip.getBoundingClientRect();
     if (left + tRect.width > window.innerWidth - 10) left = clientX - tRect.width - 15;
-    if (top + tRect.height > window.innerHeight - 10) top = clientY - tRect.height - 15;
+    if (top + tRect.height > window.innerHeight - 10) top = window.innerHeight - tRect.height - 10;
     tooltip.style.left = Math.max(10, left) + 'px';
     tooltip.style.top  = Math.max(10, top) + 'px';
     return;

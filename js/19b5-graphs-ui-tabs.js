@@ -1,3 +1,89 @@
+
+// ─── Moment Flow Toggle Pills ───────────────────────────────────────────────
+function _renderMomentFlowToggles() {
+  const existing = document.getElementById('momentflow-toggles');
+  if (existing) existing.remove();
+  if (graphFeedKey !== 'momentflow') return;
+
+  const feeds = window.MOMENT_FLOW_FEEDS || [];
+  const wrap = document.createElement('div');
+  wrap.id = 'momentflow-toggles';
+  wrap.style.cssText = 'display:flex; flex-direction:column; gap:6px; padding:6px 0 8px; flex-shrink:0; align-items:center; justify-content:center;';
+
+  // Helper actions row (All, Grid + ACs, Grid Only)
+  const actionRow = document.createElement('div');
+  actionRow.style.cssText = 'display:flex; gap:6px; align-items:center; justify-content:center; flex-wrap:wrap; margin-bottom:2px;';
+
+  const mkActionBtn = (text, onClick, title) => {
+    const btn = document.createElement('button');
+    btn.textContent = text;
+    btn.title = title || '';
+    btn.style.cssText = 'padding:2px 9px; border-radius:12px; font-size:10.5px; font-weight:700; cursor:pointer; background:var(--bg-card); border:1px solid var(--border); color:var(--text-muted); width:auto;';
+    btn.addEventListener('click', onClick);
+    return btn;
+  };
+
+  actionRow.appendChild(mkActionBtn('✓ All', () => {
+    window.momentFlowDisabled.clear();
+    try { localStorage.removeItem('momentFlowDisabled'); } catch(e){}
+    _renderMomentFlowToggles();
+    if (typeof _loadAndDraw === 'function') _loadAndDraw();
+  }, 'Show all feeds (Default)'));
+
+  actionRow.appendChild(mkActionBtn('⚡ Grid + ACs', () => {
+    window.momentFlowDisabled.clear();
+    feeds.forEach(f => {
+      if (!f.isGrid && !f.isAc) window.momentFlowDisabled.add(f.key);
+    });
+    try { localStorage.setItem('momentFlowDisabled', JSON.stringify([...window.momentFlowDisabled])); } catch(e){}
+    _renderMomentFlowToggles();
+    if (typeof _loadAndDraw === 'function') _loadAndDraw();
+  }, 'Show Grid with ACs only'));
+
+  actionRow.appendChild(mkActionBtn('⚡ Grid Only', () => {
+    window.momentFlowDisabled.clear();
+    feeds.forEach(f => {
+      if (!f.isGrid) window.momentFlowDisabled.add(f.key);
+    });
+    try { localStorage.setItem('momentFlowDisabled', JSON.stringify([...window.momentFlowDisabled])); } catch(e){}
+    _renderMomentFlowToggles();
+    if (typeof _loadAndDraw === 'function') _loadAndDraw();
+  }, 'Show Grid only'));
+
+  wrap.appendChild(actionRow);
+
+  // Feed pills row
+  const pillsRow = document.createElement('div');
+  pillsRow.style.cssText = 'display:flex; gap:5px; flex-wrap:wrap; align-items:center; justify-content:center;';
+
+  feeds.forEach(f => {
+    const off = window.momentFlowDisabled.has(f.key);
+    const btn = document.createElement('button');
+    btn.style.cssText = `white-space:nowrap; flex-shrink:0; padding:4px 10px; border-radius:20px; font-size:11px; font-weight:700; cursor:pointer; border:1.5px solid ${f.color}; width:auto; background:${off ? 'transparent' : f.color + '33'}; color:${off ? 'var(--text-muted)' : f.color}; opacity:${off ? '0.35' : '1'}; transition:all 0.15s;`;
+    btn.innerHTML = `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${f.color};margin-right:5px;vertical-align:middle;opacity:${off ? 0.3 : 1}"></span>${f.label}`;
+
+    btn.addEventListener('click', () => {
+      if (window.momentFlowDisabled.has(f.key)) {
+        window.momentFlowDisabled.delete(f.key);
+      } else {
+        if ((feeds.length - window.momentFlowDisabled.size) > 1) {
+          window.momentFlowDisabled.add(f.key);
+        }
+      }
+      try { localStorage.setItem('momentFlowDisabled', JSON.stringify([...window.momentFlowDisabled])); } catch(e){}
+      _renderMomentFlowToggles();
+      if (typeof _loadAndDraw === 'function') _loadAndDraw();
+    });
+    pillsRow.appendChild(btn);
+  });
+
+  wrap.appendChild(pillsRow);
+
+  const feedTabsWrap = document.getElementById('graph-feed-tabs');
+  if (feedTabsWrap) feedTabsWrap.parentNode.insertBefore(wrap, feedTabsWrap);
+}
+window._renderMomentFlowToggles = _renderMomentFlowToggles;
+
 // js/19b5-graphs-ui-tabs.js
 // ─── Time tabs, feed tabs, grid-all toggles, overlay toggles ────────────────
 
@@ -39,14 +125,16 @@ function _renderOverlayToggles() {
   const acs = [{ key: 'haier', label: '+ Haier 1T', color: '#a5f3fc' }, { key: 'k15', label: '+ Kenwood 1.5T', color: '#38bdf8' }, { key: 'k1', label: '+ Kenwood 1T', color: '#7dd3fc' }];
   const clearBtn = document.createElement('button'); clearBtn.textContent = 'Clear';
   clearBtn.style.cssText = 'padding:4px 10px;border-radius:20px;font-size:11px;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--text-muted);';
-  clearBtn.addEventListener('click', () => { window.graphOverlayAc = null; _renderOverlayToggles(); if (typeof _loadAndDraw === 'function') _loadAndDraw(); });
+  clearBtn.addEventListener('click', () => { window.graphOverlayAc = null; _renderOverlayToggles();
+  if (typeof _renderMomentFlowToggles === 'function') _renderMomentFlowToggles(); if (typeof _loadAndDraw === 'function') _loadAndDraw(); });
   container.appendChild(clearBtn);
   acs.forEach(t => {
     const active = window.graphOverlayAc === t.key;
     const btn = document.createElement('button');
     btn.style.cssText = `padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;cursor:pointer; border:1.5px solid ${t.color};background:${active ? t.color+'33' : 'transparent'}; color:${active ? t.color : 'var(--text-muted)'};opacity:${active ? '1' : '0.5'};`;
     btn.textContent = t.label;
-    btn.addEventListener('click', () => { window.graphOverlayAc = t.key; _renderOverlayToggles(); if (typeof _loadAndDraw === 'function') _loadAndDraw(); });
+    btn.addEventListener('click', () => { window.graphOverlayAc = t.key; _renderOverlayToggles();
+  if (typeof _renderMomentFlowToggles === 'function') _renderMomentFlowToggles(); if (typeof _loadAndDraw === 'function') _loadAndDraw(); });
     container.appendChild(btn);
   });
   const fTabs = document.getElementById('graph-feed-tabs'); if (fTabs) fTabs.parentNode.insertBefore(container, fTabs.nextSibling);
@@ -58,7 +146,8 @@ function _renderGFeedTabs() {
   wrap.innerHTML = tabs.map(f => `<button class="gfeed-tab${graphFeedKey===f.key?' active':''}" data-gkey="${f.key}" style="${graphFeedKey===f.key?`border-color:${f.color};color:${f.color}`:''}">${f.label}</button>`).join('') + `<button class="gfeed-tab${graphFeedKey==='report'?' active':''}" data-gkey="report" style="${graphFeedKey==='report'?'border-color:#10b981;color:#10b981':''}">📄 Report</button>`;
   wrap.querySelectorAll('.gfeed-tab').forEach(b => { b.addEventListener('click', () => { graphFeedKey = b.dataset.gkey; graphZoomLevel = 1; graphPanOffset = 0; hideTooltip(); _renderGFeedTabs(); if (typeof _loadAndDraw === 'function') _loadAndDraw(); }); });
   _renderGridAllToggles(); 
-  _renderOverlayToggles(); 
+  _renderOverlayToggles();
+  if (typeof _renderMomentFlowToggles === 'function') _renderMomentFlowToggles(); 
   if (typeof _renderOthersFridgeToggle === 'function') _renderOthersFridgeToggle();
   if (typeof _renderWmToggles === 'function') _renderWmToggles();
   if (typeof _renderWaterToggles === 'function') _renderWaterToggles();

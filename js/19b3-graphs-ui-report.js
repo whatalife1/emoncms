@@ -108,6 +108,19 @@ window.generateGraphReport = async function(forceRefresh = false) {
   let txt = `📄 Energy Usage Report: ${label}\n`;
   txt += `Generated: ${new Date().toLocaleString()}\n`;
   txt += `⚡ Total Electricity Outages: ${acBreakdown.formattedDuration} (${acBreakdown.totalHours} hrs across ${acBreakdown.outageCount} times)\n`;
+  // -- Outage event times (Day view only) --
+  if (isDay && acBreakdown.dailyBreakdown && acBreakdown.dailyBreakdown.length > 0) {
+    acBreakdown.dailyBreakdown.forEach(d => {
+      if (d.events && d.events.length > 0) {
+        const timesStr = d.events.map(ev => {
+          const s = formatPktTime(ev.start, 'time');
+          const e = ev.ongoing ? 'Now' : formatPktTime(ev.end, 'time');
+          return `${s}\u2013${e} (${ev.durMin}m)`;
+        }).join(', ');
+        txt += `   Times: ${timesStr}\n`;
+      }
+    });
+  }
   txt += `Time Period Definitions:\n`;
   txt += `  • Day   = 8:00 AM  → 5:00 PM  (9 hours)\n`;
   txt += `  • Night = 5:00 PM  → 8:00 AM  (15 hours)\n`;
@@ -161,14 +174,25 @@ window.generateGraphReport = async function(forceRefresh = false) {
 
   // HTML report
   let html = `<div class="report-wrapper" style="background:#fff;color:#18181b;border:1px solid #d4d4d8;border-radius:10px;padding:12px;margin-top:10px;font-family:system-ui,sans-serif;box-sizing:border-box;width:100%;max-width:100%;">`;
-  html += `<h4 style="margin:0 0 10px 0;font-size:14px;border-bottom:1px solid #d4d4d8;padding-bottom:5px;color:#18181b;">Consumption Breakdown</h4>`;
+  html += `<h4 style="margin:0 0 8px 0;font-size:14px;border-bottom:1px solid #d4d4d8;padding-bottom:4px;color:#18181b;">Consumption Breakdown</h4>`;
   
-  html += `
-    <div style="font-size:11.5px; font-weight:700; color:#ef4444; margin-bottom:10px; padding:8px 12px; background:rgba(239, 68, 68, 0.08); border:1px solid rgba(239, 68, 68, 0.3); border-radius:6px; display:flex; justify-content:space-between; align-items:center; box-sizing:border-box; width:100%;">
-      <span>⚡ Electricity Breakdown / Outages:</span>
-      <span style="font-size:12.5px; font-weight:800; white-space:nowrap; margin-left:12px;">${acBreakdown.formattedDuration} (${acBreakdown.totalHours} hrs &bull; ${acBreakdown.outageCount} ${acBreakdown.outageCount === 1 ? 'time' : 'times'})</span>
-    </div>
-  `;
+  let outageTimesHtml = '';
+  if (isDay && acBreakdown.dailyBreakdown && acBreakdown.dailyBreakdown.length > 0) {
+    const allEvents = [];
+    acBreakdown.dailyBreakdown.forEach(d => {
+      if (d.events && d.events.length > 0) d.events.forEach(ev => allEvents.push(ev));
+    });
+    if (allEvents.length > 0) {
+      const chips = allEvents.map(ev => {
+        const s = formatPktTime(ev.start, 'time');
+        const e = ev.ongoing ? 'Now' : formatPktTime(ev.end, 'time');
+        return `<span style="display:inline-block; background:rgba(239,68,68,0.15); border:1px solid rgba(239,68,68,0.35); border-radius:5px; padding:1px 6px; font-size:10.5px; font-weight:600; color:#b91c1c; margin:1px 6px 1px 0;">${s}&ndash;${e} <span style="color:#ef4444; font-weight:800;">(${ev.durMin}m)</span></span>`;
+      }).join('');
+      outageTimesHtml = `<div style="white-space:normal; font-weight:600; color:#71717a; margin-top:1px; font-size:10.5px; line-height:1.25;"><b style="color:#ef4444;">⚡ Times:</b> ${chips}</div>`;
+    }
+  }
+
+  html += `<div style="white-space:normal; font-size:11px; color:#ef4444; margin-bottom:8px; padding:3px 10px 4px; line-height:1.25; background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.3); border-radius:6px; box-sizing:border-box; width:100%;"><div style="display:flex; justify-content:space-between; align-items:center; font-weight:700;"><span>⚡ Electricity Breakdown / Outages:</span><span style="font-size:12px; font-weight:800; white-space:nowrap; margin-left:10px;">${acBreakdown.formattedDuration} (${acBreakdown.totalHours} hrs &bull; ${acBreakdown.outageCount} ${acBreakdown.outageCount === 1 ? 'time' : 'times'})</span></div>${outageTimesHtml}</div>`;
 
   html += `<div style="font-size:11px;color:#71717a;margin-bottom:12px;padding:8px 12px;background:#f4f4f5;border-radius:6px;border-left:3px solid #f59e0b;box-sizing:border-box;width:100%;">`;
   html += `<span style="font-weight:700;">⏰ Time Periods:</span> `;

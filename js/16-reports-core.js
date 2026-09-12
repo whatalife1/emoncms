@@ -163,37 +163,60 @@ async function fetchAcBreakdown(startMs, endMs) {
         const url = `${PROXY_BASE}/feed/data.json?ids=${feedId}&start=${dayStart}&end=${dayEnd}&skipmissing=0&average=1&delta=0&interval=120`;
         try {
           const text = await nativeFetch(url);
-          if (!text || text.startsWith('ERROR')) return { dayKey, dayLabel, offMinutes: 0, count: 0 };
+          if (!text || text.startsWith('ERROR')) return { dayKey, dayLabel, offMinutes: 0, count: 0, events: [] };
           const root = JSON.parse(text);
           const data = root[0]?.data || (Array.isArray(root) ? root : []);
 
           let offSec = 0;
           let count = 0;
           let inOutage = false;
+          let outageStart = null;
           const stepSec = 120;
+          const events = [];
+          const toMs = (ts) => (ts < 2000000000 ? ts * 1000 : ts);
 
           for (let k = 0; k < data.length; k++) {
             const pt = data[k];
             if (!pt || pt[0] == null) continue;
             const v = (pt[1] !== null && pt[1] !== undefined) ? parseFloat(pt[1]) : 0;
             const isOff = v < 50;
+            const tsMs = toMs(pt[0]);
 
             if (isOff) {
               offSec += stepSec;
               if (!inOutage) {
                 inOutage = true;
                 count++;
+                outageStart = tsMs;
               }
             } else {
-              inOutage = false;
+              if (inOutage) {
+                inOutage = false;
+                events.push({
+                  start: outageStart,
+                  end: tsMs,
+                  durMin: Math.max(1, Math.round((tsMs - outageStart) / 60000))
+                });
+                outageStart = null;
+              }
             }
+          }
+
+          if (inOutage && outageStart !== null) {
+            events.push({
+              start: outageStart,
+              end: dayEnd,
+              durMin: Math.max(1, Math.round((dayEnd - outageStart) / 60000)),
+              ongoing: true
+            });
           }
 
           const resObj = {
             dayKey,
             dayLabel,
             offMinutes: Math.round(offSec / 60),
-            count
+            count,
+            events
           };
 
           if (isPastDay) {
@@ -202,7 +225,7 @@ async function fetchAcBreakdown(startMs, endMs) {
           }
           return resObj;
         } catch (e) {
-          return { dayKey, dayLabel, offMinutes: 0, count: 0 };
+          return { dayKey, dayLabel, offMinutes: 0, count: 0, events: [] };
         }
       })();
       dayPromises.push(prm);

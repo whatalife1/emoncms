@@ -196,7 +196,7 @@ window.generateGraphReport = async function(forceRefresh = false) {
 	html += `<th style="border:1px solid #d4d4d8;padding:6px;text-align:left;">Appliance</th>`;
 	html += `<th style="border:1px solid #d4d4d8;padding:6px;text-align:right;">Total (kWh)</th>`;
 	html += `<th style="border:1px solid #d4d4d8;padding:6px;text-align:right;">Day (kWh)</th>`;
-	html += `<th style="border:1px solid #d4d4d8;padding:6px;text-align:right;">Night (kWh)</th>`;
+	html += `<th style="border:1px solid #c4b5fd;padding:6px;text-align:right;background:#e2d9f3;color:#581c87;font-weight:800;">Night (kWh)</th>`;
 	html += `<th style="border:1px solid #d4d4d8;padding:6px;text-align:right;">Avg Night (kWh)</th>`;
 	html += `<th style="border:1px solid #d4d4d8;padding:6px;text-align:right;">Avg Night Hourly (W)</th>`;
 	html += `<th style="border:1px solid #d4d4d8;padding:6px;text-align:right;">Avg/Day</th>`;
@@ -227,7 +227,7 @@ window.generateGraphReport = async function(forceRefresh = false) {
 		html += `<td style="border:1px solid #d4d4d8;padding:6px;font-weight:bold;color:${color};">${row.name}</td>`;
 		html += `<td style="border:1px solid #d4d4d8;padding:6px;text-align:right;color:${color};">${total.toFixed(2)}</td>`;
 		html += `<td style="border:1px solid #d4d4d8;padding:6px;text-align:right;color:${isSolar?'#71717a':'#f59e0b'};">${isSolar?'-':day.toFixed(2)}</td>`;
-		html += `<td style="border:1px solid #d4d4d8;padding:6px;text-align:right;color:${isSolar?'#71717a':'#c084fc'};">${isSolar?'-':night.toFixed(2)}</td>`;
+		html += `<td style="border:1px solid #c4b5fd;padding:6px;text-align:right;background:#ede5f8;color:${isSolar?'#71717a':'#6b21a8'};font-weight:800;">${isSolar?'-':night.toFixed(2)}</td>`;
 		html += `<td style="border:1px solid #d4d4d8;padding:6px;text-align:right;color:${isSolar?'#71717a':'#c084fc'};">${isSolar?'-':(night/numDays).toFixed(2)}</td>`;
 		html += `<td style="border:1px solid #d4d4d8;padding:6px;text-align:right;color:${isSolar?'#71717a':'#c084fc'};">${isSolar?'-':Math.round(avgNightW)+' W'}</td>`;
 		html += `<td style="border:1px solid #d4d4d8;padding:6px;text-align:right;">${avgDay.toFixed(2)}</td>`;
@@ -242,7 +242,7 @@ window.generateGraphReport = async function(forceRefresh = false) {
 	html += `<td style="border:1px solid #d4d4d8;padding:6px;">TOTAL LOAD</td>`;
 	html += `<td style="border:1px solid #d4d4d8;padding:6px;text-align:right;">${totalLoadKwh.toFixed(2)}</td>`;
 	html += `<td style="border:1px solid #d4d4d8;padding:6px;text-align:right;color:#f59e0b;">${totalDayLoadKwh.toFixed(2)}</td>`;
-	html += `<td style="border:1px solid #d4d4d8;padding:6px;text-align:right;color:#c084fc;">${totalNightLoadKwh.toFixed(2)}</td>`;
+	html += `<td style="border:1px solid #c4b5fd;padding:6px;text-align:right;background:#e2d4f7;color:#581c87;font-weight:900;">${totalNightLoadKwh.toFixed(2)}</td>`;
 	html += `<td style="border:1px solid #d4d4d8;padding:6px;text-align:right;color:#c084fc;">${(totalNightLoadKwh/numDays).toFixed(2)}</td>`;
 	html += `<td style="border:1px solid #d4d4d8;padding:6px;text-align:right;">-</td>`;
 	html += `<td style="border:1px solid #d4d4d8;padding:6px;text-align:right;">${(totalLoadKwh/numDays).toFixed(2)}</td>`;
@@ -321,8 +321,12 @@ window.downloadDayGraphReportPng = function() {
 			cell.style.border = '1px solid #999';
 			cell.style.padding = '6px 10px';
 			cell.style.textAlign = 'right';
-			cell.style.backgroundColor = '#ffffff';
-			cell.style.color = '#18181b';
+			if (!cell.style.backgroundColor) {
+				cell.style.backgroundColor = '#ffffff';
+			}
+			if (!cell.style.color) {
+				cell.style.color = '#18181b';
+			}
 		});
 		table.querySelectorAll('td:first-child, th:first-child').forEach(cell => {
 			cell.style.textAlign = 'left';

@@ -486,9 +486,11 @@ async function poll() {
     }));
 
     const timeFixIds = [
-        { name: 'Water Motor', id: '542850' },
+                { name: 'Water Motor', id: '542850' },
         { name: 'Fridge2', id: '541348' },
-        { name: 'Washing Machine', id: '544694' }
+        { name: 'Washing Machine', id: '544694' },
+        { name: 'SOC %', id: '546019' },
+        { name: 'Bat V', id: '546013' }
     ];
     for (const feed of timeFixIds) {
         const result = results.find(r => r.name === feed.name);

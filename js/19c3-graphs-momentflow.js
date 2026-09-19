@@ -5,6 +5,10 @@ async function _handleMomentFlowMode(nav, stat, canvas, forceRefresh = false) {
   const allInspFeeds = [
     { key: 'solar',   name: 'Solar',        id: '499380', color: '#facc15' },
     { key: 'grid',    name: 'Grid',         id: '499374', color: '#ef4444' },
+    { key: 'bat_soc', name: 'Battery SOC',  id: '546019', color: '#10b981', isBatMeta: true },
+    { key: 'bat_v',   name: 'Bat Voltage',  id: '546013', color: '#35c0b7', isBatMeta: true },
+    { key: 'bat_chg', name: 'Bat Chg A',    id: '546022', color: '#10b981', isBatMeta: true },
+    { key: 'bat_dis', name: 'Bat Dis A',    id: '546025', color: '#f59e0b', isBatMeta: true },
     { key: 'k15',     name: 'Kenwood 1.5T', id: '499362', color: '#38bdf8' },
     { key: 'k1',      name: 'Kenwood 1T',   id: '499364', color: '#7dd3fc' },
     { key: 'haier',   name: 'Haier 1T',     id: '499367', color: '#a5f3fc' },
@@ -45,7 +49,7 @@ async function _handleMomentFlowMode(nav, stat, canvas, forceRefresh = false) {
 
   // Calculate untracked "Others" (Fans, Lights...) from raw original feeds
   const othersBars = new Array(nPoints).fill(0);
-  const trackedLoads = allMultiData.filter(m => m.key !== 'solar' && m.key !== 'grid');
+  const trackedLoads = allMultiData.filter(m => m.key !== 'solar' && m.key !== 'grid' && !m.key.startsWith('bat_'));
 
   for (let k = 0; k < nPoints; k++) {
     const sW = (origSolarBars[k] != null && origSolarBars[k] > 0) ? origSolarBars[k] : 0;
@@ -69,7 +73,7 @@ async function _handleMomentFlowMode(nav, stat, canvas, forceRefresh = false) {
 
   // ── Adjust Grid: remove night-time usage of any disabled appliances ───────
   const disabled = window.momentFlowDisabled || new Set();
-  const disabledLoads = allMultiData.filter(m => m.key !== 'solar' && m.key !== 'grid' && disabled.has(m.key));
+  const disabledLoads = allMultiData.filter(m => m.key !== 'solar' && m.key !== 'grid' && !m.key.startsWith('bat_') && disabled.has(m.key));
   const adjustedGridBars = new Array(nPoints).fill(0);
 
   for (let k = 0; k < nPoints; k++) {
@@ -98,7 +102,7 @@ async function _handleMomentFlowMode(nav, stat, canvas, forceRefresh = false) {
   }
 
   // Filter visible feeds based on toggle state
-  const visibleLines = allMultiData.filter(m => !disabled.has(m.key));
+  const visibleLines = allMultiData.filter(m => !disabled.has(m.key) && !m.key.startsWith('bat_'));
   const activeMultiData = visibleLines.length > 0 ? visibleLines : allMultiData;
 
   // Autoscale Y-axis dynamically to visible lines only

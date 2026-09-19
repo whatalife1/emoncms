@@ -17,7 +17,8 @@ function _handleGraphHover(e, pin) {
   const idx = Math.round(((x - panX - centerX) / zoom + centerX - PL) / (cW / n));
   if (idx < 0 || idx >= n || idx >= lastIdx) { if (!pin) hideTooltip(); return; }
   const isMonthOrYear = graphTab === 'month' || graphTab === 'year';
-  const isKwhView = isMonthOrYear;
+  const isAvgFeed = unit === '°C' || unit === '%' || unit === 'V';
+  const isKwhView = isMonthOrYear && !isAvgFeed;
   let timeLabel = '';
   if (isMonthOrYear) {
     timeLabel = (labels && labels[idx]) ? labels[idx] : `Day ${idx + 1}`;
@@ -216,7 +217,7 @@ function _handleGraphHover(e, pin) {
     if (label.includes('%')) return Math.round(val) + ' %';
     if (label.includes('Cumul') || label.includes('kWh')) return val.toFixed(2) + ' kWh';
     if (tempUnit === '°C') return val.toFixed(1) + ' °C';
-    if (tempUnit === 'V') return Math.round(val) + ' V';
+    if (tempUnit === 'V' || label.includes('(V)') || label.includes('Voltage')) return val.toFixed(1) + ' V';
     return isKwhView ? val.toFixed(2) + ' kWh' : Math.round(val) + ' W';
   };
 

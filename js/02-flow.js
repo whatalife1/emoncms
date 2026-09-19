@@ -2,18 +2,21 @@
 const LAYOUT = {
  weather: { x:5, y:10, w:708, h:49, color:'#0ea5e9', label:'Weather', ly1:25, fs:25, c1:'#ffffff',  },
  solar: { x:5, y:66, w:321, h:365, color:'#f59e0b', label:'Solar', ly1:42, fs:47, c1:'#ffff00', ly2:106, fs2:46, c2:'#2c8758', ly3:172, fs3:31, c3:'#b4b635', ly4:219, fs4:22, c4:'#21c442', ly5:289, fs5:24, c5:'#3de31c', ly6:330, fs6:22, c6:'#38bdf8', ly7:140, fs7:17, c7:'#a1a1aa', ly8:246, fs8:22, c8:'#21c442',  },
- grid: { x:330, y:64, w:245, h:365, color:'#ef4444', label:'Grid', ly1:35, fs:38, c1:'#ef4444', ly2:154, fs2:28, c2:'#35c0b7', ly3:291, fs3:21, c3:'#3de3e4', ly4:332, fs4:16, c4:'#38bdf8', ly5:186, fs5:19, c5:'#a1a1aa', ly6:79, fs6:20, c6:'#a1a1aa',  },
- water: { x:579, y:62, w:146, h:365, color:'#0ea5e9', label:'Water', ly1:33, fs:44, c1:'#0ea5e9', ly2:158, fs2:56, c2:'#25f447', ly3:251, fs3:25, c3:'#9ca3af', ly4:295, fs4:20, c4:'#0ce4e0', ly5:320, fs5:19, c5:'#38bdf8', ly6:342, fs6:18, c6:'#a1a1aa',  },
- haier: { x:7, y:436, w:238, h:199, color:'#38bdf8', label:'Haier 1T', ly1:22, fs:34, c1:'#38bdf8', ly2:75, fs2:63, c2:'#25f447', ly3:143, fs3:25, c3:'#00c8f0', ly4:175, fs4:25, c4:'#518e35', ly5:113, fs5:16, c5:'#a1a1aa',  },
- k15: { x:252, y:436, w:238, h:199, color:'#38bdf8', label:'Kenwood 1.5T', ly1:21, fs:33, c1:'#38bdf8', ly2:68, fs2:60, c2:'#25f447', ly3:142, fs3:25, c3:'#00c8f0', ly4:175, fs4:25, c4:'#518e35', ly5:114, fs5:16, c5:'#a1a1aa',  },
- k1: { x:497, y:435, w:231, h:200, color:'#38bdf8', label:'Kenwood 1T', ly1:27, fs:34, c1:'#38bdf8', ly2:75, fs2:57, c2:'#25f447', ly3:143, fs3:21, c3:'#00c8f0', ly4:175, fs4:22, c4:'#518e35', ly5:114, fs5:16, c5:'#a1a1aa',  },
+ grid: { x:330, y:64, w:206, h:371, color:'#ef4444', label:'Grid', ly1:35, fs:33, c1:'#ef4444', ly2:154, fs2:26, c2:'#35c0b7', ly3:291, fs3:19, c3:'#3de3e4', ly4:332, fs4:15, c4:'#38bdf8', ly5:186, fs5:15, c5:'#a1a1aa', ly6:79, fs6:17, c6:'#a1a1aa',  },
+ battery: { x:539, y:64, w:189, h:368, color:'#10b981', label:'Battery', ly1:35, fs:33, c1:'#10b981', ly2:95, fs2:54, c2:'#25f447', ly3:180, fs3:23, c3:'#38bdf8', ly4:230, fs4:20, c4:'#35c0b7', ly5:278, fs5:19, c5:'#facc15', ly6:326, fs6:22, c6:'#4ade80', ly7:138, fs7:16, c7:'#a1a1aa',  },
+ water: { x:582, y:430, w:145, h:249, color:'#0ea5e9', label:'Water', ly1:33, fs:44, c1:'#0ea5e9', ly2:93, fs2:56, c2:'#25f447', ly3:141, fs3:27, c3:'#9ca3af', ly4:173, fs4:20, c4:'#0ce4e0', ly5:202, fs5:19, c5:'#38bdf8', ly6:230, fs6:18, c6:'#a1a1aa',  },
+ haier: { x:7, y:436, w:164, h:203, color:'#38bdf8', label:'Haier 1T', ly1:17, fs:27, c1:'#38bdf8', ly2:75, fs2:54, c2:'#25f447', ly3:143, fs3:25, c3:'#00c8f0', ly4:175, fs4:25, c4:'#518e35', ly5:113, fs5:16, c5:'#a1a1aa',  },
+ k15: { x:176, y:433, w:186, h:200, color:'#38bdf8', label:'Kenwood 1.5T', ly1:13, fs:26, c1:'#38bdf8', ly2:68, fs2:53, c2:'#25f447', ly3:142, fs3:25, c3:'#00c8f0', ly4:175, fs4:25, c4:'#518e35', ly5:114, fs5:16, c5:'#a1a1aa',  },
+ k1: { x:374, y:435, w:192, h:192, color:'#38bdf8', label:'Kenwood 1T', ly1:14, fs:30, c1:'#38bdf8', ly2:61, fs2:54, c2:'#25f447', ly3:143, fs3:21, c3:'#00c8f0', ly4:175, fs4:22, c4:'#518e35', ly5:114, fs5:17, c5:'#a1a1aa',  },
  fridge: { x:8, y:678, w:227, h:241, color:'#c084fc', label:'Fridges', ly1:16, fs:36, c1:'#38bdf8', ly2:53, fs2:52, c2:'#25f447', ly3:103, fs3:18, c3:'#518e35', ly4:132, fs4:36, c4:'#38bdf8', ly5:171, fs5:52, c5:'#25f447', ly6:228, fs6:18, c6:'#518e35', ly7:86, fs7:14, c7:'#a1a1aa', ly8:205, fs8:17, c8:'#a1a1aa',  },
  pc: { x:445, y:684, w:133, h:240, color:'#10b9f8', label:'PC', ly1:25, fs:45, c1:'#38bdf8', ly2:83, fs2:46, c2:'#25f447', ly3:187, fs3:21, c3:'#00c8f0', ly4:225, fs4:20, c4:'#518e35', ly5:128, fs5:18, c5:'#a1a1aa',  },
  wm: { x:582, y:687, w:139, h:238, color:'#e879f9', label:'Washing|Machine', ly1:19, fs:30, c1:'#e879f9', ly2:92, fs2:43, c2:'#25f447', ly3:180, fs3:21, c3:'#00c8f0', ly4:219, fs4:21, c4:'#518e35',  },
  motor: { x:241, y:681, w:199, h:241, color:'#fbbf24', label:'Water Motor', ly1:24, fs:31, c1:'#fbbf24', ly2:83, fs2:57, c2:'#38bdf8', ly3:188, fs3:21, c3:'#518e35', ly4:221, fs4:22, c4:'#518e35', ly5:129, fs5:18, c5:'#a1a1aa',  },
- temp: { x:502, y:642, w:225, h:40, color:'#22c55e', label:'temp', ly1:20, fs:26, c1:'#25f447',  },
- temp2: { x:8, y:639, w:238, h:35, color:'#22c55e', label:'temp2', ly1:16, fs:27, c1:'#25f447',  },
+ temp: { x:380, y:637, w:189, h:38, color:'#22c55e', label:'temp', ly1:16, fs:24, c1:'#25f447',  },
+ temp2: { x:8, y:639, w:173, h:31, color:'#22c55e', label:'temp2', ly1:16, fs:21, c1:'#25f447',  },
 };
+
+
 
 function renderFlowDiagram(byName) {
   if (!byName) return;
@@ -191,6 +194,69 @@ function renderFlowDiagram(byName) {
   if (o.ly5) svg += `<text x="${cx(o)}" y="${o.y+o.ly5}" ${tpProps} font-size="${o.fs5}" fill="${gridOff ? '#ef4444' : o.c5}">${vTimeStr}</text>`;
   svg += `<text x="${cx(o)}" y="${o.y+o.ly3}" ${tpProps} font-size="${o.fs3}" fill="${o.c3}">T: ${grid_t.toFixed(1)} kWh | ${kF(grid_t*rate)} PKR</text>`;
   svg += `<text x="${cx(o)}" y="${o.y+o.ly4}" ${tpProps} font-size="${o.fs4}" fill="${o.c4}">M: ${nF(mU.grid||0)} kWh | ${kF((mU.grid||0)*rate)} PKR</text>`;
+
+  // 2.5 BATTERY
+  o = L.battery;
+  if (o) {
+    const batV = getV('Bat V');
+    const chgA = getV('bt_battery_charging_current') || getV('Chg A');
+    const disA = getV('bt_battery_discharge_current') || getV('Dis A');
+    const batSt = byName.get('Status')?.value ?? byName.get('Bat Status')?.value ?? getV('Status');
+    const socFeed = byName.get('SOC %');
+    const socVal = socFeed?.value != null ? Math.round(socFeed.value) : Math.round(getV('SOC %'));
+
+    const isCharging = chgA > 0.5;
+    const isDischarging = disA > 0.5;
+    const isBatActive = isCharging || isDischarging;
+    const netA = (chgA > 0.1 ? chgA : 0) - (disA > 0.1 ? disA : 0);
+    const batW = Math.round((batV || 51.2) * netA);
+
+    const statusMap = {
+      0: 'Standby', 1: 'Charging', 2: 'Discharging', 3: 'Float',
+      4: 'Bulk', 5: 'Absorption', 6: 'Equalize', 7: 'Bypass', 8: 'Fault'
+    };
+    let stText = 'Standby';
+    if (typeof batSt === 'string' && isNaN(batSt) && batSt.trim() !== '') {
+      stText = batSt.trim();
+    } else if (batSt !== null && batSt !== undefined && statusMap[Math.round(batSt)]) {
+      stText = statusMap[Math.round(batSt)];
+      if (isCharging && stText !== 'Charging') stText += ' (Chg)';
+      if (isDischarging && stText !== 'Discharging') stText += ' (Dis)';
+    } else {
+      if (isCharging) stText = 'Charging';
+      else if (isDischarging) stText = 'Discharging';
+      else stText = (batSt !== 0 && batSt != null) ? `Status: ${batSt}` : 'Standby';
+    }
+
+    const bTime = byName.get('SOC %')?.time || 
+                  byName.get('Bat V')?.time || 
+                  byName.get('Status')?.time || 
+                  byName.get('bt_battery_charging_current')?.time;
+    const bTimeStr = bTime ? new Date(bTime * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--';
+
+    let bClass = isBatActive ? 'pulse-animation' : '';
+    let bFill = '#0e1f18';
+    let bStroke = o.color;
+    let pulseClr = isCharging ? '#10b981' : (isDischarging ? '#f59e0b' : o.color);
+
+    if (socVal <= 20 && socVal > 0) {
+      bStroke = '#ef4444';
+      bFill = '#2a0a0a';
+      pulseClr = '#ef4444';
+    }
+
+    const pwrSign = batW > 0 ? `+${batW}` : `${batW}`;
+    const pwrColor = batW > 0 ? o.c6 : (batW < 0 ? '#f59e0b' : '#a1a1aa');
+
+    svg += `<rect class="${bClass}" style="--pulse-clr:${pulseClr}" x="${o.x}" y="${o.y}" width="${o.w}" height="${o.h}" rx="10" fill="${bFill}" stroke="${bStroke}" stroke-width="2"/>`;
+    svg += `<text x="${cx(o)}" y="${o.y+o.ly1}" ${tpProps} font-size="${o.fs}" fill="${o.c1}" data-maxw="${o.w-12}">${o.label}</text>`;
+    svg += `<text x="${cx(o)}" y="${o.y+o.ly2}" ${tpProps} font-size="${o.fs2}" fill="${o.c2}">${socVal}%</text>`;
+    if (o.ly7) svg += `<text x="${cx(o)}" y="${o.y+o.ly7}" ${tpProps} font-size="${o.fs7}" fill="${o.c7}">${bTimeStr}</text>`;
+    svg += `<text x="${cx(o)}" y="${o.y+o.ly3}" ${tpProps} font-size="${o.fs3}" fill="${o.c3}" data-maxw="${o.w-12}">${stText}</text>`;
+    svg += `<text x="${cx(o)}" y="${o.y+o.ly4}" ${tpProps} font-size="${o.fs4}" fill="${o.c4}" data-maxw="${o.w-12}">${batV ? batV.toFixed(1) : '0.0'}V</text>`;
+    svg += `<text x="${cx(o)}" y="${o.y+o.ly5}" ${tpProps} font-size="${o.fs5}" fill="${o.c5}" data-maxw="${o.w-12}">Chg: ${chgA.toFixed(1)}A | Dis: ${disA.toFixed(1)}A</text>`;
+    svg += `<text x="${cx(o)}" y="${o.y+o.ly6}" ${tpProps} font-size="${o.fs6}" fill="${pwrColor}" data-maxw="${o.w-12}">Power: ${pwrSign} w</text>`;
+  }
 
   // 3. WATER 
   o = L.water;

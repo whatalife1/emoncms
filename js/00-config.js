@@ -61,7 +61,15 @@ const STALE_EXEMPT = new Set([
   "Humidity",
   "Temperature 2",
   "Humidity 2",
-  "Inverter Temp"
+  "Inverter Temp",
+  "Bat V",
+  "Status",
+  "Bat Status",
+  "SOC %",
+  "bt_battery_charging_current",
+  "bt_battery_discharge_current",
+  "Chg A",
+  "Dis A"
 ]);
 
 const BULK_UNRELIABLE_IDS = ["541348", "541350", "542850", "542853", "512473", "512474"];
@@ -104,14 +112,22 @@ const FEEDS_BASE = [
   { id: "499429", name: "Humidity",             unit: "%",   type: "env"   },
   { id: "512473", name: "Temperature 2",        unit: "°C",  type: "env"   },
   { id: "512474", name: "Humidity 2",           unit: "%",   type: "env"   },
-  { id: "499394", name: "Inverter Temp",        unit: "°C",  type: "env"   }
+  {
+    id: "499394", name: "Inverter Temp",        unit: "°C",  type: "env"   },
+  // Battery Feeds
+  { id: "546013", name: "Bat V",                         unit: "V",   type: "env"   },
+  { id: "546016", name: "Status",                        unit: "",    type: "env"   },
+  { id: "546019", name: "SOC %",                         unit: "%",   type: "env"   },
+  { id: "546022", name: "bt_battery_charging_current",   unit: "A",   type: "env"   },
+  { id: "546025", name: "bt_battery_discharge_current",  unit: "A",   type: "env"   },
 ];
 
 const COLORS = { watts: "val-watts", units: "val-units", env: "val-env" };
 
 const LINKED_GROUPS = [
   ["Solar", "Solar V", "Tot Load", "Solar Today", "Solar Total", "Inverter Temp"],
-  ["Breaker", "AC Volts", "Breaker Today", "Breaker Total"],
+    ["Breaker", "AC Volts", "Breaker Today", "Breaker Total"],
+  ["Bat V", "Status", "SOC %", "bt_battery_charging_current", "bt_battery_discharge_current"],
   ["Utility", "Utility Today", "Utility Total"],
   ["PC", "PC Today"],
     ["Washing Machine", "Washing Machine Today"],

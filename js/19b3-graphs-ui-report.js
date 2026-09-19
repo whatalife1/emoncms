@@ -23,7 +23,16 @@ window.generateGraphReport = async function(forceRefresh = false) {
 	const acBreakdownPromise = typeof fetchAcBreakdown === 'function'
 		? fetchAcBreakdown(startMs, endMs)
 		: Promise.resolve({ totalHours: '0.0', formattedDuration: '0m', outageCount: 0 });
-	const [results, acBreakdown] = await Promise.all([Promise.all(fetchPromises), acBreakdownPromise]);
+	const batVPromise = fetchWithCache('546013', startMs, endMs, forceRefresh);
+	const batChgPromise = fetchWithCache('546022', startMs, endMs, forceRefresh);
+	const batDisPromise = fetchWithCache('546025', startMs, endMs, forceRefresh);
+	const [results, acBreakdown, batVRaw, batChgRaw, batDisRaw] = await Promise.all([
+		Promise.all(fetchPromises),
+		acBreakdownPromise,
+		batVPromise,
+		batChgPromise,
+		batDisPromise
+	]);
 	const sums = {};
 	const hourlyData = {};
 	results.forEach(r => {
@@ -94,16 +103,56 @@ window.generateGraphReport = async function(forceRefresh = false) {
 		totalKwh: totalOthersWh/1000, dayKwh: totalOthersDayWh/1000, nightKwh: totalOthersNightWh/1000,
 		totalWh: totalOthersWh, dayWh: totalOthersDayWh, nightWh: totalOthersNightWh
 	});
+
+	// ── Battery Charge & Discharge computations for Report ──
+	let batChgTotalWh = 0, batChgDayWh = 0, batChgNightWh = 0;
+	let batDisTotalWh = 0, batDisDayWh = 0, batDisNightWh = 0;
+	const allBatTimestamps = new Set([
+		...Object.keys(batChgRaw || {}),
+		...Object.keys(batDisRaw || {})
+	]);
+	for (const tsStr of allBatTimestamps) {
+		const ts = parseInt(tsStr);
+		const v = (batVRaw && batVRaw[tsStr] > 35) ? batVRaw[tsStr] : 52.0;
+		const cA = (batChgRaw && batChgRaw[tsStr]) ? batChgRaw[tsStr] : 0;
+		const dA = (batDisRaw && batDisRaw[tsStr]) ? batDisRaw[tsStr] : 0;
+		const chgW = Math.max(0, v * cA);
+		const disW = Math.max(0, v * dA);
+		const p = getKarachiDate(ts);
+		const isDayHour = (p.hour >= 8 && p.hour < 17);
+
+		batChgTotalWh += chgW;
+		batDisTotalWh += disW;
+		if (isDayHour) {
+			batChgDayWh += chgW;
+			batDisDayWh += disW;
+		} else {
+			batChgNightWh += chgW;
+			batDisNightWh += disW;
+		}
+	}
+	rows.push({
+		name: '⚡🔋 Bat Charge', isSolar: false, isBreaker: false, isBatteryMetric: true,
+		totalKwh: batChgTotalWh/1000, dayKwh: batChgDayWh/1000, nightKwh: batChgNightWh/1000,
+		totalWh: batChgTotalWh, dayWh: batChgDayWh, nightWh: batChgNightWh
+	});
+	rows.push({
+		name: '⚡🔋 Bat Discharge', isSolar: false, isBreaker: false, isBatteryMetric: true,
+		totalKwh: batDisTotalWh/1000, dayKwh: batDisDayWh/1000, nightKwh: batDisNightWh/1000,
+		totalWh: batDisTotalWh, dayWh: batDisDayWh, nightWh: batDisNightWh
+	});
 	let numDays = allDays.size || 1;
 	if (isDay) numDays = 1;
 	const totalNightHours = countNightHours(startMs, Math.min(endMs, Date.now()));
-	totalLoadKwh = rows.filter(r => !r.isSolar && !r.isBreaker).reduce((sum, r) => sum + r.totalKwh, 0);
-	totalDayLoadKwh = rows.filter(r => !r.isSolar && !r.isBreaker).reduce((sum, r) => sum + r.dayKwh, 0);
-	totalNightLoadKwh = rows.filter(r => !r.isSolar && !r.isBreaker).reduce((sum, r) => sum + r.nightKwh, 0);
+	totalLoadKwh = rows.filter(r => !r.isSolar && !r.isBreaker && !r.isBatteryMetric).reduce((sum, r) => sum + r.totalKwh, 0);
+	totalDayLoadKwh = rows.filter(r => !r.isSolar && !r.isBreaker && !r.isBatteryMetric).reduce((sum, r) => sum + r.dayKwh, 0);
+	totalNightLoadKwh = rows.filter(r => !r.isSolar && !r.isBreaker && !r.isBatteryMetric).reduce((sum, r) => sum + r.nightKwh, 0);
 	// Text report
 	let txt = `📄 Energy Usage Report: ${label}\n`;
 	txt += `Generated: ${new Date().toLocaleString()}\n`;
 	txt += `⚡ Total Electricity Outages: ${acBreakdown.formattedDuration} (${acBreakdown.totalHours} hrs across ${acBreakdown.outageCount} times)\n`;
+	const batEffTxt = batChgTotalWh > 0 ? ((batDisTotalWh / batChgTotalWh) * 100).toFixed(0) + '%' : '100%';
+	txt += `🔋 Battery Cycled: Charged ${(batChgTotalWh/1000).toFixed(2)} kWh | Discharged ${(batDisTotalWh/1000).toFixed(2)} kWh (Efficiency: ${batEffTxt})\n`;
 	// -- Outage event times (Day view only) --
 	if (isDay && acBreakdown.dailyBreakdown && acBreakdown.dailyBreakdown.length > 0) {
 		acBreakdown.dailyBreakdown.forEach(d => {
@@ -186,6 +235,8 @@ window.generateGraphReport = async function(forceRefresh = false) {
 		}
 	}
 	html += `<div style="white-space:normal; font-size:11px; color:#ef4444; margin-bottom:8px; padding:3px 10px 4px; line-height:1.25; background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.3); border-radius:6px; box-sizing:border-box; width:100%;"><div style="display:flex; justify-content:space-between; align-items:center; font-weight:700;"><span>⚡ Electricity Breakdown / Outages:</span><span style="font-size:12px; font-weight:800; white-space:nowrap; margin-left:10px;">${acBreakdown.formattedDuration} (${acBreakdown.totalHours} hrs &bull; ${acBreakdown.outageCount} ${acBreakdown.outageCount === 1 ? 'time' : 'times'})</span></div>${outageTimesHtml}</div>`;
+	const batEffPct = batChgTotalWh > 0 ? ((batDisTotalWh / batChgTotalWh) * 100).toFixed(0) : 100;
+	html += `<div style="display:flex; justify-content:space-between; align-items:center; font-size:11px; margin-bottom:8px; padding:6px 10px; background:rgba(16,185,129,0.08); border:1px solid rgba(16,185,129,0.35); border-radius:6px;"><span style="color:#10b981; font-weight:800;">🔋 Battery Cycled:</span><span style="color:var(--text-main); font-weight:700;">⚡ Charged: <b style="color:#10b981;">${(batChgTotalWh/1000).toFixed(2)} kWh</b> &bull; ⚡ Discharged: <b style="color:#f97316;">${(batDisTotalWh/1000).toFixed(2)} kWh</b> &bull; Eff: <b style="color:#38bdf8;">${batEffPct}%</b></span></div>`;
 	html += `<div style="font-size:11px;color:#71717a;margin-bottom:12px;padding:8px 12px;background:#f4f4f5;border-radius:6px;border-left:3px solid #f59e0b;box-sizing:border-box;width:100%;">`;
 	html += `<span style="font-weight:700;">⏰ Time Periods:</span> `;
 	html += `<span style="color:#f59e0b;">Day</span> = 8:00 AM → 5:00 PM (9 hrs) &nbsp;|&nbsp; `;

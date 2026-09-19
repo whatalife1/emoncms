@@ -1,0 +1,21 @@
+[DESS ✔] Initial read OK — Charge=5.0A Discharge=0.0A
+
+AC Output Voltage                   230.1 V
+AC Output Frequency                  49.7 Hz
+AC Output Apparent Power            644.0 VA
+AC Output Active Power              517.0 W
+Output Load                          10.0 %
+Battery Voltage                      52.9 V
+Battery Voltage SCC                   0.0 V
+Battery Charge Current                0.0 A
+Battery Discharge Current             6.0 A
+Inverter Status Bits                  0.0
+Battery SOC                          67.0 %
+Inverter Heat Sink Temp              46.0 °C
+PV1 Input Current                     0.0 A
+Unknown Field 15                      0.0 V
+PV1 Input Power                     247.0 W
+PV2 Input Current                     0.0 A
+PV1 Input Voltage                   353.4 V
+PV2 Input Power                       0.0 W
+-------------------------------------------------------

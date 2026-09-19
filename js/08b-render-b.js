@@ -201,6 +201,39 @@ function renderResults(results) {
       </div></div>`;
     }
 
+    if (gn && gn.includes('Bat V') && gn.includes('SOC %')) {
+      const v   = byName.get('Bat V');
+      const st  = byName.get('Status') || byName.get('Bat Status');
+      const ca  = byName.get('bt_battery_charging_current') || byName.get('Chg A');
+      const da  = byName.get('bt_battery_discharge_current') || byName.get('Dis A');
+      const soc = byName.get('SOC %');
+
+      const chgA = ca?.value || 0;
+      const disA = da?.value || 0;
+      const netA = (chgA > 0.1 ? chgA : 0) - (disA > 0.1 ? disA : 0);
+      const netW = Math.round((v?.value || 51.2) * netA);
+      const socVal = soc?.value != null ? Math.round(soc.value) : '--';
+      const socColor = (soc?.value > 50) ? 'var(--accent-env)' : (soc?.value > 20 ? 'var(--accent-solar)' : '#ef4444');
+
+      const statusMap = {
+        0: 'Standby', 1: 'Charging', 2: 'Discharging', 3: 'Float',
+        4: 'Bulk', 5: 'Absorption', 6: 'Equalize', 7: 'Bypass', 8: 'Fault'
+      };
+      let stText = 'Standby';
+      if (st?.value !== undefined && statusMap[Math.round(st.value)]) {
+        stText = statusMap[Math.round(st.value)];
+      }
+
+      return `<div class="card" style="border-left: 3px solid var(--accent-env)"><div class="hero-header">
+        <div style="flex:1"><span class="card-name">Battery SOC</span>${sparkSvg(soc?.id, '#10b981')}<span class="hero-val" style="color:${socColor}">${socVal}%</span></div>
+        <div style="flex:1;text-align:center"><span class="card-name">Voltage</span><span class="hero-val" style="color:var(--accent-kwh)">${v?.value != null ? v.value.toFixed(1) + 'V' : '---'}</span></div>
+        <div style="flex:1;text-align:right"><span class="card-name">Net Power</span><span class="hero-val" style="color:${netW > 0 ? '#4ade80' : (netW < 0 ? '#f59e0b' : 'var(--text-muted)')}">${netW > 0 ? '+' + netW : netW}W</span></div>
+      </div><div class="linked-values linked-values-pair">
+        <div class="linked-value"><span>Status</span><span class="linked-reading" style="color:var(--accent-kwh)">${stText}</span></div>
+        <div class="linked-value"><span>Chg / Dis Amps</span><span class="linked-reading">${chgA.toFixed(1)}A / ${disA.toFixed(1)}A</span></div>
+      </div></div>`;
+    }
+
     if (gn && gn.includes('Fridge') && gn.includes('Fridge2')) {
       const f1 = byName.get('Fridge');
       const f2 = byName.get('Fridge2');

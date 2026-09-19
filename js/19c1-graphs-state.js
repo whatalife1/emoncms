@@ -111,6 +111,25 @@ try {
   }
 } catch (e) {}
 
+// ─── Battery: Voltage and Power overlay states ─────────────────────────────
+if (typeof window.graphBatteryIncludeVoltage === 'undefined') {
+  window.graphBatteryIncludeVoltage = true;
+}
+try {
+  if (localStorage.getItem('graphBatteryIncludeVoltage') !== null) {
+    window.graphBatteryIncludeVoltage = localStorage.getItem('graphBatteryIncludeVoltage') === 'true';
+  }
+} catch (e) {}
+
+if (typeof window.graphBatteryIncludePower === 'undefined') {
+  window.graphBatteryIncludePower = false;
+}
+try {
+  if (localStorage.getItem('graphBatteryIncludePower') !== null) {
+    window.graphBatteryIncludePower = localStorage.getItem('graphBatteryIncludePower') === 'true';
+  }
+} catch (e) {}
+
 // ─── Energy & Stat line formatter ───────────────────────────────────────────
 function _fmtKwh(v) { 
   return v >= 1 ? v.toFixed(1) : (v >= 0.01 ? v.toFixed(2) : v.toFixed(3)); 
@@ -129,9 +148,10 @@ function _fmtEnergy(v) {
 function _formatStatLine(icon, label, mainVal, accentColor, peakVal, avgVal, dayAvgVal, dayTotalVal, nightAvgVal, nightTotalVal, unit, isKwh, currentTab, isCompact = false) {
   const lblLower = (label || '').toLowerCase();
   const isTemp = lblLower.includes('temp') || unit === '°C';
-  const isWater = lblLower.includes('water') || lblLower.includes('tank') || unit === '%';
+  const isWater = lblLower.includes('water') || lblLower.includes('tank') || (unit === '%' && !lblLower.includes('battery') && !lblLower.includes('soc'));
+  const isBat = lblLower.includes('battery') || lblLower.includes('soc') || lblLower.includes('bat');
   const isVolts = lblLower.includes('volt') || unit === 'V';
-  const isNonEnergy = isTemp || isWater || isVolts;
+  const isNonEnergy = isTemp || isWater || isVolts || isBat;
 
   // Only energy feeds become kWh/Wh in Month/Year
   if ((currentTab === 'month' || currentTab === 'year') && !isNonEnergy) {

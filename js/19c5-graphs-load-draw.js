@@ -91,7 +91,7 @@ async function _loadAndDraw(forceRefresh = false) {
     const isCombined = graphFeedKey === 'combined', isGridAll = graphFeedKey === 'gridall';
     const color1 = fA?.color || '#facc15', color2 = '#ef4444';
     const isTemp = graphFeedKey.startsWith('temp') || graphFeedKey === 'invtemp';
-    const unit = isTemp ? '°C' : (graphFeedKey === 'water' ? '%' : (graphFeedKey === 'acvolts' ? 'V' : 'W'));
+    const unit = isTemp ? '°C' : ((graphFeedKey === 'water' || graphFeedKey === 'battery') ? '%' : ((graphFeedKey === 'acvolts' || graphFeedKey === 'batv') ? 'V' : 'W'));
     let pts1 = [], pts2 = [], bars1 = [], bars2 = [], multiData = null;
     let monthAcBreakdown = null;
 
@@ -288,6 +288,83 @@ async function _loadAndDraw(forceRefresh = false) {
         statHtml += _formatStatLine('👕', 'Washing Machine', (cumWm[lastIdx-1] || 0), feedWm.color, Math.max(...(wmBars.length ? wmBars : [0]), 0), (wmBars.length ? (wmBars.reduce((a,b)=>a+b,0)/wmBars.length) : 0), null, null, null, null, 'W', true, graphTab);
       }
       stat.innerHTML = statHtml;
+      _showGraphLoading(false); graphIsLoading = false; return;
+    }
+
+    // ── Special Case: Battery tab with Voltage & Power overlays ──
+    if (graphFeedKey === 'battery') {
+      const feedSoc = GRAPH_FEEDS.find(f => f.key === 'battery') || { id: '546019', color: '#10b981' };
+      const feedBatV = GRAPH_FEEDS.find(f => f.key === 'batv') || { id: '546013', color: '#35c0b7' };
+
+      const promises = [_gFetch(feedSoc.id, nav.startMs, nav.endMs, nav.interval)];
+      if (window.graphBatteryIncludeVoltage || window.graphBatteryIncludePower) {
+        promises.push(_gFetch(feedBatV.id, nav.startMs, nav.endMs, nav.interval));
+      }
+      if (window.graphBatteryIncludePower) {
+        promises.push(_gFetch('546022', nav.startMs, nav.endMs, nav.interval));
+        promises.push(_gFetch('546025', nav.startMs, nav.endMs, nav.interval));
+      }
+
+      const res = await Promise.all(promises);
+      const resSoc = res[0] || [];
+      const resVolt = (window.graphBatteryIncludeVoltage || window.graphBatteryIncludePower) ? (res[1] || []) : [];
+      const resChg = window.graphBatteryIncludePower ? (res[2] || []) : [];
+      const resDis = window.graphBatteryIncludePower ? (res[3] || []) : [];
+
+      bars1 = _pointsToBars(resSoc, nav, 'battery');
+      const voltBars = resVolt.length ? _pointsToBars(resVolt, nav, 'batv') : [];
+
+      let lastIdx = nav.nBars || bars1.length || 720;
+      if (graphTab === 'day' && graphDateNav === 0) {
+        lastIdx = Math.floor((Date.now() - 60000 - nav.startMs) / (nav.resSeconds * 1000)) + 1;
+        lastIdx = Math.max(0, Math.min(lastIdx, nav.nBars));
+      }
+
+      let pwrBars = [];
+      if (window.graphBatteryIncludePower) {
+        const chgBars = _pointsToBars(resChg, nav, 'chg');
+        const disBars = _pointsToBars(resDis, nav, 'dis');
+        pwrBars = new Array(lastIdx).fill(0);
+        for (let i = 0; i < lastIdx; i++) {
+          const v = voltBars[i] || 52.0;
+          const ca = chgBars[i] || 0;
+          const da = disBars[i] || 0;
+          pwrBars[i] = Math.round(v * (ca - da));
+        }
+      }
+
+      const activeVolt = voltBars.slice(0, lastIdx).filter(v => v != null && v > 40);
+      let vMin = activeVolt.length ? Math.floor(Math.min(...activeVolt) - 1) : 46;
+      let vMax = activeVolt.length ? Math.ceil(Math.max(...activeVolt) + 1) : 56;
+      let vRange = Math.max(1, vMax - vMin);
+
+      const activePwr = pwrBars.slice(0, lastIdx).filter(v => v != null && Math.abs(v) > 0);
+      let pMax = activePwr.length ? Math.max(...activePwr.map(Math.abs)) * 1.15 : 1000;
+
+      let secBars = null, secMin = 0, secMax = 100, secRange = 100, secUnit = '', secColor = '#35c0b7', secLabel = '';
+      if (window.graphBatteryIncludeVoltage) {
+        secBars = voltBars; secMin = vMin; secMax = vMax; secRange = vRange; secUnit = 'V'; secColor = '#35c0b7'; secLabel = 'Voltage (V)';
+      } else if (window.graphBatteryIncludePower) {
+        secBars = pwrBars; secMin = -pMax; secMax = pMax; secRange = 2 * pMax; secUnit = 'W'; secColor = '#facc15'; secLabel = 'Net Power (W)';
+      }
+
+      graphDataCache = {
+        bars1, bars2: [],
+        labels: nav.labels, timeLabels: nav.timeLabels || nav.labels, fullLabels: nav.fullLabels || nav.labels,
+        color1: feedSoc.color, color2: null, unit: '%', isCombined: false, nav, lastIdx,
+        multiData: null, minV: 0, maxV: 100, range: 100,
+        barsTemp: secBars, tempMinV: secMin, tempMaxV: secMax, tempRange: secRange,
+        tempUnit: secUnit, tempColor: secColor, overlayLabel: secLabel, isDualY: !!secBars,
+        barsTemp2: (window.graphBatteryIncludeVoltage && window.graphBatteryIncludePower) ? pwrBars : null,
+        tempColor2: '#facc15', overlayLabel2: 'Net Power (W)',
+        voltBars, pwrBars
+      };
+
+      _drawChart(canvas, bars1, [], nav.labels, feedSoc.color, null, '%', false, nav, lastIdx, null, 0, 100, 100,
+        secBars, secMin, secMax, secRange, secUnit, secColor, secLabel);
+
+      _renderFeedStats(stat, { bars1, bars2: [], pts1: resSoc, pts2: [], nav, lastIdx, multiData: null, isGridAll: false, isCombined: false, fA: feedSoc, color1: feedSoc.color, color2: null, unit: '%', isTemp: false, graphFeedKey: 'battery', voltBars, pwrBars });
+
       _showGraphLoading(false); graphIsLoading = false; return;
     }
 

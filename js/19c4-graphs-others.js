@@ -351,3 +351,48 @@ function _renderMotorToggles() {
   feedTabs.parentNode.insertBefore(wrap, feedTabs);
 }
 window._renderMotorToggles = _renderMotorToggles;
+
+// ─── Battery tab: Separate Toggles for Voltage & Net Power ──────────────────
+function _renderBatteryToggles() {
+  const existing = document.getElementById('battery-overlay-toggles');
+  if (existing) existing.remove();
+  const currentFeed = (typeof graphFeedKey !== 'undefined') ? graphFeedKey : window.graphFeedKey;
+  if (currentFeed !== 'battery') return;
+  const feedTabs = document.getElementById('graph-feed-tabs');
+  if (!feedTabs || !feedTabs.parentNode) return;
+
+  const voltOn = !!window.graphBatteryIncludeVoltage;
+  const pwrOn = !!window.graphBatteryIncludePower;
+  const voltColor = '#35c0b7', pwrColor = '#facc15';
+
+  const wrap = document.createElement('div');
+  wrap.id = 'battery-overlay-toggles';
+  wrap.style.cssText = 'display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:wrap;padding:0 0 8px;flex-shrink:0;';
+
+  // Button 1: Voltage
+  const btnVolt = document.createElement('button');
+  btnVolt.style.cssText = `padding:5px 12px;border-radius:20px;font-size:11px;font-weight:800;cursor:pointer;border:1.5px solid ${voltColor};background:${voltOn ? 'rgba(53,192,183,0.18)' : 'transparent'};color:${voltOn ? voltColor : 'var(--text-muted)'};opacity:${voltOn ? '1' : '0.75'};width:auto;`;
+  btnVolt.textContent = voltOn ? '⚡ Voltage: Added' : '⚡ + Voltage (V)';
+  btnVolt.addEventListener('click', function () {
+    window.graphBatteryIncludeVoltage = !window.graphBatteryIncludeVoltage;
+    try { localStorage.setItem('graphBatteryIncludeVoltage', window.graphBatteryIncludeVoltage ? 'true' : 'false'); } catch (e) {}
+    _renderBatteryToggles();
+    if (typeof _loadAndDraw === 'function') _loadAndDraw();
+  });
+
+  // Button 2: Net Power
+  const btnPwr = document.createElement('button');
+  btnPwr.style.cssText = `padding:5px 12px;border-radius:20px;font-size:11px;font-weight:800;cursor:pointer;border:1.5px solid ${pwrColor};background:${pwrOn ? 'rgba(250,204,21,0.18)' : 'transparent'};color:${pwrOn ? pwrColor : 'var(--text-muted)'};opacity:${pwrOn ? '1' : '0.75'};width:auto;`;
+  btnPwr.textContent = pwrOn ? '⚡ Power: Added' : '⚡ + Power (W)';
+  btnPwr.addEventListener('click', function () {
+    window.graphBatteryIncludePower = !window.graphBatteryIncludePower;
+    try { localStorage.setItem('graphBatteryIncludePower', window.graphBatteryIncludePower ? 'true' : 'false'); } catch (e) {}
+    _renderBatteryToggles();
+    if (typeof _loadAndDraw === 'function') _loadAndDraw();
+  });
+
+  wrap.appendChild(btnVolt);
+  wrap.appendChild(btnPwr);
+  feedTabs.parentNode.insertBefore(wrap, feedTabs);
+}
+window._renderBatteryToggles = _renderBatteryToggles;

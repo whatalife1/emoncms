@@ -51,6 +51,11 @@ function replayFlowDiagramAtMoment(multiData, idx, timestampSec) {
   mockMap.set('Solar V',         { value: solarW > 20 ? 380 : 0, time: timestampSec });
   mockMap.set('Solar Amps',      { value: solarW > 20 ? (solarW / 380) : 0, time: timestampSec });
   mockMap.set('Inverter Temp',   { value: 38, time: timestampSec });
+  mockMap.set('Bat V',                         { value: 52.8, time: timestampSec });
+  mockMap.set('Status',                        { value: 1, time: timestampSec });
+  mockMap.set('SOC %',                         { value: 85, time: timestampSec });
+  mockMap.set('bt_battery_charging_current',   { value: solarW > totLoad ? parseFloat(((solarW - totLoad)/52.8).toFixed(1)) : 0, time: timestampSec });
+  mockMap.set('bt_battery_discharge_current',  { value: totLoad > (solarW + gridW) ? parseFloat(((totLoad - solarW - gridW)/52.8).toFixed(1)) : 0, time: timestampSec });
   mockMap.set('Water Tank',      { value: 75, time: timestampSec });
   mockMap.set('Temperature',     { value: 30, time: timestampSec });
   mockMap.set('Humidity',        { value: 55, time: timestampSec });

@@ -24,7 +24,10 @@ function _pointsToBars(pts, nav, feedKey) {
     feedKey === 'water' ||
     feedKey === 'acvolts' ||
     feedKey === 'solarv' ||
-    feedKey === 'solv'
+    feedKey === 'solv' ||
+    feedKey === 'battery' ||
+    feedKey === 'batv' ||
+    feedKey === 'soc'
   );
 
   if (nav && nav.isMonthBilling) {

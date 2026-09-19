@@ -13,6 +13,12 @@ const GRAPH_MOMENT_FLOW = {
 const GRAPH_FEEDS = [
     { key: 'solar',     name: 'Solar',          id: '499380', color: '#facc15', label: '☀ Solar',        isWatts: true },
     { key: 'grid',      name: 'Grid (Breaker)',  id: '499374', color: '#ef4444', label: '⚡ Grid',         isWatts: true },
+    { key: 'battery',   name: 'Battery',        id: '546019', color: '#10b981', label: '🔋 Battery',      isWatts: false, statLabel: '🔋 Battery SOC' },
+    { key: 'batchg',    name: 'Bat Charge',     id: '546022', color: '#10b981', label: '⚡🔋 Bat Charge', isWatts: true, statLabel: '⚡🔋 Bat Charge' },
+    { key: 'batdis',    name: 'Bat Discharge',  id: '546025', color: '#f97316', label: '⚡🔋 Bat Dischg', isWatts: true, statLabel: '⚡🔋 Bat Discharge' },
+    { key: 'batv',      name: 'Bat Voltage',    id: '546013', color: '#35c0b7', label: '⚡ Bat V',        isWatts: false, statLabel: '⚡ Battery Voltage' },
+    { key: 'battery',   name: 'Battery',        id: '546019', color: '#10b981', label: '🔋 Battery',      isWatts: false, statLabel: '🔋 Battery SOC' },
+    { key: 'batv',      name: 'Bat Voltage',    id: '546013', color: '#35c0b7', label: '⚡ Bat V',        isWatts: false, statLabel: '⚡ Battery Voltage' },
     { key: 'acvolts',   name: 'AC Input Volts',  id: '499383', color: '#fb7185', label: '⚡ AC Volts',     isWatts: false },
     { key: 'temp',      name: 'Temperature',     id: '499428', color: '#10b981', label: '🌡 Temp 1',      isWatts: false, isTemp: true },
     { key: 'temp2',     name: 'Temperature 2',   id: '512473', color: '#34d399', label: '🌡 Temp 2',      isWatts: false, isTemp: true },
@@ -36,6 +42,8 @@ const GRAPH_FEEDS = [
 ];
 
 const GRAPH_COMBINED = { key: 'combined', name: 'Solar + Grid', color: '#facc15', label: '⚡☀ Solar+Grid' };
+const GRAPH_BAT_CHG_DIS = { key: 'batchgdis', name: 'Battery Chg / Dis', color: '#10b981', color2: '#f97316', label: '🔋 Chg vs Dis' };
+window.GRAPH_BAT_CHG_DIS = GRAPH_BAT_CHG_DIS;
 
 const GRID_ALL_FEEDS = [
     { key: 'solar',     id: '499380', color: '#facc15', label: 'Solar'        },

@@ -151,8 +151,49 @@ function _renderFeedStats(stat, ctx) {
     }
     stat.innerHTML = _formatStatLine('☀', 'Solar', t1, color1, p1, a1, d1, dt1, null, null, unit, true, graphTab) +
       _formatStatLine('⚡', 'Grid', t2, color2, p2, a2, d2, dt2, n2, nt2, unit, true, graphTab);
-  } else if (isTemp || gfk === 'water') {
-    // ── Environmental Sensors: Temperature 1, 2, Inv Temp, Water Tank ──
+  } else if (gfk === 'battery') {
+    const validBars = (graphTab === 'day' ? bars1.slice(0, lastIdx) : bars1).filter(v => v !== null && v !== undefined && !isNaN(v) && v > 0);
+    const latestV = validBars.length > 0 ? validBars[validBars.length - 1] : 0;
+    const pk = validBars.length > 0 ? Math.max(...validBars) : 0;
+    const av = validBars.length > 0 ? (validBars.reduce((a, b) => a + b, 0) / validBars.length) : 0;
+
+    let dAv = null, nAv = null;
+    if (graphTab === 'day') {
+      const ds = _calcStatsForRange(bars1, 8, 17, nav, lastIdx);
+      dAv = ds.avg;
+      const ns = _calcStatsForRange(bars1, 17, 8, nav, lastIdx);
+      nAv = ns.avg;
+    }
+
+    const mainVal = (graphTab === 'month' || graphTab === 'year') ? av : latestV;
+    let statHtml = _formatStatLine('🔋', 'Battery SOC', mainVal, color1, pk, av, dAv, null, nAv, null, '%', false, graphTab);
+
+    const vBars = ctx.voltBars || [];
+    if (vBars.length > 0) {
+      const validV = (graphTab === 'day' ? vBars.slice(0, lastIdx) : vBars).filter(v => v != null && v > 40);
+      if (validV.length > 0) {
+        const curV = validV[validV.length - 1];
+        const maxV = Math.max(...validV);
+        const avgV = validV.reduce((a, b) => a + b, 0) / validV.length;
+        statHtml += _formatStatLine('⚡', 'Battery Voltage', curV, '#35c0b7', maxV, avgV, null, null, null, null, 'V', false, graphTab);
+      }
+    }
+
+    const pBars = ctx.pwrBars || [];
+    if (pBars.length > 0) {
+      const validP = (graphTab === 'day' ? pBars.slice(0, lastIdx) : pBars).filter(v => v != null);
+      if (validP.length > 0) {
+        const curP = validP[validP.length - 1];
+        const maxP = Math.max(...validP);
+        const avgP = validP.reduce((a, b) => a + b, 0) / validP.length;
+        statHtml += _formatStatLine('⚡', 'Net Battery Power', curP, '#facc15', maxP, avgP, null, null, null, null, 'W', false, graphTab);
+      }
+    }
+
+    stat.innerHTML = statHtml;
+    return;
+  } else if (isTemp || gfk === 'water' || gfk === 'batv') {
+    // ── Environmental Sensors: Temperature 1, 2, Inv Temp, Water Tank, Bat V ──
     const validBars = (graphTab === 'day' ? bars1.slice(0, lastIdx) : bars1).filter(v => v !== null && v !== undefined && !isNaN(v) && v > 0);
     const latestV = validBars.length > 0 ? validBars[validBars.length - 1] : 0;
     const pk = validBars.length > 0 ? Math.max(...validBars) : 0;

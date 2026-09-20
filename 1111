@@ -1,3 +1,26 @@
+
+1. Why It Displays as 0.0 (A Formatting Quirk)
+In your Python script, every incoming field from the inverter is parsed with this line:
+code
+Python
+val = round(float(part) * scale, 2)
+In the raw data stream from the inverter, this field is actually an integer or binary string (such as "0" or "00000000").
+Because your script converts everything into a decimal with float(...), the integer 0 is printed as 0.0. It is not a measurement with a decimal point like voltage or temperature; it is a digital status flag.
+2. What "Inverter Status Bits" Actually Represents
+In Axpert / Voltronic hybrid inverters (and those using the P17 / SmartESS protocol), this field is a bitmask (a series of 1s and 0s) that reports the real-time operational states and charger conditions.
+When different subsystems turn on or off, individual binary bits flip between 0 (Inactive/Off) and 1 (Active/On):
+Bit Flag	What It Indicates	State when 0	State when 1
+Bit 0	AC / Grid Charging	Not charging from Grid/WAPDA	Actively charging battery from Grid
+Bit 1	Solar (SCC) Charging	Not charging from Solar PV	Actively charging battery from Solar
+Bit 2	Charge Status	Charging inactive / Float complete	Charging in progress (Bulk/Absorb)
+Bit 3	Battery Voltage Condition	Normal	Battery low / Cut-off warning
+Bit 4	Load Status	Inverter output load is OFF	Inverter output load is ON
+Bit 5+	Fault / Protection Flags	Normal operation	Active warning or protection tripped
+
+
+
+
+
 [DESS ✔] Initial read OK — Charge=5.0A Discharge=0.0A
 
 AC Output Voltage                   230.1 V

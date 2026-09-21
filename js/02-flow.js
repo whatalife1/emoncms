@@ -1,17 +1,17 @@
 // js/02-flow.js
 const LAYOUT = {
  weather: { x:5, y:10, w:708, h:49, color:'#0ea5e9', label:'Weather', ly1:25, fs:25, c1:'#ffffff',  },
- solar: { x:5, y:66, w:300, h:367, color:'#f59e0b', label:'Solar', ly1:42, fs:46, c1:'#ffff00', ly2:106, fs2:45, c2:'#2c8758', ly3:172, fs3:27, c3:'#b4b635', ly4:219, fs4:20, c4:'#21c442', ly5:289, fs5:22, c5:'#3de31c', ly6:330, fs6:20, c6:'#38bdf8', ly7:142, fs7:18, c7:'#a1a1aa', ly8:246, fs8:21, c8:'#21c442',  },
- grid: { x:311, y:64, w:190, h:371, color:'#ef4444', label:'Grid', ly1:35, fs:32, c1:'#ef4444', ly2:143, fs2:25, c2:'#35c0b7', ly3:301, fs3:19, c3:'#3de3e4', ly4:332, fs4:17, c4:'#38bdf8', ly5:186, fs5:17, c5:'#a1a1aa', ly6:79, fs6:18, c6:'#a1a1aa',  },
- battery: { x:505, y:63, w:222, h:370, color:'#10b981', label:'Battery', ly1:20, fs:32, c1:'#10b981', ly2:64, fs2:50, c2:'#25f447', ly3:176, fs3:23, c3:'#facc15', ly4:108, fs4:33, c4:'#35c0b7', ly5:251, fs5:23, c5:'#38bdf8', ly6:211, fs6:28, c6:'#4ade80', ly7:147, fs7:18, c7:'#a1a1aa', ly8:303, fs8:18, c8:'#10b981', ly9:337, fs9:18, c9:'#f97316',  },
- water: { x:421, y:680, w:152, h:242, color:'#0ea5e9', label:'Water', ly1:21, fs:41, c1:'#0ea5e9', ly2:97, fs2:56, c2:'#25f447', ly3:141, fs3:27, c3:'#9ca3af', ly4:173, fs4:20, c4:'#0ce4e0', ly5:197, fs5:19, c5:'#38bdf8', ly6:224, fs6:18, c6:'#a1a1aa',  },
- haier: { x:7, y:436, w:179, h:206, color:'#38bdf8', label:'Haier 1T', ly1:17, fs:27, c1:'#38bdf8', ly2:65, fs2:54, c2:'#25f447', ly3:143, fs3:25, c3:'#00c8f0', ly4:175, fs4:25, c4:'#518e35', ly5:113, fs5:16, c5:'#a1a1aa',  },
- k15: { x:192, y:438, w:196, h:198, color:'#38bdf8', label:'Kenwood 1.5T', ly1:15, fs:26, c1:'#38bdf8', ly2:68, fs2:53, c2:'#25f447', ly3:142, fs3:25, c3:'#00c8f0', ly4:175, fs4:25, c4:'#518e35', ly5:114, fs5:16, c5:'#a1a1aa',  },
- k1: { x:395, y:438, w:189, h:198, color:'#38bdf8', label:'Kenwood 1T', ly1:14, fs:30, c1:'#38bdf8', ly2:61, fs2:54, c2:'#25f447', ly3:143, fs3:21, c3:'#00c8f0', ly4:175, fs4:22, c4:'#518e35', ly5:114, fs5:17, c5:'#a1a1aa',  },
- fridge: { x:8, y:678, w:224, h:239, color:'#c084fc', label:'Fridges', ly1:16, fs:36, c1:'#38bdf8', ly2:53, fs2:52, c2:'#25f447', ly3:103, fs3:17, c3:'#518e35', ly4:132, fs4:36, c4:'#38bdf8', ly5:171, fs5:52, c5:'#25f447', ly6:228, fs6:17, c6:'#518e35', ly7:86, fs7:14, c7:'#a1a1aa', ly8:205, fs8:17, c8:'#a1a1aa',  },
- pc: { x:591, y:439, w:133, h:240, color:'#10b9f8', label:'PC', ly1:17, fs:42, c1:'#38bdf8', ly2:59, fs2:45, c2:'#25f447', ly3:174, fs3:19, c3:'#00c8f0', ly4:219, fs4:19, c4:'#518e35', ly5:113, fs5:18, c5:'#a1a1aa',  },
- wm: { x:582, y:682, w:139, h:238, color:'#e879f9', label:'Washing|Machine', ly1:19, fs:30, c1:'#e879f9', ly2:92, fs2:43, c2:'#25f447', ly3:180, fs3:21, c3:'#00c8f0', ly4:219, fs4:21, c4:'#518e35',  },
- motor: { x:235, y:678, w:183, h:243, color:'#fbbf24', label:'Water Motor', ly1:24, fs:28, c1:'#fbbf24', ly2:83, fs2:57, c2:'#38bdf8', ly3:188, fs3:21, c3:'#518e35', ly4:221, fs4:22, c4:'#518e35', ly5:129, fs5:18, c5:'#a1a1aa',  },
+ solar: { x:5, y:66, w:300, h:367, color:'#f59e0b', label:'Solar', ly1:39, fs:46, c1:'#ffff00', ly2:106, fs2:45, c2:'#2c8758', ly3:180, fs3:27, c3:'#b4b635', ly4:219, fs4:20, c4:'#21c442', ly5:295, fs5:22, c5:'#3de31c', ly6:340, fs6:20, c6:'#38bdf8', ly7:150, fs7:18, c7:'#a1a1aa', ly8:246, fs8:21, c8:'#21c442',  },
+ grid: { x:311, y:64, w:190, h:371, color:'#ef4444', label:'Grid', ly1:32, fs:32, c1:'#ef4444', ly2:143, fs2:25, c2:'#35c0b7', ly3:314, fs3:19, c3:'#3de3e4', ly4:343, fs4:17, c4:'#38bdf8', ly5:192, fs5:20, c5:'#a1a1aa', ly6:79, fs6:18, c6:'#a1a1aa',  },
+ battery: { x:505, y:63, w:222, h:370, color:'#10b981', label:'Battery', ly1:17, fs:34, c1:'#10b981', ly2:64, fs2:53, c2:'#25f447', ly3:165, fs3:24, c3:'#facc15', ly4:105, fs4:33, c4:'#35c0b7', ly5:234, fs5:23, c5:'#38bdf8', ly6:198, fs6:38, c6:'#4ade80', ly7:137, fs7:18, c7:'#a1a1aa', ly8:270, fs8:22, c8:'#10b981', ly9:296, fs9:20, c9:'#10b981', ly10:325, fs10:20, c10:'#10b981', ly11:350, fs11:20, c11:'#10b981',  },
+ water: { x:421, y:680, w:152, h:242, color:'#0ea5e9', label:'Water|Tank', ly1:18, fs:35, c1:'#0ea5e9', ly2:94, fs2:52, c2:'#25f447', ly3:139, fs3:27, c3:'#9ca3af', ly4:171, fs4:20, c4:'#0ce4e0', ly5:197, fs5:19, c5:'#38bdf8', ly6:224, fs6:18, c6:'#a1a1aa',  },
+ haier: { x:7, y:436, w:179, h:206, color:'#38bdf8', label:'Haier 1T', ly1:17, fs:28, c1:'#38bdf8', ly2:65, fs2:55, c2:'#25f447', ly3:143, fs3:25, c3:'#00c8f0', ly4:175, fs4:25, c4:'#518e35', ly5:113, fs5:17, c5:'#a1a1aa',  },
+ k15: { x:192, y:438, w:196, h:198, color:'#38bdf8', label:'Kenwood 1.5T', ly1:21, fs:27, c1:'#38bdf8', ly2:68, fs2:53, c2:'#25f447', ly3:142, fs3:25, c3:'#00c8f0', ly4:175, fs4:25, c4:'#518e35', ly5:114, fs5:16, c5:'#a1a1aa',  },
+ k1: { x:395, y:438, w:189, h:198, color:'#38bdf8', label:'Kenwood 1T', ly1:20, fs:30, c1:'#38bdf8', ly2:64, fs2:52, c2:'#25f447', ly3:143, fs3:21, c3:'#00c8f0', ly4:175, fs4:22, c4:'#518e35', ly5:114, fs5:18, c5:'#a1a1aa',  },
+ fridge: { x:8, y:678, w:224, h:239, color:'#c084fc', label:'Fridges', ly1:16, fs:36, c1:'#38bdf8', ly2:53, fs2:52, c2:'#25f447', ly3:103, fs3:18, c3:'#518e35', ly4:129, fs4:36, c4:'#38bdf8', ly5:171, fs5:52, c5:'#25f447', ly6:228, fs6:18, c6:'#518e35', ly7:86, fs7:14, c7:'#a1a1aa', ly8:205, fs8:17, c8:'#a1a1aa',  },
+ pc: { x:591, y:439, w:133, h:240, color:'#10b9f8', label:'PC', ly1:17, fs:40, c1:'#38bdf8', ly2:61, fs2:45, c2:'#25f447', ly3:174, fs3:19, c3:'#00c8f0', ly4:219, fs4:19, c4:'#518e35', ly5:113, fs5:18, c5:'#a1a1aa',  },
+ wm: { x:582, y:682, w:139, h:238, color:'#e879f9', label:'Washing|Machine', ly1:16, fs:30, c1:'#e879f9', ly2:92, fs2:43, c2:'#25f447', ly3:180, fs3:19, c3:'#00c8f0', ly4:219, fs4:21, c4:'#518e35',  },
+ motor: { x:235, y:678, w:183, h:243, color:'#fbbf24', label:'Water|Motor', ly1:15, fs:37, c1:'#fbbf24', ly2:105, fs2:52, c2:'#38bdf8', ly3:188, fs3:21, c3:'#518e35', ly4:221, fs4:22, c4:'#518e35', ly5:150, fs5:18, c5:'#a1a1aa',  },
  temp: { x:398, y:639, w:189, h:38, color:'#22c55e', label:'temp', ly1:16, fs:24, c1:'#25f447',  },
  temp2: { x:8, y:639, w:179, h:36, color:'#22c55e', label:'temp2', ly1:16, fs:21, c1:'#25f447',  },
 };
@@ -290,13 +290,15 @@ function renderFlowDiagram(byName) {
     if (o.ly7) svg += `<text x="${cx(o)}" y="${o.y+o.ly7}" ${tpProps} font-size="${o.fs7}" fill="${o.c7}">${bTimeStr}</text>`;
     svg += `<text x="${cx(o)}" y="${o.y+o.ly3}" ${tpProps} font-size="${o.fs3}" fill="${actionColor}" data-maxw="${o.w-10}">${actionLine}</text>`;
     if (isBatActive && batW !== 0 && o.ly6) {
-      svg += `<text x="${cx(o)}" y="${o.y+o.ly6}" ${tpProps} font-size="${o.fs6}" fill="${pwrColor}" data-maxw="${o.w-12}">Power: ${pwrSign} w</text>`;
+      svg += `<text x="${cx(o)}" y="${o.y+o.ly6}" ${tpProps} font-size="${o.fs6}" fill="${pwrColor}" data-maxw="${o.w-12}">${pwrSign} w</text>`;
     }
     if (estLine && o.ly5) {
       svg += `<text x="${cx(o)}" y="${o.y+o.ly5}" ${tpProps} font-size="${o.fs5}" fill="${o.c5 || '#38bdf8'}" data-maxw="${o.w-12}">${estLine}</text>`;
     }
-    if (o.ly8) svg += `<text x="${cx(o)}" y="${o.y+o.ly8}" ${tpProps} font-size="${o.fs8}" fill="${o.c8 || '#10b981'}" data-maxw="${o.w-8}">Chrg T: ${chgTStr} M: ${chgMStr}</text>`;
-    if (o.ly9) svg += `<text x="${cx(o)}" y="${o.y+o.ly9}" ${tpProps} font-size="${o.fs9}" fill="${o.c9 || '#f97316'}" data-maxw="${o.w-8}">Disc T: ${disTStr} M: ${disMStr}</text>`;
+    if (o.ly8)  svg += `<text x="${cx(o)}" y="${o.y+o.ly8}"  ${tpProps} font-size="${o.fs8}"  fill="${o.c8  || '#10b981'}" data-maxw="${o.w-8}">Charge</text>`;
+    if (o.ly9)  svg += `<text x="${cx(o)}" y="${o.y+o.ly9}"  ${tpProps} font-size="${o.fs9}"  fill="${o.c9  || '#10b981'}" data-maxw="${o.w-8}">T: ${chgTStr} M: ${chgMStr}</text>`;
+    if (o.ly10) svg += `<text x="${cx(o)}" y="${o.y+o.ly10}" ${tpProps} font-size="${o.fs10}" fill="${o.c10 || '#10b981'}" data-maxw="${o.w-8}">Discharge</text>`;
+    if (o.ly11) svg += `<text x="${cx(o)}" y="${o.y+o.ly11}" ${tpProps} font-size="${o.fs11}" fill="${o.c11 || '#10b981'}" data-maxw="${o.w-8}">T: ${disTStr} M: ${disMStr}</text>`;
   }
 
 
@@ -317,7 +319,10 @@ function renderFlowDiagram(byName) {
 
   const boxClass = isWasting ? "pulse-animation" : "";
   svg += `<rect class="${boxClass}" style="--pulse-clr:#ef4444" x="${o.x}" y="${o.y}" width="${o.w}" height="${o.h}" rx="10" fill="${isWasting?'#2a0a0a':'#0f1a20'}" stroke="${wC}" stroke-width="2"/>`;
-  svg += `<text x="${cx(o)}" y="${o.y+o.ly1}" ${tpProps} font-size="${o.fs}" fill="${isWasting?'#ef4444':o.c1}">${o.label}</text>`;
+  const wLblParts = String(o.label).split('|');
+  const isMultiW  = wLblParts.length > 1;
+  const wLblHtml  = isMultiW ? wLblParts.map((pp, i) => `<tspan x="${cx(o)}" dy="${i === 0 ? 0 : o.fs + 2}">${pp}</tspan>`).join('') : o.label;
+  svg += `<text x="${cx(o)}" y="${o.y+o.ly1}" ${tpProps} font-size="${o.fs}" fill="${isWasting?'#ef4444':o.c1}"${isMultiW ? '' : ` data-maxw="${o.w-12}"`}>${wLblHtml}</text>`;
   svg += `<text x="${cx(o)}" y="${o.y+o.ly2}" ${tpProps} font-size="${o.fs2}" fill="${isWasting?'#fca5a5':o.c2}">${Math.round(tk)}%</text>`;
   svg += `<text x="${cx(o)}" y="${o.y+o.ly3}" ${tpProps} font-size="${o.fs3}" fill="${wC}" data-maxw="${o.w-8}">${wS}</text>`;
   if (tkTime) {

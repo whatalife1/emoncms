@@ -203,34 +203,58 @@ function renderResults(results) {
 
     if (gn && gn.includes('Bat V') && gn.includes('SOC %')) {
       const v   = byName.get('Bat V');
-      const st  = byName.get('Status') || byName.get('Bat Status');
       const ca  = byName.get('bt_battery_charging_current') || byName.get('Chg A');
       const da  = byName.get('bt_battery_discharge_current') || byName.get('Dis A');
       const soc = byName.get('SOC %');
 
+      const batV = v?.value || 52.8;
       const chgA = ca?.value || 0;
       const disA = da?.value || 0;
+      const isCharging = chgA > 0.5;
+      const isDischarging = disA > 0.5;
       const netA = (chgA > 0.1 ? chgA : 0) - (disA > 0.1 ? disA : 0);
-      const netW = Math.round((v?.value || 51.2) * netA);
+      const netW = Math.round(batV * netA);
       const socVal = soc?.value != null ? Math.round(soc.value) : '--';
       const socColor = (soc?.value > 50) ? 'var(--accent-env)' : (soc?.value > 20 ? 'var(--accent-solar)' : '#ef4444');
 
-      const statusMap = {
-        0: 'Standby', 1: 'Charging', 2: 'Discharging', 3: 'Float',
-        4: 'Bulk', 5: 'Absorption', 6: 'Equalize', 7: 'Bypass', 8: 'Fault'
-      };
-      let stText = 'Standby';
-      if (st?.value !== undefined && statusMap[Math.round(st.value)]) {
-        stText = statusMap[Math.round(st.value)];
+      const packKwh = (typeof solarCfg !== 'undefined' && solarCfg?.batteryKwh > 0) ? solarCfg.batteryKwh : 5.12;
+      const packWh = packKwh * 1000;
+      let estTimeStr = '';
+      if (isDischarging && netW < -15) {
+        const usableWh = packWh * (Math.max(0, socVal - 10) / 100);
+        const hrs = usableWh / Math.abs(netW);
+        const h = Math.floor(hrs);
+        const m = Math.round((hrs - h) * 60);
+        estTimeStr = h > 0 ? `~${h}h ${m}m left` : `~${m}m left`;
+      } else if (isCharging && netW > 15) {
+        const neededWh = packWh * ((100 - socVal) / 100);
+        const hrs = neededWh / netW;
+        const h = Math.floor(hrs);
+        const m = Math.round((hrs - h) * 60);
+        estTimeStr = h > 0 ? `~${h}h ${m}m to full` : `~${m}m to full`;
       }
+
+      let stText = 'Standby';
+      if (isCharging) stText = estTimeStr ? `Charging (${estTimeStr})` : 'Charging';
+      else if (isDischarging) stText = estTimeStr ? `Discharging (${estTimeStr})` : 'Discharging';
+
+      let currentText = 'Standby';
+      if (isCharging) currentText = `Charging: ${chgA.toFixed(1)}A`;
+      else if (isDischarging) currentText = `Discharging: ${disA.toFixed(1)}A`;
+
+      const batStats = window.monthlyUnits || {};
+      const fmtE = (wh) => (wh >= 500 ? (wh / 1000).toFixed(1) + ' kwh' : Math.round(wh || 0) + 'w');
 
       return `<div class="card" style="border-left: 3px solid var(--accent-env)"><div class="hero-header">
         <div style="flex:1"><span class="card-name">Battery SOC</span>${sparkSvg(soc?.id, '#10b981')}<span class="hero-val" style="color:${socColor}">${socVal}%</span></div>
-        <div style="flex:1;text-align:center"><span class="card-name">Voltage</span><span class="hero-val" style="color:var(--accent-kwh)">${v?.value != null ? v.value.toFixed(1) + 'V' : '---'}</span></div>
+        <div style="flex:1;text-align:center"><span class="card-name">Voltage</span><span class="hero-val" style="color:var(--accent-kwh)">${batV.toFixed(1)}V</span></div>
         <div style="flex:1;text-align:right"><span class="card-name">Net Power</span><span class="hero-val" style="color:${netW > 0 ? '#4ade80' : (netW < 0 ? '#f59e0b' : 'var(--text-muted)')}">${netW > 0 ? '+' + netW : netW}W</span></div>
       </div><div class="linked-values linked-values-pair">
         <div class="linked-value"><span>Status</span><span class="linked-reading" style="color:var(--accent-kwh)">${stText}</span></div>
-        <div class="linked-value"><span>Chg / Dis Amps</span><span class="linked-reading">${chgA.toFixed(1)}A / ${disA.toFixed(1)}A</span></div>
+        <div class="linked-value"><span>Activity</span><span class="linked-reading">${currentText}</span></div>
+      </div><div class="linked-values linked-values-pair" style="border-top:1px dashed var(--border); padding-top:4px; margin-top:4px;">
+        <div class="linked-value"><span>Chrg Energy</span><span class="linked-reading" style="color:#10b981">T: ${fmtE(batStats.batChgT)} &bull; M: ${fmtE(batStats.batChgM)}</span></div>
+        <div class="linked-value"><span>Disc Energy</span><span class="linked-reading" style="color:#f97316">T: ${fmtE(batStats.batDisT)} &bull; M: ${fmtE(batStats.batDisM)}</span></div>
       </div></div>`;
     }
 

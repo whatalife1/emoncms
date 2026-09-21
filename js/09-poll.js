@@ -329,11 +329,16 @@ async function poll() {
   let fetchStart = Date.now();
 
   try {
-    if (!window.monthlyUnits) {
+    const now = Date.now();
+    if (!window.monthlyUnits || (now - (window._lastMonthlyFetchTime || 0) > 10 * 60 * 1000)) {
+       window._lastMonthlyFetchTime = now;
        window.backgroundFetchMonthly(); 
     }
 
-    const bulkData = await fetchEmonBulk();
+    const [bulkData] = await Promise.all([
+      fetchEmonBulk(),
+      (typeof fetchTodayBatteryEnergy === 'function') ? fetchTodayBatteryEnergy() : Promise.resolve()
+    ]);
     if (!bulkData) throw new Error("No data received");
 
     if (window.lastFlowRate === undefined) {

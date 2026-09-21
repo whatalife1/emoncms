@@ -254,7 +254,7 @@ function renderResults(results) {
         <div class="linked-value"><span>Activity</span><span class="linked-reading">${currentText}</span></div>
       </div><div class="linked-values linked-values-pair" style="border-top:1px dashed var(--border); padding-top:4px; margin-top:4px;">
         <div class="linked-value"><span>Chrg Energy</span><span class="linked-reading" style="color:#10b981">T: ${fmtE(batStats.batChgT)} &bull; M: ${fmtE(batStats.batChgM)}</span></div>
-        <div class="linked-value"><span>Disc Energy</span><span class="linked-reading" style="color:#f97316">T: ${fmtE(batStats.batDisT)} &bull; M: ${fmtE(batStats.batDisM)}</span></div>
+        <div class="linked-value"><span>Disc Energy</span><span class="linked-reading" style="color:#10b981">T: ${fmtE(batStats.batDisT)} &bull; M: ${fmtE(batStats.batDisM)}</span></div>
       </div></div>`;
     }
 

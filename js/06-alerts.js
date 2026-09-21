@@ -1,6 +1,6 @@
 // ─── Alert Thresholds ───────────────────────────────────────────────────────
 const DEFAULT_ALERTS = [
-  { feedName: 'Utility',     condition: '>',  value: 100,  label: 'Grid draw detected',     enabled: true  },
+  { feedName: 'Breaker',     condition: '>',  value: 300,  label: 'Unexpected Grid Draw',    enabled: false },
   { feedName: 'AC Volts',    condition: '<',  value: 200,  label: 'AC voltage low (<200V)',  enabled: true  },
   { feedName: 'Water Tank',  condition: '<',  value: 20,   label: 'Water tank critical',     enabled: true  },
   { feedName: 'Temperature', condition: '>',  value: 45,   label: 'Temperature high (>45°)', enabled: true  },
@@ -12,6 +12,17 @@ function loadAlerts() {
   try {
     const s = localStorage.getItem('alertConfig');
     alertConfig = s ? JSON.parse(s) : DEFAULT_ALERTS.map(a => ({...a}));
+    // Auto-migrate legacy 'Utility' alert to 'Breaker' and disable default false positive with battery present
+    let migrated = false;
+    alertConfig.forEach(a => {
+      if (a.feedName === 'Utility') {
+        a.feedName = 'Breaker';
+        a.label = 'Unexpected Grid Draw';
+        a.enabled = false;
+        migrated = true;
+      }
+    });
+    if (migrated) saveAlerts();
   } catch(e) { alertConfig = DEFAULT_ALERTS.map(a => ({...a})); }
 }
 
@@ -22,10 +33,24 @@ function saveAlerts() {
 const _alertFired = {};
 
 function checkAlerts(byName) {
+  const socVal = byName.get('SOC %')?.value;
+  const rawStatus = byName.get('Status')?.value || 0;
+  const invStatus = (typeof decodeInverterStatus === 'function')
+    ? decodeInverterStatus(rawStatus)
+    : { gridCharging: false, batteryLow: false };
+
   alertConfig.forEach((alert, i) => {
     if (!alert.enabled) return;
     const feed = byName.get(alert.feedName);
     if (!feed || feed.value == null) return;
+
+    // Battery-aware check: suppress grid draw alert if grid charging is active or battery SOC is <= 20%
+    if (alert.feedName === 'Breaker' && alert.condition === '>') {
+      if (invStatus.gridCharging || invStatus.batteryLow || (socVal != null && socVal <= 20)) {
+        return;
+      }
+    }
+
     const triggered = alert.condition === '>' ? feed.value > alert.value : feed.value < alert.value;
     const key = `${i}_${alert.feedName}`;
     if (triggered && !_alertFired[key]) {

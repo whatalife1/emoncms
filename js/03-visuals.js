@@ -37,6 +37,9 @@ async function fetchMonthlyUnits() {
   ];
 
   const results = { haier:0, k1:0, k15:0, pc:0, f1:0, f2:0, solar:0, grid:0, motor:0, wm:0 };
+  let batChgTodayWh = 0, batChgMonthWh = 0;
+  let batDisTodayWh = 0, batDisMonthWh = 0;
+  const todayStartMs = getPktTodayStart();
 
   try {
     const promises = feeds.map(f => {
@@ -44,7 +47,16 @@ async function fetchMonthlyUnits() {
       return nativeFetch(url).then(text => ({ key: f.key, text })).catch(() => ({ key: f.key, text: "[]" }));
     });
 
-    const responses = await Promise.all(promises);
+    const batVPromise = nativeFetch(`${PROXY_BASE}/feed/data.json?ids=546013&start=${range.startMs}&end=${nowMs}&skipmissing=0&average=1&delta=0&interval=3600`);
+    const batChgPromise = nativeFetch(`${PROXY_BASE}/feed/data.json?ids=546022&start=${range.startMs}&end=${nowMs}&skipmissing=0&average=1&delta=0&interval=3600`);
+    const batDisPromise = nativeFetch(`${PROXY_BASE}/feed/data.json?ids=546025&start=${range.startMs}&end=${nowMs}&skipmissing=0&average=1&delta=0&interval=3600`);
+
+    const [responses, resBatV, resBatChg, resBatDis] = await Promise.all([
+      Promise.all(promises),
+      batVPromise,
+      batChgPromise,
+      batDisPromise
+    ]);
 
     responses.forEach(res => {
       try {
@@ -56,6 +68,39 @@ async function fetchMonthlyUnits() {
         }
       } catch(e) { console.warn("Monthly parse failed", res.key); }
     });
+
+    try {
+      const parsePoints = (txt) => {
+        if (!txt || txt.startsWith('ERROR')) return {};
+        const root = JSON.parse(txt);
+        const data = root[0]?.data || (Array.isArray(root) ? root : []);
+        const map = {};
+        data.forEach(p => { if (p && p[0] != null && p[1] != null) map[p[0]] = parseFloat(p[1]); });
+        return map;
+      };
+      const mapV = parsePoints(resBatV);
+      const mapChg = parsePoints(resBatChg);
+      const mapDis = parsePoints(resBatDis);
+
+      const allTs = new Set([...Object.keys(mapChg), ...Object.keys(mapDis)]);
+      for (const tsStr of allTs) {
+        const ts = parseInt(tsStr);
+        const v = (mapV[ts] && mapV[ts] > 35) ? mapV[ts] : 52.8;
+        const cA = mapChg[ts] || 0;
+        const dA = mapDis[ts] || 0;
+        const chgWh = Math.max(0, v * cA);
+        const disWh = Math.max(0, v * dA);
+        batChgMonthWh += chgWh;
+        batDisMonthWh += disWh;
+        if (ts >= todayStartMs) {
+          batChgTodayWh += chgWh;
+          batDisTodayWh += disWh;
+        }
+      }
+    } catch(err) {
+      console.warn("Battery monthly parse warning:", err);
+    }
+
   } catch (e) { console.error("Monthly fetch failed", e); }
 
   window.monthlyUnits = {
@@ -69,7 +114,11 @@ async function fetchMonthlyUnits() {
     motor: results.motor,
     solar: results.solar,
     grid:  results.grid,
-        wm:    results.wm
+    wm:    results.wm,
+    batChgT: batChgTodayWh,
+    batChgM: batChgMonthWh,
+    batDisT: batDisTodayWh,
+    batDisM: batDisMonthWh
   };
 }
 

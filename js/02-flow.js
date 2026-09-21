@@ -47,7 +47,7 @@ function renderFlowDiagram(byName) {
   const tp2 = getV('Temperature 2');
   const hm2 = getV('Humidity 2');
   const solar_t = getV('Solar Today');
-  const grid_t = getV('Breaker Today') ?? getV('Utility Today') ?? getV('Grid Today');
+  const grid_t = getV('Breaker Today');
   const motW = getV('Water Motor');
 
   const mU = window.monthlyUnits || {};

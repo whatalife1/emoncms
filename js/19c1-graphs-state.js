@@ -135,14 +135,14 @@ function _fmtKwh(v) {
   return v >= 1 ? v.toFixed(1) : (v >= 0.01 ? v.toFixed(2) : v.toFixed(3)); 
 }
 
-// Automatically switches to Wh when energy is under 1 kWh
+// Automatically switches to Wh when energy is under 500 Wh (0.5 kWh)
 function _fmtEnergy(v) {
   if (v == null || isNaN(v) || v <= 0) return '0 Wh';
-  if (v < 1) {
-    const wh = Math.round(v * 1000);
-    return `${wh} Wh`;
+  const wh = v * 1000;
+  if (wh >= 500) {
+    return `${(wh / 1000).toFixed(1)} kWh`;
   }
-  return `${_fmtKwh(v)} kWh`;
+  return `${Math.round(wh)} Wh`;
 }
 
 function _formatStatLine(icon, label, mainVal, accentColor, peakVal, avgVal, dayAvgVal, dayTotalVal, nightAvgVal, nightTotalVal, unit, isKwh, currentTab, isCompact = false) {

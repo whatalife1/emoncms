@@ -4,18 +4,17 @@ const LAYOUT = {
  solar: { x:5, y:66, w:300, h:367, color:'#f59e0b', label:'Solar', ly1:39, fs:46, c1:'#ffff00', ly2:106, fs2:45, c2:'#2c8758', ly3:180, fs3:27, c3:'#b4b635', ly4:219, fs4:20, c4:'#21c442', ly5:295, fs5:22, c5:'#3de31c', ly6:340, fs6:20, c6:'#38bdf8', ly7:150, fs7:18, c7:'#a1a1aa', ly8:246, fs8:21, c8:'#21c442',  },
  grid: { x:311, y:64, w:190, h:371, color:'#ef4444', label:'Grid', ly1:32, fs:32, c1:'#ef4444', ly2:143, fs2:25, c2:'#35c0b7', ly3:314, fs3:19, c3:'#3de3e4', ly4:343, fs4:17, c4:'#38bdf8', ly5:192, fs5:20, c5:'#a1a1aa', ly6:79, fs6:18, c6:'#a1a1aa',  },
  battery: { x:505, y:63, w:222, h:370, color:'#10b981', label:'Battery', ly1:17, fs:34, c1:'#10b981', ly2:64, fs2:53, c2:'#25f447', ly3:165, fs3:24, c3:'#facc15', ly4:105, fs4:33, c4:'#35c0b7', ly5:234, fs5:23, c5:'#38bdf8', ly6:198, fs6:38, c6:'#4ade80', ly7:137, fs7:18, c7:'#a1a1aa', ly8:270, fs8:22, c8:'#10b981', ly9:296, fs9:20, c9:'#10b981', ly10:325, fs10:20, c10:'#10b981', ly11:350, fs11:20, c11:'#10b981',  },
- water: { x:421, y:680, w:152, h:242, color:'#0ea5e9', label:'Water|Tank', ly1:18, fs:35, c1:'#0ea5e9', ly2:94, fs2:52, c2:'#25f447', ly3:139, fs3:27, c3:'#9ca3af', ly4:171, fs4:20, c4:'#0ce4e0', ly5:197, fs5:19, c5:'#38bdf8', ly6:224, fs6:18, c6:'#a1a1aa',  },
+ water: { x:421, y:680, w:152, h:242, color:'#0ea5e9', label:'Water|Tank', ly1:15, fs:34, c1:'#0ea5e9', ly2:97, fs2:52, c2:'#25f447', ly3:139, fs3:27, c3:'#9ca3af', ly4:171, fs4:19, c4:'#0ce4e0', ly5:203, fs5:19, c5:'#38bdf8', ly6:224, fs6:18, c6:'#a1a1aa',  },
  haier: { x:7, y:436, w:179, h:206, color:'#38bdf8', label:'Haier 1T', ly1:17, fs:28, c1:'#38bdf8', ly2:65, fs2:55, c2:'#25f447', ly3:143, fs3:25, c3:'#00c8f0', ly4:175, fs4:25, c4:'#518e35', ly5:113, fs5:17, c5:'#a1a1aa',  },
  k15: { x:192, y:438, w:196, h:198, color:'#38bdf8', label:'Kenwood 1.5T', ly1:21, fs:27, c1:'#38bdf8', ly2:68, fs2:53, c2:'#25f447', ly3:142, fs3:25, c3:'#00c8f0', ly4:175, fs4:25, c4:'#518e35', ly5:114, fs5:16, c5:'#a1a1aa',  },
  k1: { x:395, y:438, w:189, h:198, color:'#38bdf8', label:'Kenwood 1T', ly1:20, fs:30, c1:'#38bdf8', ly2:64, fs2:52, c2:'#25f447', ly3:143, fs3:21, c3:'#00c8f0', ly4:175, fs4:22, c4:'#518e35', ly5:114, fs5:18, c5:'#a1a1aa',  },
- fridge: { x:8, y:678, w:224, h:239, color:'#c084fc', label:'Fridges', ly1:16, fs:36, c1:'#38bdf8', ly2:53, fs2:52, c2:'#25f447', ly3:103, fs3:18, c3:'#518e35', ly4:129, fs4:36, c4:'#38bdf8', ly5:171, fs5:52, c5:'#25f447', ly6:228, fs6:18, c6:'#518e35', ly7:86, fs7:14, c7:'#a1a1aa', ly8:205, fs8:17, c8:'#a1a1aa',  },
+ fridge: { x:8, y:678, w:224, h:239, color:'#c084fc', label:'Fridges', ly1:16, fs:36, c1:'#38bdf8', ly2:53, fs2:52, c2:'#25f447', ly3:103, fs3:17, c3:'#518e35', ly4:129, fs4:36, c4:'#38bdf8', ly5:171, fs5:52, c5:'#25f447', ly6:228, fs6:18, c6:'#518e35', ly7:86, fs7:14, c7:'#a1a1aa', ly8:205, fs8:17, c8:'#a1a1aa',  },
  pc: { x:591, y:439, w:133, h:240, color:'#10b9f8', label:'PC', ly1:17, fs:40, c1:'#38bdf8', ly2:61, fs2:45, c2:'#25f447', ly3:174, fs3:19, c3:'#00c8f0', ly4:219, fs4:19, c4:'#518e35', ly5:113, fs5:18, c5:'#a1a1aa',  },
- wm: { x:582, y:682, w:139, h:238, color:'#e879f9', label:'Washing|Machine', ly1:16, fs:30, c1:'#e879f9', ly2:92, fs2:43, c2:'#25f447', ly3:180, fs3:19, c3:'#00c8f0', ly4:219, fs4:21, c4:'#518e35',  },
+ wm: { x:582, y:682, w:139, h:238, color:'#e879f9', label:'Washing|Machine', ly1:16, fs:29, c1:'#e879f9', ly2:92, fs2:43, c2:'#25f447', ly3:180, fs3:19, c3:'#00c8f0', ly4:219, fs4:21, c4:'#518e35',  },
  motor: { x:235, y:678, w:183, h:243, color:'#fbbf24', label:'Water|Motor', ly1:15, fs:37, c1:'#fbbf24', ly2:105, fs2:52, c2:'#38bdf8', ly3:188, fs3:21, c3:'#518e35', ly4:221, fs4:22, c4:'#518e35', ly5:150, fs5:18, c5:'#a1a1aa',  },
  temp: { x:398, y:639, w:189, h:38, color:'#22c55e', label:'temp', ly1:16, fs:24, c1:'#25f447',  },
  temp2: { x:8, y:639, w:179, h:36, color:'#22c55e', label:'temp2', ly1:16, fs:21, c1:'#25f447',  },
 };
-
 
 function renderFlowDiagram(byName) {
   if (!byName) return;

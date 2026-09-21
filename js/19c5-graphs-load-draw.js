@@ -373,6 +373,34 @@ async function _loadAndDraw(forceRefresh = false) {
       multiData = [];
       const results = await Promise.all(visible.map(f => _gFetch(f.id, nav.startMs, nav.endMs, nav.interval)));
       visible.forEach((f, i) => multiData.push({ label: f.label, color: f.color, data: _pointsToBars(results[i], nav, f.key), rawPts: results[i] }));
+    } else if (graphFeedKey === 'batchg' || graphFeedKey === 'batdis') {
+      const isChg = graphFeedKey === 'batchg';
+      const [ampPts, voltPts] = await Promise.all([
+        _gFetch(isChg ? '546022' : '546025', nav.startMs, nav.endMs, nav.interval),
+        _gFetch('546013', nav.startMs, nav.endMs, nav.interval)
+      ]);
+      const vMap = new Map();
+      voltPts.forEach(p => { if (p && p[0] != null && p[1] > 35) vMap.set(p[0], p[1]); });
+      const defaultV = 52.8;
+      pts1 = ampPts.map(p => {
+        if (!p || p[1] == null) return p;
+        const v = vMap.get(p[0]) || defaultV;
+        return [p[0], Math.max(0, p[1] * v)];
+      });
+      bars1 = _pointsToBars(pts1, nav, graphFeedKey);
+    } else if (graphFeedKey === 'batchgdis') {
+      const [chgPts, disPts, voltPts] = await Promise.all([
+        _gFetch('546022', nav.startMs, nav.endMs, nav.interval),
+        _gFetch('546025', nav.startMs, nav.endMs, nav.interval),
+        _gFetch('546013', nav.startMs, nav.endMs, nav.interval)
+      ]);
+      const vMap = new Map();
+      voltPts.forEach(p => { if (p && p[0] != null && p[1] > 35) vMap.set(p[0], p[1]); });
+      const defaultV = 52.8;
+      pts1 = chgPts.map(p => [p[0], Math.max(0, (p[1] || 0) * (vMap.get(p[0]) || defaultV))]);
+      pts2 = disPts.map(p => [p[0], Math.max(0, (p[1] || 0) * (vMap.get(p[0]) || defaultV))]);
+      bars1 = _pointsToBars(pts1, nav, 'batchg');
+      bars2 = _pointsToBars(pts2, nav, 'batdis');
     } else if (isCombined) {
       pts1 = await _gFetch(GRAPH_FEEDS.find(f => f.key === 'solar').id, nav.startMs, nav.endMs, nav.interval);
       pts2 = await _gFetch(GRAPH_FEEDS.find(f => f.key === 'grid').id, nav.startMs, nav.endMs, nav.interval);

@@ -18,6 +18,87 @@ function renderWaterTank(pct) {
   </svg>`;
 }
 
+async function fetchTodayBatteryEnergy() {
+  const todayStartMs = getPktTodayStart();
+  const nowMs = Date.now();
+  if (todayStartMs >= nowMs) return { chgWh: 0, disWh: 0 };
+  const resSec = 120;
+
+  try {
+    const [chgText, disText, vText] = await Promise.all([
+      nativeFetch(`${PROXY_BASE}/feed/data.json?ids=546022&start=${todayStartMs}&end=${nowMs}&skipmissing=0&average=1&delta=0&interval=${resSec}`),
+      nativeFetch(`${PROXY_BASE}/feed/data.json?ids=546025&start=${todayStartMs}&end=${nowMs}&skipmissing=0&average=1&delta=0&interval=${resSec}`),
+      nativeFetch(`${PROXY_BASE}/feed/data.json?ids=546013&start=${todayStartMs}&end=${nowMs}&skipmissing=0&average=1&delta=0&interval=${resSec}`)
+    ]);
+
+    const parsePts = (txt) => {
+      if (!txt || typeof txt !== 'string' || txt.startsWith('ERROR')) return [];
+      try {
+        const root = JSON.parse(txt);
+        const data = root[0]?.data || (Array.isArray(root) ? root : []);
+        return Array.isArray(data) ? data : [];
+      } catch (e) { return []; }
+    };
+
+    const chgPts = parsePts(chgText);
+    const disPts = parsePts(disText);
+    const vPts = parsePts(vText);
+
+    const vMap = new Map();
+    vPts.forEach(p => {
+      if (p && p[0] != null && p[1] != null && p[1] > 35) {
+        vMap.set(p[0], parseFloat(p[1]));
+      }
+    });
+
+    const defaultV = window.lastResultsMap?.get('Bat V')?.value || 52.8;
+    const factor = resSec / 3600;
+    let chgWh = 0;
+    let disWh = 0;
+
+    let lastV = defaultV;
+    chgPts.forEach(p => {
+      if (p && p[0] != null && p[1] != null) {
+        const val = Math.max(0, parseFloat(p[1]) || 0);
+        if (val > 0) {
+          const v = vMap.get(p[0]) || lastV;
+          if (v > 35) lastV = v;
+          chgWh += (val * v) * factor;
+        }
+      }
+    });
+
+    lastV = defaultV;
+    disPts.forEach(p => {
+      if (p && p[0] != null && p[1] != null) {
+        const val = Math.max(0, parseFloat(p[1]) || 0);
+        if (val > 0) {
+          const v = vMap.get(p[0]) || lastV;
+          if (v > 35) lastV = v;
+          disWh += (val * v) * factor;
+        }
+      }
+    });
+
+    if (!window.monthlyUnits) {
+      window.monthlyUnits = {};
+    }
+    window.monthlyUnits.batChgT = chgWh;
+    window.monthlyUnits.batDisT = disWh;
+    if (window.monthlyUnits.batPastChgM != null) {
+      window.monthlyUnits.batChgM = window.monthlyUnits.batPastChgM + chgWh;
+    }
+    if (window.monthlyUnits.batPastDisM != null) {
+      window.monthlyUnits.batDisM = window.monthlyUnits.batPastDisM + disWh;
+    }
+    return { chgWh, disWh };
+  } catch (e) {
+    console.warn("fetchTodayBatteryEnergy failed", e);
+    return null;
+  }
+}
+window.fetchTodayBatteryEnergy = fetchTodayBatteryEnergy;
+
 async function fetchMonthlyUnits() {
   const pktNow = getPktNow();
   const yr = IS_PKT_ZONE ? pktNow.getFullYear() : pktNow.getUTCFullYear();
@@ -83,6 +164,8 @@ async function fetchMonthlyUnits() {
       const mapDis = parsePoints(resBatDis);
 
       const allTs = new Set([...Object.keys(mapChg), ...Object.keys(mapDis)]);
+      let pastChgWh = 0;
+      let pastDisWh = 0;
       for (const tsStr of allTs) {
         const ts = parseInt(tsStr);
         const v = (mapV[ts] && mapV[ts] > 35) ? mapV[ts] : 52.8;
@@ -90,18 +173,25 @@ async function fetchMonthlyUnits() {
         const dA = mapDis[ts] || 0;
         const chgWh = Math.max(0, v * cA);
         const disWh = Math.max(0, v * dA);
-        batChgMonthWh += chgWh;
-        batDisMonthWh += disWh;
-        if (ts >= todayStartMs) {
-          batChgTodayWh += chgWh;
-          batDisTodayWh += disWh;
+        if (ts < todayStartMs) {
+          pastChgWh += chgWh;
+          pastDisWh += disWh;
         }
       }
+      batChgMonthWh = pastChgWh;
+      batDisMonthWh = pastDisWh;
     } catch(err) {
       console.warn("Battery monthly parse warning:", err);
     }
 
+    try {
+      await fetchTodayBatteryEnergy();
+    } catch (err) {}
+
   } catch (e) { console.error("Monthly fetch failed", e); }
+
+  const todayChgWh = (window.monthlyUnits && window.monthlyUnits.batChgT != null) ? window.monthlyUnits.batChgT : batChgTodayWh;
+  const todayDisWh = (window.monthlyUnits && window.monthlyUnits.batDisT != null) ? window.monthlyUnits.batDisT : batDisTodayWh;
 
   window.monthlyUnits = {
     haier: results.haier,
@@ -115,10 +205,12 @@ async function fetchMonthlyUnits() {
     solar: results.solar,
     grid:  results.grid,
     wm:    results.wm,
-    batChgT: batChgTodayWh,
-    batChgM: batChgMonthWh,
-    batDisT: batDisTodayWh,
-    batDisM: batDisMonthWh
+    batPastChgM: batChgMonthWh,
+    batPastDisM: batDisMonthWh,
+    batChgT: todayChgWh,
+    batChgM: batChgMonthWh + todayChgWh,
+    batDisT: todayDisWh,
+    batDisM: batDisMonthWh + todayDisWh
   };
 }
 

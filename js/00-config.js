@@ -85,9 +85,9 @@ const FEEDS_BASE = [
   { id: "499388", name: "Tot Load",             unit: "W",   type: "watts" },
   { id: "499415", name: "Solar Today",          unit: "kWh", type: "units" },
   { id: "499414", name: "Solar Total",          unit: "kWh", type: "units" },
-  { id: "499403", name: "Utility",              unit: "W",   type: "watts" },
-  { id: "499421", name: "Utility Today",        unit: "kWh", type: "units" },
-  { id: "499420", name: "Utility Total",        unit: "kWh", type: "units" },
+  // { id: "499403", name: "Utility",              unit: "W",   type: "watts" },
+  // { id: "499421", name: "Utility Today",        unit: "kWh", type: "units" },
+  // { id: "499420", name: "Utility Total",        unit: "kWh", type: "units" },
   { id: "499373", name: "Fridge",               unit: "W",   type: "watts" },
   { id: "541348", name: "Fridge2",              unit: "W",   type: "watts" },
   { id: "542850", name: "Water Motor",          unit: "W",   type: "watts" },
@@ -128,7 +128,7 @@ const LINKED_GROUPS = [
   ["Solar", "Solar V", "Tot Load", "Solar Today", "Solar Total", "Inverter Temp"],
     ["Breaker", "AC Volts", "Breaker Today", "Breaker Total"],
   ["Bat V", "Status", "SOC %", "bt_battery_charging_current", "bt_battery_discharge_current"],
-  ["Utility", "Utility Today", "Utility Total"],
+  // ["Utility", "Utility Today", "Utility Total"],
   ["PC", "PC Today"],
     ["Washing Machine", "Washing Machine Today"],
   ["Water Motor", "Water Motor Today"],
@@ -237,4 +237,17 @@ function getPktBillingRange(year, month) {
         startMs: start.getTime() - 18000000,
         endMs: end.getTime() - 18000000
     };
+}
+
+function decodeInverterStatus(statusCode) {
+  const code = parseInt(statusCode, 10) || 0;
+  return {
+    raw: code,
+    gridCharging:  Boolean(code & 0x01),
+    solarCharging: Boolean(code & 0x02),
+    chargeActive:  Boolean(code & 0x04),
+    batteryLow:    Boolean(code & 0x08),
+    loadOn:        Boolean(code & 0x10),
+    configChanged: Boolean(code & 0x40),
+  };
 }

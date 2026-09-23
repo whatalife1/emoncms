@@ -221,7 +221,8 @@ function renderFlowDiagram(byName) {
     const batW = Math.round(batV * netA);
 
     // ── Real-Time Estimated Battery Watts (Instantaneous Power Balance) ──
-    const effGrid = (b > 25 && !gridOff) ? b : 0;
+    const useGrid = (typeof BATTERY_EST_USE_GRID !== 'undefined') ? BATTERY_EST_USE_GRID : true;
+    const effGrid = (useGrid && b > 25 && !gridOff) ? b : 0;
     const netSurplus = (s + effGrid) - l;
     let estBatW = 0;
 

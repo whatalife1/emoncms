@@ -32,6 +32,15 @@ window.hideTooltip = hideTooltip;
 window.toggleGraphStartHour = function() {
   window.graphDayStartHour = window.graphDayStartHour === 5 ? 0 : 5;
   localStorage.setItem('graphDayStartHour', window.graphDayStartHour);
+
+  if (typeof fetchTodayBatteryEnergy === 'function') {
+    fetchTodayBatteryEnergy().then(() => {
+      if (window.lastResultsMap && typeof renderResults === 'function') {
+        renderResults(Array.from(window.lastResultsMap.values()));
+      }
+    });
+  }
+
   if (window.graphTab === 'day') {
     if (typeof _loadAndDraw === 'function') _loadAndDraw();
   }

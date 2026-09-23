@@ -220,7 +220,8 @@ function renderResults(results) {
       const l = byName.get('Tot Load')?.value || 0;
       const acV = byName.get('AC Volts')?.value || 0;
       const gridOff = acV < 10;
-      const effGrid = (b > 25 && !gridOff) ? b : 0;
+      const useGrid = (typeof BATTERY_EST_USE_GRID !== 'undefined') ? BATTERY_EST_USE_GRID : true;
+      const effGrid = (useGrid && b > 25 && !gridOff) ? b : 0;
       const netSurplus = (s + effGrid) - l;
       let estBatW = 0;
       if (netSurplus >= 50) estBatW = Math.round(netSurplus - 50);

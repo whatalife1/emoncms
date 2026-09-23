@@ -278,8 +278,10 @@ function renderFlowDiagram(byName) {
 
     const batStats = window.monthlyUnits || {};
     const chgTStr = formatBatEnergy(batStats.batChgT || 0);
+    const chgYStr = formatBatEnergy(batStats.batChgY || 0);
     const chgMStr = formatBatEnergy(batStats.batChgM || 0);
     const disTStr = formatBatEnergy(batStats.batDisT || 0);
+    const disYStr = formatBatEnergy(batStats.batDisY || 0);
     const disMStr = formatBatEnergy(batStats.batDisM || 0);
 
     svg += `<rect class="${bClass}" style="--pulse-clr:${pulseClr}" x="${o.x}" y="${o.y}" width="${o.w}" height="${o.h}" rx="10" fill="${bFill}" stroke="${bStroke}" stroke-width="2"/>`;
@@ -294,10 +296,10 @@ function renderFlowDiagram(byName) {
     if (estLine && o.ly5) {
       svg += `<text x="${cx(o)}" y="${o.y+o.ly5}" ${tpProps} font-size="${o.fs5}" fill="${o.c5 || '#38bdf8'}" data-maxw="${o.w-12}">${estLine}</text>`;
     }
-    if (o.ly8)  svg += `<text x="${cx(o)}" y="${o.y+o.ly8}"  ${tpProps} font-size="${o.fs8}"  fill="${o.c8  || '#10b981'}" data-maxw="${o.w-8}">Charge</text>`;
-    if (o.ly9)  svg += `<text x="${cx(o)}" y="${o.y+o.ly9}"  ${tpProps} font-size="${o.fs9}"  fill="${o.c9  || '#10b981'}" data-maxw="${o.w-8}">T: ${chgTStr} M: ${chgMStr}</text>`;
-    if (o.ly10) svg += `<text x="${cx(o)}" y="${o.y+o.ly10}" ${tpProps} font-size="${o.fs10}" fill="${o.c10 || '#10b981'}" data-maxw="${o.w-8}">Discharge</text>`;
-    if (o.ly11) svg += `<text x="${cx(o)}" y="${o.y+o.ly11}" ${tpProps} font-size="${o.fs11}" fill="${o.c11 || '#10b981'}" data-maxw="${o.w-8}">T: ${disTStr} M: ${disMStr}</text>`;
+    if (o.ly8)  svg += `<text x="${cx(o)}" y="${o.y+o.ly8}"  ${tpProps} font-size="${o.fs8}"  fill="${o.c8  || '#10b981'}" data-maxw="${o.w-8}">Chg: M: ${chgMStr}</text>`;
+    if (o.ly9)  svg += `<text x="${cx(o)}" y="${o.y+o.ly9}"  ${tpProps} font-size="${o.fs9}"  fill="${o.c9  || '#10b981'}" data-maxw="${o.w-8}">T: ${chgTStr} Y: ${chgYStr}</text>`;
+    if (o.ly10) svg += `<text x="${cx(o)}" y="${o.y+o.ly10}" ${tpProps} font-size="${o.fs10}" fill="${o.c10 || '#10b981'}" data-maxw="${o.w-8}">Disch: M: ${disMStr}</text>`;
+    if (o.ly11) svg += `<text x="${cx(o)}" y="${o.y+o.ly11}" ${tpProps} font-size="${o.fs11}" fill="${o.c11 || '#10b981'}" data-maxw="${o.w-8}">T: ${disTStr} Y: ${disYStr}</text>`;
   }
 
 

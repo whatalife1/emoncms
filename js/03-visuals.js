@@ -47,7 +47,8 @@ async function fetchTodayBatteryEnergy() {
     const vMap = new Map();
     vPts.forEach(p => {
       if (p && p[0] != null && p[1] != null && p[1] > 35) {
-        vMap.set(p[0], parseFloat(p[1]));
+        const tMs = p[0] < 10000000000 ? p[0] * 1000 : p[0];
+        vMap.set(tMs, parseFloat(p[1]));
       }
     });
 
@@ -59,9 +60,11 @@ async function fetchTodayBatteryEnergy() {
     let lastV = defaultV;
     chgPts.forEach(p => {
       if (p && p[0] != null && p[1] != null) {
+        const ptMs = p[0] < 10000000000 ? p[0] * 1000 : p[0];
+        if (ptMs < todayStartMs) return; // Discard readings before 5 AM reset
         const val = Math.max(0, parseFloat(p[1]) || 0);
         if (val > 0) {
-          const v = vMap.get(p[0]) || lastV;
+          const v = vMap.get(ptMs) || lastV;
           if (v > 35) lastV = v;
           chgWh += (val * v) * factor;
         }
@@ -71,9 +74,11 @@ async function fetchTodayBatteryEnergy() {
     lastV = defaultV;
     disPts.forEach(p => {
       if (p && p[0] != null && p[1] != null) {
+        const ptMs = p[0] < 10000000000 ? p[0] * 1000 : p[0];
+        if (ptMs < todayStartMs) return; // Discard readings before 5 AM reset
         const val = Math.max(0, parseFloat(p[1]) || 0);
         if (val > 0) {
-          const v = vMap.get(p[0]) || lastV;
+          const v = vMap.get(ptMs) || lastV;
           if (v > 35) lastV = v;
           disWh += (val * v) * factor;
         }
@@ -107,6 +112,7 @@ async function fetchMonthlyUnits() {
 
   const range = getPktBillingRange(yr, dy < 26 ? mo : mo + 1);
   const nowMs = Date.now();
+  const todayStartMs = getPktTodayStart();
 
   const feeds = [
     { key: 'haier', id: '499409' }, { key: 'k1', id: '499407' }, 
@@ -114,13 +120,12 @@ async function fetchMonthlyUnits() {
     { key: 'f1', id: '499411' }, { key: 'f2', id: '541350' },
     { key: 'solar', id: '499415' }, { key: 'grid', id: '499413' },
     { key: 'motor', id: '542853' },
-        { key: 'wm', id: '544696' }
+    { key: 'wm', id: '544696' }
   ];
 
   const results = { haier:0, k1:0, k15:0, pc:0, f1:0, f2:0, solar:0, grid:0, motor:0, wm:0 };
-  let batChgTodayWh = 0, batChgMonthWh = 0;
-  let batDisTodayWh = 0, batDisMonthWh = 0;
-  const todayStartMs = getPktTodayStart();
+  let batChgMonthWh = 0;
+  let batDisMonthWh = 0;
 
   try {
     const promises = feeds.map(f => {
@@ -156,9 +161,15 @@ async function fetchMonthlyUnits() {
         const root = JSON.parse(txt);
         const data = root[0]?.data || (Array.isArray(root) ? root : []);
         const map = {};
-        data.forEach(p => { if (p && p[0] != null && p[1] != null) map[p[0]] = parseFloat(p[1]); });
+        data.forEach(p => { 
+          if (p && p[0] != null && p[1] != null) {
+            const tMs = p[0] < 10000000000 ? p[0] * 1000 : p[0];
+            map[tMs] = parseFloat(p[1]);
+          }
+        });
         return map;
       };
+
       const mapV = parsePoints(resBatV);
       const mapChg = parsePoints(resBatChg);
       const mapDis = parsePoints(resBatDis);
@@ -166,16 +177,16 @@ async function fetchMonthlyUnits() {
       const allTs = new Set([...Object.keys(mapChg), ...Object.keys(mapDis)]);
       let pastChgWh = 0;
       let pastDisWh = 0;
+
       for (const tsStr of allTs) {
-        const ts = parseInt(tsStr);
-        const v = (mapV[ts] && mapV[ts] > 35) ? mapV[ts] : 52.8;
-        const cA = mapChg[ts] || 0;
-        const dA = mapDis[ts] || 0;
-        const chgWh = Math.max(0, v * cA);
-        const disWh = Math.max(0, v * dA);
-        if (ts < todayStartMs) {
-          pastChgWh += chgWh;
-          pastDisWh += disWh;
+        const tsMs = parseInt(tsStr, 10);
+        // Include hours up to 5:00 AM today in the historical cycle
+        if (tsMs >= range.startMs && tsMs < todayStartMs) {
+          const v = (mapV[tsMs] && mapV[tsMs] > 35) ? mapV[tsMs] : 52.8;
+          const cA = mapChg[tsMs] || 0;
+          const dA = mapDis[tsMs] || 0;
+          pastChgWh += Math.max(0, v * cA);
+          pastDisWh += Math.max(0, v * dA);
         }
       }
       batChgMonthWh = pastChgWh;
@@ -183,15 +194,20 @@ async function fetchMonthlyUnits() {
     } catch(err) {
       console.warn("Battery monthly parse warning:", err);
     }
+  } catch (e) { 
+    console.error("Monthly fetch failed", e); 
+  }
 
-    try {
-      await fetchTodayBatteryEnergy();
-    } catch (err) {}
+  let todayChgWh = (window.monthlyUnits && window.monthlyUnits.batChgT != null) ? window.monthlyUnits.batChgT : 0;
+  let todayDisWh = (window.monthlyUnits && window.monthlyUnits.batDisT != null) ? window.monthlyUnits.batDisT : 0;
 
-  } catch (e) { console.error("Monthly fetch failed", e); }
-
-  const todayChgWh = (window.monthlyUnits && window.monthlyUnits.batChgT != null) ? window.monthlyUnits.batChgT : batChgTodayWh;
-  const todayDisWh = (window.monthlyUnits && window.monthlyUnits.batDisT != null) ? window.monthlyUnits.batDisT : batDisTodayWh;
+  try {
+    const todayRes = await fetchTodayBatteryEnergy();
+    if (todayRes) {
+      todayChgWh = todayRes.chgWh;
+      todayDisWh = todayRes.disWh;
+    }
+  } catch (err) {}
 
   window.monthlyUnits = {
     haier: results.haier,

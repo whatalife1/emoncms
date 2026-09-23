@@ -74,6 +74,103 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
     }
   }
   ctx.restore();
+
+  // ─── Battery Charge / Discharge Callouts (Day View) ───────────────────
+  if (graphTab === 'day' && graphFeedKey === 'battery' && window.graphBatteryShowSessions !== false && typeof detectBatterySessions === 'function') {
+    const resSec = (nav && nav.resSeconds) ? nav.resSeconds : 120;
+    const sessions = detectBatterySessions(bars1, resSec, lastIdx, 10, 2.0);
+    const packKwh = (typeof solarCfg !== 'undefined' && solarCfg && solarCfg.batteryKwh > 0) ? solarCfg.batteryKwh : 5.12;
+
+    sessions.forEach(seg => {
+      const isCharge = seg.type === 'charge';
+      const clr = isCharge ? '#4ade80' : '#fb923c';
+      const bgClr = isCharge ? 'rgba(6, 78, 59, 0.94)' : 'rgba(124, 45, 18, 0.94)';
+      const borderClr = isCharge ? '#10b981' : '#f97316';
+
+      // 1. Accent glow line along slope
+      ctx.save();
+      ctx.beginPath();
+      for (let k = seg.startIdx; k <= seg.endIdx; k++) {
+        const val = (bars1[k] <= 10 && k > 0) ? bars1[k - 1] : bars1[k];
+        const px = mapX(PL + (k / n) * cW);
+        const py = PT + cH - ((val - minV) / range) * cH;
+        if (k === seg.startIdx) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.strokeStyle = clr;
+      ctx.lineWidth = 3.5;
+      ctx.shadowColor = clr;
+      ctx.shadowBlur = 8;
+      ctx.stroke();
+      ctx.restore();
+
+      // 2. Badge Pill
+      const midIdx = Math.round((seg.startIdx + seg.endIdx) / 2);
+      const midVal = (bars1[midIdx] <= 10 && midIdx > 0) ? bars1[midIdx - 1] : bars1[midIdx];
+      const midX = mapX(PL + (midIdx / n) * cW);
+      const midY = PT + cH - ((midVal - minV) / range) * cH;
+
+      if (midX < PL - 40 || midX > rect.width) return;
+
+      let durStr = '';
+      if (seg.durMin >= 60) {
+        const h = Math.floor(seg.durMin / 60);
+        const m = seg.durMin % 60;
+        durStr = m > 0 ? (h + 'h ' + m + 'm') : (h + 'h');
+      } else {
+        durStr = seg.durMin + 'm';
+      }
+
+      const kwhEst = (Math.abs(seg.delta) / 100) * packKwh;
+      const sign = isCharge ? '+' : '';
+      const text = (isCharge ? '▲' : '▼') + ' ' + sign + seg.delta.toFixed(1) + '% · ' + durStr + ' (' + kwhEst.toFixed(1) + 'kWh)';
+
+      ctx.save();
+      ctx.font = 'bold 10px system-ui, -apple-system, sans-serif';
+      const tw = ctx.measureText(text).width;
+      const pw = tw + 14;
+      const ph = 20;
+
+      let bx = midX - pw / 2;
+      let by = isCharge ? (midY - ph - 12) : (midY + 12);
+
+      bx = Math.max(PL + 4, Math.min(rect.width - PR - pw - 4, bx));
+      if (by < PT + 4) by = midY + 12;
+      if (by > PT + cH - ph - 4) by = midY - ph - 10;
+
+      // Draw pill background
+      ctx.fillStyle = bgClr;
+      ctx.strokeStyle = borderClr;
+      ctx.lineWidth = 1.5;
+      ctx.shadowColor = 'rgba(0,0,0,0.8)';
+      ctx.shadowBlur = 8;
+
+      ctx.beginPath();
+      if (typeof ctx.roundRect === 'function') {
+        ctx.roundRect(bx, by, pw, ph, 6);
+      } else {
+        ctx.rect(bx, by, pw, ph);
+      }
+      ctx.fill();
+      ctx.stroke();
+
+      // Connector tick
+      ctx.beginPath();
+      ctx.moveTo(midX, isCharge ? by + ph : by);
+      ctx.lineTo(midX, midY);
+      ctx.strokeStyle = borderClr;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      // Draw text
+      ctx.fillStyle = '#ffffff';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(text, bx + pw / 2, by + ph / 2);
+      ctx.restore();
+    });
+  }
+
   ctx.fillStyle = '#71717a';
   ctx.textAlign = 'center';
   ctx.font = '9px system-ui';

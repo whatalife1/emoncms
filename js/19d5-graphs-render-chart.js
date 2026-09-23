@@ -80,6 +80,10 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
     const resSec = (nav && nav.resSeconds) ? nav.resSeconds : 120;
     const sessions = detectBatterySessions(bars1, resSec, lastIdx, 10, 2.0);
     const packKwh = (typeof solarCfg !== 'undefined' && solarCfg && solarCfg.batteryKwh > 0) ? solarCfg.batteryKwh : 5.12;
+    const isNarrow = cW < 520 || window.innerWidth < 600;
+
+    // Keep track of rendered pill bounding boxes to avoid overlap/collisions
+    const renderedPills = [];
 
     sessions.forEach(seg => {
       const isCharge = seg.type === 'charge';
@@ -104,7 +108,7 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
       ctx.stroke();
       ctx.restore();
 
-      // 2. Badge Pill
+      // 2. Badge Pill (Collision Aware & Compact on Mobile)
       const midIdx = Math.round((seg.startIdx + seg.endIdx) / 2);
       const midVal = (bars1[midIdx] <= 10 && midIdx > 0) ? bars1[midIdx - 1] : bars1[midIdx];
       const midX = mapX(PL + (midIdx / n) * cW);
@@ -123,31 +127,66 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
 
       const kwhEst = (Math.abs(seg.delta) / 100) * packKwh;
       const sign = isCharge ? '+' : '';
-      const text = (isCharge ? '▲' : '▼') + ' ' + sign + seg.delta.toFixed(1) + '% · ' + durStr + ' (' + kwhEst.toFixed(1) + 'kWh)';
+
+      // Compact formatting for mobile screens
+      let text = '';
+      if (isNarrow) {
+        text = (isCharge ? '▲' : '▼') + ' ' + sign + Math.round(seg.delta) + '% · ' + durStr + ' (' + kwhEst.toFixed(1) + 'k)';
+      } else {
+        text = (isCharge ? '▲' : '▼') + ' ' + sign + seg.delta.toFixed(1) + '% · ' + durStr + ' (' + kwhEst.toFixed(1) + 'kWh)';
+      }
 
       ctx.save();
-      ctx.font = 'bold 10px system-ui, -apple-system, sans-serif';
+      ctx.font = 'bold ' + (isNarrow ? '9px' : '10px') + ' system-ui, -apple-system, sans-serif';
       const tw = ctx.measureText(text).width;
-      const pw = tw + 14;
-      const ph = 20;
+      const pw = tw + (isNarrow ? 10 : 14);
+      const ph = isNarrow ? 18 : 20;
 
       let bx = midX - pw / 2;
-      let by = isCharge ? (midY - ph - 12) : (midY + 12);
-
       bx = Math.max(PL + 4, Math.min(rect.width - PR - pw - 4, bx));
-      if (by < PT + 4) by = midY + 12;
-      if (by > PT + cH - ph - 4) by = midY - ph - 10;
+
+      // Preferred position: Above curve if charging, below if discharging
+      let by = isCharge ? (midY - ph - 10) : (midY + 10);
+
+      const collidesWithExisting = (targetY) => {
+        return renderedPills.some(p => {
+          const xOverlap = !(bx + pw < p.x - 4 || bx > p.x + p.w + 4);
+          const yOverlap = !(targetY + ph < p.y - 3 || targetY > p.y + p.h + 3);
+          return xOverlap && yOverlap;
+        });
+      };
+
+      if (collidesWithExisting(by)) {
+        const altY = isCharge ? (midY + 10) : (midY - ph - 10);
+        if (!collidesWithExisting(altY) && altY >= PT + 2 && altY <= PT + cH - ph - 2) {
+          by = altY;
+        } else {
+          const stackBelow = by + ph + 4;
+          const stackAbove = by - ph - 4;
+          if (!collidesWithExisting(stackBelow) && stackBelow <= PT + cH - ph - 2) {
+            by = stackBelow;
+          } else if (!collidesWithExisting(stackAbove) && stackAbove >= PT + 2) {
+            by = stackAbove;
+          } else if (isNarrow && Math.abs(seg.delta) < 4.0) {
+            ctx.restore();
+            return;
+          }
+        }
+      }
+
+      by = Math.max(PT + 2, Math.min(PT + cH - ph - 2, by));
+      renderedPills.push({ x: bx, y: by, w: pw, h: ph });
 
       // Draw pill background
       ctx.fillStyle = bgClr;
       ctx.strokeStyle = borderClr;
       ctx.lineWidth = 1.5;
-      ctx.shadowColor = 'rgba(0,0,0,0.8)';
-      ctx.shadowBlur = 8;
+      ctx.shadowColor = 'rgba(0,0,0,0.85)';
+      ctx.shadowBlur = 6;
 
       ctx.beginPath();
       if (typeof ctx.roundRect === 'function') {
-        ctx.roundRect(bx, by, pw, ph, 6);
+        ctx.roundRect(bx, by, pw, ph, 5);
       } else {
         ctx.rect(bx, by, pw, ph);
       }
@@ -156,7 +195,7 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
 
       // Connector tick
       ctx.beginPath();
-      ctx.moveTo(midX, isCharge ? by + ph : by);
+      ctx.moveTo(midX, by > midY ? by : by + ph);
       ctx.lineTo(midX, midY);
       ctx.strokeStyle = borderClr;
       ctx.lineWidth = 1;

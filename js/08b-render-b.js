@@ -214,6 +214,21 @@ function renderResults(results) {
       const isDischarging = disA > 0.5;
       const netA = (chgA > 0.1 ? chgA : 0) - (disA > 0.1 ? disA : 0);
       const netW = Math.round(batV * netA);
+
+      const s = byName.get('Solar')?.value || 0;
+      const b = byName.get('Breaker')?.value || 0;
+      const l = byName.get('Tot Load')?.value || 0;
+      const acV = byName.get('AC Volts')?.value || 0;
+      const gridOff = acV < 10;
+      const effGrid = (b > 25 && !gridOff) ? b : 0;
+      const netSurplus = (s + effGrid) - l;
+      let estBatW = 0;
+      if (netSurplus >= 50) estBatW = Math.round(netSurplus - 50);
+      else if (netSurplus > 0) estBatW = 0;
+      else estBatW = Math.round(netSurplus - 50);
+
+      const estSign = estBatW > 0 ? `+${estBatW}` : `${estBatW}`;
+      const estText = ` (${estSign}W)`;
       const socVal = soc?.value != null ? Math.round(soc.value) : '--';
       const socColor = (soc?.value > 50) ? 'var(--accent-env)' : (soc?.value > 20 ? 'var(--accent-solar)' : '#ef4444');
 

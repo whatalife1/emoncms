@@ -312,6 +312,21 @@ async function _loadAndDraw(forceRefresh = false) {
       const resDis = window.graphBatteryIncludePower ? (res[3] || []) : [];
 
       bars1 = _pointsToBars(resSoc, nav, 'battery');
+
+      // Filter out isolated 0% sensor dropout glitches so the graph line stays clean & smooth
+      if (bars1 && bars1.length > 2) {
+        for (let i = 0; i < bars1.length; i++) {
+          if (bars1[i] <= 10) {
+            const prev = (i > 0 && bars1[i - 1] > 10) ? bars1[i - 1] : null;
+            let next = null;
+            for (let k = i + 1; k < Math.min(bars1.length, i + 6); k++) {
+              if (bars1[k] > 10) { next = bars1[k]; break; }
+            }
+            if (prev !== null) bars1[i] = prev;
+            else if (next !== null) bars1[i] = next;
+          }
+        }
+      }
       const voltBars = resVolt.length ? _pointsToBars(resVolt, nav, 'batv') : [];
 
       let lastIdx = nav.nBars || bars1.length || 720;

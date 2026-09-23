@@ -204,3 +204,129 @@ function _formatStatLine(icon, label, mainVal, accentColor, peakVal, avgVal, day
 
   return `<div style="margin-bottom: 6px; line-height:1.2;"><div style="display:flex; align-items:center; gap:6px;"><span style="color:${accentColor}; font-size:${fsLabel}; font-weight:700;">${icon ? icon + ' ' : ''}${label}:</span><span style="color:var(--text-main); font-size:${fsMain}; font-weight:900;">${mainDisplay}</span></div><div style="color:var(--text-muted); font-size:11px; font-weight:600; margin-left: 1px; margin-top: 2px;"><div>(${peakLabel}: <span style="color:${peakColor}; ${boldStyle}">${peakDisp}</span> ${unit}${avgHtml})</div>${dayNightRow}</div></div>`;
 }
+
+// ─── Battery: Charge/Discharge Sessions Overlay State ────────────────────────
+if (typeof window.graphBatteryShowSessions === 'undefined') {
+  window.graphBatteryShowSessions = true;
+}
+try {
+  if (localStorage.getItem('graphBatteryShowSessions') !== null) {
+    window.graphBatteryShowSessions = localStorage.getItem('graphBatteryShowSessions') === 'true';
+  }
+} catch (e) {}
+
+/**
+ * Windowed Slope Accumulator: Detects all sustained charge & discharge sessions >= 10m
+ */
+function detectBatterySessions(socBars, resSec, lastIdx, minDurationMin, minDeltaPct) {
+  if (!resSec) resSec = 120;
+  if (!minDurationMin) minDurationMin = 10;
+  if (!minDeltaPct) minDeltaPct = 2.0;
+  if (!socBars || socBars.length < 5) return [];
+  const maxLen = Math.min(socBars.length, lastIdx || socBars.length);
+
+  // 1. Clean dropouts (fill 0% glitches with last valid reading)
+  const soc = [];
+  let lastGood = 50;
+  for (let k = 0; k < maxLen; k++) {
+    const v = socBars[k];
+    if (v != null && !isNaN(v) && v > 15) { lastGood = v; break; }
+  }
+  for (let k = 0; k < maxLen; k++) {
+    const v = socBars[k];
+    if (v == null || isNaN(v) || v <= 10) soc.push(lastGood);
+    else { lastGood = v; soc.push(v); }
+  }
+
+  // 2. Light 3-point smoothing
+  const s = [];
+  for (let k = 0; k < soc.length; k++) {
+    const p0 = soc[Math.max(0, k - 1)];
+    const p1 = soc[k];
+    const p2 = soc[Math.min(soc.length - 1, k + 1)];
+    s.push((p0 + p1 + p2) / 3);
+  }
+
+  const sessions = [];
+  const plateauLimit = Math.max(4, Math.round((14 * 60) / resSec)); // ~7 points (14m)
+  let i = 0;
+
+  while (i < s.length - 2) {
+    // Look ahead 4 points (~8m) to detect sustained trend onset
+    const lookAhead = Math.min(s.length - 1, i + 4);
+    const diff = s[lookAhead] - s[i];
+    let dir = 0;
+
+    if (diff >= 0.5) dir = 1;        // Charging
+    else if (diff <= -0.5) dir = -1;  // Discharging
+
+    if (dir === 0) {
+      i++;
+      continue;
+    }
+
+    const startIdx = i;
+    let endIdx = i;
+
+    if (dir === 1) { // CHARGE TRACKER
+      let peakIdx = i;
+      let peakVal = s[i];
+      let flatCount = 0;
+
+      for (let j = i + 1; j < s.length; j++) {
+        if (s[j] > peakVal) {
+          peakVal = s[j];
+          peakIdx = j;
+          flatCount = 0;
+        } else if (peakVal - s[j] > 1.2) {
+          break; // Reversal
+        } else {
+          flatCount++;
+          if (flatCount > plateauLimit) break; // Plateau reached
+        }
+      }
+      endIdx = peakIdx;
+    } else { // DISCHARGE TRACKER
+      let troughIdx = i;
+      let troughVal = s[i];
+      let flatCount = 0;
+
+      for (let j = i + 1; j < s.length; j++) {
+        if (s[j] < troughVal) {
+          troughVal = s[j];
+          troughIdx = j;
+          flatCount = 0;
+        } else if (s[j] - troughVal > 1.2) {
+          break; // Reversal
+        } else {
+          flatCount++;
+          if (flatCount > plateauLimit) break; // Plateau reached
+        }
+      }
+      endIdx = troughIdx;
+    }
+
+    const durMin = Math.round(((endIdx - startIdx) * resSec) / 60);
+    const delta = soc[endIdx] - soc[startIdx];
+
+    if (durMin >= minDurationMin && Math.abs(delta) >= minDeltaPct) {
+      sessions.push({
+        type: dir === 1 ? 'charge' : 'discharge',
+        startIdx: startIdx,
+        endIdx: endIdx,
+        startVal: soc[startIdx],
+        endVal: soc[endIdx],
+        delta: delta,
+        durMin: durMin
+      });
+      i = Math.max(i + 1, endIdx);
+    } else {
+      i++;
+    }
+  }
+
+  console.log('🔋 Battery sessions detected:', sessions.length, sessions);
+  return sessions;
+}
+window.detectBatterySessions = detectBatterySessions;
+

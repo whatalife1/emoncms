@@ -212,8 +212,6 @@ function _renderFeedStats(stat, ctx) {
           '</div><div style="display:flex; flex-wrap:nowrap; overflow-x:auto; gap:6px; padding:2px 0 4px; -webkit-overflow-scrolling:touch; scrollbar-width:thin;">' + chips.join('') + '</div></div>';
       }
     }
-      }
-    }
 
     const vBars = ctx.voltBars || [];
     if (vBars.length > 0) {

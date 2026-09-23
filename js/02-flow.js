@@ -312,8 +312,11 @@ function renderFlowDiagram(byName) {
     svg += `<text x="${cx(o)}" y="${o.y+o.ly4}" ${tpProps} font-size="${o.fs4}" fill="${o.c4}" data-maxw="${o.w-12}">${batV.toFixed(1)}V</text>`;
     if (o.ly7) svg += `<text x="${cx(o)}" y="${o.y+o.ly7}" ${tpProps} font-size="${o.fs7}" fill="${o.c7}">${bTimeStr}</text>`;
     svg += `<text x="${cx(o)}" y="${o.y+o.ly3}" ${tpProps} font-size="${o.fs3}" fill="${actionColor}" data-maxw="${o.w-10}">${actionLine}</text>`;
-    if ((isBatActive || batW !== 0 || Math.abs(estBatW) > 10) && o.ly6) {
-      svg += `<text x="${cx(o)}" y="${o.y+o.ly6}" ${tpProps} font-size="${o.fs6}" fill="${pwrColor}" data-maxw="${o.w-10}">${pwrSign} w <tspan fill="${estColor}">(${estSign}w)</tspan></text>`;
+    const isStandbyZero = (!isBatActive || batW === 0);
+    const estTag = (!isStandbyZero && Math.abs(estBatW) > 10) ? ` <tspan fill="${estColor}">(${estSign}w)</tspan>` : '';
+
+    if (o.ly6) {
+      svg += `<text x="${cx(o)}" y="${o.y+o.ly6}" ${tpProps} font-size="${o.fs6}" fill="${pwrColor}" data-maxw="${o.w-10}">${pwrSign} w${estTag}</text>`;
     }
     if (estLine && o.ly5) {
       svg += `<text x="${cx(o)}" y="${o.y+o.ly5}" ${tpProps} font-size="${o.fs5}" fill="${o.c5 || '#38bdf8'}" data-maxw="${o.w-12}">${estLine}</text>`;

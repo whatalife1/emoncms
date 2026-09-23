@@ -185,6 +185,15 @@ let userOrderedFeeds = [];
 let isCompact = false;
 window.lastSolarActual = 0;
 
+window.graphDayStartHour = 5;
+try {
+  const saved = localStorage.getItem('graphDayStartHour');
+  if (saved !== null) {
+    const parsed = parseInt(saved, 10);
+    if (!isNaN(parsed)) window.graphDayStartHour = parsed;
+  }
+} catch (e) {}
+
 const IS_PKT_ZONE = (new Date().getTimezoneOffset() === -300);
 
 function getPktNow() {
@@ -198,12 +207,22 @@ function getPktDayStart(year, month, day) {
     return utcMidnight - (5 * 3600 * 1000);
 }
 
-function getPktTodayStart() {
+function getPktTodayStart(startHour = (window.graphDayStartHour !== undefined ? window.graphDayStartHour : 5)) {
     const now = getPktNow();
-    const year = IS_PKT_ZONE ? now.getFullYear() : now.getUTCFullYear();
-    const month = (IS_PKT_ZONE ? now.getMonth() : now.getUTCMonth()) + 1;
-    const day = IS_PKT_ZONE ? now.getDate() : now.getUTCDate();
-    return getPktDayStart(year, month, day);
+    const hr = IS_PKT_ZONE ? now.getHours() : now.getUTCHours();
+    let yr = IS_PKT_ZONE ? now.getFullYear() : now.getUTCFullYear();
+    let mo = (IS_PKT_ZONE ? now.getMonth() : now.getUTCMonth()) + 1;
+    let dy = IS_PKT_ZONE ? now.getDate() : now.getUTCDate();
+
+    // If before startHour (e.g. 05:00 AM), cycle started yesterday at startHour
+    if (hr < startHour) {
+        const prev = new Date(Date.UTC(yr, mo - 1, dy - 1));
+        yr = prev.getUTCFullYear();
+        mo = prev.getUTCMonth() + 1;
+        dy = prev.getUTCDate();
+    }
+
+    return getPktDayStart(yr, mo, dy) + (startHour * 3600 * 1000);
 }
 
 function formatPktTime(timestamp, format = 'datetime') {

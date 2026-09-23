@@ -54,6 +54,10 @@ function rotateProxyEndpoint() {
 
 let autoRefreshSec = 30;
 
+// Set to true to include Grid in estimated battery watts calculation.
+// Set to false to calculate estimate purely from Solar and Load (ignoring Grid).
+const BATTERY_EST_USE_GRID = true;
+
 const STALE_MS = 5 * 60 * 1000;
 const STALE_EXEMPT = new Set([
   "Water Tank",

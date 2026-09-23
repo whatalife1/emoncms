@@ -1,3 +1,16 @@
+// Restore cached yesterday battery values immediately on boot
+try {
+  const savedY = localStorage.getItem('bat_energy_yesterday');
+  if (savedY) {
+    const parsedY = JSON.parse(savedY);
+    if (parsedY && parsedY.date === getPktTodayStart()) {
+      window.monthlyUnits = window.monthlyUnits || {};
+      window.monthlyUnits.batChgY = parsedY.chgY;
+      window.monthlyUnits.batDisY = parsedY.disY;
+    }
+  }
+} catch (e) {}
+
 function renderWaterTank(pct) {
   if (pct == null) return '';
   const p = Math.max(0, Math.min(100, pct));
@@ -113,6 +126,8 @@ async function fetchMonthlyUnits() {
   const range = getPktBillingRange(yr, dy < 26 ? mo : mo + 1);
   const nowMs = Date.now();
   const todayStartMs = getPktTodayStart();
+  const yesterdayStartMs = todayStartMs - (24 * 3600 * 1000);
+  const batFetchStartMs = Math.min(range.startMs, yesterdayStartMs);
 
   const feeds = [
     { key: 'haier', id: '499409' }, { key: 'k1', id: '499407' }, 
@@ -126,6 +141,8 @@ async function fetchMonthlyUnits() {
   const results = { haier:0, k1:0, k15:0, pc:0, f1:0, f2:0, solar:0, grid:0, motor:0, wm:0 };
   let batChgMonthWh = 0;
   let batDisMonthWh = 0;
+  let batChgYestWh = 0;
+  let batDisYestWh = 0;
 
   try {
     const promises = feeds.map(f => {
@@ -133,9 +150,9 @@ async function fetchMonthlyUnits() {
       return nativeFetch(url).then(text => ({ key: f.key, text })).catch(() => ({ key: f.key, text: "[]" }));
     });
 
-    const batVPromise = nativeFetch(`${PROXY_BASE}/feed/data.json?ids=546013&start=${range.startMs}&end=${nowMs}&skipmissing=0&average=1&delta=0&interval=3600`);
-    const batChgPromise = nativeFetch(`${PROXY_BASE}/feed/data.json?ids=546022&start=${range.startMs}&end=${nowMs}&skipmissing=0&average=1&delta=0&interval=3600`);
-    const batDisPromise = nativeFetch(`${PROXY_BASE}/feed/data.json?ids=546025&start=${range.startMs}&end=${nowMs}&skipmissing=0&average=1&delta=0&interval=3600`);
+    const batVPromise = nativeFetch(`${PROXY_BASE}/feed/data.json?ids=546013&start=${batFetchStartMs}&end=${nowMs}&skipmissing=0&average=1&delta=0&interval=3600`);
+    const batChgPromise = nativeFetch(`${PROXY_BASE}/feed/data.json?ids=546022&start=${batFetchStartMs}&end=${nowMs}&skipmissing=0&average=1&delta=0&interval=3600`);
+    const batDisPromise = nativeFetch(`${PROXY_BASE}/feed/data.json?ids=546025&start=${batFetchStartMs}&end=${nowMs}&skipmissing=0&average=1&delta=0&interval=3600`);
 
     const [responses, resBatV, resBatChg, resBatDis] = await Promise.all([
       Promise.all(promises),
@@ -177,20 +194,41 @@ async function fetchMonthlyUnits() {
       const allTs = new Set([...Object.keys(mapChg), ...Object.keys(mapDis)]);
       let pastChgWh = 0;
       let pastDisWh = 0;
+      let yestChgWh = 0;
+      let yestDisWh = 0;
 
       for (const tsStr of allTs) {
         const tsMs = parseInt(tsStr, 10);
+        const v = (mapV[tsMs] && mapV[tsMs] > 35) ? mapV[tsMs] : 52.8;
+        const cA = mapChg[tsMs] || 0;
+        const dA = mapDis[tsMs] || 0;
+        const cWh = Math.max(0, v * cA);
+        const dWh = Math.max(0, v * dA);
+
         // Include hours up to 5:00 AM today in the historical cycle
         if (tsMs >= range.startMs && tsMs < todayStartMs) {
-          const v = (mapV[tsMs] && mapV[tsMs] > 35) ? mapV[tsMs] : 52.8;
-          const cA = mapChg[tsMs] || 0;
-          const dA = mapDis[tsMs] || 0;
-          pastChgWh += Math.max(0, v * cA);
-          pastDisWh += Math.max(0, v * dA);
+          pastChgWh += cWh;
+          pastDisWh += dWh;
+        }
+
+        // Include 24 hours of yesterday [yesterdayStartMs, todayStartMs)
+        if (tsMs >= yesterdayStartMs && tsMs < todayStartMs) {
+          yestChgWh += cWh;
+          yestDisWh += dWh;
         }
       }
       batChgMonthWh = pastChgWh;
       batDisMonthWh = pastDisWh;
+      batChgYestWh = yestChgWh;
+      batDisYestWh = yestDisWh;
+
+      try {
+        localStorage.setItem('bat_energy_yesterday', JSON.stringify({
+          date: todayStartMs,
+          chgY: yestChgWh,
+          disY: yestDisWh
+        }));
+      } catch (e) {}
     } catch(err) {
       console.warn("Battery monthly parse warning:", err);
     }
@@ -223,6 +261,8 @@ async function fetchMonthlyUnits() {
     wm:    results.wm,
     batPastChgM: batChgMonthWh,
     batPastDisM: batDisMonthWh,
+    batChgY: batChgYestWh,
+    batDisY: batDisYestWh,
     batChgT: todayChgWh,
     batChgM: batChgMonthWh + todayChgWh,
     batDisT: todayDisWh,

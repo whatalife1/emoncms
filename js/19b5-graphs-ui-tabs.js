@@ -154,7 +154,6 @@ function _renderGFeedTabs() {
   if (typeof _renderWaterToggles === 'function') _renderWaterToggles();
   if (typeof _renderMotorToggles === 'function') _renderMotorToggles();
   if (typeof _renderBatteryToggles === 'function') _renderBatteryToggles();
-  if (typeof _renderBatteryToggles === 'function') _renderBatteryToggles();
 }
 window._renderGFeedTabs = _renderGFeedTabs;
 window._renderGTimeTabs = _renderGTimeTabs;

@@ -17,8 +17,6 @@ const GRAPH_FEEDS = [
     { key: 'batchg',    name: 'Bat Charge',     id: '546022', color: '#10b981', label: '⚡🔋 Bat Charge', isWatts: true, statLabel: '⚡🔋 Bat Charge' },
     { key: 'batdis',    name: 'Bat Discharge',  id: '546025', color: '#f97316', label: '⚡🔋 Bat Dischg', isWatts: true, statLabel: '⚡🔋 Bat Discharge' },
     { key: 'batv',      name: 'Bat Voltage',    id: '546013', color: '#35c0b7', label: '⚡ Bat V',        isWatts: false, statLabel: '⚡ Battery Voltage' },
-    { key: 'battery',   name: 'Battery',        id: '546019', color: '#10b981', label: '🔋 Battery',      isWatts: false, statLabel: '🔋 Battery SOC' },
-    { key: 'batv',      name: 'Bat Voltage',    id: '546013', color: '#35c0b7', label: '⚡ Bat V',        isWatts: false, statLabel: '⚡ Battery Voltage' },
     { key: 'acvolts',   name: 'AC Input Volts',  id: '499383', color: '#fb7185', label: '⚡ AC Volts',     isWatts: false },
     { key: 'temp',      name: 'Temperature',     id: '499428', color: '#10b981', label: '🌡 Temp 1',      isWatts: false, isTemp: true },
     { key: 'temp2',     name: 'Temperature 2',   id: '512473', color: '#34d399', label: '🌡 Temp 2',      isWatts: false, isTemp: true },
@@ -105,6 +103,15 @@ try {
 function toggleGraphStartHour() {
   window.graphDayStartHour = window.graphDayStartHour === 5 ? 0 : 5;
   localStorage.setItem('graphDayStartHour', window.graphDayStartHour);
+
+  if (typeof fetchTodayBatteryEnergy === 'function') {
+    fetchTodayBatteryEnergy().then(() => {
+      if (window.lastResultsMap && typeof renderResults === 'function') {
+        renderResults(Array.from(window.lastResultsMap.values()));
+      }
+    });
+  }
+
   if (window.graphTab === 'day') {
     if (typeof _loadAndDraw === 'function') _loadAndDraw();
   }

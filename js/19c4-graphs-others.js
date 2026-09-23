@@ -352,7 +352,7 @@ function _renderMotorToggles() {
 }
 window._renderMotorToggles = _renderMotorToggles;
 
-// ─── Battery tab: Separate Toggles for Voltage & Net Power ──────────────────
+// ─── Battery tab: Separate Toggles for Voltage, Net Power & Sessions ────────
 function _renderBatteryToggles() {
   const existing = document.getElementById('battery-overlay-toggles');
   if (existing) existing.remove();
@@ -363,15 +363,27 @@ function _renderBatteryToggles() {
 
   const voltOn = !!window.graphBatteryIncludeVoltage;
   const pwrOn = !!window.graphBatteryIncludePower;
-  const voltColor = '#35c0b7', pwrColor = '#facc15';
+  const sessOn = window.graphBatteryShowSessions !== false;
+  const voltColor = '#35c0b7', pwrColor = '#facc15', sessColor = '#10b981';
 
   const wrap = document.createElement('div');
   wrap.id = 'battery-overlay-toggles';
   wrap.style.cssText = 'display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:wrap;padding:0 0 8px;flex-shrink:0;';
 
-  // Button 1: Voltage
+  // Button 1: Sessions (ΔSOC)
+  const btnSess = document.createElement('button');
+  btnSess.style.cssText = 'padding:5px 12px;border-radius:20px;font-size:11px;font-weight:800;cursor:pointer;border:1.5px solid ' + sessColor + ';background:' + (sessOn ? 'rgba(16,185,129,0.2)' : 'transparent') + ';color:' + (sessOn ? sessColor : 'var(--text-muted)') + ';opacity:' + (sessOn ? '1' : '0.75') + ';width:auto;';
+  btnSess.textContent = sessOn ? '🔋 Sessions (ΔSOC): ON' : '🔋 + Sessions (ΔSOC)';
+  btnSess.addEventListener('click', function () {
+    window.graphBatteryShowSessions = !window.graphBatteryShowSessions;
+    try { localStorage.setItem('graphBatteryShowSessions', window.graphBatteryShowSessions ? 'true' : 'false'); } catch (e) {}
+    _renderBatteryToggles();
+    if (typeof _loadAndDraw === 'function') _loadAndDraw();
+  });
+
+  // Button 2: Voltage
   const btnVolt = document.createElement('button');
-  btnVolt.style.cssText = `padding:5px 12px;border-radius:20px;font-size:11px;font-weight:800;cursor:pointer;border:1.5px solid ${voltColor};background:${voltOn ? 'rgba(53,192,183,0.18)' : 'transparent'};color:${voltOn ? voltColor : 'var(--text-muted)'};opacity:${voltOn ? '1' : '0.75'};width:auto;`;
+  btnVolt.style.cssText = 'padding:5px 12px;border-radius:20px;font-size:11px;font-weight:800;cursor:pointer;border:1.5px solid ' + voltColor + ';background:' + (voltOn ? 'rgba(53,192,183,0.18)' : 'transparent') + ';color:' + (voltOn ? voltColor : 'var(--text-muted)') + ';opacity:' + (voltOn ? '1' : '0.75') + ';width:auto;';
   btnVolt.textContent = voltOn ? '⚡ Voltage: Added' : '⚡ + Voltage (V)';
   btnVolt.addEventListener('click', function () {
     window.graphBatteryIncludeVoltage = !window.graphBatteryIncludeVoltage;
@@ -380,9 +392,9 @@ function _renderBatteryToggles() {
     if (typeof _loadAndDraw === 'function') _loadAndDraw();
   });
 
-  // Button 2: Net Power
+  // Button 3: Net Power
   const btnPwr = document.createElement('button');
-  btnPwr.style.cssText = `padding:5px 12px;border-radius:20px;font-size:11px;font-weight:800;cursor:pointer;border:1.5px solid ${pwrColor};background:${pwrOn ? 'rgba(250,204,21,0.18)' : 'transparent'};color:${pwrOn ? pwrColor : 'var(--text-muted)'};opacity:${pwrOn ? '1' : '0.75'};width:auto;`;
+  btnPwr.style.cssText = 'padding:5px 12px;border-radius:20px;font-size:11px;font-weight:800;cursor:pointer;border:1.5px solid ' + pwrColor + ';background:' + (pwrOn ? 'rgba(250,204,21,0.18)' : 'transparent') + ';color:' + (pwrOn ? pwrColor : 'var(--text-muted)') + ';opacity:' + (pwrOn ? '1' : '0.75') + ';width:auto;';
   btnPwr.textContent = pwrOn ? '⚡ Power: Added' : '⚡ + Power (W)';
   btnPwr.addEventListener('click', function () {
     window.graphBatteryIncludePower = !window.graphBatteryIncludePower;
@@ -391,6 +403,7 @@ function _renderBatteryToggles() {
     if (typeof _loadAndDraw === 'function') _loadAndDraw();
   });
 
+  wrap.appendChild(btnSess);
   wrap.appendChild(btnVolt);
   wrap.appendChild(btnPwr);
   feedTabs.parentNode.insertBefore(wrap, feedTabs);

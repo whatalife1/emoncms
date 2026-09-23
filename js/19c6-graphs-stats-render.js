@@ -181,8 +181,8 @@ function _renderFeedStats(stat, ctx) {
           const isChg = s.type === 'charge';
           const startTs = nav.startMs + s.startIdx * resSec * 1000;
           const endTs = nav.startMs + s.endIdx * resSec * 1000;
-          const startStr = formatPktTime(startTs, 'time');
-          const endStr = s.inProgress ? 'Now' : formatPktTime(endTs, 'time');
+          const startStr = formatPktTime(startTs, 'time').replace(':00', '');
+          const endStr = s.inProgress ? 'Now' : formatPktTime(endTs, 'time').replace(':00', '');
           let durStr = '';
           if (s.durMin >= 60) {
             const h = Math.floor(s.durMin / 60);
@@ -200,16 +200,18 @@ function _renderFeedStats(stat, ctx) {
           const bdr = isChg ? 'rgba(16,185,129,0.45)' : 'rgba(249,115,22,0.45)';
           const textClr = isChg ? '#4ade80' : '#fb923c';
 
-          return '<span style="display:inline-flex; align-items:center; gap:4px; background:' + bg + '; border:1px solid ' + bdr + '; border-radius:6px; padding:2px 7px; font-size:10.5px; color:' + textClr + '; font-weight:700;">' +
+          return '<span style="display:inline-flex; align-items:center; gap:4px; white-space:nowrap; flex-shrink:0; background:' + bg + '; border:1px solid ' + bdr + '; border-radius:6px; padding:3px 8px; font-size:11px; color:' + textClr + '; font-weight:700;">' +
             (isChg ? '▲ +' : '▼ ') + s.delta.toFixed(1) + '% (' + kwh.toFixed(1) + ' kWh) in ' + durStr +
-            ' <span style="color:var(--text-muted); font-size:9.5px; font-weight:600;">[' + startStr + '→' + endStr + ']</span></span>';
+            ' <span style="color:var(--text-muted); font-size:9.5px; font-weight:600; margin-left:2px;">[' + startStr + '→' + endStr + ']</span></span>';
         });
 
         statHtml += '<div style="background:var(--bg-card); border:1px solid var(--border); border-radius:8px; padding:6px 10px; margin-top:4px; margin-bottom:4px;">' +
-          '<div style="display:flex; justify-content:space-between; align-items:center; font-size:11px; font-weight:800;">' +
+          '<div style="display:flex; justify-content:space-between; align-items:center; font-size:11px; font-weight:800; margin-bottom:4px;">' +
           '<span style="color:#10b981;">⚡ Activity Sessions (10m+):</span>' +
           '<span style="color:var(--text-muted); font-size:10.5px;">Chg: <b style="color:#4ade80;">+' + totalChgKwh.toFixed(1) + ' kWh</b> &bull; Disch: <b style="color:#fb923c;">-' + totalDisKwh.toFixed(1) + ' kWh</b></span>' +
-          '</div><div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:5px;">' + chips.join('') + '</div></div>';
+          '</div><div style="display:flex; flex-wrap:nowrap; overflow-x:auto; gap:6px; padding:2px 0 4px; -webkit-overflow-scrolling:touch; scrollbar-width:thin;">' + chips.join('') + '</div></div>';
+      }
+    }
       }
     }
 

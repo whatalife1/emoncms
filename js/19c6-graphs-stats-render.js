@@ -168,6 +168,51 @@ function _renderFeedStats(stat, ctx) {
     const mainVal = (graphTab === 'month' || graphTab === 'year') ? av : latestV;
     let statHtml = _formatStatLine('🔋', 'Battery SOC', mainVal, color1, pk, av, dAv, null, nAv, null, '%', false, graphTab);
 
+    // ── Charge & Discharge Sessions Card (Day View) ───────────────────
+    if (graphTab === 'day' && window.graphBatteryShowSessions !== false && typeof detectBatterySessions === 'function') {
+      const resSec = (nav && nav.resSeconds) ? nav.resSeconds : 120;
+      const sessions = detectBatterySessions(bars1, resSec, lastIdx, 10, 2.0);
+      const packKwh = (typeof solarCfg !== 'undefined' && solarCfg && solarCfg.batteryKwh > 0) ? solarCfg.batteryKwh : 5.12;
+
+      if (sessions.length > 0) {
+        let totalChgKwh = 0, totalDisKwh = 0;
+
+        const chips = sessions.map(s => {
+          const isChg = s.type === 'charge';
+          const startTs = nav.startMs + s.startIdx * resSec * 1000;
+          const endTs = nav.startMs + s.endIdx * resSec * 1000;
+          const startStr = formatPktTime(startTs, 'time');
+          const endStr = s.inProgress ? 'Now' : formatPktTime(endTs, 'time');
+          let durStr = '';
+          if (s.durMin >= 60) {
+            const h = Math.floor(s.durMin / 60);
+            const m = s.durMin % 60;
+            durStr = m > 0 ? (h + 'h ' + m + 'm') : (h + 'h');
+          } else {
+            durStr = s.durMin + 'm';
+          }
+          const kwh = (Math.abs(s.delta) / 100) * packKwh;
+
+          if (isChg) totalChgKwh += kwh;
+          else totalDisKwh += kwh;
+
+          const bg = isChg ? 'rgba(16,185,129,0.16)' : 'rgba(249,115,22,0.16)';
+          const bdr = isChg ? 'rgba(16,185,129,0.45)' : 'rgba(249,115,22,0.45)';
+          const textClr = isChg ? '#4ade80' : '#fb923c';
+
+          return '<span style="display:inline-flex; align-items:center; gap:4px; background:' + bg + '; border:1px solid ' + bdr + '; border-radius:6px; padding:2px 7px; font-size:10.5px; color:' + textClr + '; font-weight:700;">' +
+            (isChg ? '▲ +' : '▼ ') + s.delta.toFixed(1) + '% (' + kwh.toFixed(1) + ' kWh) in ' + durStr +
+            ' <span style="color:var(--text-muted); font-size:9.5px; font-weight:600;">[' + startStr + '→' + endStr + ']</span></span>';
+        });
+
+        statHtml += '<div style="background:var(--bg-card); border:1px solid var(--border); border-radius:8px; padding:6px 10px; margin-top:4px; margin-bottom:4px;">' +
+          '<div style="display:flex; justify-content:space-between; align-items:center; font-size:11px; font-weight:800;">' +
+          '<span style="color:#10b981;">⚡ Activity Sessions (10m+):</span>' +
+          '<span style="color:var(--text-muted); font-size:10.5px;">Chg: <b style="color:#4ade80;">+' + totalChgKwh.toFixed(1) + ' kWh</b> &bull; Disch: <b style="color:#fb923c;">-' + totalDisKwh.toFixed(1) + ' kWh</b></span>' +
+          '</div><div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:5px;">' + chips.join('') + '</div></div>';
+      }
+    }
+
     const vBars = ctx.voltBars || [];
     if (vBars.length > 0) {
       const validV = (graphTab === 'day' ? vBars.slice(0, lastIdx) : vBars).filter(v => v != null && v > 40);

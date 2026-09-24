@@ -1,3 +1,11 @@
+if (typeof window.graphOthersNightOnly === 'undefined') {
+  window.graphOthersNightOnly = false;
+}
+try {
+  if (localStorage.getItem('graphOthersNightOnly') !== null) {
+    window.graphOthersNightOnly = localStorage.getItem('graphOthersNightOnly') === 'true';
+  }
+} catch (e) {}
 // js/19c4-graphs-others.js
 // ─── "Others" feed computation + Separate Overlay Toggles ───────────────────
 
@@ -18,14 +26,38 @@ async function _handleOthersFeed(nav, stat, canvas) {
     computedLastIdx = Math.floor((Date.now() - 60000 - nav.startMs) / (nav.resSeconds * 1000)) + 1;
   }
   computedLastIdx = Math.min(Math.max(0, computedLastIdx), nav.nBars);
+  const [ampChgPts, ampDisPts, voltPts] = await Promise.all([
+    _gFetch('546022', nav.startMs, nav.endMs, nav.interval),
+    _gFetch('546025', nav.startMs, nav.endMs, nav.interval),
+    _gFetch('546013', nav.startMs, nav.endMs, nav.interval)
+  ]);
+  const chgBars = _pointsToBars(ampChgPts, nav, 'batchg');
+  const disBars = _pointsToBars(ampDisPts, nav, 'batdis');
+  const vBars   = _pointsToBars(voltPts, nav, 'batv');
+  const isNightOnly = !!window.graphOthersNightOnly;
+
   for (let i = 0; i < computedLastIdx; i++) {
+    const ts = nav.startMs + (i * nav.resSeconds * 1000);
+    const pktDate = getKarachiDate(ts);
+    const isNight = (pktDate.hour >= 17 || pktDate.hour < 8);
+
+    if (isNightOnly && !isNight) {
+      bars[i] = 0;
+      continue;
+    }
+
     const solar = solarBars[i] || 0;
     const grid = gridBars[i] || 0;
+    const v = (vBars && vBars[i] > 35) ? vBars[i] : 52.0;
+    const chgW = (chgBars && chgBars[i] ? chgBars[i] : 0) * (isKwhView ? 1 : v);
+    const disW = (disBars && disBars[i] ? disBars[i] : 0) * (isKwhView ? 1 : v);
+    const netSupply = Math.max(0, solar + grid + disW - chgW);
+
     let sumAppliances = 0;
     for (let j = 2; j < barsArrays.length; j++) {
       sumAppliances += barsArrays[j][i] || 0;
     }
-    bars[i] = Math.max(0, solar + grid - sumAppliances);
+    bars[i] = Math.max(0, netSupply - sumAppliances);
   }
   const feed = GRAPH_FEEDS.find(f => f.key === 'others');
   const color1 = feed.color;
@@ -177,7 +209,8 @@ async function _handleOthersFeed(nav, stat, canvas) {
     dAv = dayTot / numDays; dTt = dayTot;
     nAv = nightTot / numDays; nTt = nightTot;
   }
-  const othersLabel = includeFridges ? 'Others + Fridges (Night)' : 'Others';
+  const isNightOnlyActive = !!window.graphOthersNightOnly;
+  const othersLabel = isNightOnlyActive ? (includeFridges ? 'Others + Fridges (Night Only)' : 'Others (Night Only)') : (includeFridges ? 'Others + Fridges (Night)' : 'Others');
   stat.innerHTML = _formatStatLine('💡', othersLabel, totalKwh, color1, peak, avg, dAv, dTt, nAv, nTt, unit, true, graphTab);
   _showGraphLoading(false);
   graphIsLoading = false;
@@ -211,6 +244,17 @@ function _renderOthersFridgeToggle() {
     if (typeof _loadAndDraw === 'function') _loadAndDraw();
   });
   row.appendChild(btn);
+  const nightOn = !!window.graphOthersNightOnly;
+  const btnNight = document.createElement('button');
+  btnNight.style.cssText = `padding:5px 12px;border-radius:20px;font-size:11px;font-weight:800;cursor:pointer;border:1.5px solid #f59e0b;background:${nightOn ? 'rgba(245,158,11,0.22)' : 'transparent'};color:${nightOn ? '#f59e0b' : 'var(--text-muted)'};opacity:${nightOn ? '1' : '0.75'};width:auto;`;
+  btnNight.textContent = nightOn ? '🌙 Night Only: ON' : '🌙 Night Only';
+  btnNight.addEventListener('click', function () {
+    window.graphOthersNightOnly = !window.graphOthersNightOnly;
+    try { localStorage.setItem('graphOthersNightOnly', window.graphOthersNightOnly ? 'true' : 'false'); } catch (e) {}
+    _renderOthersFridgeToggle();
+    if (typeof _loadAndDraw === 'function') _loadAndDraw();
+  });
+  row.appendChild(btnNight);
   wrap.appendChild(row);
 
   feedTabs.parentNode.insertBefore(wrap, feedTabs);

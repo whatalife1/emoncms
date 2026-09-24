@@ -68,8 +68,8 @@ function _renderFeedStats(stat, ctx) {
 
   const calcDayNgt = (pts, feedKey = '') => {
     const isPc = feedKey === 'pc';
-    const dayStart = isPc ? 6 : 8;
-    const dayEnd = 17;
+    const dayStart = isPc ? 6 : 7;
+    const dayEnd = 16;
     let dayTot = 0, nightTot = 0;
     for (const [ts, v] of pts) {
       if (v != null && v > 0) {
@@ -106,12 +106,12 @@ function _renderFeedStats(stat, ctx) {
         if (!isSolar) { nAv = dn.nightAvg; nTt = dn.nightTotal; }
       } else if (graphTab === 'day') {
         const isPc = m.key === 'pc';
-        const ds = _calcStatsForRange(m.data, (isPc ? 6 : 8), 17, nav, lastIdx);
+        const ds = _calcStatsForRange(m.data, (isPc ? 6 : 7), 16, nav, lastIdx);
         dAv = ds.activeAvg; dTt = ds.total;
         const stats = _calcStatsForRange(m.data, (isSolar ? 5 : 0), (isSolar ? 17 : 24), nav, lastIdx);
         av = isSolar ? stats.avg : stats.activeAvg;
         if (!isSolar) {
-          const ns = _calcStatsForRange(m.data, 17, (isPc ? 6 : 8), nav, lastIdx);
+          const ns = _calcStatsForRange(m.data, 16, (isPc ? 6 : 7), nav, lastIdx);
           nAv = ns.activeAvg; nTt = ns.total;
         }
       } else {
@@ -138,12 +138,12 @@ function _renderFeedStats(stat, ctx) {
       const dn1 = calcDayNgt(pts1, 'solar'); d1 = dn1.dayAvg; dt1 = dn1.dayTotal;
       const dn2 = calcDayNgt(pts2, 'grid'); d2 = dn2.dayAvg; dt2 = dn2.dayTotal; n2 = dn2.nightAvg; nt2 = dn2.nightTotal;
     } else if (graphTab === 'day') {
-      const sd1 = _calcStatsForRange(bars1, 8, 17, nav, lastIdx); d1 = sd1.avg; dt1 = sd1.total;
-      const sd2 = _calcStatsForRange(bars2, 8, 17, nav, lastIdx); d2 = sd2.activeAvg; dt2 = sd2.total;
+      const sd1 = _calcStatsForRange(bars1, 7, 16, nav, lastIdx); d1 = sd1.avg; dt1 = sd1.total;
+      const sd2 = _calcStatsForRange(bars2, 7, 16, nav, lastIdx); d2 = sd2.activeAvg; dt2 = sd2.total;
       a1 = _calcStatsForRange(bars1, 5, 17, nav, lastIdx).avg;
       const s2 = _calcStatsForRange(bars2, 0, 24, nav, lastIdx);
       a2 = s2.activeAvg;
-      const sn2 = _calcStatsForRange(bars2, 17, 8, nav, lastIdx);
+      const sn2 = _calcStatsForRange(bars2, 16, 7, nav, lastIdx);
       n2 = sn2.activeAvg; nt2 = sn2.total;
     } else {
       a1 = t1 / bars1.filter(v => v > 0).length;
@@ -159,9 +159,9 @@ function _renderFeedStats(stat, ctx) {
 
     let dAv = null, nAv = null;
     if (graphTab === 'day') {
-      const ds = _calcStatsForRange(bars1, 8, 17, nav, lastIdx);
+      const ds = _calcStatsForRange(bars1, 7, 16, nav, lastIdx);
       dAv = ds.avg;
-      const ns = _calcStatsForRange(bars1, 17, 8, nav, lastIdx);
+      const ns = _calcStatsForRange(bars1, 16, 7, nav, lastIdx);
       nAv = ns.avg;
     }
 
@@ -248,9 +248,9 @@ function _renderFeedStats(stat, ctx) {
 
     let dAv = null, dTt = null, nAv = null, nTt = null;
     if (graphTab === 'day') {
-      const ds = _calcStatsForRange(bars1, 8, 17, nav, lastIdx);
+      const ds = _calcStatsForRange(bars1, 7, 16, nav, lastIdx);
       dAv = ds.avg;
-      const ns = _calcStatsForRange(bars1, 17, 8, nav, lastIdx);
+      const ns = _calcStatsForRange(bars1, 16, 7, nav, lastIdx);
       nAv = ns.avg;
     }
 
@@ -366,12 +366,12 @@ function _renderFeedStats(stat, ctx) {
         nAv = dn.nightAvg; nTt = dn.nightTotal;
       }
     } else if (graphTab === 'day' && !isTemp) {
-      const ds = _calcStatsForRange(bars1, (isPc ? 6 : 8), 17, nav, lastIdx);
+      const ds = _calcStatsForRange(bars1, (isPc ? 6 : 7), 16, nav, lastIdx);
       dAv = ds.activeAvg; dTt = ds.total;
       const stats = _calcStatsForRange(bars1, (gfk === 'solar' ? 5 : 0), (gfk === 'solar' ? 17 : 24), nav, lastIdx);
       av = (gfk === 'solar') ? stats.avg : stats.activeAvg;
       if (gfk !== 'solar' && !isAvgF) {
-        const ns = _calcStatsForRange(bars1, 17, (isPc ? 6 : 8), nav, lastIdx);
+        const ns = _calcStatsForRange(bars1, 16, (isPc ? 6 : 7), nav, lastIdx);
         nAv = ns.activeAvg; nTt = ns.total;
       }
     } else {

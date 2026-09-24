@@ -58,6 +58,11 @@ let autoRefreshSec = 30;
 // Set to false to calculate estimate purely from Solar and Load (ignoring Grid).
 const BATTERY_EST_USE_GRID = true;
 
+// ── Battery Cutoff Settings ──────────────────────────────────────────
+// Change this value anytime; flow diagram and cards will update dynamically:
+const BATTERY_HEAVY_LOAD_CUTOFF_SOC = 20; // Inverter turns off heavy loads (ACs/motor) at this SOC %
+const BATTERY_TOTAL_CUTOFF_SOC = 10;      // Inverter reserve shutdown cutoff SOC %
+
 const STALE_MS = 5 * 60 * 1000;
 const STALE_EXEMPT = new Set([
   "Water Tank",

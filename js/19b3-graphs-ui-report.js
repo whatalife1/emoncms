@@ -6,7 +6,8 @@ window.generateGraphReport = async function(forceRefresh = false) {
 	const isMonth = graphTab === 'month';
 	const isYear = graphTab === 'year';
 	const isAll = graphTab === 'total';
-	let startMs, endMs, label;
+	const isCycle = (window.graphDayStartHour !== 0);
+		let startMs, endMs, label;
 	if (isAll) {
 		startMs = new Date(2020, 0, 1).getTime();
 		endMs = Date.now();
@@ -48,7 +49,7 @@ window.generateGraphReport = async function(forceRefresh = false) {
 			const dKey = `${p.year}-${String(p.month).padStart(2,'0')}-${String(p.day).padStart(2,'0')}`;
 			h24[dKey] = (h24[dKey] || 0) + val;
 			if (p.hour >= ds && p.hour < de) dWh[dKey] = (dWh[dKey] || 0) + val;
-			if (p.hour >= 17 || p.hour < 8) nWh[dKey] = (nWh[dKey] || 0) + val;
+			if (p.hour >= 16 || p.hour < 7) nWh[dKey] = (nWh[dKey] || 0) + val;
 		}
 		sums[fId] = { h24, day: dWh, night: nWh };
 		hourlyData[fId] = raw;
@@ -89,7 +90,7 @@ window.generateGraphReport = async function(forceRefresh = false) {
 		const disW = Math.max(0, v * dA);
 		const p = getKarachiDate(ts);
 		const dKey = `${p.year}-${String(p.month).padStart(2,'0')}-${String(p.day).padStart(2,'0')}`;
-		const isDayHour = (p.hour >= 8 && p.hour < 17);
+		const isDayHour = (p.hour >= 7 && p.hour < 16);
 
 		batChgTotalWh += chgW;
 		batDisTotalWh += disW;
@@ -190,9 +191,9 @@ window.generateGraphReport = async function(forceRefresh = false) {
 			}
 		});
 	}
-	txt += `Time Period Definitions:\n`;
-	txt += `  • Day   = 8:00 AM  → 5:00 PM  (9 hours)\n`;
-	txt += `  • Night = 5:00 PM  → 8:00 AM  (15 hours)\n`;
+		txt += `Time Period Definitions:\n`;
+	txt += `  • Day   = 7:00 AM  → 4:00 PM  (9 hours)\n`;
+	txt += `  • Night = ${isCycle ? '4:00 PM  → 7:00 AM  (15 hours)' : '12:00 AM → 7:00 AM & 4:00 PM → 12:00 AM'}\n`;
 	txt += `  • Solar hours = 8:00 AM → 5:00 PM\n`;
 	const colWidths = { name:22, total:12, day:10, night:10, avgNightKwh:15, avgNight:21, avgDay:10, dayPct:8, nightPct:8, dayShare:10, nightShare:10, totalPct:10 };
 	const headerParts = [
@@ -262,10 +263,10 @@ window.generateGraphReport = async function(forceRefresh = false) {
 	html += `<div style="white-space:normal; font-size:11px; color:#ef4444; margin-bottom:8px; padding:3px 10px 4px; line-height:1.25; background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.3); border-radius:6px; box-sizing:border-box; width:100%;"><div style="display:flex; justify-content:space-between; align-items:center; font-weight:700;"><span>⚡ Electricity Breakdown / Outages:</span><span style="font-size:12px; font-weight:800; white-space:nowrap; margin-left:10px;">${acBreakdown.formattedDuration} (${acBreakdown.totalHours} hrs &bull; ${acBreakdown.outageCount} ${acBreakdown.outageCount === 1 ? 'time' : 'times'})</span></div>${outageTimesHtml}</div>`;
 	const batEffPct = batChgTotalWh > 0 ? ((batDisTotalWh / batChgTotalWh) * 100).toFixed(0) : 100;
 	html += `<div style="display:flex; justify-content:space-between; align-items:center; font-size:11px; margin-bottom:8px; padding:6px 10px; background:rgba(16,185,129,0.08); border:1px solid rgba(16,185,129,0.35); border-radius:6px;"><span style="color:#10b981; font-weight:800;">🔋 Battery Cycled:</span><span style="color:var(--text-main); font-weight:700;">⚡ Charged: <b style="color:#10b981;">${(batChgTotalWh/1000).toFixed(2)} kWh</b> &bull; ⚡ Discharged: <b style="color:#f97316;">${(batDisTotalWh/1000).toFixed(2)} kWh</b> &bull; Eff: <b style="color:#38bdf8;">${batEffPct}%</b></span></div>`;
-	html += `<div style="font-size:11px;color:#71717a;margin-bottom:12px;padding:8px 12px;background:#f4f4f5;border-radius:6px;border-left:3px solid #f59e0b;box-sizing:border-box;width:100%;">`;
+		html += `<div style="font-size:11px;color:#71717a;margin-bottom:12px;padding:8px 12px;background:#f4f4f5;border-radius:6px;border-left:3px solid #f59e0b;box-sizing:border-box;width:100%;">`;
 	html += `<span style="font-weight:700;">⏰ Time Periods:</span> `;
-	html += `<span style="color:#f59e0b;">Day</span> = 8:00 AM → 5:00 PM (9 hrs) &nbsp;|&nbsp; `;
-	html += `<span style="color:#c084fc;">Night</span> = 5:00 PM → 8:00 AM (15 hrs)`;
+	html += `<span style="color:#f59e0b; font-weight:700;">Day</span> = 7:00 AM → 4:00 PM (9 hrs) &nbsp;|&nbsp; `;
+	html += `<span style="color:#c084fc; font-weight:700;">Night</span> = ${isCycle ? '4:00 PM → 7:00 AM (15 hrs)' : '12:00 AM → 7:00 AM & 4:00 PM → 12:00 AM'}`;
 	html += `</div>`;
 	html += `<div class="table-scroll" style="overflow-x:auto;max-width:100%;width:100%;box-sizing:border-box;"><table style="width:100%;border-collapse:collapse;font-size:11px;font-family:monospace;min-width:900px;">`;
 	html += `<tr style="background:#f4f4f5;border-bottom:2px solid #d4d4d8;">`;

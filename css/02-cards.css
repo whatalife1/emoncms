@@ -55,10 +55,10 @@
 }
 
 #flow-card .flow-title {
-  font-size: 10.5px;
+  font-size: 12px;
   font-weight: 700;
-  color: var(--text-muted);
-  text-transform: uppercase;
+  color: var(--accent-env);
+  text-transform: none;
   letter-spacing: 0.04em;
   margin-bottom: 6px;
   line-height: 1.4;

@@ -211,13 +211,14 @@ window.generateGraphReport = async function(forceRefresh = false) {
 		const avgDay = total / numDays;
 		const dayPct = (isSolar || total === 0) ? 0 : (day / total * 100);
 		const nightPct = (isSolar || total === 0) ? 0 : (night / total * 100);
+		const isSourceOrMetric = isBreaker || isSolar || row.isBatteryMetric;
 		let dayShare, nightShare;
-		if (isBreaker || isSolar) { dayShare = '-'; nightShare = '-'; }
+		if (isSourceOrMetric) { dayShare = '-'; nightShare = '-'; }
 		else {
 			dayShare = (totalDayLoadKwh === 0) ? 0 : (day / totalDayLoadKwh * 100);
 			nightShare = (totalNightLoadKwh === 0) ? 0 : (night / totalNightLoadKwh * 100);
 		}
-		const totalPct = (totalLoadKwh === 0) ? 0 : (total / totalLoadKwh * 100);
+		const totalPct = (totalLoadKwh === 0 || isSourceOrMetric) ? '-' : (total / totalLoadKwh * 100).toFixed(1) + '%';
 		const shortName = row.name.length > colWidths.name ? row.name.substring(0, colWidths.name-1) + '…' : row.name;
 		const parts = [
 			shortName.padEnd(colWidths.name),
@@ -229,9 +230,9 @@ window.generateGraphReport = async function(forceRefresh = false) {
 			avgDay.toFixed(2).padStart(colWidths.avgDay),
 			isSolar ? '-'.padStart(colWidths.dayPct) : dayPct.toFixed(1).padStart(colWidths.dayPct) + '%',
 			isSolar ? '-'.padStart(colWidths.nightPct) : nightPct.toFixed(1).padStart(colWidths.nightPct) + '%',
-			(isSolar || isBreaker) ? '-'.padStart(colWidths.dayShare) : (totalDayLoadKwh === 0 ? '-'.padStart(colWidths.dayShare) : dayShare.toFixed(1).padStart(colWidths.dayShare) + '%'),
-			(isSolar || isBreaker) ? '-'.padStart(colWidths.nightShare) : (totalNightLoadKwh === 0 ? '-'.padStart(colWidths.nightShare) : nightShare.toFixed(1).padStart(colWidths.nightShare) + '%'),
-			(totalLoadKwh === 0) ? '-'.padStart(colWidths.totalPct) : totalPct.toFixed(1).padStart(colWidths.totalPct) + '%'
+			(isSourceOrMetric) ? '-'.padStart(colWidths.dayShare) : (totalDayLoadKwh === 0 ? '-'.padStart(colWidths.dayShare) : dayShare.toFixed(1).padStart(colWidths.dayShare) + '%'),
+			(isSourceOrMetric) ? '-'.padStart(colWidths.nightShare) : (totalNightLoadKwh === 0 ? '-'.padStart(colWidths.nightShare) : nightShare.toFixed(1).padStart(colWidths.nightShare) + '%'),
+			(isSourceOrMetric || totalLoadKwh === 0) ? '-'.padStart(colWidths.totalPct) : totalPct.padStart(colWidths.totalPct)
 		];
 		txt += parts.join(' ') + '\n';
 	}
@@ -285,13 +286,14 @@ window.generateGraphReport = async function(forceRefresh = false) {
 		const avgDay = total / numDays;
 		const dayPct = (isSolar || total === 0) ? 0 : (day / total * 100);
 		const nightPct = (isSolar || total === 0) ? 0 : (night / total * 100);
+		const isSourceOrMetric = isBreaker || isSolar || row.isBatteryMetric;
 		let dayShare, nightShare;
-		if (isBreaker || isSolar) { dayShare = '-'; nightShare = '-'; }
+		if (isSourceOrMetric) { dayShare = '-'; nightShare = '-'; }
 		else {
 			dayShare = (totalDayLoadKwh === 0) ? 0 : (day / totalDayLoadKwh * 100);
 			nightShare = (totalNightLoadKwh === 0) ? 0 : (night / totalNightLoadKwh * 100);
 		}
-		const totalPct = (totalLoadKwh === 0) ? 0 : (total / totalLoadKwh * 100);
+		const totalPct = (totalLoadKwh === 0 || isSourceOrMetric) ? '-' : (total / totalLoadKwh * 100).toFixed(1) + '%';
 		const color = isSolar ? '#f59e0b' : (isBreaker ? '#ef4444' : '#18181b');
 		html += `<tr>`;
 		html += `<td style="border:1px solid #d4d4d8;padding:6px;font-weight:bold;color:${color};">${row.name}</td>`;
@@ -303,9 +305,9 @@ window.generateGraphReport = async function(forceRefresh = false) {
 		html += `<td style="border:1px solid #d4d4d8;padding:6px;text-align:right;">${avgDay.toFixed(2)}</td>`;
 		html += `<td style="border:1px solid #d4d4d8;padding:6px;text-align:right;color:${isSolar?'#71717a':'#f59e0b'};">${isSolar?'-':dayPct.toFixed(1)+'%'}</td>`;
 		html += `<td style="border:1px solid #d4d4d8;padding:6px;text-align:right;color:${isSolar?'#71717a':'#c084fc'};">${isSolar?'-':nightPct.toFixed(1)+'%'}</td>`;
-		html += `<td style="border:1px solid #d4d4d8;padding:6px;text-align:right;color:${isSolar||isBreaker?'#71717a':'#f59e0b'};">${(isSolar||isBreaker)?'-':(totalDayLoadKwh===0?'-':dayShare.toFixed(1)+'%')}</td>`;
-		html += `<td style="border:1px solid #d4d4d8;padding:6px;text-align:right;color:${isSolar||isBreaker?'#71717a':'#c084fc'};">${(isSolar||isBreaker)?'-':(totalNightLoadKwh===0?'-':nightShare.toFixed(1)+'%')}</td>`;
-		html += `<td style="border:1px solid #d4d4d8;padding:6px;text-align:right;">${totalLoadKwh===0?'-':totalPct.toFixed(1)+'%'}</td>`;
+		html += `<td style="border:1px solid #d4d4d8;padding:6px;text-align:right;color:${isSourceOrMetric?'#71717a':'#f59e0b'};">${(isSourceOrMetric)?'-':(totalDayLoadKwh===0?'-':dayShare.toFixed(1)+'%')}</td>`;
+		html += `<td style="border:1px solid #d4d4d8;padding:6px;text-align:right;color:${isSourceOrMetric?'#71717a':'#c084fc'};">${(isSourceOrMetric)?'-':(totalNightLoadKwh===0?'-':nightShare.toFixed(1)+'%')}</td>`;
+		html += `<td style="border:1px solid #d4d4d8;padding:6px;text-align:right;color:${isSourceOrMetric?'#71717a':'inherit'};">${(isSourceOrMetric)?'-':totalPct}</td>`;
 		html += `</tr>`;
 	}
 	html += `<tr style="background:#f4f4f5;font-weight:bold;border-top:2px solid #d4d4d8;">`;
@@ -323,6 +325,26 @@ window.generateGraphReport = async function(forceRefresh = false) {
 	html += `<td style="border:1px solid #d4d4d8;padding:6px;text-align:right;color:#f59e0b;">100%</td>`;
 	html += `<td style="border:1px solid #d4d4d8;padding:6px;text-align:right;color:#c084fc;">100%</td>`;
 	html += `<td style="border:1px solid #d4d4d8;padding:6px;text-align:right;">100%</td>`;
+	html += `</tr>`;
+
+	// Net Grid Load (Total Load minus battery discharge)
+	const netGridTotal = Math.max(0, totalLoadKwh - (batDisTotalWh / 1000));
+	const netGridDay = Math.max(0, totalDayLoadKwh - (batDisDayWh / 1000));
+	const netGridNight = Math.max(0, totalNightLoadKwh - (batDisNightWh / 1000));
+
+	html += `<tr style="background:#fef2f2;font-weight:bold;border-top:1px dashed #ef4444;">`;
+	html += `<td style="border:1px solid #fca5a5;padding:6px;color:#dc2626;">NET LOAD (Grid / -Bat)</td>`;
+	html += `<td style="border:1px solid #fca5a5;padding:6px;text-align:right;color:#dc2626;">${netGridTotal.toFixed(2)}</td>`;
+	html += `<td style="border:1px solid #fca5a5;padding:6px;text-align:right;color:#ea580c;">${netGridDay.toFixed(2)}</td>`;
+	html += `<td style="border:1px solid #c4b5fd;padding:6px;text-align:right;background:#ede9fe;color:#dc2626;font-weight:900;">${netGridNight.toFixed(2)}</td>`;
+	html += `<td style="border:1px solid #fca5a5;padding:6px;text-align:right;color:#c084fc;">${(netGridNight/numDays).toFixed(2)}</td>`;
+	html += `<td style="border:1px solid #fca5a5;padding:6px;text-align:right;">-</td>`;
+	html += `<td style="border:1px solid #fca5a5;padding:6px;text-align:right;">${(netGridTotal/numDays).toFixed(2)}</td>`;
+	html += `<td style="border:1px solid #fca5a5;padding:6px;text-align:right;color:#71717a;">-</td>`;
+	html += `<td style="border:1px solid #fca5a5;padding:6px;text-align:right;color:#71717a;">-</td>`;
+	html += `<td style="border:1px solid #fca5a5;padding:6px;text-align:right;color:#71717a;">-</td>`;
+	html += `<td style="border:1px solid #fca5a5;padding:6px;text-align:right;color:#71717a;">-</td>`;
+	html += `<td style="border:1px solid #fca5a5;padding:6px;text-align:right;color:#71717a;">-</td>`;
 	html += `</tr>`;
 	html += `</table></div></div>`;
 	return { text: txt, html: html };

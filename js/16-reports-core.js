@@ -11,12 +11,12 @@ const EXPORT_FEEDS = [
   { id: FEEDS_BASE.find(f => f.name === "Washing Machine")?.id, name: "Washing Machine" }
 ].filter(f => f.id); 
 
-const EXPORT_DAY_START   = 8;
-const EXPORT_DAY_END     = 17;
-const EXPORT_NIGHT_START = 17;
-const EXPORT_NIGHT_END   = 8;
+const EXPORT_DAY_START   = 7;
+const EXPORT_DAY_END     = 16;
+const EXPORT_NIGHT_START = 16;
+const EXPORT_NIGHT_END   = 7;
 const EXPORT_PC_DAY_START = 6;
-const EXPORT_PC_DAY_END   = 17;
+const EXPORT_PC_DAY_END   = 16;
 
 function getKarachiDate(ms) {
     const isPkt = (new Date().getTimezoneOffset() === -300);
@@ -276,14 +276,26 @@ function sumByDay(data, startHour, endHour) {
   const result = {};
   const allDay = startHour === 0 && endHour === 24;
   const wrapsMidnight = startHour > endHour;
+  const cycleStart = (typeof window.reportDayStartHour !== 'undefined') ? window.reportDayStartHour : 7;
+
   for (const [timestampStr, watts] of Object.entries(data)) {
     const timestamp = parseInt(timestampStr);
-    const local = getKarachiDate(timestamp);
+    const tsMs = timestamp < 10000000000 ? timestamp * 1000 : timestamp;
+    const local = getKarachiDate(tsMs);
     const hour = local.hour;
     const inPeriod = allDay || (wrapsMidnight ? (hour >= startHour || hour < endHour) : (hour >= startHour && hour < endHour));
     if (!inPeriod) continue;
+
+    let yr = local.year, mo = local.month, dy = local.day;
+    // When in 5pm-7am cycle mode, early morning hours before 7am belong to previous day's overnight cycle
+    if (cycleStart > 0 && hour < cycleStart) {
+      const prev = new Date(Date.UTC(yr, mo - 1, dy - 1));
+      yr = prev.getUTCFullYear();
+      mo = prev.getUTCMonth() + 1;
+      dy = prev.getUTCDate();
+    }
     
-    const key = `${local.year}-${String(local.month).padStart(2, '0')}-${String(local.day).padStart(2, '0')}`;
+    const key = `${yr}-${String(mo).padStart(2, '0')}-${String(dy).padStart(2, '0')}`;
     result[key] = (result[key] || 0) + watts;
   }
   return result;

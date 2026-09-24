@@ -68,8 +68,14 @@ function nativeFetch(url, retries = PROXY_ENDPOINTS.length - 1, delay = 500) {
       window.Android.fetchData(url, id); 
     } else {
       fetch(url)
-        .then(res => res.text())
+        .then(res => {
+          if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText || 'Proxy Error'}`);
+          return res.text();
+        })
         .then(text => {
+          if (typeof text === 'string' && (text.trim().startsWith('<!DOCTYPE') || text.trim().startsWith('<html'))) {
+            throw new Error('Proxy returned HTML error page');
+          }
           if (nativeCallbacks[id]) nativeCallbacks[id](text);
         })
         .catch(err => {

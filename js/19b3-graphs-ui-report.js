@@ -164,14 +164,20 @@ window.generateGraphReport = async function(forceRefresh = false) {
 	let numDays = allDays.size || 1;
 	if (isDay) numDays = 1;
 	const totalNightHours = countNightHours(startMs, Math.min(endMs, Date.now()));
+	// Gross load (true household consumption)
 	totalLoadKwh = rows.filter(r => !r.isSolar && !r.isBreaker && !r.isBatteryMetric).reduce((sum, r) => sum + r.totalKwh, 0);
 	totalDayLoadKwh = rows.filter(r => !r.isSolar && !r.isBreaker && !r.isBatteryMetric).reduce((sum, r) => sum + r.dayKwh, 0);
 	totalNightLoadKwh = rows.filter(r => !r.isSolar && !r.isBreaker && !r.isBatteryMetric).reduce((sum, r) => sum + r.nightKwh, 0);
 
-	// Minus battery discharge so Total Load reflects Net Grid/Source Load (~6 units at night)
-	totalLoadKwh = Math.max(0, totalLoadKwh - (batDisTotalWh / 1000));
-	totalDayLoadKwh = Math.max(0, totalDayLoadKwh - (batDisDayWh / 1000));
-	totalNightLoadKwh = Math.max(0, totalNightLoadKwh - (batDisNightWh / 1000));
+	// Battery discharge contribution
+	const batSavedTotalKwh = batDisTotalWh / 1000;
+	const batSavedDayKwh = batDisDayWh / 1000;
+	const batSavedNightKwh = batDisNightWh / 1000;
+
+	// Net load (grid import requirement)
+	const netLoadTotalKwh = Math.max(0, totalLoadKwh - batSavedTotalKwh);
+	const netLoadDayKwh = Math.max(0, totalDayLoadKwh - batSavedDayKwh);
+	const netLoadNightKwh = Math.max(0, totalNightLoadKwh - batSavedNightKwh);
 	// Text report
 	let txt = `📄 Energy Usage Report: ${label}\n`;
 	txt += `Generated: ${new Date().toLocaleString()}\n`;
@@ -263,7 +269,17 @@ window.generateGraphReport = async function(forceRefresh = false) {
 	html += `<div style="white-space:normal; font-size:11px; color:#ef4444; margin-bottom:8px; padding:3px 10px 4px; line-height:1.25; background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.3); border-radius:6px; box-sizing:border-box; width:100%;"><div style="display:flex; justify-content:space-between; align-items:center; font-weight:700;"><span>⚡ Electricity Breakdown / Outages:</span><span style="font-size:12px; font-weight:800; white-space:nowrap; margin-left:10px;">${acBreakdown.formattedDuration} (${acBreakdown.totalHours} hrs &bull; ${acBreakdown.outageCount} ${acBreakdown.outageCount === 1 ? 'time' : 'times'})</span></div>${outageTimesHtml}</div>`;
 	const batEffPct = batChgTotalWh > 0 ? ((batDisTotalWh / batChgTotalWh) * 100).toFixed(0) : 100;
 	html += `<div style="display:flex; justify-content:space-between; align-items:center; font-size:11px; margin-bottom:8px; padding:6px 10px; background:rgba(16,185,129,0.08); border:1px solid rgba(16,185,129,0.35); border-radius:6px;"><span style="color:#10b981; font-weight:800;">🔋 Battery Cycled:</span><span style="color:var(--text-main); font-weight:700;">⚡ Charged: <b style="color:#10b981;">${(batChgTotalWh/1000).toFixed(2)} kWh</b> &bull; ⚡ Discharged: <b style="color:#f97316;">${(batDisTotalWh/1000).toFixed(2)} kWh</b> &bull; Eff: <b style="color:#38bdf8;">${batEffPct}%</b></span></div>`;
-		html += `<div style="font-size:11px;color:#71717a;margin-bottom:12px;padding:8px 12px;background:#f4f4f5;border-radius:6px;border-left:3px solid #f59e0b;box-sizing:border-box;width:100%;">`;
+		// Night Energy Balance badge
+	if (totalNightLoadKwh > 0.05) {
+		const nightBatPct = Math.min(100, Math.round((batSavedNightKwh / totalNightLoadKwh) * 100));
+		const gridNightKwh = (sums[breakerF.id]?.night ? Object.values(sums[breakerF.id].night).reduce((a,b)=>a+b, 0) / 1000 : 0);
+		html += `<div style="display:flex; justify-content:space-between; align-items:center; font-size:11px; margin-bottom:8px; padding:6px 10px; background:rgba(99,102,241,0.08); border:1px solid rgba(99,102,241,0.3); border-radius:6px; flex-wrap:wrap; gap:4px;">`;
+		html += `<span style="color:#6366f1; font-weight:800;">🌙 Night Energy Balance (4pm–7am):</span>`;
+		html += `<span>Total Used: <b style="color:#6366f1;">${totalNightLoadKwh.toFixed(2)} kWh</b> &bull; 🔋 Saved by Battery: <b style="color:#10b981;">${batSavedNightKwh.toFixed(2)} kWh (${nightBatPct}%)</b> &bull; ⚡ Grid: <b style="color:#ef4444;">${gridNightKwh.toFixed(2)} kWh (${100 - nightBatPct}%)</b></span>`;
+		html += `</div>`;
+	}
+
+	html += `<div style="font-size:11px;color:#71717a;margin-bottom:12px;padding:8px 12px;background:#f4f4f5;border-radius:6px;border-left:3px solid #f59e0b;box-sizing:border-box;width:100%;">`;
 	html += `<span style="font-weight:700;">⏰ Time Periods:</span> `;
 	html += `<span style="color:#f59e0b; font-weight:700;">Day</span> = 7:00 AM → 4:00 PM (9 hrs) &nbsp;|&nbsp; `;
 	html += `<span style="color:#c084fc; font-weight:700;">Night</span> = ${isCycle ? '4:00 PM → 7:00 AM (15 hrs)' : '12:00 AM → 7:00 AM & 4:00 PM → 12:00 AM'}`;
@@ -316,8 +332,9 @@ window.generateGraphReport = async function(forceRefresh = false) {
 		html += `<td style="border:1px solid #d4d4d8;padding:6px;text-align:right;color:${isSourceOrMetric?'#71717a':'inherit'};">${(isSourceOrMetric)?'-':totalPct}</td>`;
 		html += `</tr>`;
 	}
+	// 1. Gross Total Consumption Row
 	html += `<tr style="background:#f4f4f5;font-weight:bold;border-top:2px solid #d4d4d8;">`;
-	html += `<td style="border:1px solid #d4d4d8;padding:6px;">TOTAL LOAD</td>`;
+	html += `<td style="border:1px solid #d4d4d8;padding:6px;">TOTAL LOAD (Actual)</td>`;
 	html += `<td style="border:1px solid #d4d4d8;padding:6px;text-align:right;">${totalLoadKwh.toFixed(2)}</td>`;
 	html += `<td style="border:1px solid #d4d4d8;padding:6px;text-align:right;color:#f59e0b;">${totalDayLoadKwh.toFixed(2)}</td>`;
 	html += `<td style="border:1px solid #c4b5fd;padding:6px;text-align:right;background:#e2d4f7;color:#581c87;font-weight:900;">${totalNightLoadKwh.toFixed(2)}</td>`;
@@ -331,6 +348,26 @@ window.generateGraphReport = async function(forceRefresh = false) {
 	html += `<td style="border:1px solid #d4d4d8;padding:6px;text-align:right;color:#f59e0b;">100%</td>`;
 	html += `<td style="border:1px solid #d4d4d8;padding:6px;text-align:right;color:#c084fc;">100%</td>`;
 	html += `<td style="border:1px solid #d4d4d8;padding:6px;text-align:right;">100%</td>`;
+	html += `</tr>`;
+
+	// 2. Battery Savings Row
+	html += `<tr style="background:rgba(16,185,129,0.06);font-weight:bold;color:#10b981;">`;
+	html += `<td style="border:1px solid #d4d4d8;padding:6px;">🔋 SAVED BY BATTERY</td>`;
+	html += `<td style="border:1px solid #d4d4d8;padding:6px;text-align:right;color:#10b981;">-${batSavedTotalKwh.toFixed(2)}</td>`;
+	html += `<td style="border:1px solid #d4d4d8;padding:6px;text-align:right;color:#10b981;">-${batSavedDayKwh.toFixed(2)}</td>`;
+	html += `<td style="border:1px solid #c4b5fd;padding:6px;text-align:right;background:#d1fae5;color:#047857;font-weight:900;">-${batSavedNightKwh.toFixed(2)}</td>`;
+	html += `<td style="border:1px solid #d4d4d8;padding:6px;text-align:right;color:#047857;">-${(batSavedNightKwh/numDays).toFixed(2)}</td>`;
+	html += `<td style="border:1px solid #d4d4d8;padding:6px;text-align:right;" colspan="7">Direct savings covered by battery</td>`;
+	html += `</tr>`;
+
+	// 3. Net Grid Load Row
+	html += `<tr style="background:#fef2f2;font-weight:bold;color:#ef4444;">`;
+	html += `<td style="border:1px solid #d4d4d8;padding:6px;">⚡ NET GRID LOAD</td>`;
+	html += `<td style="border:1px solid #d4d4d8;padding:6px;text-align:right;color:#ef4444;">${netLoadTotalKwh.toFixed(2)}</td>`;
+	html += `<td style="border:1px solid #d4d4d8;padding:6px;text-align:right;color:#ef4444;">${netLoadDayKwh.toFixed(2)}</td>`;
+	html += `<td style="border:1px solid #c4b5fd;padding:6px;text-align:right;background:#fee2e2;color:#b91c1c;font-weight:900;">${netLoadNightKwh.toFixed(2)}</td>`;
+	html += `<td style="border:1px solid #d4d4d8;padding:6px;text-align:right;color:#b91c1c;">${(netLoadNightKwh/numDays).toFixed(2)}</td>`;
+	html += `<td style="border:1px solid #d4d4d8;padding:6px;text-align:right;" colspan="7">Required from Grid Breaker</td>`;
 	html += `</tr>`;
 
 	html += `</table></div></div>`;

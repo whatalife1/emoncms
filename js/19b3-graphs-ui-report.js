@@ -166,6 +166,11 @@ window.generateGraphReport = async function(forceRefresh = false) {
 	totalLoadKwh = rows.filter(r => !r.isSolar && !r.isBreaker && !r.isBatteryMetric).reduce((sum, r) => sum + r.totalKwh, 0);
 	totalDayLoadKwh = rows.filter(r => !r.isSolar && !r.isBreaker && !r.isBatteryMetric).reduce((sum, r) => sum + r.dayKwh, 0);
 	totalNightLoadKwh = rows.filter(r => !r.isSolar && !r.isBreaker && !r.isBatteryMetric).reduce((sum, r) => sum + r.nightKwh, 0);
+
+	// Minus battery discharge so Total Load reflects Net Grid/Source Load (~6 units at night)
+	totalLoadKwh = Math.max(0, totalLoadKwh - (batDisTotalWh / 1000));
+	totalDayLoadKwh = Math.max(0, totalDayLoadKwh - (batDisDayWh / 1000));
+	totalNightLoadKwh = Math.max(0, totalNightLoadKwh - (batDisNightWh / 1000));
 	// Text report
 	let txt = `📄 Energy Usage Report: ${label}\n`;
 	txt += `Generated: ${new Date().toLocaleString()}\n`;
@@ -327,25 +332,6 @@ window.generateGraphReport = async function(forceRefresh = false) {
 	html += `<td style="border:1px solid #d4d4d8;padding:6px;text-align:right;">100%</td>`;
 	html += `</tr>`;
 
-	// Net Grid Load (Total Load minus battery discharge)
-	const netGridTotal = Math.max(0, totalLoadKwh - (batDisTotalWh / 1000));
-	const netGridDay = Math.max(0, totalDayLoadKwh - (batDisDayWh / 1000));
-	const netGridNight = Math.max(0, totalNightLoadKwh - (batDisNightWh / 1000));
-
-	html += `<tr style="background:#fef2f2;font-weight:bold;border-top:1px dashed #ef4444;">`;
-	html += `<td style="border:1px solid #fca5a5;padding:6px;color:#dc2626;">NET LOAD (Grid / -Bat)</td>`;
-	html += `<td style="border:1px solid #fca5a5;padding:6px;text-align:right;color:#dc2626;">${netGridTotal.toFixed(2)}</td>`;
-	html += `<td style="border:1px solid #fca5a5;padding:6px;text-align:right;color:#ea580c;">${netGridDay.toFixed(2)}</td>`;
-	html += `<td style="border:1px solid #c4b5fd;padding:6px;text-align:right;background:#ede9fe;color:#dc2626;font-weight:900;">${netGridNight.toFixed(2)}</td>`;
-	html += `<td style="border:1px solid #fca5a5;padding:6px;text-align:right;color:#c084fc;">${(netGridNight/numDays).toFixed(2)}</td>`;
-	html += `<td style="border:1px solid #fca5a5;padding:6px;text-align:right;">-</td>`;
-	html += `<td style="border:1px solid #fca5a5;padding:6px;text-align:right;">${(netGridTotal/numDays).toFixed(2)}</td>`;
-	html += `<td style="border:1px solid #fca5a5;padding:6px;text-align:right;color:#71717a;">-</td>`;
-	html += `<td style="border:1px solid #fca5a5;padding:6px;text-align:right;color:#71717a;">-</td>`;
-	html += `<td style="border:1px solid #fca5a5;padding:6px;text-align:right;color:#71717a;">-</td>`;
-	html += `<td style="border:1px solid #fca5a5;padding:6px;text-align:right;color:#71717a;">-</td>`;
-	html += `<td style="border:1px solid #fca5a5;padding:6px;text-align:right;color:#71717a;">-</td>`;
-	html += `</tr>`;
 	html += `</table></div></div>`;
 	return { text: txt, html: html };
 };

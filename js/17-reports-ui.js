@@ -1,4 +1,47 @@
-function renderDetailedReport(feedData, startMs, endMs, pkrPerKwh, acBreakdown = null) {
+// js/17-reports-ui.js
+
+window.reportDayStartHour = 7;
+try {
+  const savedRep = localStorage.getItem('reportDayStartHour');
+  if (savedRep !== null) {
+    const parsedRep = parseInt(savedRep, 10);
+    if (!isNaN(parsedRep) && parsedRep !== 5) window.reportDayStartHour = parsedRep;
+    else { window.reportDayStartHour = 7; localStorage.setItem('reportDayStartHour', '7'); }
+  } else {
+    localStorage.setItem('reportDayStartHour', '7');
+  }
+} catch (e) { window.reportDayStartHour = 7; }
+
+function _ensureReportCycleButton() {
+  const calcBtn = document.getElementById('btn-report-calculate');
+  if (!calcBtn || !calcBtn.parentNode) return;
+  let btn = document.getElementById('btn-report-cycle-toggle');
+  if (!btn) {
+    btn = document.createElement('button');
+    btn.id = 'btn-report-cycle-toggle';
+    btn.style.cssText = 'background:var(--bg-card); border:1px solid var(--border); color:var(--text-main); font-size:12px; font-weight:700; padding:9px 12px; border-radius:8px; cursor:pointer; margin-left:4px;';
+    calcBtn.parentNode.insertBefore(btn, calcBtn.nextSibling);
+    btn.addEventListener('click', () => {
+      window.reportDayStartHour = (window.reportDayStartHour === 7) ? 0 : 7;
+      try { localStorage.setItem('reportDayStartHour', window.reportDayStartHour.toString()); } catch(e){}
+      _updateReportCycleBtnText();
+      calculateDetailedReport();
+    });
+  }
+  _updateReportCycleBtnText();
+}
+
+function _updateReportCycleBtnText() {
+  const btn = document.getElementById('btn-report-cycle-toggle');
+  if (!btn) return;
+  const isCycle = (window.reportDayStartHour === 7);
+  btn.textContent = isCycle ? '🌙 4pm-7am' : '📅 12am-12am';
+  btn.title = isCycle
+    ? 'Current: 4pm-7am overnight cycle (Default). Click to switch to 12am-12am calendar day.'
+    : 'Current: 12am-12am calendar mode. Click to switch to 4pm-7am overnight cycle.';
+}
+
+function renderDetailedReport(feedData, startMs, endMs, pkrPerKwh, acBreakdown = null, batteryData = null) {
   const out = document.getElementById('usage-report-content');
   if (!out) return;
 
@@ -20,7 +63,11 @@ function renderDetailedReport(feedData, startMs, endMs, pkrPerKwh, acBreakdown =
   EXPORT_FEEDS.forEach(f => {
     const ds = f.isPc ? EXPORT_PC_DAY_START : EXPORT_DAY_START;
     const de = f.isPc ? EXPORT_PC_DAY_END : EXPORT_DAY_END;
-    sums[f.id] = { h24: sumByDay(feedData[f.id]||{}, 0, 24), day: sumByDay(feedData[f.id]||{}, ds, de), night: sumByDay(feedData[f.id]||{}, EXPORT_NIGHT_START, EXPORT_NIGHT_END) };
+    sums[f.id] = {
+      h24: sumByDay(feedData[f.id]||{}, 0, 24),
+      day: sumByDay(feedData[f.id]||{}, ds, de),
+      night: sumByDay(feedData[f.id]||{}, EXPORT_NIGHT_START, EXPORT_NIGHT_END)
+    };
   });
 
   const solarF = EXPORT_FEEDS.find(f => f.isSolar) || { id: '499380', name: 'Solar' };
@@ -49,8 +96,10 @@ function renderDetailedReport(feedData, startMs, endMs, pkrPerKwh, acBreakdown =
 
   let headerHtml = `<tr class=h1><th rowspan=2>Date</th><th rowspan=2 class='dv' style='color:#ef4444;'>Outage<div class='head-split'>Hours</div></th>`;
   EXPORT_FEEDS.forEach(f => headerHtml += f.isSolar ? `<th rowspan=2 class=dv>${f.name}</th>` : `<th colspan=3 class=dv>${f.name}</th>`);
+  headerHtml += `<th colspan=3 class=dv style="color:#10b981;">Battery<div class='head-split' style="color:#10b981;">Chg / Disch / Night</div></th>`;
   headerHtml += `<th rowspan=2 class=tot>Solar+Breaker<div class='head-split'>kWh / Rs</div></th><th rowspan=2 class=col-save>Solar Saved<div class='head-split'>kWh / Rs</div></th><th rowspan=2 class=col-bill>Grid Bill<div class='head-split'>kWh / Rs</div></th></tr><tr class=h2>`;
   EXPORT_FEEDS.forEach(f => { if (!f.isSolar) headerHtml += `<th class=c24>24hr</th><th class=cday>${f.isPc ? "Day*" : "Day"}</th><th class='dv cnight'>Night</th>`; });
+  headerHtml += `<th class=cday style="color:#10b981;">Chg</th><th style="color:#f97316;">Disch</th><th class='dv cnight' style="color:#c084fc;">Night</th>`;
   headerHtml += '</tr>';
 
   let tableRows = headerHtml;
@@ -68,6 +117,8 @@ function renderDetailedReport(feedData, startMs, endMs, pkrPerKwh, acBreakdown =
       if (f.isSolar) tableRows += `<td class='dv c24'>${fmtKwh(h24)}</td>`;
       else tableRows += `<td class=c24>${fmtKwh(h24)}</td><td class=cday>${fmtKwh(day)}</td><td class='dv cnight'>${fmtKwh(night)}</td>`;
     });
+    const dBat = batteryData?.byDay?.[date] || { chgWh: 0, disWh: 0, disNightWh: 0 };
+    tableRows += `<td class=cday style="color:#10b981;">${fmtKwh(dBat.chgWh)}</td><td style="color:#f97316;">${fmtKwh(dBat.disWh)}</td><td class='dv cnight' style="color:#c084fc;">${fmtKwh(dBat.disNightWh)}</td>`;
     const saveKwh = dSolarWh / 1000.0, billKwh = dBreakerWh / 1000.0, combKwh = (dSolarWh + dBreakerWh) / 1000.0;
     tableRows += `<td class=tot>${splitCell(combKwh.toFixed(2), fmtPkr(combKwh * pkrPerKwh))}</td><td class=col-save>${splitCell(saveKwh.toFixed(2), fmtPkr(saveKwh * pkrPerKwh))}</td><td class=col-bill>${splitCell(billKwh.toFixed(2), fmtPkr(billKwh * pkrPerKwh))}</td></tr>`;
   });
@@ -96,6 +147,11 @@ function renderDetailedReport(feedData, startMs, endMs, pkrPerKwh, acBreakdown =
       tableRows += `<td class="c24">${h24.toFixed(2)}</td><td class="cday">${day.toFixed(2)}</td><td class="dv cnight">${night.toFixed(2)}</td>`;
     });
 
+    const bChgKwh = (batteryData ? (isAvg ? batteryData.totalChgKwh / dayCount : batteryData.totalChgKwh) : 0);
+    const bDisKwh = (batteryData ? (isAvg ? batteryData.totalDisKwh / dayCount : batteryData.totalDisKwh) : 0);
+    const bDisNightKwh = (batteryData ? (isAvg ? batteryData.totalDisNightKwh / dayCount : batteryData.totalDisNightKwh) : 0);
+    tableRows += `<td class="cday" style="color:#10b981;">${bChgKwh.toFixed(2)}</td><td style="color:#f97316;">${bDisKwh.toFixed(2)}</td><td class="dv cnight" style="color:#c084fc;">${bDisNightKwh.toFixed(2)}</td>`;
+
     const finalSolarKwh = totalSolarKwh / divisor;
     const finalGridKwh = gridImportKwh / divisor;
     const finalCombKwh = finalSolarKwh + finalGridKwh;
@@ -109,10 +165,12 @@ function renderDetailedReport(feedData, startMs, endMs, pkrPerKwh, acBreakdown =
 
   tableRows += `<tr class="h2"><td></td><td></td><td></td>`;
   EXPORT_FEEDS.forEach(f => { if (!f.isSolar) tableRows += `<td class="c24">24hr</td><td class="cday">Day</td><td class="dv cnight">Night</td>`; });
+  tableRows += `<td class="cday" style="color:#10b981;">Chg</td><td style="color:#f97316;">Disch</td><td class="dv cnight" style="color:#c084fc;">Night</td>`;
   tableRows += `<td></td><td></td><td></td></tr>`;
   
   tableRows += `<tr class="h1"><td class="dt">Date (PKT)</td><td class="dv" style="color:#ef4444;">Outage</td><td class="dv">Solar</td>`;
   EXPORT_FEEDS.forEach(f => { if (!f.isSolar) tableRows += `<td colspan="3" class="dv">${f.name}</td>`; });
+  tableRows += `<td colspan="3" class="dv" style="color:#10b981;">Battery</td>`;
   tableRows += `<td class="tot">Solar+Breaker</td><td class="col-save">Solar Saved</td><td class="col-bill">Grid Bill</td></tr>`;
 
   const blocks = ['_', '▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
@@ -129,10 +187,12 @@ Visual Daily Summary (Scale: ${dates.length} days)
           const idx = Math.max(0, Math.min(8, Math.ceil((val / maxVal) * 8)));
           spark += blocks[idx] || '_';
       });
-      sparkTxt += f.name.padEnd(16) + ` [${spark}] max: ${(maxVal/1000).toFixed(1)}kWh
-`;
+      sparkTxt += f.name.padEnd(16) + ` [${spark}] max: ${(maxVal/1000).toFixed(1)}kWh\n`;
   });
 
+  if (batteryData) {
+    sparkTxt += `\n🔋 Battery Cycled Total: Charged ${batteryData.totalChgKwh.toFixed(1)} kWh | Discharged ${batteryData.totalDisKwh.toFixed(1)} kWh (Night: ${batteryData.totalDisNightKwh.toFixed(1)} kWh) (Efficiency: ${batteryData.effPct}%)\n`;
+  }
   if (acBreakdown) {
     sparkTxt += `\n⚡ Electricity Outages Total: ${acBreakdown.formattedDuration} (${acBreakdown.totalHours} hrs across ${acBreakdown.outageCount} times)\n`;
   }
@@ -142,11 +202,15 @@ Visual Daily Summary (Scale: ${dates.length} days)
   const projectedSolarKwh = avgSolarPerDay * daysInCycle;
   const projectedGridKwh = (gridImportKwh / (dates.length || 1)) * daysInCycle;
 
+  const subHoursText = (window.reportDayStartHour === 0)
+    ? 'Day = 7am-4pm | Night = 12am-7am & 4pm-12am (Calendar) | * PC Day = 6am-4pm'
+    : 'Day = 7am-4pm | Night = 4pm-7am (Overnight cycle) | * PC Day = 6am-4pm';
+
   const rangeStr = `${startLocal.day}/${startLocal.month} → 26/${effEndLocal.month}/${effEndLocal.year}`;
   out.innerHTML = `
     <div class="report-wrapper">
       <h3 style="margin-bottom:4px;">Energy Usage - ${rangeStr}</h3>
-      <p class="sub-hours">Day = 8am-5pm | Night = 5pm-8am | * PC Day = 6am-5pm</p>
+      <p class="sub-hours">${subHoursText}</p>
       <div class="pkr-card">
         <div class="pkr-title">PKR Financial Summary &nbsp;·&nbsp; Rate: PKR ${pkrPerKwh.toFixed(0)} / kWh</div>
         <div class="pkr-grid">
@@ -155,6 +219,9 @@ Visual Daily Summary (Scale: ${dates.length} days)
             <div class="pkr-item pkr-without"><div class="pkr-item-label">Without solar</div><div class="pkr-item-val">PKR ${fmtPkr(withoutSolarKwh * pkrPerKwh)}</div><div class="pkr-item-sub">${withoutSolarKwh.toFixed(1)} kWh total consumption</div></div>
             <div class="pkr-item pkr-avg"><div class="pkr-item-label">Avg saving / day</div><div class="pkr-item-val">PKR ${fmtPkr(avgSavingPkr)}</div><div class="pkr-item-sub">${avgSolarPerDay.toFixed(1)} kWh / day over ${dates.length} days</div></div>
             <div class="pkr-item pkr-bill" style="border-left-color: #ef4444; background: rgba(239, 68, 68, 0.12);"><div class="pkr-item-label">⚡ Power Outages</div><div class="pkr-item-val" style="color: #ef4444;">${acBreakdown?.totalHours || '0.0'} hrs</div><div class="pkr-item-sub">${acBreakdown?.formattedDuration || '0m'} (${acBreakdown?.outageCount || 0} times)</div></div>
+            ${batteryData ? `
+            <div class="pkr-item" style="border-left: 5px solid #10b981; background: rgba(16, 185, 129, 0.12);"><div class="pkr-item-label">🔋 Battery Cycled</div><div class="pkr-item-val" style="color: #10b981;">${batteryData.totalDisKwh.toFixed(1)} kWh</div><div class="pkr-item-sub">Chg: ${batteryData.totalChgKwh.toFixed(1)} kWh (Night: ${batteryData.totalDisNightKwh.toFixed(1)}k) · Eff: ${batteryData.effPct}%</div></div>
+            ` : ''}
         </div>
         
         <div class="pkr-bar-wrap" style="margin-top: 16px;">
@@ -184,6 +251,76 @@ Visual Daily Summary (Scale: ${dates.length} days)
     </div>`;
 }
 
+async function fetchBatteryDataForReport(startMs, endMs, forceRefresh = false) {
+  try {
+    const [batVRaw, batChgRaw, batDisRaw] = await Promise.all([
+      fetchWithCache('546013', startMs, endMs, forceRefresh),
+      fetchWithCache('546022', startMs, endMs, forceRefresh),
+      fetchWithCache('546025', startMs, endMs, forceRefresh)
+    ]);
+
+    const byDay = {};
+    let totalChgWh = 0;
+    let totalDisWh = 0;
+    let totalDisNightWh = 0;
+
+    const allTs = new Set([
+      ...Object.keys(batChgRaw || {}),
+      ...Object.keys(batDisRaw || {})
+    ]);
+
+    const cycleStart = (typeof window.reportDayStartHour !== 'undefined') ? window.reportDayStartHour : 7;
+
+    for (const tsStr of allTs) {
+      const ts = parseInt(tsStr, 10);
+      const tsMs = ts < 10000000000 ? ts * 1000 : ts;
+      const v = (batVRaw && batVRaw[tsStr] > 35) ? batVRaw[tsStr] : 52.0;
+      const cA = (batChgRaw && batChgRaw[tsStr]) ? batChgRaw[tsStr] : 0;
+      const dA = (batDisRaw && batDisRaw[tsStr]) ? batDisRaw[tsStr] : 0;
+      const chgWh = Math.max(0, v * cA);
+      const disWh = Math.max(0, v * dA);
+
+      const p = getKarachiDate(tsMs);
+      let yr = p.year, mo = p.month, dy = p.day;
+      if (cycleStart > 0 && p.hour < cycleStart) {
+        const prev = new Date(Date.UTC(yr, mo - 1, dy - 1));
+        yr = prev.getUTCFullYear();
+        mo = prev.getUTCMonth() + 1;
+        dy = prev.getUTCDate();
+      }
+      const dKey = `${yr}-${String(mo).padStart(2, '0')}-${String(dy).padStart(2, '0')}`;
+
+      const isNight = (p.hour >= 16 || p.hour < 7);
+      const disNightWh = isNight ? disWh : 0;
+
+      if (!byDay[dKey]) byDay[dKey] = { chgWh: 0, disWh: 0, disNightWh: 0 };
+      byDay[dKey].chgWh += chgWh;
+      byDay[dKey].disWh += disWh;
+      byDay[dKey].disNightWh += disNightWh;
+
+      totalChgWh += chgWh;
+      totalDisWh += disWh;
+      totalDisNightWh += disNightWh;
+    }
+
+    const effPct = totalChgWh > 0 ? Math.round((totalDisWh / totalChgWh) * 100) : 100;
+
+    return {
+      byDay,
+      totalChgWh,
+      totalDisWh,
+      totalDisNightWh,
+      totalChgKwh: totalChgWh / 1000,
+      totalDisKwh: totalDisWh / 1000,
+      totalDisNightKwh: totalDisNightWh / 1000,
+      effPct
+    };
+  } catch (e) {
+    console.warn("fetchBatteryDataForReport error:", e);
+    return null;
+  }
+}
+
 async function calculateDetailedReport(forceRefresh = false) {
   const out = document.getElementById('usage-report-content');
   if (out) out.innerHTML = '<div class="sol-loading">Fetching billing history...</div>';
@@ -191,6 +328,8 @@ async function calculateDetailedReport(forceRefresh = false) {
   if (forceRefresh && typeof clearReportCache === 'function') {
     clearReportCache();
   }
+
+  _ensureReportCycleButton();
 
   const m = parseInt(document.getElementById('report-month-m').value);
   const y = parseInt(document.getElementById('report-month-y').value);
@@ -205,9 +344,14 @@ async function calculateDetailedReport(forceRefresh = false) {
     const acBreakdownPromise = typeof fetchAcBreakdown === 'function'
       ? fetchAcBreakdown(startMs, endMs)
       : Promise.resolve(null);
+    const batteryPromise = fetchBatteryDataForReport(startMs, endMs, forceRefresh);
 
-    const [, acBreakdown] = await Promise.all([Promise.all(promises), acBreakdownPromise]);
-    renderDetailedReport(feedData, startMs, endMs, pkrRate, acBreakdown);
+    const [, acBreakdown, batteryData] = await Promise.all([
+      Promise.all(promises),
+      acBreakdownPromise,
+      batteryPromise
+    ]);
+    renderDetailedReport(feedData, startMs, endMs, pkrRate, acBreakdown, batteryData);
   } catch (e) {
     console.error("Report Calc Failed:", e);
     if (out) out.innerHTML = `<div class="sol-loading" style="color:#ef4444">Error: ${e.message}</div>`;

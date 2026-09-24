@@ -1,7 +1,8 @@
 /* ── Header ───────────────────────────────────────────────────────────── */
 .header { background: var(--bg-panel); padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 10; box-shadow: var(--shadow); }
-.header-title { font-size: 14px; font-weight: 700; }
-.header-btns { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.header-title { font-size: 14px; font-weight: 700; white-space: nowrap; flex-shrink: 0; }
+.header-btns button { padding: 5px 7px; font-size: 11px; }
+.header-btns { display: flex; gap: 4px; align-items: center; flex-wrap: nowrap; justify-content: flex-end; flex-shrink: 0; }
 
 /* ── Buttons ──────────────────────────────────────────────────────────── */
 button { background: var(--bg-card); color: var(--text-main); border: 1px solid var(--border); border-radius: 8px; padding: 5px 10px; font-size: 11px; font-weight: 600; cursor: pointer; transition: opacity 0.15s; }

@@ -6,11 +6,16 @@ let tooltipPinned = false;
 let graphsAutoRefreshInterval = null;
 let graphsLastUpdate = 0;
 
-window.graphDayStartHour = 5;
+window.graphDayStartHour = 7;
 try {
   const saved = localStorage.getItem('graphDayStartHour');
-  if (saved !== null) window.graphDayStartHour = parseInt(saved) || 5;
-} catch(e) {}
+  if (saved !== null) {
+    const parsed = parseInt(saved, 10);
+    window.graphDayStartHour = (parsed === 0 || parsed === 7) ? parsed : 7;
+  } else {
+    localStorage.setItem('graphDayStartHour', '7');
+  }
+} catch(e) { window.graphDayStartHour = 7; }
 
 function hideTooltip() {
   const t = document.getElementById('graph-tooltip');
@@ -21,17 +26,24 @@ function hideTooltip() {
 function updateGraphStartButton() {
   const btn = document.getElementById('graph-start-toggle');
   if (!btn) return;
-  const label = window.graphDayStartHour === 5 ? '5am-5am' : '12am-12am';
+  if (typeof graphTab !== 'undefined' && graphTab !== 'day') {
+    btn.style.display = 'none';
+    return;
+  }
+  btn.style.display = '';
+  const label = window.graphDayStartHour === 7 ? '4pm-7am' : '12am-12am';
   btn.textContent = label;
-  btn.title = 'Toggle day start time';
+  btn.title = window.graphDayStartHour === 7 ? 'Cycle: 4pm-7am (7am start). Click for 12am-12am' : 'Cycle: 12am-12am. Click for 4pm-7am';
 }
 
 window.updateGraphStartButton = updateGraphStartButton;
 window.hideTooltip = hideTooltip;
 
 window.toggleGraphStartHour = function() {
-  window.graphDayStartHour = window.graphDayStartHour === 5 ? 0 : 5;
-  localStorage.setItem('graphDayStartHour', window.graphDayStartHour);
+  window.graphDayStartHour = window.graphDayStartHour === 7 ? 0 : 7;
+  try {
+    localStorage.setItem('graphDayStartHour', window.graphDayStartHour.toString());
+  } catch(e) {}
 
   if (typeof fetchTodayBatteryEnergy === 'function') {
     fetchTodayBatteryEnergy().then(() => {

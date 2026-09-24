@@ -128,19 +128,22 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
       const kwhEst = (Math.abs(seg.delta) / 100) * packKwh;
       const sign = isCharge ? '+' : '';
 
+      const avgW = seg.durMin > 0 ? Math.round((kwhEst * 1000) / (seg.durMin / 60)) : 0;
+      const avgStr = avgW >= 1000 ? (avgW / 1000).toFixed(1) + 'kW' : avgW + 'W';
+
       // Compact formatting for mobile screens
       let text = '';
       if (isNarrow) {
-        text = (isCharge ? '▲' : '▼') + ' ' + sign + Math.round(seg.delta) + '% · ' + durStr + ' (' + kwhEst.toFixed(1) + 'k)';
+        text = (isCharge ? '▲' : '▼') + ' ' + sign + Math.round(seg.delta) + '% · ' + durStr + ' (' + kwhEst.toFixed(1) + 'k · Ø ' + avgStr + ')';
       } else {
-        text = (isCharge ? '▲' : '▼') + ' ' + sign + seg.delta.toFixed(1) + '% · ' + durStr + ' (' + kwhEst.toFixed(1) + 'kWh)';
+        text = (isCharge ? '▲' : '▼') + ' ' + sign + seg.delta.toFixed(1) + '% · ' + durStr + ' (' + kwhEst.toFixed(1) + 'kWh · Ø ' + avgStr + ')';
       }
 
       ctx.save();
-      ctx.font = 'bold ' + (isNarrow ? '9px' : '10px') + ' system-ui, -apple-system, sans-serif';
+      ctx.font = 'bold ' + (isNarrow ? '10.5px' : '12px') + ' system-ui, -apple-system, sans-serif';
       const tw = ctx.measureText(text).width;
-      const pw = tw + (isNarrow ? 10 : 14);
-      const ph = isNarrow ? 18 : 20;
+      const pw = tw + (isNarrow ? 12 : 18);
+      const ph = isNarrow ? 20 : 24;
 
       let bx = midX - pw / 2;
       bx = Math.max(PL + 4, Math.min(rect.width - PR - pw - 4, bx));

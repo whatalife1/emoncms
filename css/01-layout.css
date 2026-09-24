@@ -1,8 +1,49 @@
 /* ── Header ───────────────────────────────────────────────────────────── */
-.header { background: var(--bg-panel); padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 10; box-shadow: var(--shadow); }
-.header-title { font-size: 14px; font-weight: 700; white-space: nowrap; flex-shrink: 0; }
-.header-btns button { padding: 5px 7px; font-size: 11px; }
-.header-btns { display: flex; gap: 4px; align-items: center; flex-wrap: nowrap; justify-content: flex-end; flex-shrink: 0; }
+.header { 
+  background: var(--bg-panel); 
+  padding: 8px 8px; 
+  display: flex; 
+  align-items: center; 
+  justify-content: space-between; 
+  border-bottom: 1px solid var(--border); 
+  position: sticky; 
+  top: 0; 
+  z-index: 10; 
+  box-shadow: var(--shadow); 
+  box-sizing: border-box;
+  width: 100%;
+}
+.header-title { 
+  font-size: 13px; 
+  font-weight: 700; 
+  white-space: nowrap; 
+  flex-shrink: 1; 
+  overflow: hidden; 
+  text-overflow: ellipsis; 
+  margin-right: 2px;
+}
+.header-btns { 
+  display: flex; 
+  gap: 2.5px; 
+  align-items: center; 
+  flex-wrap: nowrap; 
+  justify-content: flex-end; 
+  flex-shrink: 0; 
+}
+.header-btns button { 
+  padding: 5px 5.5px; 
+  font-size: 11px; 
+  min-width: 27px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+@media (max-width: 375px) {
+  .header { padding: 6px 5px; }
+  .header-title { font-size: 12px; }
+  .header-btns { gap: 1.5px; }
+  .header-btns button { padding: 4px 4px; font-size: 10px; min-width: 24px; }
+}
 
 /* ── Buttons ──────────────────────────────────────────────────────────── */
 button { background: var(--bg-card); color: var(--text-main); border: 1px solid var(--border); border-radius: 8px; padding: 5px 10px; font-size: 11px; font-weight: 600; cursor: pointer; transition: opacity 0.15s; }

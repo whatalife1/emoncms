@@ -235,13 +235,23 @@ function renderResults(results) {
 
       const packKwh = (typeof solarCfg !== 'undefined' && solarCfg?.batteryKwh > 0) ? solarCfg.batteryKwh : 5.12;
       const packWh = packKwh * 1000;
+      let est20Str = '';
       let estTimeStr = '';
       if (isDischarging && netW < -15) {
+        if (socVal > 20) {
+          const usable20Wh = packWh * ((socVal - 20) / 100);
+          const hrs20 = usable20Wh / Math.abs(netW);
+          const h20 = Math.floor(hrs20);
+          const m20 = Math.round((hrs20 - h20) * 60);
+          est20Str = h20 > 0 ? `~${h20}h ${m20}m` : `~${m20}m`;
+        } else {
+          est20Str = 'Cutoff Active';
+        }
         const usableWh = packWh * (Math.max(0, socVal - 10) / 100);
         const hrs = usableWh / Math.abs(netW);
         const h = Math.floor(hrs);
         const m = Math.round((hrs - h) * 60);
-        estTimeStr = h > 0 ? `~${h}h ${m}m left` : `~${m}m left`;
+        estTimeStr = h > 0 ? `~${h}h ${m}m` : `~${m}m`;
       } else if (isCharging && netW > 15) {
         const neededWh = packWh * ((100 - socVal) / 100);
         const hrs = neededWh / netW;
@@ -251,8 +261,11 @@ function renderResults(results) {
       }
 
       let stText = 'Standby';
-      if (isCharging) stText = estTimeStr ? `Charging (${estTimeStr})` : 'Charging';
-      else if (isDischarging) stText = estTimeStr ? `Discharging (${estTimeStr})` : 'Discharging';
+      if (isCharging) {
+        stText = estTimeStr ? `Charging (${estTimeStr})` : 'Charging';
+      } else if (isDischarging) {
+        stText = `Discharge (20% Off: ${est20Str} · Empty: ${estTimeStr})`;
+      }
 
       let currentText = 'Standby';
       if (isCharging) currentText = `Charging: ${chgA.toFixed(1)}A`;

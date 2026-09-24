@@ -50,8 +50,8 @@ function _handleGraphHover(e, pin) {
       let totalSum = 0, daySum = 0, nightSum = 0, dayCount = 0, nightCount = 0;
       const maxI = Math.min(idx, dataArr.length - 1);
       const isPc = key === 'pc';
-      const dayStart = isPc ? 6 : 8;
-      const dayEnd = 17;
+      const dayStart = isPc ? 6 : 7;
+      const dayEnd = 16;
       for (let k = 0; k <= maxI; k++) {
         const val = dataArr[k];
         if (val != null && val > 0) {

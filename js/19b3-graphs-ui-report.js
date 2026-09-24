@@ -71,6 +71,41 @@ window.generateGraphReport = async function(forceRefresh = false) {
 			rows.push({ name: f.name, isSolar: f.isSolar, isBreaker: f.isBreaker, ...totals });
 		}
 	}
+		// ── Battery Charge & Discharge computations for Report ──
+	let batChgTotalWh = 0, batChgDayWh = 0, batChgNightWh = 0;
+	let batDisTotalWh = 0, batDisDayWh = 0, batDisNightWh = 0;
+	const batChgDayMap = {}, batChgNightMap = {};
+	const batDisDayMap = {}, batDisNightMap = {};
+	const allBatTimestamps = new Set([
+		...Object.keys(batChgRaw || {}),
+		...Object.keys(batDisRaw || {})
+	]);
+	for (const tsStr of allBatTimestamps) {
+		const ts = parseInt(tsStr);
+		const v = (batVRaw && batVRaw[tsStr] > 35) ? batVRaw[tsStr] : 52.0;
+		const cA = (batChgRaw && batChgRaw[tsStr]) ? batChgRaw[tsStr] : 0;
+		const dA = (batDisRaw && batDisRaw[tsStr]) ? batDisRaw[tsStr] : 0;
+		const chgW = Math.max(0, v * cA);
+		const disW = Math.max(0, v * dA);
+		const p = getKarachiDate(ts);
+		const dKey = `${p.year}-${String(p.month).padStart(2,'0')}-${String(p.day).padStart(2,'0')}`;
+		const isDayHour = (p.hour >= 8 && p.hour < 17);
+
+		batChgTotalWh += chgW;
+		batDisTotalWh += disW;
+		if (isDayHour) {
+			batChgDayWh += chgW;
+			batDisDayWh += disW;
+			batChgDayMap[dKey] = (batChgDayMap[dKey] || 0) + chgW;
+			batDisDayMap[dKey] = (batDisDayMap[dKey] || 0) + disW;
+		} else {
+			batChgNightWh += chgW;
+			batDisNightWh += disW;
+			batChgNightMap[dKey] = (batChgNightMap[dKey] || 0) + chgW;
+			batDisNightMap[dKey] = (batDisNightMap[dKey] || 0) + disW;
+		}
+	}
+
 	const solarData = sums[solarF.id]?.h24 || {};
 	const breakerData = sums[breakerF.id]?.h24 || {};
 	const applianceData = {};
@@ -90,8 +125,19 @@ window.generateGraphReport = async function(forceRefresh = false) {
 		const breakerNightVal = (sums[breakerF.id]?.night?.[day] || 0);
 		let applianceNightVal = 0;
 		for (const f of loadFeeds) { applianceNightVal += (sums[f.id]?.night?.[day] || 0); }
-		const othersDayVal = Math.max(0, solarDayVal + breakerDayVal - applianceDayVal);
-		const othersNightVal = Math.max(0, solarNightVal + breakerNightVal - applianceNightVal);
+
+		const batDisDay = batDisDayMap[day] || 0;
+		const batChgDay = batChgDayMap[day] || 0;
+		const batDisNight = batDisNightMap[day] || 0;
+		const batChgNight = batChgNightMap[day] || 0;
+
+		// Real power available to house: Solar + Grid + Bat Discharge - Bat Charge
+		const netDaySupply = Math.max(0, solarDayVal + breakerDayVal + batDisDay - batChgDay);
+		const netNightSupply = Math.max(0, solarNightVal + breakerNightVal + batDisNight - batChgNight);
+
+		const othersDayVal = Math.max(0, netDaySupply - applianceDayVal);
+		const othersNightVal = Math.max(0, netNightSupply - applianceNightVal);
+
 		if (othersDayVal > 0) othersDaySum[day] = othersDayVal;
 		if (othersNightVal > 0) othersNightSum[day] = othersNightVal;
 	}
@@ -104,33 +150,6 @@ window.generateGraphReport = async function(forceRefresh = false) {
 		totalWh: totalOthersWh, dayWh: totalOthersDayWh, nightWh: totalOthersNightWh
 	});
 
-	// ── Battery Charge & Discharge computations for Report ──
-	let batChgTotalWh = 0, batChgDayWh = 0, batChgNightWh = 0;
-	let batDisTotalWh = 0, batDisDayWh = 0, batDisNightWh = 0;
-	const allBatTimestamps = new Set([
-		...Object.keys(batChgRaw || {}),
-		...Object.keys(batDisRaw || {})
-	]);
-	for (const tsStr of allBatTimestamps) {
-		const ts = parseInt(tsStr);
-		const v = (batVRaw && batVRaw[tsStr] > 35) ? batVRaw[tsStr] : 52.0;
-		const cA = (batChgRaw && batChgRaw[tsStr]) ? batChgRaw[tsStr] : 0;
-		const dA = (batDisRaw && batDisRaw[tsStr]) ? batDisRaw[tsStr] : 0;
-		const chgW = Math.max(0, v * cA);
-		const disW = Math.max(0, v * dA);
-		const p = getKarachiDate(ts);
-		const isDayHour = (p.hour >= 8 && p.hour < 17);
-
-		batChgTotalWh += chgW;
-		batDisTotalWh += disW;
-		if (isDayHour) {
-			batChgDayWh += chgW;
-			batDisDayWh += disW;
-		} else {
-			batChgNightWh += chgW;
-			batDisNightWh += disW;
-		}
-	}
 	rows.push({
 		name: '⚡🔋 Bat Charge', isSolar: false, isBreaker: false, isBatteryMetric: true,
 		totalKwh: batChgTotalWh/1000, dayKwh: batChgDayWh/1000, nightKwh: batChgNightWh/1000,

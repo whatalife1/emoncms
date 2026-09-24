@@ -27,7 +27,6 @@ async function _handleOthersFeed(nav, stat, canvas) {
     computedLastIdx = Math.floor((Date.now() - 60000 - nav.startMs) / (nav.resSeconds * 1000)) + 1;
   }
   computedLastIdx = Math.min(Math.max(0, computedLastIdx), nav.nBars);
-  const isKwhView = nav && (nav.isMonthBilling || nav.isYearly);
   const [ampChgPts, ampDisPts, voltPts] = await Promise.all([
     _gFetch('546022', nav.startMs, nav.endMs, nav.interval),
     _gFetch('546025', nav.startMs, nav.endMs, nav.interval),

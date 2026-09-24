@@ -26,7 +26,7 @@ function renderFlowDiagram(byName) {
     const pWatts = solarCfg.panelWatts || 580;
     const totalKw = ((pCount * pWatts) / 1000).toFixed(1);
     const battKw = (solarCfg.batteryKwh && solarCfg.batteryKwh > 0) ? solarCfg.batteryKwh.toFixed(1) : '5.1';
-    titleEl.innerHTML = `⚡ 6kW Inverter &bull; ☀ ${totalKw}kW (${pCount}×${pWatts}) &bull; 🔋 ${battKw}kWh Battery`;
+    titleEl.innerHTML = `⚡ 6kW Inverter &bull; ☀ Solar ${totalKw}kW (${pCount}×${pWatts}) &bull; 🔋 ${battKw}kWh Battery`;
   }
 
   const getV = (n) => byName.get(n)?.value ?? 0;
@@ -315,7 +315,7 @@ function renderFlowDiagram(byName) {
     const isStandbyZero = (!isBatActive || batW === 0);
     const estTag = (!isStandbyZero && Math.abs(estBatW) > 10) ? ` <tspan fill="${estColor}">(${estSign}w)</tspan>` : '';
 
-    if (o.ly6) {
+    if (o.ly6 && actionLine !== 'Standby') {
       svg += `<text x="${cx(o)}" y="${o.y+o.ly6}" ${tpProps} font-size="${o.fs6}" fill="${pwrColor}" data-maxw="${o.w-10}">${pwrSign} w${estTag}</text>`;
     }
     if (estLine && o.ly5) {

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>EmonCMS Monitor</title>
+  <title>Solar Monitor</title>
   <link rel="stylesheet" href="css/00-variables.css">
   <link rel="stylesheet" href="css/01-layout.css">
   <link rel="stylesheet" href="css/02-cards.css">
@@ -18,7 +18,7 @@
   <div class="main-shell">
 
     <div class="header">
-      <div class="header-title">⚡ EmonCMS Monitor</div>
+      <div class="header-title">⚡ Solar Monitor</div>
       <div class="header-btns">
         <span id="stale-indicator">⚠ Stale</span>
         <button id="btn-theme" title="Toggle light/dark">☀</button>
@@ -29,7 +29,7 @@
         <button id="btn-widgets" title="Widget list">📦</button>
         <button id="btn-simulator" title="Detection Simulator" style="display:none;">🧪</button>
         <button id="btn-settings">⚙</button>
-        <button class="btn-primary" id="btn-refresh">Refresh</button>
+        <button class="btn-primary" id="btn-refresh" title="Refresh">↻</button>
       </div>
     </div>
 
@@ -38,7 +38,7 @@
 
     <div id="flow-wrap">
       <div id="flow-card">
-        <div class="flow-title" id="flow-title">⚡ 6kW Inverter &bull; ☀ 5.2kW (9×580) &bull; 🔋 5.1kWh Battery</div>
+        <div class="flow-title" id="flow-title">⚡ 6kW Inverter &bull; ☀ Solar 5.2kW (9×580) &bull; 🔋 5.1kWh Battery</div>
         <div id="flow-svg-wrap">
           <svg id="flow-svg" viewBox="0 0 730 730" xmlns="http://www.w3.org/2000/svg" width="100%"></svg>
         </div>

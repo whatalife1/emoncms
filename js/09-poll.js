@@ -534,7 +534,7 @@ async function poll() {
   } finally {
     if (btn) {
         btn.disabled = false;
-        btn.textContent = 'Refresh';
+        btn.textContent = '↻';
     }
     resetCountdown();
   }

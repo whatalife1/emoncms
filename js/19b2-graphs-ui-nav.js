@@ -134,9 +134,9 @@ function _renderGNavBar() {
       <button id="graph-today-btn" class="graph-nav-btn" style="font-size:10px;padding:2px 8px;margin-left:4px;">Today</button>
     `;
   }
-  const startToggle = graphTab === 'day'
+  const startToggle = (graphTab === 'day')
     ? `<button id="graph-start-toggle" class="graph-nav-btn" style="font-size:10px; padding:2px 8px; margin-left:4px;">${
-        window.graphDayStartHour === 5 ? '5am-5am' : '12am-12am'
+        window.graphDayStartHour === 7 ? '4pm-7am' : '12am-12am'
       }</button>`
     : '';
   wrap.innerHTML = `

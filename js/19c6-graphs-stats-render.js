@@ -192,6 +192,8 @@ function _renderFeedStats(stat, ctx) {
             durStr = s.durMin + 'm';
           }
           const kwh = (Math.abs(s.delta) / 100) * packKwh;
+          const avgW = s.durMin > 0 ? Math.round((kwh * 1000) / (s.durMin / 60)) : 0;
+          const avgStr = avgW >= 1000 ? (avgW / 1000).toFixed(1) + 'kW' : avgW + 'W';
 
           if (isChg) totalChgKwh += kwh;
           else totalDisKwh += kwh;
@@ -200,9 +202,9 @@ function _renderFeedStats(stat, ctx) {
           const bdr = isChg ? 'rgba(16,185,129,0.45)' : 'rgba(249,115,22,0.45)';
           const textClr = isChg ? '#4ade80' : '#fb923c';
 
-          return '<span style="display:inline-flex; align-items:center; gap:4px; white-space:nowrap; flex-shrink:0; background:' + bg + '; border:1px solid ' + bdr + '; border-radius:6px; padding:3px 8px; font-size:11px; color:' + textClr + '; font-weight:700;">' +
-            (isChg ? '▲ +' : '▼ ') + s.delta.toFixed(1) + '% (' + kwh.toFixed(1) + ' kWh) in ' + durStr +
-            ' <span style="color:var(--text-muted); font-size:9.5px; font-weight:600; margin-left:2px;">[' + startStr + '→' + endStr + ']</span></span>';
+          return '<span style="display:inline-flex; align-items:center; gap:4px; white-space:nowrap; flex-shrink:0; background:' + bg + '; border:1px solid ' + bdr + '; border-radius:6px; padding:4px 9px; font-size:12px; color:' + textClr + '; font-weight:700;">' +
+            (isChg ? '▲ +' : '▼ ') + s.delta.toFixed(1) + '% (' + kwh.toFixed(1) + ' kWh · Ø ' + avgStr + ') in ' + durStr +
+            ' <span style="color:var(--text-muted); font-size:10px; font-weight:600; margin-left:2px;">[' + startStr + '→' + endStr + ']</span></span>';
         });
 
         statHtml += '<div style="background:var(--bg-card); border:1px solid var(--border); border-radius:8px; padding:6px 10px; margin-top:4px; margin-bottom:4px;">' +

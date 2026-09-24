@@ -313,6 +313,12 @@ function renderFlowDiagram(byName) {
       actionColor = o.c3 || '#facc15';
     }
 
+    // When battery is in Standby (not actively charging or discharging), clear estimates
+    if (actionLine === 'Standby' || (!isCharging && !isDischarging)) {
+      estLine5 = '';
+      estLine12 = '';
+    }
+
     const bTime = byName.get('SOC %')?.time || 
                   byName.get('Bat V')?.time || 
                   byName.get('Status')?.time || 
@@ -359,9 +365,6 @@ function renderFlowDiagram(byName) {
     }
     if (estLine12 && o.ly12) {
       svg += `<text x="${cx(o)}" y="${o.y+o.ly12}" ${tpProps} font-size="${o.fs12 || 19}" fill="${estColor12}" data-maxw="${o.w-12}">${estLine12}</text>`;
-    }
-    if (estLine12 && o.ly12) {
-      svg += `<text x="${cx(o)}" y="${o.y+o.ly12}" ${tpProps} font-size="${o.fs12 || 18}" fill="${estColor12}" data-maxw="${o.w-12}">${estLine12}</text>`;
     }
     if (o.ly8)  svg += `<text x="${cx(o)}" y="${o.y+o.ly8}"  ${tpProps} font-size="${o.fs8}"  fill="${o.c8  || '#10b981'}" data-maxw="${o.w-8}">Chg: M: ${chgMStr}</text>`;
     if (o.ly9)  svg += `<text x="${cx(o)}" y="${o.y+o.ly9}"  ${tpProps} font-size="${o.fs9}"  fill="${o.c9  || '#10b981'}" data-maxw="${o.w-8}">T: ${chgTStr} Y: ${chgYStr}</text>`;

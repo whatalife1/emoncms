@@ -3,7 +3,7 @@ const LAYOUT = {
  weather: { x:5, y:10, w:708, h:49, color:'#0ea5e9', label:'Weather', ly1:25, fs:25, c1:'#ffffff',  },
  solar: { x:5, y:66, w:304, h:368, color:'#f59e0b', label:'Solar', ly1:39, fs:46, c1:'#ffff00', ly2:106, fs2:45, c2:'#2c8758', ly3:180, fs3:27, c3:'#b4b635', ly4:219, fs4:20, c4:'#21c442', ly5:295, fs5:22, c5:'#3de31c', ly6:340, fs6:20, c6:'#38bdf8', ly7:150, fs7:18, c7:'#a1a1aa', ly8:246, fs8:21, c8:'#21c442',  },
  grid: { x:314, y:64, w:154, h:378, color:'#ef4444', label:'Grid', ly1:25, fs:28, c1:'#ef4444', ly2:64, fs2:40, c2:'#ef4444', ly3:101, fs3:17, c3:'#a1a1aa', ly4:139, fs4:22, c4:'#35c0b7', ly5:171, fs5:36, c5:'#35c0b7', ly6:213, fs6:17, c6:'#a1a1aa', ly7:264, fs7:21, c7:'#3de3e4', ly8:291, fs8:19, c8:'#3de3e4', ly9:325, fs9:21, c9:'#38bdf8', ly10:351, fs10:19, c10:'#38bdf8',  },
- battery: { x:471, y:63, w:255, h:372, color:'#10b981', label:'Battery', ly1:17, fs:34, c1:'#10b981', ly2:64, fs2:53, c2:'#25f447', ly3:165, fs3:24, c3:'#facc15', ly4:105, fs4:33, c4:'#35c0b7', ly5:224, fs5:20, c5:'#38bdf8', ly6:198, fs6:26, c6:'#4ade80', ly7:137, fs7:18, c7:'#a1a1aa', ly8:270, fs8:22, c8:'#10b981', ly9:296, fs9:20, c9:'#10b981', ly10:325, fs10:20, c10:'#10b981', ly11:350, fs11:20, c11:'#10b981', ly12:247, fs12:19, c12:'#facc15' },
+ battery: { x:471, y:63, w:255, h:372, color:'#10b981', label:'Battery', ly1:17, fs:34, c1:'#10b981', ly2:64, fs2:53, c2:'#25f447', ly3:162, fs3:24, c3:'#facc15', ly4:105, fs4:33, c4:'#35c0b7', ly6:186, fs6:26, c6:'#4ade80', ly13:208, fs13:19, c13:'#facc15', ly5:228, fs5:20, c5:'#38bdf8', ly12:249, fs12:19, c12:'#facc15', ly7:137, fs7:18, c7:'#a1a1aa', ly8:270, fs8:22, c8:'#10b981', ly9:296, fs9:20, c9:'#10b981', ly10:325, fs10:20, c10:'#10b981', ly11:350, fs11:20, c11:'#10b981' },
  water: { x:421, y:680, w:152, h:242, color:'#0ea5e9', label:'Water|Tank', ly1:15, fs:34, c1:'#0ea5e9', ly2:97, fs2:52, c2:'#25f447', ly3:139, fs3:27, c3:'#9ca3af', ly4:171, fs4:19, c4:'#0ce4e0', ly5:203, fs5:19, c5:'#38bdf8', ly6:224, fs6:18, c6:'#a1a1aa',  },
  haier: { x:7, y:436, w:179, h:206, color:'#38bdf8', label:'Haier 1T', ly1:17, fs:28, c1:'#38bdf8', ly2:65, fs2:55, c2:'#25f447', ly3:143, fs3:25, c3:'#00c8f0', ly4:175, fs4:25, c4:'#518e35', ly5:113, fs5:17, c5:'#a1a1aa',  },
  k15: { x:192, y:438, w:196, h:198, color:'#38bdf8', label:'Kenwood 1.5T', ly1:21, fs:27, c1:'#38bdf8', ly2:68, fs2:53, c2:'#25f447', ly3:142, fs3:25, c3:'#00c8f0', ly4:175, fs4:25, c4:'#518e35', ly5:114, fs5:16, c5:'#a1a1aa',  },
@@ -16,6 +16,52 @@ const LAYOUT = {
  temp2: { x:8, y:639, w:179, h:36, color:'#22c55e', label:'temp2', ly1:16, fs:21, c1:'#25f447',  },
 };
 
+
+// ── Continuous State Helper Function ─────────────────────────────────────────
+function getBatteryContinuousRate(isCharging, isDischarging, activeWatts, packWh) {
+  const now = Date.now();
+  let currentMode = 'standby';
+  if (isCharging && activeWatts > 15) currentMode = 'charging';
+  else if (isDischarging && activeWatts > 15) currentMode = 'discharging';
+
+  let state = window._batActivityState;
+  if (!state) {
+    try {
+      const saved = localStorage.getItem('bat_cont_activity');
+      if (saved) state = JSON.parse(saved);
+    } catch (e) {}
+  }
+
+  if (!state || state.mode !== currentMode || state.startTime > now) {
+    state = { mode: currentMode, startTime: now };
+    window._batActivityState = state;
+    try { localStorage.setItem('bat_cont_activity', JSON.stringify(state)); } catch (e) {}
+  } else {
+    window._batActivityState = state;
+  }
+
+  if (currentMode === 'standby') return null;
+
+  const elapsedSec = (now - state.startTime) / 1000;
+  // Only show after at least 1 min (60s) of continuous charging or discharging
+  if (elapsedSec < 60) return null;
+
+  if (!packWh || packWh <= 0) packWh = 5120;
+  const ratePerHour = (activeWatts / packWh) * 100;
+  const ratePerMin = ratePerHour / 60;
+  const arrow = currentMode === 'charging' ? '▲' : '▼';
+
+  return {
+    mode: currentMode,
+    ratePerHour,
+    ratePerMin,
+    elapsedSec,
+    arrow,
+    text: `${arrow} ${ratePerHour.toFixed(1)}%/hr | ${ratePerMin.toFixed(2)}%/min`,
+    rawText: `${ratePerHour.toFixed(1)}%/hr | ${ratePerMin.toFixed(2)}%/min`
+  };
+}
+window.getBatteryContinuousRate = getBatteryContinuousRate;
 
 function renderFlowDiagram(byName) {
   if (!byName) return;
@@ -359,6 +405,18 @@ function renderFlowDiagram(byName) {
 
     if (o.ly6 && actionLine !== 'Standby') {
       svg += `<text x="${cx(o)}" y="${o.y+o.ly6}" ${tpProps} font-size="${o.fs6}" fill="${pwrColor}" data-maxw="${o.w-10}">${pwrSign} w${estTag}</text>`;
+    }
+
+    // ── 1-Minute Continuous Charge/Discharge Rate ──
+    const activeWatts = isCharging ? liveChgWatts : (isDischarging ? liveDisWatts : 0);
+    const batRate = getBatteryContinuousRate(isCharging, isDischarging, activeWatts, packWh);
+    window.lastBatRate = batRate;
+
+    if (batRate && actionLine !== 'Standby') {
+      const rateY = o.ly13 ? (o.y + o.ly13) : (o.y + 208);
+      const rateFs = o.fs13 || 19;
+      const rateColor = isCharging ? '#4ade80' : '#facc15';
+      svg += `<text x="${cx(o)}" y="${rateY}" ${tpProps} font-size="${rateFs}" fill="${rateColor}" data-maxw="${o.w-12}">${batRate.text}</text>`;
     }
     if (estLine5 && o.ly5) {
       svg += `<text x="${cx(o)}" y="${o.y+o.ly5}" ${tpProps} font-size="${o.fs5}" fill="${estColor5}" data-maxw="${o.w-12}">${estLine5}</text>`;

@@ -271,6 +271,16 @@ function renderResults(results) {
       if (isCharging) currentText = `Charging: ${chgA.toFixed(1)}A`;
       else if (isDischarging) currentText = `Discharging: ${disA.toFixed(1)}A`;
 
+      const batRate = window.lastBatRate || (typeof getBatteryContinuousRate === 'function' ? getBatteryContinuousRate(isCharging, isDischarging, (isCharging ? liveChgWatts : (isDischarging ? liveDisWatts : 0)), packWh) : null);
+      let rateRowHtml = '';
+      if (batRate) {
+        rateRowHtml = `
+        <div class="linked-value" style="grid-column: 1 / -1; border-top:1px dashed var(--border); padding-top:4px; margin-top:2px;">
+          <span>Rate (Cont. 1m+)</span>
+          <span class="linked-reading" style="color:${isCharging ? '#4ade80' : '#facc15'}; font-size:12px; font-weight:800;">${batRate.text}</span>
+        </div>`;
+      }
+
       const batStats = window.monthlyUnits || {};
       const fmtE = (wh) => (wh >= 500 ? (wh / 1000).toFixed(1) + ' kwh' : Math.round(wh || 0) + 'w');
 

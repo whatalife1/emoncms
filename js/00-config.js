@@ -194,12 +194,15 @@ let userOrderedFeeds = [];
 let isCompact = false;
 window.lastSolarActual = 0;
 
-window.graphDayStartHour = 5;
+window.graphDayStartHour = 7;
 try {
   const saved = localStorage.getItem('graphDayStartHour');
   if (saved !== null) {
     const parsed = parseInt(saved, 10);
-    if (!isNaN(parsed)) window.graphDayStartHour = parsed;
+    if (!isNaN(parsed) && parsed !== 5) window.graphDayStartHour = parsed;
+    else { window.graphDayStartHour = 7; localStorage.setItem('graphDayStartHour', '7'); }
+  } else {
+    localStorage.setItem('graphDayStartHour', '7');
   }
 } catch (e) {}
 
@@ -216,7 +219,7 @@ function getPktDayStart(year, month, day) {
     return utcMidnight - (5 * 3600 * 1000);
 }
 
-function getPktTodayStart(startHour = (window.graphDayStartHour !== undefined ? window.graphDayStartHour : 5)) {
+function getPktTodayStart(startHour = (window.graphDayStartHour !== undefined ? window.graphDayStartHour : 7)) {
     const now = getPktNow();
     const hr = IS_PKT_ZONE ? now.getHours() : now.getUTCHours();
     let yr = IS_PKT_ZONE ? now.getFullYear() : now.getUTCFullYear();

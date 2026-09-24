@@ -10,6 +10,7 @@ try {
 // ─── "Others" feed computation + Separate Overlay Toggles ───────────────────
 
 async function _handleOthersFeed(nav, stat, canvas) {
+  const isKwhView = nav && (nav.isMonthBilling || nav.isYearly);
   const applianceKeys = ['k15', 'k1', 'haier', 'fridge1', 'fridge2', 'pc', 'motor', 'wm'];
   const feedKeys = ['solar', 'grid', ...applianceKeys];
   const fetchPromises = feedKeys.map(key => {
@@ -26,6 +27,7 @@ async function _handleOthersFeed(nav, stat, canvas) {
     computedLastIdx = Math.floor((Date.now() - 60000 - nav.startMs) / (nav.resSeconds * 1000)) + 1;
   }
   computedLastIdx = Math.min(Math.max(0, computedLastIdx), nav.nBars);
+  const isKwhView = nav && (nav.isMonthBilling || nav.isYearly);
   const [ampChgPts, ampDisPts, voltPts] = await Promise.all([
     _gFetch('546022', nav.startMs, nav.endMs, nav.interval),
     _gFetch('546025', nav.startMs, nav.endMs, nav.interval),
@@ -39,7 +41,7 @@ async function _handleOthersFeed(nav, stat, canvas) {
   for (let i = 0; i < computedLastIdx; i++) {
     const ts = nav.startMs + (i * nav.resSeconds * 1000);
     const pktDate = getKarachiDate(ts);
-    const isNight = (pktDate.hour >= 17 || pktDate.hour < 8);
+    const isNight = (pktDate.hour >= 16 || pktDate.hour < 7);
 
     if (isNightOnly && !isNight) {
       bars[i] = 0;
@@ -80,7 +82,7 @@ async function _handleOthersFeed(nav, stat, canvas) {
       const ts = nav.startMs + (i * nav.resSeconds * 1000);
       const pktDate = getKarachiDate(ts);
       const h = pktDate.hour;
-      const isNight = h >= 17 || h < 8;
+      const isNight = h >= 16 || h < 7;
       let f1 = fridge1Bars[i] || 0;
       let f2 = fridge2Bars[i] || 0;
       if (isNight) {
@@ -113,7 +115,6 @@ async function _handleOthersFeed(nav, stat, canvas) {
   let cumF1 = [];
   let cumF2 = [];
   let runOthers = 0, runF1 = 0, runF2 = 0;
-  const isKwhView = nav && (nav.isMonthBilling || nav.isYearly);
   for (let i = 0; i < computedLastIdx; i++) {
     let valO = bars[i] || 0;
     let valF1 = includeFridges ? (maskedFridge1[i] || 0) : 0;
@@ -172,9 +173,9 @@ async function _handleOthersFeed(nav, stat, canvas) {
   const avg = validBars.length > 0 ? validBars.reduce((a, b) => a + (b || 0), 0) / validBars.length : 0;
   let dAv = null, dTt = null, nAv = null, nTt = null;
   if (graphTab === 'day') {
-    const ds = _calcStatsForRange(statBars, 8, 17, nav, computedLastIdx);
+    const ds = _calcStatsForRange(statBars, 7, 16, nav, computedLastIdx);
     dAv = ds.activeAvg; dTt = ds.total;
-    const ns = _calcStatsForRange(statBars, 17, 8, nav, computedLastIdx);
+    const ns = _calcStatsForRange(statBars, 16, 7, nav, computedLastIdx);
     nAv = ns.activeAvg; nTt = ns.total;
   } else if (graphTab === 'month' || graphTab === 'year') {
     let dayTot = 0, nightTot = 0;
@@ -191,7 +192,7 @@ async function _handleOthersFeed(nav, stat, canvas) {
         let v = Math.max(0, solarVal + gridVal - appSum);
         const pktDate = getKarachiDate(ts);
         const h = pktDate.hour;
-        const isNight = h >= 17 || h < 8;
+        const isNight = h >= 16 || h < 7;
         if (includeFridges && isNight) {
           const f1Val = (fridge1Idx >= 0 && results[fridge1Idx] && results[fridge1Idx][i])
             ? (results[fridge1Idx][i][1] || 0) : 0;
@@ -200,7 +201,7 @@ async function _handleOthersFeed(nav, stat, canvas) {
           v += Math.max(0, f1Val) + Math.max(0, f2Val);
         }
         if (v > 0) {
-          if (h >= 8 && h < 17) dayTot += v / 1000;
+          if (h >= 7 && h < 16) dayTot += v / 1000;
           else nightTot += v / 1000;
         }
       }

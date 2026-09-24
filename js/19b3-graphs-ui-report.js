@@ -415,6 +415,18 @@ window.downloadDayGraphReportPng = function() {
 	captureWrapper.appendChild(title);
 	captureWrapper.appendChild(clone);
 	document.body.appendChild(captureWrapper);
+	try {
+		const _pCanvas = document.createElement('canvas');
+		const _pCtx = _pCanvas.getContext('2d');
+		captureWrapper.querySelectorAll('*').forEach(el => {
+			['color', 'backgroundColor', 'borderColor'].forEach(p => {
+				const val = el.style[p] || (window.getComputedStyle ? window.getComputedStyle(el)[p] : '');
+				if (val && (val.includes('oklab') || val.includes('oklch') || val.includes('color('))) {
+					try { _pCtx.fillStyle = val; el.style[p] = _pCtx.fillStyle; } catch(e) {}
+				}
+			});
+		});
+	} catch(e) {}
 	html2canvas(captureWrapper, {
 		backgroundColor: '#ffffff',
 		scale: 2.5,

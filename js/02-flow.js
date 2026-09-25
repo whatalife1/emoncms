@@ -22,9 +22,9 @@ function _resolveFlowHeight(autoH) {
 }
 const LAYOUT = {
  weather: { x:5, y:2, w:708, h:42, color:'#0ea5e9', label:'Weather', ly1:20, fs:22, c1:'#ffffff',  },
- solar: { x:8, y:50, w:299, h:460, color:'#f59e0b', label:'Solar', ly1:39, fs:46, c1:'#ffff00', ly2:106, fs2:45, c2:'#2c8758', ly3:191, fs3:27, c3:'#b4b635', ly4:229, fs4:20, c4:'#21c442', ly5:399, fs5:22, c5:'#3de31c', ly6:431, fs6:20, c6:'#38bdf8', ly7:153, fs7:22, c7:'#a1a1aa', ly8:284, fs8:21, c8:'#21c442', ly12:NaN,  },
- grid: { x:317, y:53, w:154, h:452, color:'#ef4444', label:'Grid', ly1:25, fs:28, c1:'#ef4444', ly2:64, fs2:40, c2:'#ef4444', ly3:101, fs3:17, c3:'#a1a1aa', ly4:139, fs4:22, c4:'#35c0b7', ly5:171, fs5:20, c5:'#35c0b7', ly6:249, fs6:17, c6:'#a1a1aa', ly7:334, fs7:21, c7:'#3de3e4', ly8:364, fs8:19, c8:'#3de3e4', ly9:400, fs9:21, c9:'#38bdf8', ly10:426, fs10:19, c10:'#38bdf8',  },
- battery: { x:471, y:50, w:257, h:455, color:'#10b981', label:'Battery', ly1:17, fs:34, c1:'#10b981', ly2:64, fs2:53, c2:'#25f447', ly3:175, fs3:24, c3:'#facc15', ly4:105, fs4:33, c4:'#35c0b7', ly5:278, fs5:20, c5:'#38bdf8', ly6:206, fs6:24, c6:'#4ade80', ly7:147, fs7:18, c7:'#a1a1aa', ly8:351, fs8:23, c8:'#10b981', ly9:382, fs9:21, c9:'#10b981', ly10:412, fs10:22, c10:'#10b981', ly11:439, fs11:23, c11:'#10b981', ly12:318, fs12:19, c12:'#facc15', ly13:246, fs13:19, c13:'#facc15',  },
+ solar: { x:12, y:52, w:299, h:460, color:'#f59e0b', label:'Solar', ly1:39, fs:46, c1:'#ffff00', ly2:106, fs2:45, c2:'#2c8758', ly3:212, fs3:27, c3:'#b4b635', ly4:267, fs4:20, c4:'#21c442', ly5:399, fs5:22, c5:'#3de31c', ly6:431, fs6:20, c6:'#38bdf8', ly7:168, fs7:22, c7:'#a1a1aa', ly8:305, fs8:21, c8:'#21c442', ly12:NaN,  },
+ grid: { x:311, y:53, w:156, h:452, color:'#ef4444', label:'Grid', ly1:25, fs:28, c1:'#ef4444', ly2:67, fs2:44, c2:'#ef4444', ly3:114, fs3:18, c3:'#a1a1aa', ly4:161, fs4:27, c4:'#35c0b7', ly5:195, fs5:22, c5:'#35c0b7', ly6:249, fs6:18, c6:'#a1a1aa', ly7:352, fs7:21, c7:'#3de3e4', ly8:380, fs8:19, c8:'#3de3e4', ly9:406, fs9:20, c9:'#38bdf8', ly10:432, fs10:19, c10:'#38bdf8',  },
+ battery: { x:471, y:50, w:257, h:455, color:'#10b981', label:'Battery', ly1:17, fs:34, c1:'#10b981', ly2:64, fs2:53, c2:'#25f447', ly3:175, fs3:24, c3:'#facc15', ly4:105, fs4:29, c4:'#35c0b7', ly5:278, fs5:20, c5:'#38bdf8', ly6:204, fs6:24, c6:'#4ade80', ly7:139, fs7:18, c7:'#a1a1aa', ly8:330, fs8:23, c8:'#10b981', ly9:362, fs9:21, c9:'#10b981', ly10:391, fs10:22, c10:'#10b981', ly11:421, fs11:23, c11:'#10b981', ly12:282, fs12:21, c12:'#facc15', ly13:246, fs13:20, c13:'#facc15',  },
  haier: { x:6, y:510, w:179, h:206, color:'#38bdf8', label:'Haier 1T', ly1:17, fs:28, c1:'#38bdf8', ly2:65, fs2:55, c2:'#25f447', ly3:143, fs3:25, c3:'#00c8f0', ly4:175, fs4:25, c4:'#518e35', ly5:113, fs5:17, c5:'#a1a1aa',  },
  k15: { x:192, y:510, w:196, h:198, color:'#38bdf8', label:'Kenwood 1.5T', ly1:21, fs:27, c1:'#38bdf8', ly2:68, fs2:53, c2:'#25f447', ly3:142, fs3:25, c3:'#00c8f0', ly4:175, fs4:25, c4:'#518e35', ly5:114, fs5:16, c5:'#a1a1aa',  },
  k1: { x:395, y:507, w:189, h:198, color:'#38bdf8', label:'Kenwood 1T', ly1:20, fs:30, c1:'#38bdf8', ly2:64, fs2:52, c2:'#25f447', ly3:143, fs3:21, c3:'#00c8f0', ly4:175, fs4:22, c4:'#518e35', ly5:114, fs5:18, c5:'#a1a1aa',  },
@@ -311,10 +311,7 @@ function renderFlowDiagram(byName) {
     const totalCutoffSoc = (typeof BATTERY_TOTAL_CUTOFF_SOC !== 'undefined') ? BATTERY_TOTAL_CUTOFF_SOC : 10;
     const packKwh = (typeof solarCfg !== 'undefined' && solarCfg?.batteryKwh > 0) ? solarCfg.batteryKwh : 5.12;
     const packWh = packKwh * 1000;
-
-    let estLine5 = '';
     let estLine12 = '';
-    let estColor5 = o.c5 || '#38bdf8';
     let estColor12 = o.c12 || '#facc15';
 
     const liveDisWatts = Math.abs(estBatW) > 15 ? Math.abs(estBatW) : (Math.abs(batW) || (batV * disA));
@@ -322,19 +319,6 @@ function renderFlowDiagram(byName) {
 
     if (isDischarging || estBatW < -15) {
       if (liveDisWatts > 15 && socVal > 0) {
-        // Line 5: Total time left down to totalCutoffSoc (e.g. 10%)
-        if (socVal > totalCutoffSoc) {
-          const usableWh = packWh * ((socVal - totalCutoffSoc) / 100);
-          const hrs = usableWh / liveDisWatts;
-          const h = Math.floor(hrs);
-          const m = Math.round((hrs - h) * 60);
-          estLine5 = h > 0 ? `(~${h}h ${m}m left)` : `(~${m}m left)`;
-          estColor5 = o.c5 || '#38bdf8';
-        } else {
-          estLine5 = `(<${totalCutoffSoc}% empty)`;
-          estColor5 = '#ef4444';
-        }
-
         // Line 12: Time left down to cutoffSoc (e.g. 20%)
         if (socVal > cutoffSoc) {
           const usable20Wh = packWh * ((socVal - cutoffSoc) / 100);
@@ -354,9 +338,6 @@ function renderFlowDiagram(byName) {
         const hrs = neededWh / liveChgWatts;
         const h = Math.floor(hrs);
         const m = Math.round((hrs - h) * 60);
-        estLine5 = h > 0 ? `(~${h}h ${m}m to full)` : `(~${m}m to full)`;
-        estColor5 = o.c5 || '#38bdf8';
-
         if (socVal < cutoffSoc) {
           const needed20Wh = packWh * ((cutoffSoc - socVal) / 100);
           const hrs20 = needed20Wh / liveChgWatts;
@@ -384,7 +365,6 @@ function renderFlowDiagram(byName) {
 
     // When battery is in Standby (not actively charging or discharging), clear estimates
     if (actionLine === 'Standby' || (!isCharging && !isDischarging)) {
-      estLine5 = '';
       estLine12 = '';
     }
 
@@ -440,9 +420,6 @@ function renderFlowDiagram(byName) {
       const rateFs = o.fs13 || 19;
       const rateColor = isCharging ? '#4ade80' : '#facc15';
       svg += `<text x="${cx(o)}" y="${rateY}" ${tpProps} font-size="${rateFs}" fill="${rateColor}" data-maxw="${o.w-12}">${batRate.text}</text>`;
-    }
-    if (estLine5 && o.ly5) {
-      svg += `<text x="${cx(o)}" y="${o.y+o.ly5}" ${tpProps} font-size="${o.fs5}" fill="${estColor5}" data-maxw="${o.w-12}">${estLine5}</text>`;
     }
     if (estLine12 && o.ly12) {
       svg += `<text x="${cx(o)}" y="${o.y+o.ly12}" ${tpProps} font-size="${o.fs12 || 19}" fill="${estColor12}" data-maxw="${o.w-12}">${estLine12}</text>`;

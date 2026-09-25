@@ -1,4 +1,5 @@
 // js/22-flow-detail.js  (v3.0)
+// FLOW_EXTRAS_PATCH_V1
 // Cycle-aligned night discharge (7am rollover), zoomable 24h charts,
 // draggable/resizable modal. Text sizes/offsets come from FLOW_DETAIL_TEXT
 // (edit in editor.html and paste back into js/22a-flow-detail-text.js).
@@ -138,6 +139,17 @@
       }
       #flow-detail-modal .fd-charts { display: flex; flex-direction: column; gap: 14px; }
       #flow-detail-modal .fd-chart-section { display: flex; flex-direction: column; gap: 6px; }
+      /* FLOW_EXTRAS_PATCH_V1 */
+      #flow-detail-modal .fd-extras {
+        display: flex; flex-direction: column; gap: 4px;
+        background: var(--bg-panel); border: 1px solid var(--border);
+        border-radius: 10px; padding: 10px 12px;
+      }
+      #flow-detail-modal .fd-extras-header {
+        font-size: 11px; font-weight: 800; text-transform: uppercase;
+        letter-spacing: .07em; color: var(--text-muted);
+        margin-bottom: 4px;
+      }
       #flow-detail-modal .fd-chart-header {
         font-size: 11px; font-weight: 800;
         text-transform: uppercase; letter-spacing: .07em;
@@ -212,6 +224,7 @@
         </div>
         <div class="fd-body">
           <div class="fd-lines is-loading">Loading&hellip;</div>
+          <div class="fd-extras" style="display:none;"><div class="fd-extras-header">📊 Extra Info</div><div class="fd-extras-body"></div></div>
           <div class="fd-charts"></div>
         </div>
         <div class="fd-resize" title="Drag to resize"></div>
@@ -865,6 +878,17 @@
     titleEl.textContent = cfg.title;
     modal.classList.add('open');
     _refreshModalBody(boxKey);
+    // FLOW_EXTRAS_PATCH_V1
+    (function () {
+      const extrasBody = modal.querySelector('.fd-extras .fd-extras-body');
+      const extrasWrap = modal.querySelector('.fd-extras');
+      if (typeof window.renderFlowExtras === 'function' && window.FLOW_EXTRAS_REGISTRY && window.FLOW_EXTRAS_REGISTRY[boxKey]) {
+        if (extrasWrap) extrasWrap.style.display = '';
+        window.renderFlowExtras(boxKey, extrasBody);
+      } else if (extrasWrap) {
+        extrasWrap.style.display = 'none';
+      }
+    })();
     chartsEl.innerHTML = '';
     const graphKeys = (cfg.graphs && cfg.graphs.length) ? cfg.graphs : [];
     if (!graphKeys.length || typeof _gFetch !== 'function') {

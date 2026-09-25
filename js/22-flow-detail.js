@@ -1,5 +1,6 @@
 // js/22-flow-detail.js  (v3.0)
 // FLOW_EXTRAS_PATCH_V1
+// FLOW_EXTRAS_PATCH_V2
 // Cycle-aligned night discharge (7am rollover), zoomable 24h charts,
 // draggable/resizable modal. Text sizes/offsets come from FLOW_DETAIL_TEXT
 // (edit in editor.html and paste back into js/22a-flow-detail-text.js).
@@ -128,7 +129,8 @@
           var(--bg-panel);
         border: 1px solid var(--border); border-radius: 12px;
         text-align: center; font-variant-numeric: tabular-nums; min-height: 160px;
-      }
+      
+        margin-bottom: 6px;}
       #flow-detail-modal .fd-lines.is-loading { animation: fd-pulse 1.2s ease-in-out infinite; }
       @keyframes fd-pulse { 0%,100% { opacity: .6; } 50% { opacity: 1; } }
       #flow-detail-modal .fd-line { line-height: 1.15; word-break: break-word; }
@@ -141,6 +143,7 @@
       #flow-detail-modal .fd-chart-section { display: flex; flex-direction: column; gap: 6px; }
       /* FLOW_EXTRAS_PATCH_V1 */
       #flow-detail-modal .fd-extras {
+        margin-top: 4px;
         display: flex; flex-direction: column; gap: 4px;
         background: var(--bg-panel); border: 1px solid var(--border);
         border-radius: 10px; padding: 10px 12px;
@@ -890,6 +893,31 @@
       }
     })();
     chartsEl.innerHTML = '';
+
+    // FLOW_EXTRAS_PATCH_V2: Battery gets a dedicated session-annotated SOC
+    // chart instead of the generic 24h line chart used by other boxes.
+    if (boxKey === 'battery' && typeof window.renderBatterySocChart === 'function') {
+      const section = document.createElement('div');
+      section.className = 'fd-chart-section';
+      section.innerHTML =
+        '<div class="fd-chart-header"><span class="fd-chart-title">' +
+        '<span class="fd-chart-dot" style="background:#10b981"></span>' +
+        'Battery SOC — 24h (sessions)</span>' +
+        '<span class="fd-chart-hint">colored pills = charge/discharge sessions</span></div>' +
+        '<div class="fd-chart-wrap"><canvas class="fd-chart"></canvas>' +
+        '<div class="fd-chart-loading">Loading chart\u2026</div></div>';
+      chartsEl.appendChild(section);
+      chartsEl.style.display = '';
+      const canvas = section.querySelector('.fd-chart');
+      const loadingEl = section.querySelector('.fd-chart-loading');
+      requestAnimationFrame(function () {
+        setTimeout(function () {
+          window.renderBatterySocChart(canvas, loadingEl);
+        }, 20);
+      });
+      return;
+    }
+
     const graphKeys = (cfg.graphs && cfg.graphs.length) ? cfg.graphs : [];
     if (!graphKeys.length || typeof _gFetch !== 'function') {
       chartsEl.style.display = 'none';

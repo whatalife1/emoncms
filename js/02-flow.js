@@ -1,19 +1,40 @@
 // js/02-flow.js
+// ── CANVAS HEIGHT CONFIG ─────────────────────────────────────────────
+// Set a number (e.g. 960, 1000, 1100) to force the SVG canvas height.
+// Set to null to auto-fit (content bottom + 15px).
+//
+// Tip: open editor.html on desktop, set the Canvas H input to the size
+// you like, then click "Copy JS line" and paste it here.
+const FLOW_CANVAS_HEIGHT = 1100;
+try { window.FLOW_CANVAS_HEIGHT = FLOW_CANVAS_HEIGHT; } catch (e) {}
+
+// Resolve final height: explicit constant > editor localStorage > auto-fit.
+function _resolveFlowHeight(autoH) {
+  if (typeof FLOW_CANVAS_HEIGHT === 'number' && FLOW_CANVAS_HEIGHT > 0) {
+    return FLOW_CANVAS_HEIGHT;
+  }
+  try {
+    const saved = parseInt(localStorage.getItem('editor_preset_height'), 10);
+    if (!isNaN(saved) && saved > 0) return saved;
+  } catch (e) {}
+  return autoH;
+}
+
 const LAYOUT = {
- weather: { x:5, y:10, w:708, h:49, color:'#0ea5e9', label:'Weather', ly1:25, fs:25, c1:'#ffffff',  },
- solar: { x:5, y:66, w:304, h:368, color:'#f59e0b', label:'Solar', ly1:39, fs:46, c1:'#ffff00', ly2:106, fs2:45, c2:'#2c8758', ly3:180, fs3:27, c3:'#b4b635', ly4:219, fs4:20, c4:'#21c442', ly5:295, fs5:22, c5:'#3de31c', ly6:340, fs6:20, c6:'#38bdf8', ly7:150, fs7:18, c7:'#a1a1aa', ly8:246, fs8:21, c8:'#21c442',  },
- grid: { x:314, y:64, w:154, h:378, color:'#ef4444', label:'Grid', ly1:25, fs:28, c1:'#ef4444', ly2:64, fs2:40, c2:'#ef4444', ly3:101, fs3:17, c3:'#a1a1aa', ly4:139, fs4:22, c4:'#35c0b7', ly5:171, fs5:36, c5:'#35c0b7', ly6:213, fs6:17, c6:'#a1a1aa', ly7:264, fs7:21, c7:'#3de3e4', ly8:291, fs8:19, c8:'#3de3e4', ly9:325, fs9:21, c9:'#38bdf8', ly10:351, fs10:19, c10:'#38bdf8',  },
- battery: { x:471, y:63, w:255, h:372, color:'#10b981', label:'Battery', ly1:17, fs:34, c1:'#10b981', ly2:64, fs2:53, c2:'#25f447', ly3:162, fs3:24, c3:'#facc15', ly4:105, fs4:33, c4:'#35c0b7', ly6:186, fs6:26, c6:'#4ade80', ly13:208, fs13:19, c13:'#facc15', ly5:228, fs5:20, c5:'#38bdf8', ly12:249, fs12:19, c12:'#facc15', ly7:137, fs7:18, c7:'#a1a1aa', ly8:270, fs8:22, c8:'#10b981', ly9:296, fs9:20, c9:'#10b981', ly10:325, fs10:20, c10:'#10b981', ly11:350, fs11:20, c11:'#10b981' },
- water: { x:421, y:680, w:152, h:242, color:'#0ea5e9', label:'Water|Tank', ly1:15, fs:34, c1:'#0ea5e9', ly2:97, fs2:52, c2:'#25f447', ly3:139, fs3:27, c3:'#9ca3af', ly4:171, fs4:19, c4:'#0ce4e0', ly5:203, fs5:19, c5:'#38bdf8', ly6:224, fs6:18, c6:'#a1a1aa',  },
- haier: { x:7, y:436, w:179, h:206, color:'#38bdf8', label:'Haier 1T', ly1:17, fs:28, c1:'#38bdf8', ly2:65, fs2:55, c2:'#25f447', ly3:143, fs3:25, c3:'#00c8f0', ly4:175, fs4:25, c4:'#518e35', ly5:113, fs5:17, c5:'#a1a1aa',  },
- k15: { x:192, y:438, w:196, h:198, color:'#38bdf8', label:'Kenwood 1.5T', ly1:21, fs:27, c1:'#38bdf8', ly2:68, fs2:53, c2:'#25f447', ly3:142, fs3:25, c3:'#00c8f0', ly4:175, fs4:25, c4:'#518e35', ly5:114, fs5:16, c5:'#a1a1aa',  },
- k1: { x:395, y:438, w:189, h:198, color:'#38bdf8', label:'Kenwood 1T', ly1:20, fs:30, c1:'#38bdf8', ly2:64, fs2:52, c2:'#25f447', ly3:143, fs3:21, c3:'#00c8f0', ly4:175, fs4:22, c4:'#518e35', ly5:114, fs5:18, c5:'#a1a1aa',  },
- fridge: { x:8, y:678, w:224, h:239, color:'#c084fc', label:'Fridges', ly1:16, fs:36, c1:'#38bdf8', ly2:53, fs2:52, c2:'#25f447', ly3:103, fs3:17, c3:'#518e35', ly4:129, fs4:36, c4:'#38bdf8', ly5:171, fs5:52, c5:'#25f447', ly6:228, fs6:18, c6:'#518e35', ly7:86, fs7:14, c7:'#a1a1aa', ly8:205, fs8:17, c8:'#a1a1aa',  },
- pc: { x:591, y:439, w:133, h:240, color:'#10b9f8', label:'PC', ly1:17, fs:40, c1:'#38bdf8', ly2:61, fs2:44, c2:'#25f447', ly3:174, fs3:19, c3:'#00c8f0', ly4:219, fs4:19, c4:'#518e35', ly5:113, fs5:18, c5:'#a1a1aa',  },
- wm: { x:582, y:682, w:139, h:238, color:'#e879f9', label:'Washing|Machine', ly1:16, fs:29, c1:'#e879f9', ly2:92, fs2:43, c2:'#25f447', ly3:180, fs3:19, c3:'#00c8f0', ly4:219, fs4:21, c4:'#518e35',  },
- motor: { x:235, y:678, w:183, h:243, color:'#fbbf24', label:'Water|Motor', ly1:15, fs:37, c1:'#fbbf24', ly2:105, fs2:52, c2:'#38bdf8', ly3:188, fs3:21, c3:'#518e35', ly4:221, fs4:22, c4:'#518e35', ly5:150, fs5:18, c5:'#a1a1aa',  },
- temp: { x:398, y:639, w:189, h:38, color:'#22c55e', label:'temp', ly1:16, fs:24, c1:'#25f447',  },
- temp2: { x:8, y:639, w:179, h:36, color:'#22c55e', label:'temp2', ly1:16, fs:21, c1:'#25f447',  },
+ weather: { x:5, y:2, w:708, h:42, color:'#0ea5e9', label:'Weather', ly1:20, fs:22, c1:'#ffffff',  },
+ solar: { x:5, y:50, w:304, h:400, color:'#f59e0b', label:'Solar', ly1:39, fs:46, c1:'#ffff00', ly2:106, fs2:45, c2:'#2c8758', ly3:180, fs3:27, c3:'#b4b635', ly4:219, fs4:20, c4:'#21c442', ly5:295, fs5:22, c5:'#3de31c', ly6:340, fs6:20, c6:'#38bdf8', ly7:150, fs7:18, c7:'#a1a1aa', ly8:246, fs8:21, c8:'#21c442',  },
+ grid: { x:314, y:50, w:154, h:400, color:'#ef4444', label:'Grid', ly1:25, fs:28, c1:'#ef4444', ly2:64, fs2:40, c2:'#ef4444', ly3:101, fs3:17, c3:'#a1a1aa', ly4:139, fs4:22, c4:'#35c0b7', ly5:171, fs5:36, c5:'#35c0b7', ly6:213, fs6:17, c6:'#a1a1aa', ly7:264, fs7:21, c7:'#3de3e4', ly8:291, fs8:19, c8:'#3de3e4', ly9:325, fs9:21, c9:'#38bdf8', ly10:351, fs10:19, c10:'#38bdf8',  },
+ battery: { x:471, y:50, w:255, h:400, color:'#10b981', label:'Battery', ly1:17, fs:34, c1:'#10b981', ly2:64, fs2:53, c2:'#25f447', ly3:162, fs3:24, c3:'#facc15', ly4:105, fs4:33, c4:'#35c0b7', ly5:228, fs5:20, c5:'#38bdf8', ly6:186, fs6:26, c6:'#4ade80', ly7:137, fs7:18, c7:'#a1a1aa', ly8:270, fs8:22, c8:'#10b981', ly9:296, fs9:20, c9:'#10b981', ly10:325, fs10:20, c10:'#10b981', ly11:384, fs11:20, c11:'#10b981', ly12:249, fs12:19, c12:'#facc15', ly13:208, fs13:19, c13:'#facc15',  },
+ haier: { x:7, y:456, w:179, h:206, color:'#38bdf8', label:'Haier 1T', ly1:17, fs:28, c1:'#38bdf8', ly2:65, fs2:55, c2:'#25f447', ly3:143, fs3:25, c3:'#00c8f0', ly4:175, fs4:25, c4:'#518e35', ly5:113, fs5:17, c5:'#a1a1aa',  },
+ k15: { x:192, y:458, w:196, h:198, color:'#38bdf8', label:'Kenwood 1.5T', ly1:21, fs:27, c1:'#38bdf8', ly2:68, fs2:53, c2:'#25f447', ly3:142, fs3:25, c3:'#00c8f0', ly4:175, fs4:25, c4:'#518e35', ly5:114, fs5:16, c5:'#a1a1aa',  },
+ k1: { x:395, y:458, w:189, h:198, color:'#38bdf8', label:'Kenwood 1T', ly1:20, fs:30, c1:'#38bdf8', ly2:64, fs2:52, c2:'#25f447', ly3:143, fs3:21, c3:'#00c8f0', ly4:175, fs4:22, c4:'#518e35', ly5:114, fs5:18, c5:'#a1a1aa',  },
+ pc: { x:591, y:459, w:133, h:240, color:'#10b9f8', label:'PC', ly1:17, fs:40, c1:'#38bdf8', ly2:61, fs2:44, c2:'#25f447', ly3:174, fs3:19, c3:'#00c8f0', ly4:219, fs4:19, c4:'#518e35', ly5:113, fs5:18, c5:'#a1a1aa',  },
+ wm: { x:582, y:845, w:139, h:238, color:'#e879f9', label:'Washing|Machine', ly1:16, fs:29, c1:'#e879f9', ly2:92, fs2:43, c2:'#25f447', ly3:180, fs3:19, c3:'#00c8f0', ly4:219, fs4:21, c4:'#518e35',  },
+ water: { x:421, y:700, w:152, h:242, color:'#0ea5e9', label:'Water|Tank', ly1:15, fs:32, c1:'#0ea5e9', ly2:97, fs2:52, c2:'#25f447', ly3:139, fs3:27, c3:'#9ca3af', ly4:171, fs4:19, c4:'#0ce4e0', ly5:203, fs5:19, c5:'#38bdf8', ly6:224, fs6:18, c6:'#a1a1aa',  },
+ motor: { x:235, y:700, w:183, h:243, color:'#fbbf24', label:'Water|Motor', ly1:15, fs:37, c1:'#fbbf24', ly2:105, fs2:52, c2:'#38bdf8', ly3:188, fs3:21, c3:'#518e35', ly4:221, fs4:22, c4:'#518e35', ly5:150, fs5:18, c5:'#a1a1aa',  },
+ fridge: { x:8, y:700, w:224, h:239, color:'#c084fc', label:'Fridges', ly1:16, fs:36, c1:'#38bdf8', ly2:53, fs2:52, c2:'#25f447', ly3:103, fs3:17, c3:'#518e35', ly4:129, fs4:36, c4:'#38bdf8', ly5:171, fs5:52, c5:'#25f447', ly6:228, fs6:18, c6:'#518e35', ly7:86, fs7:14, c7:'#a1a1aa', ly8:205, fs8:17, c8:'#a1a1aa',  },
+ temp: { x:398, y:660, w:189, h:38, color:'#22c55e', label:'temp', ly1:16, fs:24, c1:'#25f447',  },
+ temp2: { x:8, y:660, w:179, h:36, color:'#22c55e', label:'temp2', ly1:16, fs:21, c1:'#25f447',  },
 };
 
 
@@ -116,7 +137,8 @@ function renderFlowDiagram(byName) {
   };
   const tpProps = 'font-family="system-ui, -apple-system, sans-serif" dominant-baseline="central" text-anchor="middle" font-weight="700"';
   
-  const maxH = Object.values(LAYOUT).reduce((max, d) => Math.max(max, d.y + d.h), 0) + 15;
+  const autoH = Object.values(LAYOUT).reduce((max, d) => Math.max(max, d.y + d.h), 0) + 15;
+  const maxH = _resolveFlowHeight(autoH);
   
   let svg = `<svg viewBox="0 0 730 ${maxH}" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%" preserveAspectRatio="xMidYMid meet">`;
 

@@ -1,25 +1,27 @@
-// js/22-flow-detail.js  (v2.1)
+// js/22-flow-detail.js  (v2.2 - multi-graph)
 // Click a flow-diagram box -> big-screen modal that mirrors every line
-// of that box (read from the live SVG snapshot) + a 24-hour trend graph.
+// of that box (read from the live SVG snapshot) + one 24h chart per feed.
 
 (function () {
   'use strict';
 
+  // Each box can declare `graphs: ['key1','key2',...]` — one chart per key.
+  // A single-element array = single chart (same as before).
   const FLOW_DETAIL_CONFIG = {
-    weather: { title: 'Weather',         color: '#0ea5e9', graph: null },
-    solar:   { title: 'Solar',           color: '#f59e0b', graph: 'solar' },
-    grid:    { title: 'Grid',            color: '#ef4444', graph: 'grid' },
-    battery: { title: 'Battery',         color: '#10b981', graph: 'battery' },
-    haier:   { title: 'Haier 1Ton',      color: '#a5f3fc', graph: 'haier' },
-    k15:     { title: 'Kenwood 1.5T',    color: '#38bdf8', graph: 'k15' },
-    k1:      { title: 'Kenwood 1T',      color: '#7dd3fc', graph: 'k1' },
-    pc:      { title: 'PC',              color: '#4ade80', graph: 'pc' },
-    fridge:  { title: 'Fridges',         color: '#c084fc', graph: 'fridge1' },
-    water:   { title: 'Water Tank',      color: '#0ea5e9', graph: 'water' },
-    motor:   { title: 'Water Motor',     color: '#fbbf24', graph: 'motor' },
-    wm:      { title: 'Washing Machine', color: '#e879f9', graph: 'wm' },
-    temp:    { title: 'Temperature',     color: '#22c55e', graph: 'temp' },
-    temp2:   { title: 'Temperature 2',   color: '#22c55e', graph: 'temp2' }
+    weather: { title: 'Weather',         color: '#0ea5e9', graphs: [] },
+    solar:   { title: 'Solar',           color: '#f59e0b', graphs: ['solar'] },
+    grid:    { title: 'Grid',            color: '#ef4444', graphs: ['grid'] },
+    battery: { title: 'Battery',         color: '#10b981', graphs: ['battery'] },
+    haier:   { title: 'Haier 1Ton',      color: '#a5f3fc', graphs: ['haier'] },
+    k15:     { title: 'Kenwood 1.5T',    color: '#38bdf8', graphs: ['k15'] },
+    k1:      { title: 'Kenwood 1T',      color: '#7dd3fc', graphs: ['k1'] },
+    pc:      { title: 'PC',              color: '#4ade80', graphs: ['pc'] },
+    fridge:  { title: 'Fridges',         color: '#c084fc', graphs: ['fridge1', 'fridge2'] },
+    water:   { title: 'Water Tank',      color: '#0ea5e9', graphs: ['water'] },
+    motor:   { title: 'Water Motor',     color: '#fbbf24', graphs: ['motor'] },
+    wm:      { title: 'Washing Machine', color: '#e879f9', graphs: ['wm'] },
+    temp:    { title: 'Temperature',     color: '#22c55e', graphs: ['temp'] },
+    temp2:   { title: 'Temperature 2',   color: '#22c55e', graphs: ['temp2'] }
   };
 
   let _currentBoxKey = null;
@@ -102,14 +104,24 @@
         text-align: center; color: var(--text-muted);
         padding: 22px; font-size: 13px; font-weight: 600;
       }
+      #flow-detail-modal .fd-charts {
+        display: flex; flex-direction: column; gap: 14px;
+      }
+      #flow-detail-modal .fd-chart-section {
+        display: flex; flex-direction: column; gap: 6px;
+      }
       #flow-detail-modal .fd-chart-header {
         font-size: 11px; font-weight: 800;
         text-transform: uppercase; letter-spacing: .07em;
-        color: var(--text-muted); margin-top: 4px;
+        color: var(--text-muted);
+      }
+      #flow-detail-modal .fd-chart-header .fd-chart-dot {
+        display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+        margin-right: 6px; vertical-align: middle;
       }
       #flow-detail-modal .fd-chart-wrap {
         position: relative; background: var(--bg-panel); border: 1px solid var(--border);
-        border-radius: 10px; padding: 10px; height: 260px;
+        border-radius: 10px; padding: 10px; height: 240px;
         display: flex; align-items: center; justify-content: center;
       }
       #flow-detail-modal canvas.fd-chart { width: 100%; height: 100%; display: block; }
@@ -136,11 +148,7 @@
         </div>
         <div class="fd-body">
           <div class="fd-lines is-loading">Loading&hellip;</div>
-          <div class="fd-chart-header">24-Hour Trend</div>
-          <div class="fd-chart-wrap">
-            <canvas class="fd-chart"></canvas>
-            <div class="fd-chart-loading">Loading chart&hellip;</div>
-          </div>
+          <div class="fd-charts"></div>
         </div>
       </div>
     `;
@@ -375,58 +383,100 @@
     }
   }
 
+  // ─── Build one chart section and return a handle to it ───────────────
+  function _buildChartSection(container, graphKey, fallbackColor, showLabel) {
+    const feed = (typeof GRAPH_FEEDS !== 'undefined')
+      ? GRAPH_FEEDS.find(function (f) { return f.key === graphKey; })
+      : null;
+    const color = feed ? feed.color : fallbackColor;
+    const label = feed ? feed.name : graphKey;
+
+    const section = document.createElement('div');
+    section.className = 'fd-chart-section';
+    const headerHtml = showLabel
+      ? '<div class="fd-chart-header">' +
+          '<span class="fd-chart-dot" style="background:' + color + '"></span>' +
+          _escape(label) + ' \u2014 24-Hour Trend' +
+        '</div>'
+      : '<div class="fd-chart-header">24-Hour Trend</div>';
+    section.innerHTML = headerHtml +
+      '<div class="fd-chart-wrap">' +
+        '<canvas class="fd-chart"></canvas>' +
+        '<div class="fd-chart-loading">Loading chart\u2026</div>' +
+      '</div>';
+    container.appendChild(section);
+    return {
+      key: graphKey,
+      color: color,
+      canvas: section.querySelector('.fd-chart'),
+      loading: section.querySelector('.fd-chart-loading'),
+      lastData: null
+    };
+  }
+
+  async function _loadChartIntoSegment(seg) {
+    try {
+      const data = await _fetch24hGraph(seg.key);
+      if (data && data.values.some(function (v) { return v != null; })) {
+        seg.lastData = data;
+        _drawModalChart(seg.canvas, data.values, data.labels, seg.color);
+        seg.loading.style.display = 'none';
+      } else {
+        seg.loading.textContent = 'No data for the last 24 hours.';
+      }
+    } catch (err) {
+      console.warn('flow detail chart error for ' + seg.key, err);
+      seg.loading.textContent = 'Chart unavailable.';
+    }
+  }
+
   async function openFlowDetail(boxKey) {
     const cfg = FLOW_DETAIL_CONFIG[boxKey];
     if (!cfg) return;
+
     _currentBoxKey = boxKey;
     const modal = _ensureModal();
-    const panel        = modal.querySelector('.fd-panel');
-    const titleEl      = modal.querySelector('.fd-title');
-    const chartWrap    = modal.querySelector('.fd-chart-wrap');
-    const chartLoading = modal.querySelector('.fd-chart-loading');
-    const canvas       = modal.querySelector('.fd-chart');
-    const chartHeader  = modal.querySelector('.fd-chart-header');
+    const panel     = modal.querySelector('.fd-panel');
+    const titleEl   = modal.querySelector('.fd-title');
+    const chartsEl  = modal.querySelector('.fd-charts');
+
     panel.style.setProperty('--fd-color', cfg.color);
     titleEl.textContent = cfg.title;
+
     modal.classList.add('open');
     _refreshModalBody(boxKey);
-    if (cfg.graph && typeof _gFetch === 'function') {
-      chartHeader.style.display  = '';
-      chartWrap.style.display    = 'flex';
-      chartLoading.style.display = 'block';
-      chartLoading.textContent   = 'Loading chart\u2026';
-      const c = canvas.getContext('2d');
-      c.setTransform(1, 0, 0, 1, 0, 0);
-      c.clearRect(0, 0, canvas.width, canvas.height);
-    } else {
-      chartHeader.style.display = 'none';
-      chartWrap.style.display   = 'none';
+
+    // Clear previous charts
+    chartsEl.innerHTML = '';
+
+    const graphKeys = (cfg.graphs && cfg.graphs.length) ? cfg.graphs : [];
+    if (!graphKeys.length || typeof _gFetch !== 'function') {
+      chartsEl.style.display = 'none';
+      return;
     }
-    if (cfg.graph) {
-      try {
-        await new Promise(function (r) { requestAnimationFrame(r); });
-        await new Promise(function (r) { setTimeout(r, 20); });
-        const data = await _fetch24hGraph(cfg.graph);
-        if (data && data.values.some(function (v) { return v != null; })) {
-          modal.__lastGraphData = data;
-          _drawModalChart(canvas, data.values, data.labels, cfg.color);
-          chartLoading.style.display = 'none';
-        } else {
-          chartLoading.textContent = 'No data for the last 24 hours.';
-        }
-      } catch (err) {
-        console.warn('flow detail chart error', err);
-        chartLoading.textContent = 'Chart unavailable.';
-      }
-    }
+    chartsEl.style.display = '';
+
+    const showLabel = graphKeys.length > 1;
+    const segments = graphKeys.map(function (gk) {
+      return _buildChartSection(chartsEl, gk, cfg.color, showLabel);
+    });
+
+    // Give the canvas a real box before drawing
+    await new Promise(function (r) { requestAnimationFrame(r); });
+    await new Promise(function (r) { setTimeout(r, 20); });
+
+    // Load all charts in parallel
+    await Promise.all(segments.map(_loadChartIntoSegment));
+
+    // Resize handler for all segments
     if (modal.__resizeHandler) window.removeEventListener('resize', modal.__resizeHandler);
     modal.__resizeHandler = function () {
       if (!modal.classList.contains('open')) return;
-      if (!cfg.graph) return;
-      if (modal.__lastGraphData) {
-        _drawModalChart(canvas, modal.__lastGraphData.values,
-                        modal.__lastGraphData.labels, cfg.color);
-      }
+      segments.forEach(function (seg) {
+        if (seg.lastData) {
+          _drawModalChart(seg.canvas, seg.lastData.values, seg.lastData.labels, seg.color);
+        }
+      });
     };
     window.addEventListener('resize', modal.__resizeHandler);
   }

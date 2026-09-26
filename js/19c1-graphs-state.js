@@ -205,6 +205,103 @@ function _formatStatLine(icon, label, mainVal, accentColor, peakVal, avgVal, day
   return `<div style="margin-bottom: 6px; line-height:1.2;"><div style="display:flex; align-items:center; gap:6px;"><span style="color:${accentColor}; font-size:${fsLabel}; font-weight:700;">${icon ? icon + ' ' : ''}${label}:</span><span style="color:var(--text-main); font-size:${fsMain}; font-weight:900;">${mainDisplay}</span></div><div style="color:var(--text-muted); font-size:11px; font-weight:600; margin-left: 1px; margin-top: 2px;"><div>(${peakLabel}: <span style="color:${peakColor}; ${boldStyle}">${peakDisp}</span> ${unit}${avgHtml})</div>${dayNightRow}</div></div>`;
 }
 
+// ─── Battery: Smooth Disconnection Gaps Toggle State ────────────────────────
+if (typeof window.graphBatterySmoothGaps === 'undefined') {
+  window.graphBatterySmoothGaps = true;
+}
+try {
+  if (localStorage.getItem('graphBatterySmoothGaps') !== null) {
+    window.graphBatterySmoothGaps = localStorage.getItem('graphBatterySmoothGaps') === 'true';
+  }
+} catch (e) {}
+
+/**
+ * Bridges 10-20m ESP32 disconnection dropouts and frozen plateaus
+ * with smooth linear interpolation during discharge/charge.
+ */
+function smoothBatterySocBars(inputBars, lastIdx, isSmoothEnabled) {
+  if (!inputBars || inputBars.length < 2) return inputBars;
+  const n = Math.min(inputBars.length, lastIdx || inputBars.length);
+  const bars = inputBars.slice();
+
+  // Find first valid reading
+  let firstValidIdx = -1;
+  for (let i = 0; i < n; i++) {
+    if (bars[i] != null && !isNaN(bars[i]) && bars[i] > 10) {
+      firstValidIdx = i;
+      break;
+    }
+  }
+  if (firstValidIdx === -1) return bars;
+
+  for (let i = 0; i < firstValidIdx; i++) {
+    bars[i] = bars[firstValidIdx];
+  }
+
+  // 1. Interpolate missing/null/<=10 dropouts
+  let i = firstValidIdx;
+  while (i < n) {
+    if (bars[i] == null || isNaN(bars[i]) || bars[i] <= 10) {
+      const gapStart = i;
+      while (i < n && (bars[i] == null || isNaN(bars[i]) || bars[i] <= 10)) {
+        i++;
+      }
+      const gapEnd = i;
+      const valBefore = bars[gapStart - 1];
+
+      if (gapEnd < n) {
+        const valAfter = bars[gapEnd];
+        if (isSmoothEnabled) {
+          const span = gapEnd - (gapStart - 1);
+          for (let k = gapStart; k < gapEnd; k++) {
+            const frac = (k - (gapStart - 1)) / span;
+            bars[k] = valBefore + frac * (valAfter - valBefore);
+          }
+        } else {
+          for (let k = gapStart; k < gapEnd; k++) {
+            bars[k] = valBefore;
+          }
+        }
+      } else {
+        for (let k = gapStart; k < gapEnd; k++) {
+          bars[k] = valBefore;
+        }
+      }
+    } else {
+      i++;
+    }
+  }
+
+  // 2. Interpolate frozen flat plateaus caused by connection loss (4 to 30 intervals, ~8-60 mins)
+  if (isSmoothEnabled) {
+    let p = 1;
+    while (p < n - 1) {
+      const baseVal = bars[p];
+      let pEnd = p;
+      while (pEnd < n && Math.abs(bars[pEnd] - baseVal) < 0.05) {
+        pEnd++;
+      }
+      const runLen = pEnd - p;
+      if (runLen >= 3 && runLen <= 30 && pEnd < n) {
+        const valBefore = bars[p - 1];
+        const valAfter = bars[pEnd];
+        const delta = valAfter - baseVal;
+        if (Math.abs(delta) >= 1.0) {
+          const span = pEnd - (p - 1);
+          for (let k = p; k < pEnd; k++) {
+            const frac = (k - (p - 1)) / span;
+            bars[k] = valBefore + frac * (valAfter - valBefore);
+          }
+        }
+      }
+      p = Math.max(p + 1, pEnd);
+    }
+  }
+
+  return bars;
+}
+window.smoothBatterySocBars = smoothBatterySocBars;
+
 // ─── Battery: Charge/Discharge Sessions Overlay State ────────────────────────
 if (typeof window.graphBatteryShowSessions === 'undefined') {
   window.graphBatteryShowSessions = true;

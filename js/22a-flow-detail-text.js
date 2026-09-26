@@ -16,6 +16,6 @@
 
 const FLOW_DETAIL_TEXT = {
   battery: {
-    1: { dy: -47 },
+    1: { dy: -2 },
   },
 };

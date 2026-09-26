@@ -365,9 +365,24 @@
 
   async function buildBatterySocChart(canvas, loadingEl, resetBtn, smoothBtn) {
     if (!canvas) return;
-    const pts = await fetch24h('battery', 120);
+    if (typeof GRAPH_FEEDS === 'undefined' || typeof _gFetch !== 'function') return;
+    const feed = GRAPH_FEEDS.find(f => f.key === 'battery');
+    if (!feed || !feed.id) return;
+
+    // Fetch up to 48 hours so the user can zoom out significantly more
+    const now = Date.now();
+    const startFetchMs = now - 48 * 3600 * 1000;
+    
+    let pts = [];
+    for (const res of [120, 300, 600]) {
+      try {
+        const raw = await _gFetch(feed.id, startFetchMs, now, res);
+        if (raw && raw.length) { pts = raw; break; }
+      } catch (e) {}
+    }
+
     if (!pts.length) {
-      if (loadingEl) loadingEl.textContent = 'No 24h data available.';
+      if (loadingEl) loadingEl.textContent = 'No battery data available.';
       return;
     }
 
@@ -402,7 +417,7 @@
     function redraw() {
       _drawAnnotatedSocChart(canvas, state.bars, state.sessions, state.resSec, state.startMs, state.packKwh, state.zoom, state.panX);
       if (resetBtn) {
-        if (state.zoom > 1.01 || Math.abs(state.panX) > 1) resetBtn.classList.add('visible');
+        if (Math.abs(state.zoom - 1) > 0.05 || Math.abs(state.panX) > 1) resetBtn.classList.add('visible');
         else resetBtn.classList.remove('visible');
       }
     }
@@ -449,7 +464,8 @@
     if (canvas.__socZoomAttached) return;
     canvas.__socZoomAttached = true;
 
-    const PL = 32, PR = 8;
+    const PL = 34, PR = 10;
+    let didPinchOrPan = false;
 
     canvas.addEventListener('wheel', function (e) {
       e.preventDefault();
@@ -463,7 +479,7 @@
       const anchorIdx = win0.startIdx + frac * win0.visibleN;
       const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
       let nz = state.zoom * factor;
-      nz = Math.max(1, Math.min(20, nz));
+      nz = Math.max(0.4, Math.min(25, nz)); // Allow zooming out to 0.4x
       state.zoom = nz;
       const visibleN = Math.max(2, n / nz);
       state.panX = _panXFromStartIdxSoc(n, nz, anchorIdx - frac * visibleN, cW);
@@ -487,6 +503,7 @@
 
     let tMode = null, tX0 = 0, tPan0 = 0;
     let tDist0 = 0, tZoom0 = 1, tAnchorFrac = 0, tAnchorIdx = 0;
+
     function pinchInfo(e) {
       const rect = canvas.getBoundingClientRect();
       const cW = rect.width - PL - PR;
@@ -496,11 +513,14 @@
       const frac = Math.max(0, Math.min(1, (cx - PL) / cW));
       return { dist, frac, cW };
     }
+
     canvas.addEventListener('touchstart', function (e) {
       if (e.touches.length === 1) {
         tMode = 'pan'; tX0 = e.touches[0].clientX; tPan0 = state.panX;
+        didPinchOrPan = false;
       } else if (e.touches.length === 2) {
         tMode = 'pinch';
+        didPinchOrPan = true;
         const info = pinchInfo(e);
         const n = state.bars.length;
         const win = _computeSocWindow(n, state.zoom, state.panX, info.cW);
@@ -510,15 +530,19 @@
         e.preventDefault();
       }
     }, { passive: false });
+
     canvas.addEventListener('touchmove', function (e) {
       if (tMode === 'pan' && e.touches.length === 1) {
-        state.panX = tPan0 + (e.touches[0].clientX - tX0);
+        const dx = e.touches[0].clientX - tX0;
+        if (Math.abs(dx) > 4) didPinchOrPan = true;
+        state.panX = tPan0 + dx;
         state.redraw(); e.preventDefault();
       } else if (tMode === 'pinch' && e.touches.length === 2) {
+        didPinchOrPan = true;
         const info = pinchInfo(e);
         if (tDist0 <= 0) return;
         let nz = tZoom0 * (info.dist / tDist0);
-        nz = Math.max(1, Math.min(20, nz));
+        nz = Math.max(0.4, Math.min(25, nz)); // Allow zooming out to 0.4x
         state.zoom = nz;
         const n = state.bars.length;
         const visibleN = Math.max(2, n / nz);
@@ -526,15 +550,33 @@
         state.redraw(); e.preventDefault();
       }
     }, { passive: false });
+
     canvas.addEventListener('touchend', function (e) {
-      if (e.touches.length === 0) tMode = null;
-      else if (e.touches.length === 1) { tMode = 'pan'; tX0 = e.touches[0].clientX; tPan0 = state.panX; }
+      if (e.touches.length === 0) {
+        tMode = null;
+      } else if (e.touches.length === 1) {
+        tMode = 'pan'; tX0 = e.touches[0].clientX; tPan0 = state.panX;
+      }
     });
+
     canvas.addEventListener('dblclick', function (e) { e.preventDefault(); state.reset(); });
+
     let lastTap = 0;
-    canvas.addEventListener('touchend', function () {
+    canvas.addEventListener('touchend', function (e) {
+      // Avoid resetting if the user was pinching or panning
+      if (e.touches.length !== 0) return;
+      if (didPinchOrPan) {
+        lastTap = 0;
+        didPinchOrPan = false;
+        return;
+      }
       const now = Date.now();
-      if (now - lastTap < 300) { state.reset(); lastTap = 0; } else { lastTap = now; }
+      if (now - lastTap < 300) {
+        state.reset();
+        lastTap = 0;
+      } else {
+        lastTap = now;
+      }
     });
     canvas.style.cursor = 'grab';
   }
@@ -551,7 +593,7 @@
     ctx.scale(dpr, dpr);
     ctx.clearRect(0, 0, rect.width, rect.height);
 
-    const PL = 34, PR = 10, PT = 24, PB = 32;
+    const PL = 34, PR = 10, PT = 24, PB = 34;
     const cW = rect.width - PL - PR;
     const cH = rect.height - PT - PB;
     if (cW <= 0 || cH <= 0) return;
@@ -568,10 +610,12 @@
     let maxV = visible.length ? Math.max(...visible) : 100;
     minV = Math.max(0, minV - 5);
     maxV = Math.max(108, maxV + 8);
-    if (maxV - minV < 10) { minV = Math.max(0, minV - 5);
-    maxV = Math.max(108, maxV + 8); }
     const range = Math.max(1, maxV - minV);
 
+    function mapX(i) { return PL + ((i - startIdx) / visibleN) * cW; }
+    function mapY(v) { return PT + cH - ((v - minV) / range) * cH; }
+
+    // Grid lines
     ctx.fillStyle = '#71717a';
     ctx.font = '9px system-ui';
     ctx.textAlign = 'right';
@@ -583,12 +627,31 @@
       ctx.beginPath(); ctx.moveTo(PL, y); ctx.lineTo(PL + cW, y); ctx.stroke();
     });
 
-    function mapX(i) { return PL + ((i - startIdx) / visibleN) * cW; }
-    function mapY(v) { return PT + cH - ((v - minV) / range) * cH; }
+    // ── Visible Window Time Range (Top right indicator) ──
+    const firstVisTs = startMs + i0 * resSec * 1000;
+    const lastVisTs  = startMs + Math.min(n - 1, i1) * resSec * 1000;
+    const firstTimeStr = formatPktTime(firstVisTs, 'time');
+    const lastTimeStr  = formatPktTime(lastVisTs, 'time');
+    const visDurationHours = ((lastVisTs - firstVisTs) / 3600000).toFixed(1);
 
+    ctx.fillStyle = '#a1a1aa';
+    ctx.font = 'bold 9.5px system-ui, -apple-system, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText(`🕒 ${firstTimeStr} → ${lastTimeStr} (${visDurationHours}h)`, rect.width - PR - 2, PT - 8);
+
+    // Zoom factor indicator (Top left)
+    if (Math.abs(zoom - 1) > 0.05) {
+      ctx.fillStyle = 'rgba(255,255,255,0.85)';
+      ctx.font = 'bold 10px system-ui';
+      ctx.textAlign = 'left';
+      ctx.fillText(`${zoom.toFixed(1)}×`, PL + 4, PT - 8);
+    }
+
+    // Gradient fill and main line
     const grad = ctx.createLinearGradient(0, PT, 0, PT + cH);
     grad.addColorStop(0, '#10b98155');
     grad.addColorStop(1, '#10b98100');
+
     ctx.save();
     ctx.beginPath();
     ctx.rect(PL, PT, cW, cH);
@@ -609,6 +672,7 @@
       ctx.fillStyle = grad;
       ctx.fill();
     }
+
     ctx.beginPath();
     started = false;
     for (let i = i0; i <= i1; i++) {
@@ -621,15 +685,11 @@
     ctx.lineJoin = 'round';
     ctx.stroke();
 
-    // Session pills (only those overlapping the visible window)
-    const isNarrow = cW < 300 || zoom > 4;
-    const renderedPills = [];
+    // Accent lines along session slopes
     sessions.forEach(seg => {
-      if (seg.endIdx < i0 || seg.startIdx > i1) return; // outside visible window
+      if (seg.endIdx < i0 || seg.startIdx > i1) return;
       const isCharge = seg.type === 'charge';
       const clr = isCharge ? '#4ade80' : '#fb923c';
-      const bgClr = isCharge ? 'rgba(6, 78, 59, 0.94)' : 'rgba(124, 45, 18, 0.94)';
-      const borderClr = isCharge ? '#10b981' : '#f97316';
 
       ctx.save();
       ctx.beginPath();
@@ -645,73 +705,98 @@
       ctx.shadowBlur = 6;
       ctx.stroke();
       ctx.restore();
+    });
 
-      if (isNarrow && Math.abs(seg.delta) < 4.0) return;
+    ctx.restore(); // Release clip so pills are NEVER cut off!
+
+    // ── Session Pills (With full kWh and Average Wattage) ──
+    const isNarrow = cW < 320;
+    const renderedPills = [];
+
+    sessions.forEach(seg => {
+      if (seg.endIdx < i0 || seg.startIdx > i1) return;
+      const isCharge = seg.type === 'charge';
+      const clr = isCharge ? '#4ade80' : '#fb923c';
+      const bgClr = isCharge ? 'rgba(6, 78, 59, 0.94)' : 'rgba(124, 45, 18, 0.94)';
+      const borderClr = isCharge ? '#10b981' : '#f97316';
 
       const midIdx = Math.round((seg.startIdx + seg.endIdx) / 2);
       const midVal = bars[Math.min(n - 1, Math.max(0, midIdx))];
       if (midVal == null) return;
       const midX = mapX(midIdx), midY = mapY(midVal);
-      if (midX < PL - 20 || midX > PL + cW + 20) return;
+      if (midX < PL - 30 || midX > PL + cW + 30) return;
 
-      let durStr = '';
-      if (seg.durMin >= 60) {
-        const h = Math.floor(seg.durMin / 60), m = seg.durMin % 60;
-        durStr = m > 0 ? `${h}h ${m}m` : `${h}h`;
-      } else {
-        durStr = `${seg.durMin}m`;
-      }
+      const durH = Math.floor(seg.durMin / 60);
+      const durM = Math.round(seg.durMin % 60);
+      const durStr = durH > 0 ? (durM > 0 ? `${durH}h ${durM}m` : `${durH}h`) : `${durM}m`;
       const kwhEst = (Math.abs(seg.delta) / 100) * packKwh;
-      const sign = isCharge ? '+' : '';
-      const text = isNarrow
-        ? `${isCharge ? '\u25B2' : '\u25BC'} ${sign}${Math.round(seg.delta)}% \u00b7 ${durStr}`
-        : `${isCharge ? '\u25B2' : '\u25BC'} ${sign}${seg.delta.toFixed(1)}% (${kwhEst.toFixed(1)}kWh) \u00b7 ${durStr}`;
+      const sign = isCharge ? '+' : '-';
+      const avgW = seg.durMin > 0 ? Math.round((kwhEst * 1000) / (seg.durMin / 60)) : 0;
+      const avgStr = avgW >= 1000 ? (avgW / 1000).toFixed(1) + 'kW' : avgW + 'W';
 
-      ctx.font = `bold ${isNarrow ? 9 : 10}px system-ui, -apple-system, sans-serif`;
+      // Full info matching graphs/day/battery:
+      let text = '';
+      if (isNarrow) {
+        text = `${isCharge ? '▲' : '▼'} ${sign}${Math.abs(seg.delta).toFixed(1)}% · ${durStr} (${kwhEst.toFixed(1)}k · Ø ${avgStr})`;
+      } else {
+        text = `${isCharge ? '▲' : '▼'} ${sign}${Math.abs(seg.delta).toFixed(1)}% · ${durStr} (${kwhEst.toFixed(1)}kWh · Ø ${avgStr})`;
+      }
+
+      ctx.font = `bold ${isNarrow ? 9.5 : 10.5}px system-ui, -apple-system, sans-serif`;
       const tw = ctx.measureText(text).width;
-      const pw = tw + (isNarrow ? 8 : 12);
-      const ph = isNarrow ? 15 : 17;
+      const pw = tw + (isNarrow ? 10 : 14);
+      const ph = isNarrow ? 18 : 20;
 
       let bx = midX - pw / 2;
-      bx = Math.max(PL + 2, Math.min(PL + cW - pw - 2, bx));
-      let by = isCharge ? (midY - ph - 8) : (midY + 8);
+      bx = Math.max(PL + 2, Math.min(rect.width - PR - pw - 2, bx));
 
-      const collides = (ty) => renderedPills.some(p => {
-        const xOverlap = !(bx + pw < p.x - 3 || bx > p.x + p.w + 3);
-        const yOverlap = !(ty + ph < p.y - 2 || ty > p.y + p.h + 2);
-        return xOverlap && yOverlap;
-      });
-      if (collides(by)) {
-        const alt = isCharge ? (midY + 8) : (midY - ph - 8);
-        if (!collides(alt) && alt >= PT + 1 && alt <= PT + cH - ph - 1) by = alt;
+      // Intelligent vertical placement:
+      // If SOC is near the bottom (<= 32%), draw ABOVE to prevent going below chart!
+      let by;
+      if (isCharge) {
+        by = (midY > PT + ph + 10) ? (midY - ph - 8) : (midY + 8);
+      } else {
+        by = (midVal > 32 && midY < PT + cH - ph - 10) ? (midY + 8) : (midY - ph - 8);
       }
-      by = Math.max(PT + 1, Math.min(PT + cH - ph - 1, by));
+
+      by = Math.max(PT + 2, Math.min(PT + cH - ph - 2, by));
       renderedPills.push({ x: bx, y: by, w: pw, h: ph });
 
+      ctx.save();
       ctx.fillStyle = bgClr;
       ctx.strokeStyle = borderClr;
-      ctx.lineWidth = 1;
+      ctx.lineWidth = 1.2;
+      ctx.shadowColor = 'rgba(0,0,0,0.85)';
+      ctx.shadowBlur = 6;
       ctx.beginPath();
-      if (typeof ctx.roundRect === 'function') ctx.roundRect(bx, by, pw, ph, 4);
+      if (typeof ctx.roundRect === 'function') ctx.roundRect(bx, by, pw, ph, 5);
       else ctx.rect(bx, by, pw, ph);
       ctx.fill();
+      ctx.stroke();
+
+      // Connector pin
+      ctx.beginPath();
+      ctx.moveTo(midX, by > midY ? by : by + ph);
+      ctx.lineTo(midX, midY);
+      ctx.strokeStyle = borderClr;
+      ctx.lineWidth = 1;
       ctx.stroke();
 
       ctx.fillStyle = '#ffffff';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(text, bx + pw / 2, by + ph / 2 + 0.5);
+      ctx.restore();
     });
 
-    ctx.restore(); // release clip
-
-    // X-axis labels
+    // ── X-axis labels with 1st and last visible time highlighted ──
     ctx.fillStyle = '#71717a';
     ctx.textAlign = 'center';
     ctx.font = '8.5px system-ui';
-    const maxLabels = Math.max(3, Math.floor(cW / 55));
+    const maxLabels = Math.max(3, Math.floor(cW / 60));
     const step = Math.max(1, Math.ceil(visibleN / maxLabels));
     const firstTick = Math.ceil(startIdx / step) * step;
+
     for (let i = firstTick; i < startIdx + visibleN; i += step) {
       if (i < 0 || i >= n) continue;
       const tsMs = startMs + i * resSec * 1000;
@@ -721,16 +806,18 @@
       const hh = h % 12 || 12;
       const label = hh + (h >= 12 ? 'pm' : 'am');
       const x = mapX(i);
-      if (x < PL - 10 || x > PL + cW + 10) continue;
-      ctx.fillText(label, x, PT + cH + 16);
+      if (x > PL + 25 && x < PL + cW - 25) {
+        ctx.fillText(label, x, PT + cH + 16);
+      }
     }
 
-    if (zoom > 1.01) {
-      ctx.fillStyle = 'rgba(255,255,255,0.75)';
-      ctx.font = 'bold 10px system-ui';
-      ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-      ctx.fillText(zoom.toFixed(1) + '\u00D7', PL + 4, PT + 2);
-    }
+    // Explicit 1st and Last time labels on axis edges
+    ctx.fillStyle = '#38bdf8';
+    ctx.font = 'bold 8.5px system-ui';
+    ctx.textAlign = 'left';
+    ctx.fillText(firstTimeStr, PL, PT + cH + 16);
+    ctx.textAlign = 'right';
+    ctx.fillText(lastTimeStr, PL + cW, PT + cH + 16);
   }
 
   // ── Public entry points ──────────────────────────────────────────────
@@ -742,7 +829,7 @@
       return;
     }
     containerEl.style.display = '';
-    containerEl.innerHTML = '<div style="color:var(--text-muted);font-size:12px;">Loading extra info\u2026</div>';
+    containerEl.innerHTML = '<div style="color:var(--text-muted);font-size:12px;">Loading extra info…</div>';
     try {
       const html = await entry.build();
       containerEl.innerHTML = html || '<div style="color:var(--text-muted);font-size:12px;">Nothing extra to show.</div>';
@@ -755,4 +842,5 @@
   window.renderFlowExtras = renderFlowExtras;
   window.renderBatterySocChart = buildBatterySocChart;
   window.FLOW_EXTRAS_REGISTRY = EXTRAS_REGISTRY;
+
 })();

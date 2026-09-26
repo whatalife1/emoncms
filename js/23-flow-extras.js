@@ -1,14 +1,14 @@
 // js/23-flow-extras.js
 // FLOW_EXTRAS_PATCH_V1
 // FLOW_EXTRAS_PATCH_V2
+// FLOW_EXTRAS_PATCH_V3
 // ─────────────────────────────────────────────────────────────────────────
 // Extra per-box stats shown in the flow-detail popup ("Extra Info" section),
-// plus a dedicated session-annotated SOC chart for the Battery box (mirrors
-// Graphs -> Day -> Battery: colored pills for each charge/discharge session).
+// plus a dedicated session-annotated, zoom/pan-capable SOC chart for the
+// Battery box (mirrors Graphs -> Day -> Battery: colored pills for each
+// charge/discharge session, scroll/pinch to zoom, drag to pan).
 //
-// Computed on-demand only when a popup is opened (not on every poll), using
-// history fetches at the same 120s/3600s resolutions the rest of the app
-// already uses. Nothing here touches the main poll loop.
+// Computed on-demand only when a popup is opened (not on every poll).
 // ─────────────────────────────────────────────────────────────────────────
 
 (function () {
@@ -197,8 +197,7 @@
   }
 
   // NOTE: batChgM / batDisM / batChgT / batDisT (from window.monthlyUnits) are
-  // all stored in Wh already (see js/03-visuals.js: window.monthlyUnits.batChgT = chgWh).
-  // Use fmtWhVal() for these, never fmtKwhVal().
+  // all stored in Wh already. Use fmtWhVal() for these, never fmtKwhVal().
   async function buildBatteryExtras() {
     const chgM = window.monthlyUnits?.batChgM || 0;
     const disM = window.monthlyUnits?.batDisM || 0;
@@ -250,7 +249,6 @@
   }
 
   async function buildAcExtras(feedKey) {
-    const feed = (typeof GRAPH_FEEDS !== 'undefined') ? GRAPH_FEEDS.find(f => f.key === feedKey) : null;
     const pts = await fetch24h(feedKey);
     if (!pts.length) return '<div style="color:var(--text-muted);font-size:12px;">No 24h data available.</div>';
     const sessions = detectSessions(pts, 100, 2);
@@ -339,16 +337,33 @@
     return html;
   }
 
-  // ── Battery: session-annotated SOC chart (mirrors Graphs -> Day -> Battery) ──
+  // ── Battery: session-annotated, zoom/pan-capable SOC chart ──────────
   //
-  // Reuses window.detectBatterySessions (defined in js/19c1-graphs-state.js)
-  // so the session-detection algorithm is identical to the main Graphs view.
-  // Draws a scaled-down version of the same line + colored pill annotations
-  // used by _drawChart() in js/19d5-graphs-render-chart.js, but self-contained
-  // so it works inside the small modal canvas without depending on graph
-  // navigation state (graphTab/graphDateNav/etc).
+  // Reuses window.detectBatterySessions (js/19c1-graphs-state.js) so the
+  // session-detection algorithm matches the main Graphs view exactly.
+  // Zoom/pan uses the same _computeWindow-style math as the plain 24h
+  // charts in js/22-flow-detail.js (scroll = zoom around cursor, drag =
+  // pan, pinch = zoom on touch), reimplemented here since it needs to
+  // redraw session pills (not just a plain line) on every frame.
 
-  async function buildBatterySocChart(canvas, loadingEl) {
+  function _computeSocWindow(n, zoom, panX, cW) {
+    if (n <= 0) return { startIdx: 0, visibleN: 0 };
+    const visibleN = Math.max(2, n / zoom);
+    let startIdx = (n - visibleN) / 2 - (panX / cW) * visibleN;
+    const maxStart = Math.max(0, n - visibleN);
+    if (startIdx < 0) startIdx = 0;
+    if (startIdx > maxStart) startIdx = maxStart;
+    return { startIdx, visibleN };
+  }
+  function _panXFromStartIdxSoc(n, zoom, startIdx, cW) {
+    const visibleN = Math.max(2, n / zoom);
+    const maxStart = Math.max(0, n - visibleN);
+    if (startIdx < 0) startIdx = 0;
+    if (startIdx > maxStart) startIdx = maxStart;
+    return ((n - visibleN) / 2 - startIdx) * cW / visibleN;
+  }
+
+  async function buildBatterySocChart(canvas, loadingEl, resetBtn, smoothBtn) {
     if (!canvas) return;
     const pts = await fetch24h('battery', 120);
     if (!pts.length) {
@@ -356,28 +371,23 @@
       return;
     }
 
-    // Clean dropouts the same way the popup line-chart does: 0%/low glitches
-    // get replaced with the nearest valid neighbour, and consecutive samples
-    // are aligned onto a fixed 120s grid so detectBatterySessions can use a
-    // constant resSec.
     const startMs = pts[0][0] < 2e9 ? pts[0][0] * 1000 : pts[0][0];
     const endMs = Date.now();
     const resSec = 120;
     const nBars = Math.max(2, Math.ceil((endMs - startMs) / (resSec * 1000)));
-    const bars = new Array(nBars).fill(null);
+    const rawBars = new Array(nBars).fill(null);
     pts.forEach(([ts, v]) => {
       const tsMs = ts < 2e9 ? ts * 1000 : ts;
       const idx = Math.floor((tsMs - startMs) / (resSec * 1000));
-      if (idx >= 0 && idx < nBars && v != null) bars[idx] = v;
+      if (idx >= 0 && idx < nBars && v != null) rawBars[idx] = v;
     });
-    // forward-fill gaps so the line doesn't break
-    let last = null;
-    for (let i = 0; i < nBars; i++) {
-      if (bars[i] == null) bars[i] = last;
-      else last = bars[i];
-    }
-    const lastIdx = nBars;
 
+    const isSmooth = window.graphBatterySmoothGaps !== false;
+    let bars = typeof window.smoothBatterySocBars === 'function'
+      ? window.smoothBatterySocBars(rawBars, nBars, isSmooth)
+      : rawBars;
+
+    const lastIdx = nBars;
     let sessions = [];
     if (typeof window.detectBatterySessions === 'function') {
       try { sessions = window.detectBatterySessions(bars, resSec, lastIdx, 10, 2.0) || []; }
@@ -386,17 +396,151 @@
 
     const packKwh = (typeof solarCfg !== 'undefined' && solarCfg && solarCfg.batteryKwh > 0) ? solarCfg.batteryKwh : 5.12;
 
-    _drawAnnotatedSocChart(canvas, bars, sessions, resSec, startMs, packKwh);
+    const state = { zoom: 1, panX: 0, bars, rawBars, sessions, resSec, startMs, packKwh };
+    canvas.__socState = state;
+
+    function redraw() {
+      _drawAnnotatedSocChart(canvas, state.bars, state.sessions, state.resSec, state.startMs, state.packKwh, state.zoom, state.panX);
+      if (resetBtn) {
+        if (state.zoom > 1.01 || Math.abs(state.panX) > 1) resetBtn.classList.add('visible');
+        else resetBtn.classList.remove('visible');
+      }
+    }
+    state.redraw = redraw;
+    state.reset = function () { state.zoom = 1; state.panX = 0; redraw(); };
+
+    redraw();
     if (loadingEl) loadingEl.style.display = 'none';
 
-    // Redraw on resize so it stays crisp if the modal is resized.
-    const redraw = () => _drawAnnotatedSocChart(canvas, bars, sessions, resSec, startMs, packKwh);
+    _attachSocChartZoom(canvas, state);
+
+    if (resetBtn) {
+      resetBtn.onclick = function (e) { e.stopPropagation(); state.reset(); };
+    }
+
+    if (smoothBtn) {
+      smoothBtn.onclick = function (e) {
+        e.stopPropagation();
+        window.graphBatterySmoothGaps = !window.graphBatterySmoothGaps;
+        try { localStorage.setItem('graphBatterySmoothGaps', window.graphBatterySmoothGaps ? 'true' : 'false'); } catch (err) {}
+        const on = window.graphBatterySmoothGaps !== false;
+        smoothBtn.innerHTML = on ? '✨ Smooth: ON' : '📊 Real Graph';
+        smoothBtn.style.background = on ? 'rgba(56,189,248,0.2)' : 'var(--bg-card)';
+        smoothBtn.style.borderColor = on ? '#38bdf8' : 'var(--border)';
+        smoothBtn.style.color = on ? '#38bdf8' : 'var(--text-muted)';
+
+        const newBars = typeof window.smoothBatterySocBars === 'function'
+          ? window.smoothBatterySocBars(state.rawBars, nBars, on)
+          : state.rawBars;
+        state.bars = newBars;
+        if (typeof window.detectBatterySessions === 'function') {
+          try { state.sessions = window.detectBatterySessions(newBars, resSec, nBars, 10, 2.0) || []; } catch(err){}
+        }
+        redraw();
+      };
+    }
+
     if (canvas.__socResizeHandler) window.removeEventListener('resize', canvas.__socResizeHandler);
     canvas.__socResizeHandler = redraw;
     window.addEventListener('resize', redraw);
   }
 
-  function _drawAnnotatedSocChart(canvas, bars, sessions, resSec, startMs, packKwh) {
+  function _attachSocChartZoom(canvas, state) {
+    if (canvas.__socZoomAttached) return;
+    canvas.__socZoomAttached = true;
+
+    const PL = 32, PR = 8;
+
+    canvas.addEventListener('wheel', function (e) {
+      e.preventDefault();
+      const rect = canvas.getBoundingClientRect();
+      const cW = rect.width - PL - PR;
+      if (cW <= 0) return;
+      const mx = e.clientX - rect.left;
+      const frac = Math.max(0, Math.min(1, (mx - PL) / cW));
+      const n = state.bars.length;
+      const win0 = _computeSocWindow(n, state.zoom, state.panX, cW);
+      const anchorIdx = win0.startIdx + frac * win0.visibleN;
+      const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
+      let nz = state.zoom * factor;
+      nz = Math.max(1, Math.min(20, nz));
+      state.zoom = nz;
+      const visibleN = Math.max(2, n / nz);
+      state.panX = _panXFromStartIdxSoc(n, nz, anchorIdx - frac * visibleN, cW);
+      state.redraw();
+    }, { passive: false });
+
+    let mDown = false, sx = 0, sp = 0;
+    canvas.addEventListener('mousedown', function (e) {
+      mDown = true; sx = e.clientX; sp = state.panX;
+      canvas.classList.add('grabbing'); e.preventDefault();
+    });
+    window.addEventListener('mousemove', function (e) {
+      if (!mDown) return;
+      state.panX = sp + (e.clientX - sx);
+      state.redraw();
+    });
+    window.addEventListener('mouseup', function () {
+      if (!mDown) return;
+      mDown = false; canvas.classList.remove('grabbing');
+    });
+
+    let tMode = null, tX0 = 0, tPan0 = 0;
+    let tDist0 = 0, tZoom0 = 1, tAnchorFrac = 0, tAnchorIdx = 0;
+    function pinchInfo(e) {
+      const rect = canvas.getBoundingClientRect();
+      const cW = rect.width - PL - PR;
+      const t0 = e.touches[0], t1 = e.touches[1];
+      const dist = Math.hypot(t1.clientX - t0.clientX, t1.clientY - t0.clientY);
+      const cx = (t0.clientX + t1.clientX) / 2 - rect.left;
+      const frac = Math.max(0, Math.min(1, (cx - PL) / cW));
+      return { dist, frac, cW };
+    }
+    canvas.addEventListener('touchstart', function (e) {
+      if (e.touches.length === 1) {
+        tMode = 'pan'; tX0 = e.touches[0].clientX; tPan0 = state.panX;
+      } else if (e.touches.length === 2) {
+        tMode = 'pinch';
+        const info = pinchInfo(e);
+        const n = state.bars.length;
+        const win = _computeSocWindow(n, state.zoom, state.panX, info.cW);
+        tDist0 = info.dist; tZoom0 = state.zoom;
+        tAnchorFrac = info.frac;
+        tAnchorIdx = win.startIdx + info.frac * win.visibleN;
+        e.preventDefault();
+      }
+    }, { passive: false });
+    canvas.addEventListener('touchmove', function (e) {
+      if (tMode === 'pan' && e.touches.length === 1) {
+        state.panX = tPan0 + (e.touches[0].clientX - tX0);
+        state.redraw(); e.preventDefault();
+      } else if (tMode === 'pinch' && e.touches.length === 2) {
+        const info = pinchInfo(e);
+        if (tDist0 <= 0) return;
+        let nz = tZoom0 * (info.dist / tDist0);
+        nz = Math.max(1, Math.min(20, nz));
+        state.zoom = nz;
+        const n = state.bars.length;
+        const visibleN = Math.max(2, n / nz);
+        state.panX = _panXFromStartIdxSoc(n, nz, tAnchorIdx - tAnchorFrac * visibleN, info.cW);
+        state.redraw(); e.preventDefault();
+      }
+    }, { passive: false });
+    canvas.addEventListener('touchend', function (e) {
+      if (e.touches.length === 0) tMode = null;
+      else if (e.touches.length === 1) { tMode = 'pan'; tX0 = e.touches[0].clientX; tPan0 = state.panX; }
+    });
+    canvas.addEventListener('dblclick', function (e) { e.preventDefault(); state.reset(); });
+    let lastTap = 0;
+    canvas.addEventListener('touchend', function () {
+      const now = Date.now();
+      if (now - lastTap < 300) { state.reset(); lastTap = 0; } else { lastTap = now; }
+    });
+    canvas.style.cursor = 'grab';
+  }
+
+  function _drawAnnotatedSocChart(canvas, bars, sessions, resSec, startMs, packKwh, zoom, panX) {
+    zoom = zoom || 1; panX = panX || 0;
     const dpr = window.devicePixelRatio || 1;
     const rect = canvas.getBoundingClientRect();
     if (rect.width < 10 || rect.height < 10) return;
@@ -407,50 +551,59 @@
     ctx.scale(dpr, dpr);
     ctx.clearRect(0, 0, rect.width, rect.height);
 
-    const PL = 32, PR = 8, PT = 14, PB = 22;
+    const PL = 34, PR = 10, PT = 24, PB = 32;
     const cW = rect.width - PL - PR;
     const cH = rect.height - PT - PB;
     if (cW <= 0 || cH <= 0) return;
     const n = bars.length;
 
-    const valid = bars.filter(v => v != null);
-    let minV = valid.length ? Math.min(...valid) : 0;
-    let maxV = valid.length ? Math.max(...valid) : 100;
+    const win = _computeSocWindow(n, zoom, panX, cW);
+    const startIdx = win.startIdx, visibleN = win.visibleN;
+    const i0 = Math.max(0, Math.floor(startIdx));
+    const i1 = Math.min(n - 1, Math.ceil(startIdx + visibleN));
+
+    const visible = [];
+    for (let i = i0; i <= i1; i++) if (bars[i] != null) visible.push(bars[i]);
+    let minV = visible.length ? Math.min(...visible) : 0;
+    let maxV = visible.length ? Math.max(...visible) : 100;
     minV = Math.max(0, minV - 5);
-    maxV = Math.min(100, maxV + 5);
-    if (maxV - minV < 10) { minV = Math.max(0, minV - 5); maxV = Math.min(100, maxV + 5); }
+    maxV = Math.max(108, maxV + 8);
+    if (maxV - minV < 10) { minV = Math.max(0, minV - 5);
+    maxV = Math.max(108, maxV + 8); }
     const range = Math.max(1, maxV - minV);
 
-    // Grid + Y labels
     ctx.fillStyle = '#71717a';
     ctx.font = '9px system-ui';
     ctx.textAlign = 'right';
-    const numGrid = 4;
-    for (let g = 0; g <= numGrid; g++) {
-      const val = minV + (g / numGrid) * range;
-      const y = PT + cH - (g / numGrid) * cH;
+    const gridTicks = [20, 40, 60, 80, 100].filter(v => v >= minV && v <= 100);
+    gridTicks.forEach(val => {
+      const y = mapY(val);
       ctx.fillText(Math.round(val) + '%', PL - 5, y + 3);
-      ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+      ctx.strokeStyle = val === 100 ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.05)';
       ctx.beginPath(); ctx.moveTo(PL, y); ctx.lineTo(PL + cW, y); ctx.stroke();
-    }
+    });
 
-    const mapX = (i) => PL + (i / n) * cW;
-    const mapY = (v) => PT + cH - ((v - minV) / range) * cH;
+    function mapX(i) { return PL + ((i - startIdx) / visibleN) * cW; }
+    function mapY(v) { return PT + cH - ((v - minV) / range) * cH; }
 
-    // Area + line
     const grad = ctx.createLinearGradient(0, PT, 0, PT + cH);
     grad.addColorStop(0, '#10b98155');
     grad.addColorStop(1, '#10b98100');
+    ctx.save();
     ctx.beginPath();
-    let started = false;
-    for (let i = 0; i < n; i++) {
+    ctx.rect(PL, PT, cW, cH);
+    ctx.clip();
+
+    ctx.beginPath();
+    let started = false, firstX = null, lastX = null;
+    for (let i = i0; i <= i1; i++) {
       if (bars[i] == null) continue;
       const x = mapX(i), y = mapY(bars[i]);
-      if (!started) { ctx.moveTo(x, PT + cH); ctx.lineTo(x, y); started = true; }
+      if (!started) { firstX = x; ctx.moveTo(x, PT + cH); ctx.lineTo(x, y); started = true; }
       else ctx.lineTo(x, y);
+      lastX = x;
     }
-    if (started) {
-      const lastX = mapX(n - 1);
+    if (started && lastX != null) {
       ctx.lineTo(lastX, PT + cH);
       ctx.closePath();
       ctx.fillStyle = grad;
@@ -458,7 +611,7 @@
     }
     ctx.beginPath();
     started = false;
-    for (let i = 0; i < n; i++) {
+    for (let i = i0; i <= i1; i++) {
       if (bars[i] == null) { started = false; continue; }
       const x = mapX(i), y = mapY(bars[i]);
       if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y);
@@ -468,36 +621,20 @@
     ctx.lineJoin = 'round';
     ctx.stroke();
 
-    // X-axis time labels
-    ctx.fillStyle = '#71717a';
-    ctx.textAlign = 'center';
-    ctx.font = '8.5px system-ui';
-    const maxLabels = Math.max(3, Math.floor(cW / 55));
-    const step = Math.max(1, Math.ceil(n / maxLabels));
-    for (let i = 0; i < n; i += step) {
-      const tsMs = startMs + i * resSec * 1000;
-      const d = new Date(tsMs);
-      const isPkt = (new Date().getTimezoneOffset() === -300);
-      const h = isPkt ? d.getHours() : new Date(tsMs + 18000000).getUTCHours();
-      const hh = h % 12 || 12;
-      const label = hh + (h >= 12 ? 'pm' : 'am');
-      ctx.fillText(label, mapX(i), rect.height - 6);
-    }
-
-    // Session pills (scaled-down version of the Graphs-view annotations)
-    const isNarrow = cW < 300;
+    // Session pills (only those overlapping the visible window)
+    const isNarrow = cW < 300 || zoom > 4;
     const renderedPills = [];
     sessions.forEach(seg => {
+      if (seg.endIdx < i0 || seg.startIdx > i1) return; // outside visible window
       const isCharge = seg.type === 'charge';
       const clr = isCharge ? '#4ade80' : '#fb923c';
       const bgClr = isCharge ? 'rgba(6, 78, 59, 0.94)' : 'rgba(124, 45, 18, 0.94)';
       const borderClr = isCharge ? '#10b981' : '#f97316';
 
-      // Accent glow on the line for this session
       ctx.save();
       ctx.beginPath();
       let first = true;
-      for (let k = seg.startIdx; k <= seg.endIdx && k < n; k++) {
+      for (let k = Math.max(seg.startIdx, i0); k <= Math.min(seg.endIdx, i1); k++) {
         if (bars[k] == null) continue;
         const x = mapX(k), y = mapY(bars[k]);
         if (first) { ctx.moveTo(x, y); first = false; } else ctx.lineTo(x, y);
@@ -509,12 +646,13 @@
       ctx.stroke();
       ctx.restore();
 
-      if (isNarrow && Math.abs(seg.delta) < 4.0) return; // skip tiny sessions on small canvas
+      if (isNarrow && Math.abs(seg.delta) < 4.0) return;
 
       const midIdx = Math.round((seg.startIdx + seg.endIdx) / 2);
-      const midVal = bars[Math.min(n - 1, midIdx)];
+      const midVal = bars[Math.min(n - 1, Math.max(0, midIdx))];
       if (midVal == null) return;
       const midX = mapX(midIdx), midY = mapY(midVal);
+      if (midX < PL - 20 || midX > PL + cW + 20) return;
 
       let durStr = '';
       if (seg.durMin >= 60) {
@@ -529,14 +667,13 @@
         ? `${isCharge ? '\u25B2' : '\u25BC'} ${sign}${Math.round(seg.delta)}% \u00b7 ${durStr}`
         : `${isCharge ? '\u25B2' : '\u25BC'} ${sign}${seg.delta.toFixed(1)}% (${kwhEst.toFixed(1)}kWh) \u00b7 ${durStr}`;
 
-      ctx.save();
       ctx.font = `bold ${isNarrow ? 9 : 10}px system-ui, -apple-system, sans-serif`;
       const tw = ctx.measureText(text).width;
       const pw = tw + (isNarrow ? 8 : 12);
       const ph = isNarrow ? 15 : 17;
 
       let bx = midX - pw / 2;
-      bx = Math.max(PL + 2, Math.min(rect.width - PR - pw - 2, bx));
+      bx = Math.max(PL + 2, Math.min(PL + cW - pw - 2, bx));
       let by = isCharge ? (midY - ph - 8) : (midY + 8);
 
       const collides = (ty) => renderedPills.some(p => {
@@ -564,8 +701,36 @@
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(text, bx + pw / 2, by + ph / 2 + 0.5);
-      ctx.restore();
     });
+
+    ctx.restore(); // release clip
+
+    // X-axis labels
+    ctx.fillStyle = '#71717a';
+    ctx.textAlign = 'center';
+    ctx.font = '8.5px system-ui';
+    const maxLabels = Math.max(3, Math.floor(cW / 55));
+    const step = Math.max(1, Math.ceil(visibleN / maxLabels));
+    const firstTick = Math.ceil(startIdx / step) * step;
+    for (let i = firstTick; i < startIdx + visibleN; i += step) {
+      if (i < 0 || i >= n) continue;
+      const tsMs = startMs + i * resSec * 1000;
+      const d = new Date(tsMs);
+      const isPkt = (new Date().getTimezoneOffset() === -300);
+      const h = isPkt ? d.getHours() : new Date(tsMs + 18000000).getUTCHours();
+      const hh = h % 12 || 12;
+      const label = hh + (h >= 12 ? 'pm' : 'am');
+      const x = mapX(i);
+      if (x < PL - 10 || x > PL + cW + 10) continue;
+      ctx.fillText(label, x, PT + cH + 16);
+    }
+
+    if (zoom > 1.01) {
+      ctx.fillStyle = 'rgba(255,255,255,0.75)';
+      ctx.font = 'bold 10px system-ui';
+      ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+      ctx.fillText(zoom.toFixed(1) + '\u00D7', PL + 4, PT + 2);
+    }
   }
 
   // ── Public entry points ──────────────────────────────────────────────

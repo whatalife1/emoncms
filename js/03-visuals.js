@@ -38,10 +38,11 @@ async function fetchTodayBatteryEnergy() {
   const resSec = 120;
 
   try {
-    const [chgText, disText, vText] = await Promise.all([
+    const [chgText, disText, vText, socText] = await Promise.all([
       nativeFetch(`${PROXY_BASE}/feed/data.json?ids=546022&start=${todayStartMs}&end=${nowMs}&skipmissing=0&average=1&delta=0&interval=${resSec}`),
       nativeFetch(`${PROXY_BASE}/feed/data.json?ids=546025&start=${todayStartMs}&end=${nowMs}&skipmissing=0&average=1&delta=0&interval=${resSec}`),
-      nativeFetch(`${PROXY_BASE}/feed/data.json?ids=546013&start=${todayStartMs}&end=${nowMs}&skipmissing=0&average=1&delta=0&interval=${resSec}`)
+      nativeFetch(`${PROXY_BASE}/feed/data.json?ids=546013&start=${todayStartMs}&end=${nowMs}&skipmissing=0&average=1&delta=0&interval=${resSec}`),
+      nativeFetch(`${PROXY_BASE}/feed/data.json?ids=546019&start=${todayStartMs}&end=${nowMs}&skipmissing=0&average=1&delta=0&interval=${resSec}`)
     ]);
 
     const parsePts = (txt) => {
@@ -98,11 +99,23 @@ async function fetchTodayBatteryEnergy() {
       }
     });
 
+    // Reconcile discharge energy with true BMS ΔSOC drop
+    const socPts = parsePts(socText);
+    const validSoc = socPts.filter(p => p && p[1] != null && p[1] > 10).map(p => p[1]);
+    let socDisWh = 0;
+    if (validSoc.length >= 2) {
+      const maxSoc = Math.max(...validSoc);
+      const minSoc = Math.min(...validSoc);
+      const packKwh = (typeof solarCfg !== 'undefined' && solarCfg && solarCfg.batteryKwh > 0) ? solarCfg.batteryKwh : 5.12;
+      socDisWh = ((maxSoc - minSoc) / 100) * packKwh * 1000;
+    }
+    const finalDisWh = Math.max(disWh, socDisWh);
+
     if (!window.monthlyUnits) {
       window.monthlyUnits = {};
     }
     window.monthlyUnits.batChgT = chgWh;
-    window.monthlyUnits.batDisT = disWh;
+    window.monthlyUnits.batDisT = finalDisWh;
     if (window.monthlyUnits.batPastChgM != null) {
       window.monthlyUnits.batChgM = window.monthlyUnits.batPastChgM + chgWh;
     }

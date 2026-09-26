@@ -447,9 +447,26 @@ function _renderBatteryToggles() {
     if (typeof _loadAndDraw === 'function') _loadAndDraw();
   });
 
+  // Button 4: Smooth Gaps / Real Graph
+  const smoothOn = window.graphBatterySmoothGaps !== false;
+  const smoothColor = '#38bdf8';
+  const btnSmooth = document.createElement('button');
+  btnSmooth.style.cssText = 'padding:5px 12px;border-radius:20px;font-size:11px;font-weight:800;cursor:pointer;border:1.5px solid ' + (smoothOn ? smoothColor : 'var(--border)') + ';background:' + (smoothOn ? 'rgba(56,189,248,0.2)' : 'transparent') + ';color:' + (smoothOn ? smoothColor : 'var(--text-muted)') + ';opacity:' + (smoothOn ? '1' : '0.85') + ';width:auto;';
+  btnSmooth.textContent = smoothOn ? '✨ Smooth: ON' : '📊 Real Graph';
+  btnSmooth.title = smoothOn
+    ? 'Interpolating 10-20m disconnection gaps. Click to show Real Graph.'
+    : 'Showing raw recorded data with gap plateaus. Click to enable Smooth Gaps.';
+  btnSmooth.addEventListener('click', function () {
+    window.graphBatterySmoothGaps = !smoothOn;
+    try { localStorage.setItem('graphBatterySmoothGaps', window.graphBatterySmoothGaps ? 'true' : 'false'); } catch (e) {}
+    _renderBatteryToggles();
+    if (typeof _loadAndDraw === 'function') _loadAndDraw();
+  });
+
   wrap.appendChild(btnSess);
   wrap.appendChild(btnVolt);
   wrap.appendChild(btnPwr);
+  wrap.appendChild(btnSmooth);
   feedTabs.parentNode.insertBefore(wrap, feedTabs);
 }
 window._renderBatteryToggles = _renderBatteryToggles;

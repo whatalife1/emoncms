@@ -33,13 +33,16 @@
   let _currentBoxKey = null;
   let _batNightCache = { ts: 0, T: 0, Y: 0 };
 
-  function _textOv(boxKey, idx) {
-    // FLOW_DETAIL_TEXT is declared with `const` in 22a-flow-detail-text.js,
-    // so it's a top-level lexical binding — NOT a property on window.
-    // `typeof` on an undeclared identifier is safe (doesn't throw).
+    function _textOv(boxKey, idx) {
     let T = null;
-    if (typeof FLOW_DETAIL_TEXT !== 'undefined') T = FLOW_DETAIL_TEXT;
-    else if (typeof window !== 'undefined' && window.FLOW_DETAIL_TEXT) T = window.FLOW_DETAIL_TEXT;
+    try {
+      const raw = localStorage.getItem('flow_detail_text_live');
+      if (raw) T = JSON.parse(raw);
+    } catch(e) {}
+    if (!T || Object.keys(T).length === 0) {
+      if (typeof FLOW_DETAIL_TEXT !== 'undefined') T = FLOW_DETAIL_TEXT;
+      else if (typeof window !== 'undefined' && window.FLOW_DETAIL_TEXT) T = window.FLOW_DETAIL_TEXT;
+    }
     if (!T || !T[boxKey]) return {};
     return T[boxKey][idx] || {};
   }

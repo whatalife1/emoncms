@@ -42,8 +42,18 @@ window.backgroundFetchMonthly = async function() {
   try {
     if (typeof fetchMonthlyUnits === 'function') {
       await fetchMonthlyUnits();
-      if (window.lastResultsMap && typeof renderFlowDiagram === 'function') {
-        renderFlowDiagram(window.lastResultsMap);
+      let map = window.lastResultsMap;
+      if (!map) {
+        try {
+          const cached = localStorage.getItem('last_known_results');
+          if (cached) {
+            const arr = JSON.parse(cached);
+            map = new Map(arr.map(r => [r.name, r]));
+          }
+        } catch(e) {}
+      }
+      if (map && typeof renderFlowDiagram === 'function') {
+        renderFlowDiagram(map);
       }
     }
   } catch (e) {

@@ -23,7 +23,7 @@ function _resolveFlowHeight(autoH) {
 const LAYOUT = {
  weather: { x:5, y:2, w:708, h:42, color:'#0ea5e9', label:'Weather', ly1:20, fs:22, c1:'#ffffff',  },
  solar: { x:12, y:52, w:299, h:460, color:'#f59e0b', label:'Solar', ly1:39, fs:46, c1:'#ffff00', ly2:106, fs2:45, c2:'#2c8758', ly3:212, fs3:27, c3:'#b4b635', ly4:267, fs4:20, c4:'#21c442', ly5:399, fs5:22, c5:'#3de31c', ly6:431, fs6:20, c6:'#38bdf8', ly7:168, fs7:22, c7:'#a1a1aa', ly8:305, fs8:21, c8:'#21c442', ly12:NaN,  },
- grid: { x:311, y:53, w:156, h:452, color:'#ef4444', label:'Grid', ly1:25, fs:28, c1:'#ef4444', ly2:67, fs2:44, c2:'#ef4444', ly3:114, fs3:18, c3:'#a1a1aa', ly4:161, fs4:27, c4:'#35c0b7', ly5:195, fs5:22, c5:'#35c0b7', ly6:249, fs6:18, c6:'#a1a1aa', ly7:352, fs7:21, c7:'#3de3e4', ly8:380, fs8:19, c8:'#3de3e4', ly9:406, fs9:20, c9:'#38bdf8', ly10:432, fs10:19, c10:'#38bdf8',  },
+ grid: { x:311, y:53, w:156, h:452, color:'#ef4444', label:'Grid', ly1:25, fs:28, c1:'#ef4444', ly2:67, fs2:44, c2:'#ef4444', ly3:114, fs3:18, c3:'#a1a1aa', ly4:161, fs4:27, c4:'#35c0b7', ly5:195, fs5:22, c5:'#35c0b7', ly6:249, fs6:18, c6:'#a1a1aa', ly7:328, fs7:21, c7:'#3de3e4', ly8:354, fs8:19, c8:'#3de3e4', ly11:380, fs11:20, c11:'#3de3e4', ly9:406, fs9:20, c9:'#38bdf8', ly10:432, fs10:19, c10:'#38bdf8',  },
  battery: { x:471, y:50, w:257, h:455, color:'#10b981', label:'Battery', ly1:17, fs:34, c1:'#10b981', ly2:64, fs2:53, c2:'#25f447', ly3:175, fs3:24, c3:'#facc15', ly4:105, fs4:29, c4:'#35c0b7', ly5:278, fs5:20, c5:'#38bdf8', ly6:204, fs6:24, c6:'#4ade80', ly7:139, fs7:18, c7:'#a1a1aa', ly8:330, fs8:23, c8:'#10b981', ly9:362, fs9:21, c9:'#10b981', ly10:391, fs10:22, c10:'#10b981', ly11:421, fs11:23, c11:'#10b981', ly12:282, fs12:21, c12:'#facc15', ly13:246, fs13:20, c13:'#facc15',  },
  haier: { x:6, y:510, w:179, h:206, color:'#38bdf8', label:'Haier 1T', ly1:17, fs:28, c1:'#38bdf8', ly2:65, fs2:55, c2:'#25f447', ly3:143, fs3:25, c3:'#00c8f0', ly4:175, fs4:25, c4:'#518e35', ly5:113, fs5:17, c5:'#a1a1aa',  },
  k15: { x:192, y:510, w:196, h:198, color:'#38bdf8', label:'Kenwood 1.5T', ly1:21, fs:27, c1:'#38bdf8', ly2:68, fs2:53, c2:'#25f447', ly3:142, fs3:25, c3:'#00c8f0', ly4:175, fs4:25, c4:'#518e35', ly5:114, fs5:16, c5:'#a1a1aa',  },
@@ -195,8 +195,10 @@ function renderFlowDiagram(byName) {
   const rainStr = rain > 0 ? ` 🌧 ${rain}%` : '';
   svg += `<text x="${cx(o)}" y="${o.y+o.ly4}" ${tpProps} font-size="${o.fs4}" fill="${o.c4}">Pred: ${predF(predW)} | ☁ ${cloud}%${rainStr}</text>`;
   if (o.ly8) svg += `<text x="${cx(o)}" y="${o.y+o.ly8}" ${tpProps} font-size="${o.fs8}" fill="${o.c8}">Pred2: ${predF(pred2W)} | ☀️ ${window.currentPred2SunPct != null ? window.currentPred2SunPct : Math.max(0, 100 - cloud)}%</text>`;
-  svg += `<text x="${cx(o)}" y="${o.y+o.ly5}" ${tpProps} font-size="${o.fs5}" fill="${o.c5}">Today: ${solar_t.toFixed(1)} kWh | ${kF(solar_t*rate)} PKR</text>`;
-  svg += `<text x="${cx(o)}" y="${o.y+o.ly6}" ${tpProps} font-size="${o.fs6}" fill="${o.c6}">Month: ${nF(mU.solar||0)} kWh | ${kF((mU.solar||0)*rate)} PKR</text>`;
+  const sol_t = (mU.solar_t != null && mU.solar_t > 0) ? mU.solar_t : solar_t;
+  const sol_m = (mU.solar != null && mU.solar > 0) ? mU.solar : ((mU.solar_y || 0) + sol_t);
+  svg += `<text x="${cx(o)}" y="${o.y+o.ly5}" ${tpProps} font-size="${o.fs5}" fill="${o.c5}">Today: ${sol_t.toFixed(1)} kWh | ${kF(sol_t*rate)} PKR</text>`;
+  svg += `<text x="${cx(o)}" y="${o.y+o.ly6}" ${tpProps} font-size="${o.fs6}" fill="${o.c6}">Month: ${nF(sol_m)} kWh | ${kF(sol_m*rate)} PKR</text>`;
 
   // 2. GRID 
   o = L.grid; 
@@ -262,10 +264,14 @@ function renderFlowDiagram(byName) {
   if (o.ly4) svg += `<text x="${cx(o)}" y="${o.y+o.ly4}" ${tpProps} font-size="${o.fs4}" fill="${gridOff ? '#ef4444' : o.c4}" data-maxw="${o.w-12}">AC Input</text>`;
   if (o.ly5) svg += `<text x="${cx(o)}" y="${o.y+o.ly5}" ${tpProps} font-size="${o.fs5}" fill="${gridOff ? '#ef4444' : o.c5}">${Math.round(v)}V</text>`;
   if (o.ly6) svg += `<text x="${cx(o)}" y="${o.y+o.ly6}" ${tpProps} font-size="${o.fs6}" fill="${gridOff ? '#ef4444' : o.c6}">${vTimeStr}</text>`;
-  if (o.ly7) svg += `<text x="${cx(o)}" y="${o.y+o.ly7}" ${tpProps} font-size="${o.fs7}" fill="${o.c7}" data-maxw="${o.w-12}">T: ${grid_t.toFixed(1)} kWh</text>`;
-  if (o.ly8) svg += `<text x="${cx(o)}" y="${o.y+o.ly8}" ${tpProps} font-size="${o.fs8}" fill="${o.c8}" data-maxw="${o.w-12}">${kF(grid_t*rate)} PKR</text>`;
-  if (o.ly9) svg += `<text x="${cx(o)}" y="${o.y+o.ly9}" ${tpProps} font-size="${o.fs9}" fill="${o.c9}" data-maxw="${o.w-12}">M: ${nF(mU.grid||0)} kWh</text>`;
-  if (o.ly10) svg += `<text x="${cx(o)}" y="${o.y+o.ly10}" ${tpProps} font-size="${o.fs10}" fill="${o.c10}" data-maxw="${o.w-12}">${kF((mU.grid||0)*rate)} PKR</text>`;
+  const g_t = (mU.gridT != null) ? mU.gridT : grid_t;
+  const g_y = (mU.gridY != null) ? mU.gridY : 0;
+  const g_m = (mU.grid != null && mU.grid > 0) ? mU.grid : (g_y + g_t);
+  if (o.ly7) svg += `<text x="${cx(o)}" y="${o.y+o.ly7}" ${tpProps} font-size="${o.fs7}" fill="${o.c7}" data-maxw="${o.w-12}">T: ${g_t.toFixed(1)} kWh</text>`;
+  if (o.ly8) svg += `<text x="${cx(o)}" y="${o.y+o.ly8}" ${tpProps} font-size="${o.fs8}" fill="${o.c8}" data-maxw="${o.w-12}">${kF(g_t*rate)} PKR</text>`;
+  if (o.ly11) svg += `<text x="${cx(o)}" y="${o.y+o.ly11}" ${tpProps} font-size="${o.fs11}" fill="${o.c11 || '#3de3e4'}" data-maxw="${o.w-12}">Y: ${g_y.toFixed(1)} kwh</text>`;
+  if (o.ly9) svg += `<text x="${cx(o)}" y="${o.y+o.ly9}" ${tpProps} font-size="${o.fs9}" fill="${o.c9}" data-maxw="${o.w-12}">M: ${nF(g_m)} kWh</text>`;
+  if (o.ly10) svg += `<text x="${cx(o)}" y="${o.y+o.ly10}" ${tpProps} font-size="${o.fs10}" fill="${o.c10}" data-maxw="${o.w-12}">${kF(g_m*rate)} PKR</text>`;
 
   // Helper to format Watts vs kWh (< 500w -> '300w', >= 500w -> '1.2 kwh')
   const formatBatEnergy = (wh) => {
@@ -483,7 +489,8 @@ function renderFlowDiagram(byName) {
   const drawApp = (k, name, suffix="Today") => {
     if (!L[k]) { console.warn('drawApp: missing layout key', k); return; }
     const oA = L[k]; const val = getV(name); const act = val > 6;
-    const t = getV(name + " " + suffix); const mon = mU[k] || 0;
+    const t = (mU[k + '_t'] != null) ? mU[k + '_t'] : getV(name + " " + suffix);
+    const mon = (mU[k] != null && mU[k] > 0) ? mU[k] : ((mU[k + '_y'] || 0) + t);
     const aTime = byName.get(name)?.time;
     const aTimeStr = aTime ? new Date(aTime * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--';
     
@@ -540,7 +547,9 @@ function renderFlowDiagram(byName) {
   svg += `<text x="${cx(o)}" y="${o.y+o.ly1}" ${tpProps} font-size="${o.fs}" fill="${f1W>6?o.c1:'#777'}" data-maxw="${o.w-12}">Fridge 1${badge1}</text>`;
   svg += `<text x="${cx(o)}" y="${o.y+o.ly2}" ${tpProps} font-size="${o.fs2}" fill="${f1W>6?o.c2:'#555'}">${pF(f1W)}</text>`;
   if (o.ly7) svg += `<text x="${cx(o)}" y="${o.y+o.ly7}" ${tpProps} font-size="${o.fs7}" fill="${o.c7}">${f1TimeStr}</text>`;
-  svg += `<text x="${cx(o)}" y="${o.y+o.ly3}" ${tpProps} font-size="${o.fs3}" fill="${o.c3}">T: ${f1T.toFixed(2)} kWh M: ${(mU.f1||0).toFixed(1)} kWh</text>`;
+  const f1_t = (mU.f1_t != null) ? mU.f1_t : f1T;
+  const f1_m = (mU.f1 != null && mU.f1 > 0) ? mU.f1 : ((mU.f1_y || 0) + f1_t);
+  svg += `<text x="${cx(o)}" y="${o.y+o.ly3}" ${tpProps} font-size="${o.fs3}" fill="${o.c3}">T: ${f1_t.toFixed(2)} kWh M: ${f1_m.toFixed(1)} kWh</text>`;
 
   let badge2 = '';
   if (isFridge2Stale) badge2 = ' <tspan fill="#ef4444" font-weight="900">⚠ OFF</tspan>';
@@ -548,7 +557,9 @@ function renderFlowDiagram(byName) {
   svg += `<text x="${cx(o)}" y="${o.y+o.ly4}" ${tpProps} font-size="${o.fs4}" fill="${f2W>6?o.c4:'#777'}" data-maxw="${o.w-12}">Fridge 2${badge2}</text>`;
   svg += `<text x="${cx(o)}" y="${o.y+o.ly5}" ${tpProps} font-size="${o.fs5}" fill="${f2W>6?o.c5:'#555'}">${pF(f2W)}</text>`;
   if (o.ly8) svg += `<text x="${cx(o)}" y="${o.y+o.ly8}" ${tpProps} font-size="${o.fs8}" fill="${o.c8}">${f2TimeStr}</text>`;
-  svg += `<text x="${cx(o)}" y="${o.y+o.ly6}" ${tpProps} font-size="${o.fs6}" fill="${o.c6}">T: ${f2T.toFixed(2)} kWh M: ${(mU.f2||0).toFixed(1)} kWh</text>`;
+  const f2_t = (mU.f2_t != null) ? mU.f2_t : f2T;
+  const f2_m = (mU.f2 != null && mU.f2 > 0) ? mU.f2 : ((mU.f2_y || 0) + f2_t);
+  svg += `<text x="${cx(o)}" y="${o.y+o.ly6}" ${tpProps} font-size="${o.fs6}" fill="${o.c6}">T: ${f2_t.toFixed(2)} kWh M: ${f2_m.toFixed(1)} kWh</text>`;
 
   // 5. TEMP
   const oT = L.temp;

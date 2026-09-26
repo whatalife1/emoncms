@@ -1,6 +1,7 @@
 // js/22-flow-detail.js  (v3.0)
 // FLOW_EXTRAS_PATCH_V1
 // FLOW_EXTRAS_PATCH_V2
+// FLOW_EXTRAS_PATCH_V3
 // Cycle-aligned night discharge (7am rollover), zoomable 24h charts,
 // draggable/resizable modal. Text sizes/offsets come from FLOW_DETAIL_TEXT
 // (edit in editor.html and paste back into js/22a-flow-detail-text.js).
@@ -118,12 +119,41 @@
       }
       #flow-detail-modal .fd-btn:hover { background: var(--bg-base); }
       #flow-detail-modal .fd-body {
-        flex: 1; overflow-y: auto; padding: 14px;
+        flex: 1; overflow-y: auto; padding: 14px; padding-bottom: 34px;
         display: flex; flex-direction: column; gap: 12px;
       }
+      
+      #flow-detail-modal .fd-battery-grid {
+        display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; width: 100%; box-sizing: border-box;
+      }
+      #flow-detail-modal .fd-bat-card {
+        background: rgba(255,255,255,0.03); border: 1px solid var(--border);
+        border-radius: 10px; padding: 10px 6px; display: flex; flex-direction: column;
+        align-items: center; justify-content: flex-start; text-align: center; gap: 3px;
+        font-variant-numeric: tabular-nums; box-sizing: border-box; min-height: 125px;
+      }
+      #flow-detail-modal .fd-bat-card.fd-bat-hero {
+        background: rgba(16,185,129,0.05); border-color: rgba(16,185,129,0.35); justify-content: center;
+      }
+      #flow-detail-modal .fd-bat-header {
+        font-size: 11px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; margin-bottom: 2px;
+      }
+      #flow-detail-modal .fd-bat-soc {
+        font-size: 38px; font-weight: 900; line-height: 1; margin: 2px 0;
+      }
+      #flow-detail-modal .fd-bat-volt {
+        font-size: 17px; font-weight: 800; color: #35c0b7;
+      }
+      #flow-detail-modal .fd-bat-time {
+        font-size: 11px; font-weight: 700; color: #a1a1aa;
+      }
+      #flow-detail-modal .fd-bat-val { font-size: 13px; font-weight: 800; }
+      #flow-detail-modal .fd-bat-sub { font-size: 10.5px; font-weight: 700; line-height: 1.25; }
+      #flow-detail-modal .fd-bat-stat { font-size: 10.5px; font-weight: 600; line-height: 1.25; }
+      #flow-detail-modal .fd-bat-divider { width: 100%; height: 1px; background: var(--border); margin: 3px 0; opacity: .7; }
       #flow-detail-modal .fd-lines {
-        display: flex; flex-direction: column; align-items: stretch; justify-content: center;
-        gap: 8px; padding: 22px 16px;
+        display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start;
+        gap: 6px; padding: 16px 16px; overflow: visible;
         background:
           radial-gradient(120% 100% at 50% 0%, rgba(255,255,255,.035), transparent 70%),
           var(--bg-panel);
@@ -426,7 +456,9 @@
 
     const ov = _textOv(boxKey, idx);
     if (typeof ov.fs === 'number' && ov.fs > 0) size = ov.fs;
-    const dy = (typeof ov.dy === 'number') ? ov.dy : 0;
+    // FLOW_EXTRAS_PATCH_V3: scale dy for the modal's own spacing (see note
+    // in _refreshModalBody) instead of using the SVG's raw pixel offset.
+    const dy = (typeof ov.dy === 'number') ? ov.dy * 0.35 : 0;
 
     const multiline = line.text.indexOf('\n') !== -1;
     const inner = multiline
@@ -439,6 +471,94 @@
     return '<div class="' + cls + '" style="' + style + '">' + inner + '</div>';
   }
 
+      function _renderBattery3Boxes(container, lines) {
+    container.style.paddingTop = '10px';
+    container.style.paddingBottom = '10px';
+
+    // Helper to apply font size and vertical drag offset (dy) from editor.html / FLOW_DETAIL_TEXT
+    function _batStyle(idx, defFs, extraCss) {
+      const ov = _textOv('battery', idx);
+      const fs = (typeof ov.fs === 'number' && ov.fs > 0) ? ov.fs : defFs;
+      const dy = (typeof ov.dy === 'number') ? ov.dy : 0;
+      let s = '';
+      if (fs) s += 'font-size:' + fs + 'px;';
+      if (dy) s += 'transform:translateY(' + dy + 'px);';
+      if (extraCss) s += extraCss;
+      return s;
+    }
+
+    let soc = '---', volt = '---', time = '--:--', action = 'Standby', watts = '';
+    let rate = '', cutoff = '', chgM = '', chgTY = '', dischM = '', dischTY = '';
+
+    lines.forEach(function (l) {
+      const t = l.text.trim();
+      if (/^\d+(\.\d+)?%$/.test(t)) soc = t;
+      else if (/^\d+(\.\d+)?V$/i.test(t)) volt = t;
+      else if (/\d+:\d+\s*(AM|PM)/i.test(t)) time = t;
+      else if (/Charging|Discharging|Standby/i.test(t)) action = t;
+      else if (/[+-]\d+\s*w/i.test(t)) watts = t;
+      else if (/%(\/hr|\/min)/i.test(t)) rate = t;
+      else if (/left|to \d+%/i.test(t)) cutoff = t;
+      else if (/Chg:\s*M:/i.test(t)) chgM = t.replace(/Chg:\s*/i, '');
+      else if (/Disch:\s*M:/i.test(t)) dischM = t.replace(/Disch:\s*/i, '');
+      else if (/T:.*Y:/i.test(t)) {
+        if (!chgTY && !dischM) chgTY = t;
+        else dischTY = t;
+      }
+    });
+
+    const mU = window.monthlyUnits || {};
+    const fmt = function (wh) {
+      if (wh == null || isNaN(wh) || wh <= 0) return '0 w';
+      return wh >= 500 ? (wh / 1000).toFixed(1) + ' kwh' : Math.round(wh) + ' w';
+    };
+    if (!chgM && mU.batChgM) chgM = 'M: ' + fmt(mU.batChgM);
+    if (!chgTY && (mU.batChgT || mU.batChgY)) chgTY = 'T: ' + fmt(mU.batChgT) + ' Y: ' + fmt(mU.batChgY);
+    if (!dischM && mU.batDisM) dischM = 'M: ' + fmt(mU.batDisM);
+    if (!dischTY && (mU.batDisT || mU.batDisY)) dischTY = 'T: ' + fmt(mU.batDisT) + ' Y: ' + fmt(mU.batDisY);
+
+    const socNum = parseFloat(soc);
+    const socColor = (!isNaN(socNum) && socNum <= 20) ? '#ef4444' : ((!isNaN(socNum) && socNum <= 50) ? '#facc15' : '#25f447');
+    const isCharging = action.includes('Charging');
+
+    let html = '<div class="fd-battery-grid">';
+
+    // ── Box 1: Charge Info (Left) ──
+    html += '<div class="fd-bat-card">';
+    html += '<div class="fd-bat-header" style="color:#10b981;">⚡ CHARGE</div>';
+    html += '<div class="fd-bat-val" style="' + _batStyle(5, 13, 'color:#4ade80;') + '">' + (watts.startsWith('+') ? watts : (isCharging ? watts : '--')) + '</div>';
+    html += '<div class="fd-bat-sub" style="' + _batStyle(4, 10.5, 'color:' + (isCharging ? '#25f447' : '#a1a1aa') + ';') + '">' + action + '</div>';
+    if (rate) html += '<div class="fd-bat-sub" style="' + _batStyle(6, 10.5, 'color:#4ade80;') + '">' + rate + '</div>';
+    if (cutoff) html += '<div class="fd-bat-sub" style="' + _batStyle(7, 10.5, 'color:#facc15;') + '">' + cutoff + '</div>';
+    html += '<div class="fd-bat-divider"></div>';
+    html += '<div class="fd-bat-stat" style="' + _batStyle(9, 10.5, 'color:#10b981;') + '">' + (chgTY || 'T: 0w Y: 0w') + '</div>';
+    html += '<div class="fd-bat-stat" style="' + _batStyle(8, 10.5, 'color:#10b981;') + '">' + (chgM || 'M: 0w') + '</div>';
+    html += '</div>';
+
+    // ── Box 2: Hero SOC (Center) ──
+    // idx 0 = Battery Title, idx 1 = SOC %, idx 2 = Voltage, idx 3 = Time
+    html += '<div class="fd-bat-card fd-bat-hero">';
+    html += '<div class="fd-bat-header" style="' + _batStyle(0, 11, 'color:#10b981;') + '">Battery</div>';
+    html += '<div class="fd-bat-soc" style="' + _batStyle(1, 38, 'color:' + socColor + ';') + '">' + soc + '</div>';
+    html += '<div class="fd-bat-volt" style="' + _batStyle(2, 17, 'color:#35c0b7;') + '">' + volt + '</div>';
+    html += '<div class="fd-bat-time" style="' + _batStyle(3, 11, 'color:#a1a1aa;') + '">' + time + '</div>';
+    html += '</div>';
+
+    // ── Box 3: Discharge & Night (Right) ──
+    html += '<div class="fd-bat-card">';
+    html += '<div class="fd-bat-header" style="color:#f97316;">⚡ DISCHARGE</div>';
+    html += '<div class="fd-bat-stat" style="' + _batStyle(11, 10.5, 'color:#f97316;font-weight:700;') + '">' + (dischTY || 'T: 0w Y: 0w') + '</div>';
+    html += '<div class="fd-bat-stat" style="' + _batStyle(10, 10.5, 'color:#f97316;') + '">' + (dischM || 'M: 0w') + '</div>';
+    html += '<div class="fd-bat-divider"></div>';
+    html += '<div class="fd-battery-night" style="' + _batStyle('night', 10, 'color:#c084fc;font-weight:700;') + '">Loading night disch&hellip;</div>';
+    html += '</div>';
+
+    html += '</div>';
+    container.innerHTML = html;
+
+    const nightEl = container.querySelector('.fd-battery-night');
+    if (nightEl) _populateBatteryNight(nightEl);
+  }
   function _refreshModalBody(boxKey) {
     const cfg = FLOW_DETAIL_CONFIG[boxKey];
     if (!cfg) return;
@@ -454,40 +574,26 @@
     }
     container.classList.remove('is-loading');
 
-    // Compute extra top padding to prevent clipping when lines have a
-    // negative dy (visually shifted upward). The most-negative dy
-    // determines how much headroom the container needs.
+    if (boxKey === 'battery') {
+      _renderBattery3Boxes(container, lines);
+      return;
+    }
+
+    const MODAL_DY_SCALE = 0.35;
     let minDy = 0;
     lines.forEach(function (_, i) {
       const ov = _textOv(boxKey, i);
       if (typeof ov.dy === 'number' && ov.dy < minDy) minDy = ov.dy;
     });
-    if (boxKey === 'battery') {
-      const ovN = _textOv(boxKey, 'night');
-      if (typeof ovN.dy === 'number' && ovN.dy < minDy) minDy = ovN.dy;
-    }
-    const extraTop = Math.max(0, -minDy);
-    container.style.paddingTop = (22 + extraTop + 8) + 'px';
+    const extraTop = Math.max(0, -minDy * MODAL_DY_SCALE);
+    container.style.paddingTop = (22 + extraTop + 24) + 'px';
+    container.__fdDyScale = MODAL_DY_SCALE;
 
     container.innerHTML = lines.map(function (l, i) {
       return _lineHtml(l, i, cfg.color, boxKey);
     }).join('');
-
-    if (boxKey === 'battery') {
-      let nightEl = container.querySelector('.fd-battery-night');
-      if (!nightEl) {
-        nightEl = document.createElement('div');
-        nightEl.className = 'fd-line fd-battery-night';
-        container.appendChild(nightEl);
-      }
-      const ovN = _textOv(boxKey, 'night');
-      const fsN = (typeof ovN.fs === 'number' && ovN.fs > 0) ? ovN.fs : 17;
-      const dyN = (typeof ovN.dy === 'number') ? ovN.dy : 0;
-      nightEl.style.cssText = 'color:#10b981; font-size:' + fsN + 'px; font-weight:700; margin-top:8px;' +
-                              (dyN ? 'transform: translateY(' + dyN + 'px);' : '');
-      _populateBatteryNight(nightEl);
-    }
   }
+
 
   // ─── Battery night discharge (cycle-aligned to 7am) ─────────────────
   function _pktMs(y, m, d, h) { return Date.UTC(y, m, d, h - 5, 0, 0); }
@@ -523,9 +629,10 @@
     try {
       const results = await Promise.all([
         _gFetch('546025', cyc.prevStart - 600000, Date.now(), 600),
-        _gFetch('546013', cyc.prevStart - 600000, Date.now(), 600)
+        _gFetch('546013', cyc.prevStart - 600000, Date.now(), 600),
+        _gFetch('546019', cyc.prevStart - 600000, Date.now(), 600)
       ]);
-      const ampPts = results[0] || [], voltPts = results[1] || [];
+      const ampPts = results[0] || [], voltPts = results[1] || [], socPts = results[2] || [];
       const vMap = new Map();
       voltPts.forEach(function (p) {
         if (p && p[0] != null && p[1] != null && p[1] > 35) vMap.set(p[0], p[1]);
@@ -540,7 +647,29 @@
         if (tsMs >= cyc.curStart && tsMs < cyc.curEnd)  tWh += wh;
         else if (tsMs >= cyc.prevStart && tsMs < cyc.prevEnd) yWh += wh;
       });
-      _batNightCache = { ts: Date.now(), T: tWh, Y: yWh };
+
+      // True Battery Chemical Drain via BMS ΔSOC
+      const packKwh = (typeof solarCfg !== 'undefined' && solarCfg && solarCfg.batteryKwh > 0) ? solarCfg.batteryKwh : 5.12;
+      const getSocDeltaWh = function(start, end) {
+        const pts = socPts.filter(p => {
+          const t = p[0] < 2e9 ? p[0] * 1000 : p[0];
+          return t >= start && t <= end && p[1] != null && p[1] > 10;
+        });
+        if (pts.length < 2) return 0;
+        const maxSoc = Math.max(...pts.map(p => p[1]));
+        const minSoc = Math.min(...pts.map(p => p[1]));
+        const drop = Math.max(0, maxSoc - minSoc);
+        return (drop / 100) * packKwh * 1000;
+      };
+
+      const tSocWh = getSocDeltaWh(cyc.curStart, cyc.curEnd);
+      const ySocWh = getSocDeltaWh(cyc.prevStart, cyc.prevEnd);
+
+      _batNightCache = {
+        ts: Date.now(),
+        T: Math.max(tWh, tSocWh),
+        Y: Math.max(yWh, ySocWh)
+      };
       return _batNightCache;
     } catch (e) {
       console.warn('[flow-detail] night discharge fetch error', e);
@@ -567,7 +696,7 @@
     const h = isPkt ? d.getHours() : d.getUTCHours();
     return M + '/' + D + ' ' + String(h).padStart(2, '0') + ':00';
   }
-  function _renderBatteryNight(el, data) {
+    function _renderBatteryNight(el, data) {
     const fmt = function (wh) {
       if (wh == null || isNaN(wh) || wh <= 0) return '0 w';
       return wh >= 500 ? (wh / 1000).toFixed(1) + ' kwh' : Math.round(wh) + ' w';
@@ -575,10 +704,11 @@
     const cyc = _currentNightCycles();
     const label = _fmtPktShort(cyc.curStart) + ' \u2192 ' + _fmtPktShort(cyc.curEnd);
     el.innerHTML =
-      'Night Disch &nbsp;T: ' + fmt(data.T) + ' &nbsp;Y: ' + fmt(data.Y) +
-      '<div style="font-size:11px; color:var(--text-muted); font-weight:600; margin-top:2px;">' +
-      label + '</div>';
+      '<div style="color:#c084fc; font-weight:800; font-size:11px; margin-bottom:2px;">🌙 Night Disch</div>' +
+      '<div style="color:#c084fc; font-weight:700; font-size:11px;">T: ' + fmt(data.T) + ' &nbsp;Y: ' + fmt(data.Y) + '</div>' +
+      '<div style="font-size:9.5px; color:var(--text-muted); font-weight:600; margin-top:2px;">' + label + '</div>';
   }
+
 
   // ─── 24h graph fetch ────────────────────────────────────────────────
   async function _fetch24hGraph(graphKey) {
@@ -903,16 +1033,18 @@
         '<div class="fd-chart-header"><span class="fd-chart-title">' +
         '<span class="fd-chart-dot" style="background:#10b981"></span>' +
         'Battery SOC — 24h (sessions)</span>' +
-        '<span class="fd-chart-hint">colored pills = charge/discharge sessions</span></div>' +
+        '<span class="fd-chart-hint">scroll / pinch to zoom</span>' +
+        '<button type="button" class="fd-chart-reset">Reset</button></div>' +
         '<div class="fd-chart-wrap"><canvas class="fd-chart"></canvas>' +
         '<div class="fd-chart-loading">Loading chart\u2026</div></div>';
       chartsEl.appendChild(section);
       chartsEl.style.display = '';
       const canvas = section.querySelector('.fd-chart');
       const loadingEl = section.querySelector('.fd-chart-loading');
+      const resetBtn = section.querySelector('.fd-chart-reset');
       requestAnimationFrame(function () {
         setTimeout(function () {
-          window.renderBatterySocChart(canvas, loadingEl);
+          window.renderBatterySocChart(canvas, loadingEl, resetBtn);
         }, 20);
       });
       return;

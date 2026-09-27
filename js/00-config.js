@@ -78,7 +78,23 @@ const STALE_EXEMPT = new Set([
   "bt_battery_charging_current",
   "bt_battery_discharge_current",
   "Chg A",
-  "Dis A"
+  "Dis A",
+  // Battery 2 (Dyness) — same staleness leniency as Battery 1
+  "Bat2 Voltage",
+  "Bat2 Current",
+  "Bat2 SOC",
+  "Bat2 SOH",
+  "Bat2 Mosfet Temp",
+  "Bat2 BMS Temp",
+  "Bat2 Cycle Count",
+  "Bat2 Chg Limit V",
+  "Bat2 Chg Limit A",
+  "Bat2 Dis Limit V",
+  "Bat2 Dis Limit A",
+  "Bat2 Cell 1", "Bat2 Cell 2", "Bat2 Cell 3", "Bat2 Cell 4",
+  "Bat2 Cell 5", "Bat2 Cell 6", "Bat2 Cell 7", "Bat2 Cell 8",
+  "Bat2 Cell 9", "Bat2 Cell 10", "Bat2 Cell 11", "Bat2 Cell 12",
+  "Bat2 Cell 13", "Bat2 Cell 14", "Bat2 Cell 15", "Bat2 Cell 16"
 ]);
 
 const BULK_UNRELIABLE_IDS = ["541348", "541350", "542850", "542853", "512473", "512474"];
@@ -123,13 +139,52 @@ const FEEDS_BASE = [
   { id: "512474", name: "Humidity 2",           unit: "%",   type: "env"   },
   {
     id: "499394", name: "Inverter Temp",        unit: "°C",  type: "env"   },
-  // Battery Feeds
+  // Battery 1 Feeds
   { id: "546013", name: "Bat V",                         unit: "V",   type: "env"   },
   { id: "546016", name: "Status",                        unit: "",    type: "env"   },
   { id: "546019", name: "SOC %",                         unit: "%",   type: "env"   },
   { id: "546022", name: "bt_battery_charging_current",   unit: "A",   type: "env"   },
   { id: "546025", name: "bt_battery_discharge_current",  unit: "A",   type: "env"   },
+
+  // Battery 2 (Dyness DL5.0F, 5kWh) Feeds
+  { id: "546365", name: "Bat2 Power",          unit: "W",   type: "watts" },
+  { id: "546369", name: "Bat2 Voltage",        unit: "V",   type: "env"   },
+  { id: "546370", name: "Bat2 Current",        unit: "A",   type: "env"   },
+  { id: "546371", name: "Bat2 SOC",            unit: "%",   type: "env"   },
+  { id: "546372", name: "Bat2 SOH",            unit: "%",   type: "env"   },
+  { id: "546373", name: "Bat2 Mosfet Temp",    unit: "°C",  type: "env"   },
+  { id: "546374", name: "Bat2 BMS Temp",       unit: "°C",  type: "env"   },
+  { id: "546375", name: "Bat2 Cycle Count",    unit: "",    type: "env"   },
+  { id: "546376", name: "Bat2 Chg Limit V",    unit: "V",   type: "env"   },
+  { id: "546377", name: "Bat2 Chg Limit A",    unit: "A",   type: "env"   },
+  { id: "546378", name: "Bat2 Dis Limit V",    unit: "V",   type: "env"   },
+  { id: "546379", name: "Bat2 Dis Limit A",    unit: "A",   type: "env"   },
+  { id: "546380", name: "Bat2 Cell 1",         unit: "V",   type: "env"   },
+  { id: "546381", name: "Bat2 Cell 2",         unit: "V",   type: "env"   },
+  { id: "546382", name: "Bat2 Cell 3",         unit: "V",   type: "env"   },
+  { id: "546383", name: "Bat2 Cell 4",         unit: "V",   type: "env"   },
+  { id: "546384", name: "Bat2 Cell 5",         unit: "V",   type: "env"   },
+  { id: "546385", name: "Bat2 Cell 6",         unit: "V",   type: "env"   },
+  { id: "546386", name: "Bat2 Cell 7",         unit: "V",   type: "env"   },
+  { id: "546387", name: "Bat2 Cell 8",         unit: "V",   type: "env"   },
+  { id: "546388", name: "Bat2 Cell 9",         unit: "V",   type: "env"   },
+  { id: "546389", name: "Bat2 Cell 10",        unit: "V",   type: "env"   },
+  { id: "546390", name: "Bat2 Cell 11",        unit: "V",   type: "env"   },
+  { id: "546391", name: "Bat2 Cell 12",        unit: "V",   type: "env"   },
+  { id: "546392", name: "Bat2 Cell 13",        unit: "V",   type: "env"   },
+  { id: "546393", name: "Bat2 Cell 14",        unit: "V",   type: "env"   },
+  { id: "546394", name: "Bat2 Cell 15",        unit: "V",   type: "env"   },
+  { id: "546395", name: "Bat2 Cell 16",        unit: "V",   type: "env"   },
 ];
+
+// Convenience list of the 16 Battery 2 cell feed names, in cell order (1-16).
+const BATTERY2_CELL_NAMES = [
+  "Bat2 Cell 1","Bat2 Cell 2","Bat2 Cell 3","Bat2 Cell 4",
+  "Bat2 Cell 5","Bat2 Cell 6","Bat2 Cell 7","Bat2 Cell 8",
+  "Bat2 Cell 9","Bat2 Cell 10","Bat2 Cell 11","Bat2 Cell 12",
+  "Bat2 Cell 13","Bat2 Cell 14","Bat2 Cell 15","Bat2 Cell 16"
+];
+window.BATTERY2_CELL_NAMES = BATTERY2_CELL_NAMES;
 
 const COLORS = { watts: "val-watts", units: "val-units", env: "val-env" };
 
@@ -137,6 +192,10 @@ const LINKED_GROUPS = [
   ["Solar", "Solar V", "Tot Load", "Solar Today", "Solar Total", "Inverter Temp"],
     ["Breaker", "AC Volts", "Breaker Today", "Breaker Total"],
   ["Bat V", "Status", "SOC %", "bt_battery_charging_current", "bt_battery_discharge_current"],
+  // Battery 2 (Dyness) — grouped as one card/settings row; cells are handled separately by flow-detail/extras
+  ["Bat2 Power", "Bat2 Voltage", "Bat2 Current", "Bat2 SOC", "Bat2 SOH", "Bat2 Mosfet Temp", "Bat2 BMS Temp", "Bat2 Cycle Count",
+   "Bat2 Chg Limit V", "Bat2 Chg Limit A", "Bat2 Dis Limit V", "Bat2 Dis Limit A",
+   ...BATTERY2_CELL_NAMES],
   // ["Utility", "Utility Today", "Utility Total"],
   ["PC", "PC Today"],
     ["Washing Machine", "Washing Machine Today"],

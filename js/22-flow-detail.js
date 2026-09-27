@@ -1,7 +1,9 @@
-// js/22-flow-detail.js  (v3.0)
+// js/22-flow-detail.js  (v3.1)
+// See js/23-flow-extras.js for window.renderBattery2SocChart (referenced above).
 // FLOW_EXTRAS_PATCH_V1
 // FLOW_EXTRAS_PATCH_V2
 // FLOW_EXTRAS_PATCH_V3
+// FLOW_BATTERY2_PATCH_V1 — adds Battery 2 (Dyness) popup with full cell grid
 // Cycle-aligned night discharge (7am rollover), zoomable 24h charts,
 // draggable/resizable modal. Text sizes/offsets come from FLOW_DETAIL_TEXT
 // (edit in editor.html and paste back into js/22a-flow-detail-text.js).
@@ -23,7 +25,9 @@
     motor:   { title: 'Water Motor',     color: '#fbbf24', graphs: ['motor'] },
     wm:      { title: 'Washing Machine', color: '#e879f9', graphs: ['wm'] },
     temp:    { title: 'Temperature',     color: '#22c55e', graphs: ['temp'] },
-    temp2:   { title: 'Temperature 2',   color: '#22c55e', graphs: ['temp2'] }
+    temp2:   { title: 'Temperature 2',   color: '#22c55e', graphs: ['temp2'] },
+    // FLOW_BATTERY2_PATCH_V1
+    battery2:{ title: 'Battery 2 (Dyness)', color: '#a78bfa', graphs: ['bat2power', 'bat2volt'] }
   };
 
   const ZOOM_MIN = 1;
@@ -154,6 +158,54 @@
       #flow-detail-modal .fd-bat-sub { font-size: 10.5px; font-weight: 700; line-height: 1.25; }
       #flow-detail-modal .fd-bat-stat { font-size: 10.5px; font-weight: 600; line-height: 1.25; }
       #flow-detail-modal .fd-bat-divider { width: 100%; height: 1px; background: var(--border); margin: 3px 0; opacity: .7; }
+
+      /* FLOW_BATTERY2_PATCH_V1: Battery 2 (Dyness) popup layout */
+      #flow-detail-modal .fd-bat2-top {
+        display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 8px; width: 100%; box-sizing: border-box;
+      }
+      #flow-detail-modal .fd-bat2-stat {
+        background: rgba(167,139,250,0.06); border: 1px solid var(--border);
+        border-radius: 10px; padding: 8px 6px; text-align: center;
+        display: flex; flex-direction: column; gap: 2px;
+      }
+      #flow-detail-modal .fd-bat2-stat .lbl {
+        font-size: 9.5px; font-weight: 800; text-transform: uppercase;
+        letter-spacing: .04em; color: var(--text-muted);
+      }
+      #flow-detail-modal .fd-bat2-stat .val {
+        font-size: 17px; font-weight: 900; font-variant-numeric: tabular-nums;
+      }
+      #flow-detail-modal .fd-bat2-status {
+        text-align: center; font-size: 13px; font-weight: 800; padding: 6px 0;
+      }
+      #flow-detail-modal .fd-bat2-cellgrid {
+        display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; width: 100%; box-sizing: border-box;
+      }
+      #flow-detail-modal .fd-bat2-cell {
+        background: var(--bg-card); border: 1px solid var(--border); border-radius: 7px;
+        padding: 5px 6px; display: flex; justify-content: space-between; align-items: center;
+        font-size: 11px; color: var(--text-muted);
+      }
+      #flow-detail-modal .fd-bat2-cell .cv {
+        font-weight: 800; color: var(--text-main); font-variant-numeric: tabular-nums;
+      }
+      #flow-detail-modal .fd-bat2-cell.cmax { border-color: #4ade80; }
+      #flow-detail-modal .fd-bat2-cell.cmin { border-color: #f87171; }
+      #flow-detail-modal .fd-bat2-section-title {
+        font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em;
+        color: var(--text-muted); margin-bottom: 4px;
+      }
+      #flow-detail-modal .fd-bat2-limits {
+        display: grid; grid-template-columns: 1fr 1fr; gap: 8px; width: 100%; box-sizing: border-box;
+      }
+      #flow-detail-modal .fd-bat2-limit-card {
+        background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px;
+        padding: 8px 10px; font-size: 11px;
+      }
+      #flow-detail-modal .fd-bat2-limit-card .t {
+        font-weight: 800; margin-bottom: 4px; text-transform: uppercase; font-size: 10px; letter-spacing: .05em;
+      }
+
       #flow-detail-modal .fd-lines {
         display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start;
         gap: 6px; padding: 16px 16px; overflow: visible;
@@ -562,6 +614,100 @@
     const nightEl = container.querySelector('.fd-battery-night');
     if (nightEl) _populateBatteryNight(nightEl);
   }
+
+  // ── FLOW_BATTERY2_PATCH_V1: Battery 2 (Dyness) popup renderer ────────
+  // Reads window.lastBattery2Snapshot (set every renderFlowDiagram tick
+  // in js/02-flow.js) for the headline stats, and window.lastResultsMap
+  // for the 16 individual cell voltages + limits + SOH + cycle count.
+  function _renderBattery2Grid(container) {
+    container.style.paddingTop = '10px';
+    container.style.paddingBottom = '10px';
+
+    const snap = window.lastBattery2Snapshot || {};
+    const byName = window.lastResultsMap || new Map();
+    const getV = (n) => byName.get(n)?.value;
+
+    const soc   = snap.soc   != null ? snap.soc   : getV('Bat2 SOC');
+    const soh   = snap.soh   != null ? snap.soh   : getV('Bat2 SOH');
+    const volt  = snap.volt  != null ? snap.volt  : getV('Bat2 Voltage');
+    const amps  = snap.amps  != null ? snap.amps  : getV('Bat2 Current');
+    const watt  = snap.watt  != null ? snap.watt  : getV('Bat2 Power');
+    const cyc   = snap.cycles != null ? snap.cycles : getV('Bat2 Cycle Count');
+    const mosT  = snap.mosfetTemp != null ? snap.mosfetTemp : getV('Bat2 Mosfet Temp');
+    const bmsT  = snap.bmsTemp != null ? snap.bmsTemp : getV('Bat2 BMS Temp');
+    const chgLimV = getV('Bat2 Chg Limit V');
+    const chgLimA = getV('Bat2 Chg Limit A');
+    const disLimV = getV('Bat2 Dis Limit V');
+    const disLimA = getV('Bat2 Dis Limit A');
+
+    const isCharging = snap.isCharging != null ? snap.isCharging : ((amps > 0.3) || (watt > 15));
+    const isDischarging = snap.isDischarging != null ? snap.isDischarging : ((amps < -0.3) || (watt < -15));
+    const statusText = isCharging ? '⚡ Charging' : (isDischarging ? '⚡ Discharging' : '⏸ Standby');
+    const statusColor = isCharging ? '#4ade80' : (isDischarging ? '#f59e0b' : 'var(--text-muted)');
+    const socColor = (soc != null && soc <= 20) ? '#ef4444' : (soc != null && soc <= 50) ? '#facc15' : '#4ade80';
+
+    const cellNames = window.BATTERY2_CELL_NAMES || [];
+    const cells = cellNames.map((n, i) => ({ idx: i + 1, v: byName.get(n)?.value }));
+    const validCells = cells.filter(c => c.v != null && c.v > 0);
+
+    let html = '';
+
+    // Top stat row: SOC / Voltage / Current / Power
+    html += '<div class="fd-bat2-top">';
+    html += '<div class="fd-bat2-stat"><div class="lbl">SOC</div><div class="val" style="color:' + socColor + ';">' + (soc != null ? Math.round(soc) + '%' : '--') + '</div></div>';
+    html += '<div class="fd-bat2-stat"><div class="lbl">Voltage</div><div class="val" style="color:#35c0b7;">' + (volt != null ? volt.toFixed(2) + 'V' : '--') + '</div></div>';
+    html += '<div class="fd-bat2-stat"><div class="lbl">Current</div><div class="val" style="color:#facc15;">' + (amps != null ? amps.toFixed(1) + 'A' : '--') + '</div></div>';
+    html += '<div class="fd-bat2-stat"><div class="lbl">Power</div><div class="val" style="color:' + (watt > 0 ? '#4ade80' : (watt < 0 ? '#f59e0b' : 'var(--text-muted)')) + ';">' + (watt != null ? (watt > 0 ? '+' : '') + Math.round(watt) + 'W' : '--') + '</div></div>';
+    html += '</div>';
+
+    html += '<div class="fd-bat2-status" style="color:' + statusColor + ';">' + statusText + '</div>';
+
+    // SOH / Cycles / Temps row
+    html += '<div class="fd-bat2-top">';
+    html += '<div class="fd-bat2-stat"><div class="lbl">SOH</div><div class="val" style="color:#10b981;">' + (soh != null ? Math.round(soh) + '%' : '--') + '</div></div>';
+    html += '<div class="fd-bat2-stat"><div class="lbl">Cycles</div><div class="val" style="color:#10b981;">' + (cyc != null ? Math.round(cyc) : '--') + '</div></div>';
+    html += '<div class="fd-bat2-stat"><div class="lbl">Mosfet Temp</div><div class="val" style="color:#38bdf8; font-size:14px;">' + (mosT != null ? mosT.toFixed(1) + '°C' : '--') + '</div></div>';
+    html += '<div class="fd-bat2-stat"><div class="lbl">BMS Temp</div><div class="val" style="color:#38bdf8; font-size:14px;">' + (bmsT != null ? bmsT.toFixed(1) + '°C' : '--') + '</div></div>';
+    html += '</div>';
+
+    // Charge / Discharge limits
+    html += '<div class="fd-bat2-limits">';
+    html += '<div class="fd-bat2-limit-card"><div class="t" style="color:#4ade80;">Charge Limit</div>' +
+      (chgLimV != null ? chgLimV.toFixed(1) + 'V' : '--') + ' &nbsp;/&nbsp; ' +
+      (chgLimA != null ? chgLimA.toFixed(1) + 'A' : '--') + '</div>';
+    html += '<div class="fd-bat2-limit-card"><div class="t" style="color:#f97316;">Discharge Limit</div>' +
+      (disLimV != null ? disLimV.toFixed(1) + 'V' : '--') + ' &nbsp;/&nbsp; ' +
+      (disLimA != null ? disLimA.toFixed(1) + 'A' : '--') + '</div>';
+    html += '</div>';
+
+    // All 16 cell voltages at once, with min/max highlighted + spread summary
+    if (validCells.length > 0) {
+      const cMin = Math.min(...validCells.map(c => c.v));
+      const cMax = Math.max(...validCells.map(c => c.v));
+      const spreadMv = Math.round((cMax - cMin) * 1000);
+      const minIdx = validCells.find(c => c.v === cMin)?.idx;
+      const maxIdx = validCells.find(c => c.v === cMax)?.idx;
+      const spreadColor = spreadMv > 30 ? '#ef4444' : spreadMv > 15 ? '#facc15' : '#4ade80';
+
+      html += '<div>';
+      html += '<div class="fd-bat2-section-title">🔋 Cell Voltages (' + validCells.length + '/16) &middot; Spread: <span style="color:' + spreadColor + ';">' + spreadMv + 'mV</span></div>';
+      html += '<div class="fd-bat2-cellgrid">';
+      cells.forEach(function (c) {
+        if (c.v == null) {
+          html += '<div class="fd-bat2-cell"><span>C' + c.idx + '</span><span class="cv">--</span></div>';
+          return;
+        }
+        const cls = c.idx === maxIdx ? 'cmax' : (c.idx === minIdx ? 'cmin' : '');
+        html += '<div class="fd-bat2-cell ' + cls + '"><span>C' + c.idx + '</span><span class="cv">' + c.v.toFixed(3) + 'V</span></div>';
+      });
+      html += '</div></div>';
+    } else {
+      html += '<div class="fd-empty" style="padding:14px;">Cell voltage data not yet available&hellip;</div>';
+    }
+
+    container.innerHTML = html;
+  }
+
   function _refreshModalBody(boxKey) {
     const cfg = FLOW_DETAIL_CONFIG[boxKey];
     if (!cfg) return;
@@ -569,6 +715,16 @@
     if (!modal) return;
     const container = modal.querySelector('.fd-lines');
     if (!container) return;
+
+    // FLOW_BATTERY2_PATCH_V1: Battery 2 has its own dedicated renderer that
+    // does not depend on scraping SVG text (its layout is denser than the
+    // generic line-list format), so short-circuit before the line-scrape path.
+    if (boxKey === 'battery2') {
+      container.classList.remove('is-loading');
+      _renderBattery2Grid(container);
+      return;
+    }
+
     const lines = _extractBoxLines(boxKey);
     if (!lines.length) {
       container.classList.add('is-loading');
@@ -714,17 +870,29 @@
 
 
   // ─── 24h graph fetch ────────────────────────────────────────────────
+  // Generic feed lookup for arbitrary feed IDs, used by Battery 2 graphs
+  // (bat2power / bat2volt) which aren't in GRAPH_FEEDS.
+  const _AD_HOC_FEED_IDS = {
+    bat2power: '546365',
+    bat2volt:  '546369'
+  };
+
   async function _fetch24hGraph(graphKey) {
-    if (typeof _gFetch !== 'function' || typeof GRAPH_FEEDS === 'undefined') return null;
-    const feed = GRAPH_FEEDS.find(function (f) { return f.key === graphKey; });
-    if (!feed) return null;
+    if (typeof _gFetch !== 'function') return null;
+    let feedId = null;
+    if (typeof GRAPH_FEEDS !== 'undefined') {
+      const feed = GRAPH_FEEDS.find(function (f) { return f.key === graphKey; });
+      if (feed) feedId = feed.id;
+    }
+    if (!feedId && _AD_HOC_FEED_IDS[graphKey]) feedId = _AD_HOC_FEED_IDS[graphKey];
+    if (!feedId) return null;
     const now = Date.now(), startMs = now - 24 * 3600 * 1000;
     const intervals = [300, 900, 1800, 3600];
     let pts = [];
     for (let i = 0; i < intervals.length; i++) {
       const iv = intervals[i];
       try {
-        const raw = await _gFetch(feed.id, startMs, now, iv);
+        const raw = await _gFetch(feedId, startMs, now, iv);
         if (raw && raw.length) { pts = raw; break; }
       } catch (e) {}
     }
@@ -963,8 +1131,9 @@
     const feed = (typeof GRAPH_FEEDS !== 'undefined')
       ? GRAPH_FEEDS.find(function (f) { return f.key === graphKey; })
       : null;
+    const adHocLabels = { bat2power: 'Battery 2 Power', bat2volt: 'Battery 2 Voltage' };
     const color = feed ? feed.color : fallbackColor;
-    const label = feed ? feed.name : graphKey;
+    const label = feed ? feed.name : (adHocLabels[graphKey] || graphKey);
     const section = document.createElement('div');
     section.className = 'fd-chart-section';
     const headerHtml = showLabel
@@ -1050,6 +1219,44 @@
           window.renderBatterySocChart(canvas, loadingEl, resetBtn);
         }, 20);
       });
+      return;
+    }
+
+    // FLOW_BATTERY2_PATCH_V1: Battery 2 gets its own SOC (%) session chart
+    // when available (built in js/23-flow-extras.js, mirrors Battery 1's),
+    // otherwise falls through to the generic per-graph 24h charts below.
+    if (boxKey === 'battery2' && typeof window.renderBattery2SocChart === 'function') {
+      const section = document.createElement('div');
+      section.className = 'fd-chart-section';
+      section.innerHTML =
+        '<div class="fd-chart-header"><span class="fd-chart-title">' +
+        '<span class="fd-chart-dot" style="background:#a78bfa"></span>' +
+        'Battery 2 SOC — 24h</span>' +
+        '<span class="fd-chart-hint">scroll / pinch to zoom</span>' +
+        '<button type="button" class="fd-chart-reset">Reset</button></div>' +
+        '<div class="fd-chart-wrap"><canvas class="fd-chart"></canvas>' +
+        '<div class="fd-chart-loading">Loading chart\u2026</div></div>';
+      chartsEl.appendChild(section);
+      chartsEl.style.display = '';
+      const canvas = section.querySelector('.fd-chart');
+      const loadingEl = section.querySelector('.fd-chart-loading');
+      const resetBtn = section.querySelector('.fd-chart-reset');
+      requestAnimationFrame(function () {
+        setTimeout(function () {
+          window.renderBattery2SocChart(canvas, loadingEl, resetBtn);
+        }, 20);
+      });
+      // Also show the Power (W) 24h trend beneath it for extra context.
+      const seg2 = _buildChartSection(chartsEl, 'bat2power', cfg.color, true);
+      await new Promise(function (r) { requestAnimationFrame(r); });
+      await new Promise(function (r) { setTimeout(r, 20); });
+      await _loadChartIntoSegment(seg2);
+      if (modal.__resizeHandler) window.removeEventListener('resize', modal.__resizeHandler);
+      modal.__resizeHandler = function () {
+        if (!modal.classList.contains('open')) return;
+        if (seg2.redraw) seg2.redraw();
+      };
+      window.addEventListener('resize', modal.__resizeHandler);
       return;
     }
 

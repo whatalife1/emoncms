@@ -5,7 +5,7 @@
 //
 // Tip: open editor.html on desktop, set the Canvas H input to the size
 // you like, then click "Copy JS line" and paste it here.
-const FLOW_CANVAS_HEIGHT = 1000;
+const FLOW_CANVAS_HEIGHT = 1290;
 
 try { window.FLOW_CANVAS_HEIGHT = FLOW_CANVAS_HEIGHT; } catch (e) {}
 
@@ -35,7 +35,18 @@ const LAYOUT = {
  fridge: { x:5, y:755, w:224, h:239, color:'#c084fc', label:'Fridges', ly1:16, fs:36, c1:'#38bdf8', ly2:53, fs2:52, c2:'#25f447', ly3:103, fs3:17, c3:'#518e35', ly4:129, fs4:36, c4:'#38bdf8', ly5:171, fs5:52, c5:'#25f447', ly6:228, fs6:18, c6:'#518e35', ly7:86, fs7:14, c7:'#a1a1aa', ly8:205, fs8:17, c8:'#a1a1aa',  },
  temp: { x:396, y:710, w:189, h:38, color:'#22c55e', label:'temp', ly1:16, fs:24, c1:'#25f447',  },
  temp2: { x:722, y:703, w:179, h:36, color:'#22c55e', label:'temp2', ly1:16, fs:21, c1:'#25f447',  },
+ // ── Battery 2 (Dyness DL5.0F, 5kWh) ─────────────────────────────────
+ // Placed as a full-width band below all existing boxes. FLOW_BAND_GAP below
+ // adds extra breathing room between the last row (fridge/water/wm) and this band.
+ battery2: { x:5, y:1005 + 60, w:718, h:250, color:'#a78bfa', label:'Battery 2 (Dyness)', ly1:22, fs:26, c1:'#a78bfa', ly2:66, fs2:46, c2:'#25f447', ly3:66, fs3:22, c3:'#35c0b7', ly4:100, fs4:18, c4:'#facc15', ly5:128, fs5:16, c5:'#a1a1aa', ly6:156, fs6:15, c6:'#10b981', ly7:156, fs7:15, c7:'#38bdf8', ly8:184, fs8:14, c8:'#9ca3af', },
 };
+
+// ── Extra vertical gap inserted between the flow diagram content above and
+// the Battery 2 band, purely for visual breathing room (per user request to
+// "increase space between live power flow and the below water tank..." row).
+// Increasing this constant pushes battery2.y further down automatically
+// since battery2.y already bakes in a +60 offset above.
+const FLOW_BAND_GAP = 60;
 
 
 
@@ -85,6 +96,51 @@ function getBatteryContinuousRate(isCharging, isDischarging, activeWatts, packWh
 }
 window.getBatteryContinuousRate = getBatteryContinuousRate;
 
+// ── Battery 2 (Dyness) continuous charge/discharge rate — separate state key ──
+function getBattery2ContinuousRate(isCharging, isDischarging, activeWatts, packWh) {
+  const now = Date.now();
+  let currentMode = 'standby';
+  if (isCharging && activeWatts > 15) currentMode = 'charging';
+  else if (isDischarging && activeWatts > 15) currentMode = 'discharging';
+
+  let state = window._bat2ActivityState;
+  if (!state) {
+    try {
+      const saved = localStorage.getItem('bat2_cont_activity');
+      if (saved) state = JSON.parse(saved);
+    } catch (e) {}
+  }
+
+  if (!state || state.mode !== currentMode || state.startTime > now) {
+    state = { mode: currentMode, startTime: now };
+    window._bat2ActivityState = state;
+    try { localStorage.setItem('bat2_cont_activity', JSON.stringify(state)); } catch (e) {}
+  } else {
+    window._bat2ActivityState = state;
+  }
+
+  if (currentMode === 'standby') return null;
+
+  const elapsedSec = (now - state.startTime) / 1000;
+  if (elapsedSec < 60) return null;
+
+  if (!packWh || packWh <= 0) packWh = 5120;
+  const ratePerHour = (activeWatts / packWh) * 100;
+  const ratePerMin = ratePerHour / 60;
+  const arrow = currentMode === 'charging' ? '▲' : '▼';
+
+  return {
+    mode: currentMode,
+    ratePerHour,
+    ratePerMin,
+    elapsedSec,
+    arrow,
+    text: `${arrow} ${ratePerHour.toFixed(1)}%/hr | ${ratePerMin.toFixed(2)}%/min`,
+    rawText: `${ratePerHour.toFixed(1)}%/hr | ${ratePerMin.toFixed(2)}%/min`
+  };
+}
+window.getBattery2ContinuousRate = getBattery2ContinuousRate;
+
 function renderFlowDiagram(byName) {
   if (!byName) return;
 
@@ -94,7 +150,7 @@ function renderFlowDiagram(byName) {
     const pWatts = solarCfg.panelWatts || 580;
     const totalKw = ((pCount * pWatts) / 1000).toFixed(1);
     const battKw = (solarCfg.batteryKwh && solarCfg.batteryKwh > 0) ? solarCfg.batteryKwh.toFixed(1) : '5.1';
-    titleEl.innerHTML = `⚡6kW Inverter &bull; ☀ Solar ${totalKw}kW (${pCount}×${pWatts}) &bull; 🔋${battKw}kWh Battery`;
+    titleEl.innerHTML = `⚡6kW Inverter &bull; ☀ Solar ${totalKw}kW (${pCount}×${pWatts}) &bull; 🔋${battKw}kWh Battery &bull; 🔋5.0kWh Battery 2`;
   }
 
   const getV = (n) => byName.get(n)?.value ?? 0;
@@ -565,7 +621,92 @@ function renderFlowDiagram(byName) {
   const oT = L.temp;
   svg += `<rect x="${oT.x}" y="${oT.y}" width="${oT.w}" height="${oT.h}" rx="8" fill="#141416" stroke="${oT.color}" stroke-width="1.5"/><text x="${cx(oT)}" y="${oT.y+oT.ly1}" ${tpProps} font-size="${oT.fs}" fill="${oT.c1}">${tp.toFixed(1)}°C / ${Math.round(hm)}%</text>`;
   const oT2 = L.temp2;
-  svg += `<rect x="${oT2.x}" y="${oT2.y}" width="${oT2.w}" height="${oT2.h}" rx="8" fill="#141416" stroke="${oT2.color}" stroke-width="1.5"/><text x="${cx(oT2)}" y="${oT2.y+oT2.ly1}" ${tpProps} font-size="${oT2.fs}" fill="${oT2.c1}">${tp2.toFixed(1)}°C / ${Math.round(hm2)}%</text></svg>`;
+  svg += `<rect x="${oT2.x}" y="${oT2.y}" width="${oT2.w}" height="${oT2.h}" rx="8" fill="#141416" stroke="${oT2.color}" stroke-width="1.5"/><text x="${cx(oT2)}" y="${oT2.y+oT2.ly1}" ${tpProps} font-size="${oT2.fs}" fill="${oT2.c1}">${tp2.toFixed(1)}°C / ${Math.round(hm2)}%</text>`;
+
+  // 6. BATTERY 2 (Dyness DL5.0F) — full-width band below everything else
+  o = L.battery2;
+  if (o) {
+    const b2V    = getV('Bat2 Voltage') || 52.0;
+    const b2A    = getV('Bat2 Current');           // signed: + charging, - discharging (per python script)
+    const b2Watt = getV('Bat2 Power') || (b2V * b2A);
+    const b2Soc  = Math.round(getV('Bat2 SOC'));
+    const b2Soh  = Math.round(getV('Bat2 SOH'));
+    const b2Cyc  = Math.round(getV('Bat2 Cycle Count'));
+    const b2MosT = getV('Bat2 Mosfet Temp');
+    const b2BmsT = getV('Bat2 BMS Temp');
+
+    const b2IsCharging    = b2A > 0.3 || b2Watt > 15;
+    const b2IsDischarging = b2A < -0.3 || b2Watt < -15;
+    const b2IsActive      = b2IsCharging || b2IsDischarging;
+
+    let b2ActionLine = 'Standby';
+    let b2ActionColor = '#38bdf8';
+    if (b2IsCharging) { b2ActionLine = `Charging: ${Math.abs(b2A).toFixed(1)}A`; b2ActionColor = '#25f447'; }
+    else if (b2IsDischarging) { b2ActionLine = `Discharging: ${Math.abs(b2A).toFixed(1)}A`; b2ActionColor = '#facc15'; }
+
+    const b2PwrSign = b2Watt > 0 ? `+${Math.round(b2Watt)}` : `${Math.round(b2Watt)}`;
+    const b2PwrColor = b2Watt > 0 ? '#4ade80' : (b2Watt < 0 ? '#f59e0b' : '#a1a1aa');
+
+    let b2Stroke = o.color;
+    let b2Fill = '#1a1530';
+    let b2PulseClr = b2IsCharging ? '#10b981' : (b2IsDischarging ? '#f59e0b' : o.color);
+    if (b2Soc > 0 && b2Soc <= 20) { b2Stroke = '#ef4444'; b2Fill = '#2a0a0a'; b2PulseClr = '#ef4444'; }
+
+    const b2Time = byName.get('Bat2 SOC')?.time || byName.get('Bat2 Voltage')?.time || byName.get('Bat2 Power')?.time;
+    const b2TimeStr = b2Time ? new Date(b2Time * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--';
+
+    // Cell voltage min/max/spread across the 16 cells (if present)
+    const cellVals = (window.BATTERY2_CELL_NAMES || []).map(n => byName.get(n)?.value).filter(v => v != null && v > 0);
+    let cellSummary = '';
+    if (cellVals.length > 0) {
+      const cMin = Math.min(...cellVals), cMax = Math.max(...cellVals);
+      const spreadMv = Math.round((cMax - cMin) * 1000);
+      cellSummary = `Cells: ${cMin.toFixed(3)}V–${cMax.toFixed(3)}V (Δ${spreadMv}mV)`;
+    }
+
+    const b2PackKwh = 5.12;
+    const b2Rate = getBattery2ContinuousRate(b2IsCharging, b2IsDischarging, Math.abs(b2Watt), b2PackKwh * 1000);
+    window.lastBat2Rate = b2Rate;
+
+    svg += `<rect class="${b2IsActive ? 'pulse-animation' : ''}" style="--pulse-clr:${b2PulseClr}" x="${o.x}" y="${o.y}" width="${o.w}" height="${o.h}" rx="12" fill="${b2Fill}" stroke="${b2Stroke}" stroke-width="2"/>`;
+    // Title (left aligned inside band)
+    svg += `<text x="${o.x + 16}" y="${o.y + o.ly1}" font-family="system-ui, -apple-system, sans-serif" dominant-baseline="central" text-anchor="start" font-weight="800" font-size="${o.fs}" fill="${o.c1}">🔋 ${o.label}</text>`;
+    // Time (right aligned)
+    svg += `<text x="${o.x + o.w - 16}" y="${o.y + o.ly1}" font-family="system-ui, -apple-system, sans-serif" dominant-baseline="central" text-anchor="end" font-weight="700" font-size="16" fill="#a1a1aa">${b2TimeStr}</text>`;
+    // SOC hero (left-center)
+    svg += `<text x="${o.x + o.w * 0.22}" y="${o.y + o.ly2}" ${tpProps} font-size="${o.fs2}" fill="${b2Soc <= 20 ? '#ef4444' : (b2Soc <= 50 ? '#facc15' : '#25f447')}">${b2Soc}%</text>`;
+    // Voltage (center)
+    svg += `<text x="${o.x + o.w * 0.52}" y="${o.y + o.ly3}" ${tpProps} font-size="${o.fs3}" fill="#35c0b7">${b2V.toFixed(2)}V</text>`;
+    // Power (right-center)
+    svg += `<text x="${o.x + o.w * 0.80}" y="${o.y + o.ly3}" ${tpProps} font-size="${o.fs3}" fill="${b2PwrColor}">${b2PwrSign} W</text>`;
+    // Action line
+    svg += `<text x="${cx(o)}" y="${o.y + o.ly4}" ${tpProps} font-size="${o.fs4}" fill="${b2ActionColor}">${b2ActionLine}</text>`;
+    // Rate line
+    if (b2Rate && b2ActionLine !== 'Standby') {
+      const rColor = b2IsCharging ? '#4ade80' : '#facc15';
+      svg += `<text x="${cx(o)}" y="${o.y + o.ly5}" ${tpProps} font-size="${o.fs5}" fill="${rColor}">${b2Rate.text}</text>`;
+    }
+    // Row: SOH / Cycles / Temps (left third / mid third / right third)
+    svg += `<text x="${o.x + 16}" y="${o.y + o.ly6}" font-family="system-ui, -apple-system, sans-serif" dominant-baseline="central" text-anchor="start" font-weight="700" font-size="${o.fs6}" fill="#10b981">SOH: ${b2Soh}%</text>`;
+    svg += `<text x="${cx(o)}" y="${o.y + o.ly6}" ${tpProps} font-size="${o.fs6}" fill="#10b981">Cycles: ${b2Cyc}</text>`;
+    svg += `<text x="${o.x + o.w - 16}" y="${o.y + o.ly7}" font-family="system-ui, -apple-system, sans-serif" dominant-baseline="central" text-anchor="end" font-weight="700" font-size="${o.fs7}" fill="#38bdf8">BMS: ${b2BmsT.toFixed(1)}°C · Mosfet: ${b2MosT.toFixed(1)}°C</text>`;
+    // Cell voltage summary row
+    if (cellSummary) {
+      svg += `<text x="${cx(o)}" y="${o.y + o.ly8}" ${tpProps} font-size="${o.fs8}" fill="#9ca3af">${cellSummary}</text>`;
+    }
+
+    // Expose latest Battery 2 continuous rate globally so the flow-detail
+    // popup (js/22-flow-detail.js) and extras (js/23-flow-extras.js) can
+    // reuse it without recomputing.
+    window.lastBattery2Snapshot = {
+      soc: b2Soc, soh: b2Soh, volt: b2V, amps: b2A, watt: b2Watt,
+      cycles: b2Cyc, mosfetTemp: b2MosT, bmsTemp: b2BmsT,
+      isCharging: b2IsCharging, isDischarging: b2IsDischarging,
+      time: b2TimeStr
+    };
+  }
+
+  svg += `</svg>`;
   
   const flowWrap = document.getElementById('flow-svg-wrap');
   flowWrap.innerHTML = svg;

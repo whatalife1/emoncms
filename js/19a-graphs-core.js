@@ -33,8 +33,14 @@ const GRAPH_FEEDS = [
     { key: 'wm',        name: 'Washing Machine', id: '544694', color: '#e879f9', label: '👕 W/M', statLabel: "👕 Washing Machine",       isWatts: true },
 { key: 'others',    name: 'Others',          id: null,     color: '#f59e0b', label: '💡 Others',      isWatts: true, isComputed: true },
 
-
-
+    // ── Battery 2 (Dyness DL5.0F, 5kWh) ─────────────────────────────
+    { key: 'bat2soc',     name: 'Battery 2',           id: '546371', color: '#a78bfa', label: '🔋 Battery 2',      isWatts: false, statLabel: '🔋 Battery 2 SOC' },
+    { key: 'bat2power',   name: 'Bat2 Power',          id: '546365', color: '#a78bfa', label: '⚡🔋 Bat2 Power',   isWatts: true,  statLabel: '⚡🔋 Battery 2 Power' },
+    { key: 'bat2volt',    name: 'Bat2 Voltage',        id: '546369', color: '#c4b5fd', label: '⚡ Bat2 Voltage',   isWatts: false, statLabel: '⚡ Battery 2 Voltage' },
+    { key: 'bat2current', name: 'Bat2 Current',        id: '546370', color: '#818cf8', label: '⚡ Bat2 Current',   isWatts: false, statLabel: '⚡ Battery 2 Current' },
+    { key: 'bat2mosftemp',name: 'Bat2 Mosfet Temp',    id: '546373', color: '#f472b6', label: '🌡 Bat2 Mosfet',    isWatts: false, isTemp: true },
+    { key: 'bat2bmstemp', name: 'Bat2 BMS Temp',       id: '546374', color: '#fb7185', label: '🌡 Bat2 BMS',       isWatts: false, isTemp: true },
+    { key: 'bat2cellspread', name: 'Bat2 Cell Spread', id: null,     color: '#f59e0b', label: '🔋 Bat2 Cell Δ',    isWatts: false, isComputed: true, statLabel: '🔋 Battery 2 Cell Spread (mV)' },
 
     { key: 'gridall',   name: 'All',             id: null,     color: '#ff6b6b', label: '⚡ All',         isWatts: true, isMultiLine: true }
 ];
@@ -54,6 +60,15 @@ const GRID_ALL_FEEDS = [
     { key: 'pc',        id: '499422', color: '#4ade80', label: 'PC'           },
     { key: 'motor',     id: '542850', color: '#fbbf24', label: 'Motor'        }
 ];
+
+// The 16 Battery 2 (Dyness) cell voltage feed IDs, in cell order (1-16).
+// Used by the 'bat2cellspread' computed graph feed to fetch and diff all
+// 16 cells over the selected time range, rather than a single feed ID.
+const BATTERY2_CELL_IDS = [
+  '546380','546381','546382','546383','546384','546385','546386','546387',
+  '546388','546389','546390','546391','546392','546393','546394','546395'
+];
+window.BATTERY2_CELL_IDS = BATTERY2_CELL_IDS;
 
 const TEMP_RANGE_PADDING = 5;
 
@@ -140,3 +155,36 @@ function updateGraphStartButton() {
 
 window.toggleGraphStartHour = toggleGraphStartHour;
 window.updateGraphStartButton = updateGraphStartButton;
+
+// ── Battery 2 Cell Spread (computed graph feed) ──────────────────────
+// Fetches all 16 Battery 2 cell-voltage feeds over the same range used by
+// the current graph nav window, and returns a per-bucket (max - min) in mV
+// series. Mirrors the shape _pointsToBars() expects: an array of [ts, val]
+// pairs that the standard bar-mapping pipeline in 19c2-graphs-data-utils.js
+// can consume directly, so no changes are needed there.
+async function fetchBattery2CellSpreadPoints(startMs, endMs, interval) {
+  if (typeof _gFetch !== 'function') return [];
+  const allSeries = await Promise.all(
+    BATTERY2_CELL_IDS.map(id => _gFetch(id, startMs, endMs, interval))
+  );
+  // Merge into a timestamp -> [values] map, then reduce to (max-min)*1000 mV.
+  const byTs = new Map();
+  allSeries.forEach(series => {
+    if (!Array.isArray(series)) return;
+    series.forEach(p => {
+      if (!p || p[1] == null) return;
+      const ts = p[0];
+      if (!byTs.has(ts)) byTs.set(ts, []);
+      byTs.get(ts).push(p[1]);
+    });
+  });
+  const out = [];
+  for (const [ts, vals] of byTs.entries()) {
+    if (vals.length < 2) continue;
+    const spreadMv = (Math.max(...vals) - Math.min(...vals)) * 1000;
+    out.push([ts, spreadMv]);
+  }
+  out.sort((a, b) => a[0] - b[0]);
+  return out;
+}
+window.fetchBattery2CellSpreadPoints = fetchBattery2CellSpreadPoints;

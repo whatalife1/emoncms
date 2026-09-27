@@ -1,7 +1,11 @@
 // js/23-flow-extras.js
+// See js/19a-graphs-core.js for Battery 2 (Dyness) feed entries added to
+// GRAPH_FEEDS (keys: bat2soc, bat2power, bat2volt, bat2current, bat2cellspread)
+// so Battery 2 is selectable in the Graphs panel like any other feed.
 // FLOW_EXTRAS_PATCH_V1
 // FLOW_EXTRAS_PATCH_V2
 // FLOW_EXTRAS_PATCH_V3
+// FLOW_BATTERY2_PATCH_V1 — Battery 2 (Dyness) extras + dedicated SOC chart
 // ─────────────────────────────────────────────────────────────────────────
 // Extra per-box stats shown in the flow-detail popup ("Extra Info" section),
 // plus a dedicated session-annotated, zoom/pan-capable SOC chart for the
@@ -25,7 +29,9 @@
     water:   { build: buildWaterTankExtras },
     motor:   { build: buildMotorExtras   },
     wm:      { build: buildWmExtras      },
-    pc:      { build: buildPcExtras      }
+    pc:      { build: buildPcExtras      },
+    // FLOW_BATTERY2_PATCH_V1
+    battery2:{ build: buildBattery2Extras }
   };
 
   // ── Small helpers ────────────────────────────────────────────────────
@@ -70,6 +76,22 @@
         const pts = await _gFetch(feed.id, startMs, now, res);
         if (pts && pts.length) return pts;
       } catch (e) { /* try coarser */ }
+    }
+    return [];
+  }
+
+  // Like fetch24h but takes a raw feed ID directly, for feeds that aren't
+  // registered in GRAPH_FEEDS (e.g. Battery 2 SOC/limits/cells).
+  async function fetch24hById(feedId, resOverride) {
+    if (typeof _gFetch !== 'function' || !feedId) return [];
+    const now = Date.now();
+    const startMs = now - 24 * 3600 * 1000;
+    const resolutions = resOverride ? [resOverride] : [120, 300, 900, 3600];
+    for (const res of resolutions) {
+      try {
+        const pts = await _gFetch(feedId, startMs, now, res);
+        if (pts && pts.length) return pts;
+      } catch (e) {}
     }
     return [];
   }
@@ -337,6 +359,64 @@
     return html;
   }
 
+  // ── FLOW_BATTERY2_PATCH_V1: Battery 2 (Dyness) extras ────────────────
+  // Feed IDs are hard-coded here (not routed through GRAPH_FEEDS) since
+  // Battery 2 isn't necessarily added to the Graphs panel's feed list.
+  const BAT2_IDS = {
+    power: '546365', voltage: '546369', current: '546370',
+    soc: '546371', soh: '546372', mosfetTemp: '546373', bmsTemp: '546374',
+    cycles: '546375',
+    chgLimV: '546376', chgLimA: '546377', disLimV: '546378', disLimA: '546379'
+  };
+
+  async function buildBattery2Extras() {
+    const pts = await fetch24hById(BAT2_IDS.power);
+    let html = '';
+
+    if (pts.length) {
+      const chgSessions = detectSessions(pts.map(([t, v]) => [t, v != null && v > 15 ? v : 0]), 15, 5);
+      const disSessions = detectSessions(pts.map(([t, v]) => [t, v != null && v < -15 ? Math.abs(v) : 0]), 15, 5);
+      const chgKwh = energyKwhFromSessions(chgSessions);
+      const disKwh = energyKwhFromSessions(disSessions);
+
+      html += row('Charged (24h)', fmtKwhVal(chgKwh), { color: '#4ade80', sub: `${chgSessions.length} session${chgSessions.length === 1 ? '' : 's'}` });
+      html += row('Discharged (24h)', fmtKwhVal(disKwh), { color: '#f59e0b', sub: `${disSessions.length} session${disSessions.length === 1 ? '' : 's'}` });
+
+      let peakW = 0, peakTs = null;
+      for (const [ts, v] of pts) {
+        if (v != null && Math.abs(v) > Math.abs(peakW)) { peakW = v; peakTs = ts < 2e9 ? ts * 1000 : ts; }
+      }
+      if (peakTs) {
+        html += row('Peak power (24h)', `${peakW > 0 ? '+' : ''}${Math.round(peakW)} W`, {
+          color: peakW > 0 ? '#4ade80' : '#f59e0b',
+          sub: `at ${formatPktTime(peakTs, 'time')}`
+        });
+      }
+    }
+
+    // Cell spread trend: compare current spread vs 24h ago isn't tractable
+    // without per-cell history for all 16 cells, so just show current spread.
+    const byName = window.lastResultsMap;
+    const cellNames = window.BATTERY2_CELL_NAMES || [];
+    if (byName && cellNames.length) {
+      const vals = cellNames.map(n => byName.get(n)?.value).filter(v => v != null && v > 0);
+      if (vals.length > 1) {
+        const spreadMv = Math.round((Math.max(...vals) - Math.min(...vals)) * 1000);
+        html += row('Cell spread (now)', `${spreadMv} mV`, {
+          color: spreadMv > 30 ? '#ef4444' : spreadMv > 15 ? '#facc15' : '#4ade80',
+          sub: `${vals.length}/16 cells reporting`
+        });
+      }
+    }
+
+    const soh = byName?.get('Bat2 SOH')?.value;
+    const cyc = byName?.get('Bat2 Cycle Count')?.value;
+    if (soh != null) html += row('State of Health', `${Math.round(soh)}%`, { color: '#10b981' });
+    if (cyc != null) html += row('Cycle count', `${Math.round(cyc)}`, { color: '#10b981' });
+
+    return html || '<div style="color:var(--text-muted);font-size:12px;">No 24h data available.</div>';
+  }
+
   // ── Battery: session-annotated, zoom/pan-capable SOC chart ──────────
   //
   // Reuses window.detectBatterySessions (js/19c1-graphs-state.js) so the
@@ -457,6 +537,81 @@
 
     if (canvas.__socResizeHandler) window.removeEventListener('resize', canvas.__socResizeHandler);
     canvas.__socResizeHandler = redraw;
+    window.addEventListener('resize', redraw);
+  }
+
+  // ── FLOW_BATTERY2_PATCH_V1: Battery 2 (Dyness) SOC chart ─────────────
+  // Same annotated-session chart as Battery 1, but pointed at feed 546371
+  // (Bat2 SOC) and using the fixed 5.12 kWh Dyness pack capacity for the
+  // %→kWh conversion in session pills.
+  async function buildBattery2SocChart(canvas, loadingEl, resetBtn) {
+    if (!canvas) return;
+    if (typeof _gFetch !== 'function') return;
+
+    const now = Date.now();
+    const startFetchMs = now - 48 * 3600 * 1000;
+
+    let pts = [];
+    for (const res of [120, 300, 600]) {
+      try {
+        const raw = await _gFetch(BAT2_IDS.soc, startFetchMs, now, res);
+        if (raw && raw.length) { pts = raw; break; }
+      } catch (e) {}
+    }
+
+    if (!pts.length) {
+      if (loadingEl) loadingEl.textContent = 'No Battery 2 SOC data available.';
+      return;
+    }
+
+    const startMs = pts[0][0] < 2e9 ? pts[0][0] * 1000 : pts[0][0];
+    const endMs = Date.now();
+    const resSec = 120;
+    const nBars = Math.max(2, Math.ceil((endMs - startMs) / (resSec * 1000)));
+    const rawBars = new Array(nBars).fill(null);
+    pts.forEach(([ts, v]) => {
+      const tsMs = ts < 2e9 ? ts * 1000 : ts;
+      const idx = Math.floor((tsMs - startMs) / (resSec * 1000));
+      if (idx >= 0 && idx < nBars && v != null) rawBars[idx] = v;
+    });
+
+    let bars = typeof window.smoothBatterySocBars === 'function'
+      ? window.smoothBatterySocBars(rawBars, nBars, true)
+      : rawBars;
+
+    const lastIdx = nBars;
+    let sessions = [];
+    if (typeof window.detectBatterySessions === 'function') {
+      try { sessions = window.detectBatterySessions(bars, resSec, lastIdx, 10, 2.0) || []; }
+      catch (e) { console.warn('detectBatterySessions (bat2) failed', e); }
+    }
+
+    const packKwh = 5.12; // Dyness DL5.0F usable capacity
+
+    const state = { zoom: 1, panX: 0, bars, rawBars, sessions, resSec, startMs, packKwh };
+    canvas.__soc2State = state;
+
+    function redraw() {
+      _drawAnnotatedSocChart(canvas, state.bars, state.sessions, state.resSec, state.startMs, state.packKwh, state.zoom, state.panX);
+      if (resetBtn) {
+        if (Math.abs(state.zoom - 1) > 0.05 || Math.abs(state.panX) > 1) resetBtn.classList.add('visible');
+        else resetBtn.classList.remove('visible');
+      }
+    }
+    state.redraw = redraw;
+    state.reset = function () { state.zoom = 1; state.panX = 0; redraw(); };
+
+    redraw();
+    if (loadingEl) loadingEl.style.display = 'none';
+
+    _attachSocChartZoom(canvas, state);
+
+    if (resetBtn) {
+      resetBtn.onclick = function (e) { e.stopPropagation(); state.reset(); };
+    }
+
+    if (canvas.__soc2ResizeHandler) window.removeEventListener('resize', canvas.__soc2ResizeHandler);
+    canvas.__soc2ResizeHandler = redraw;
     window.addEventListener('resize', redraw);
   }
 
@@ -841,6 +996,8 @@
 
   window.renderFlowExtras = renderFlowExtras;
   window.renderBatterySocChart = buildBatterySocChart;
+  window.renderBattery2SocChart = buildBattery2SocChart;
   window.FLOW_EXTRAS_REGISTRY = EXTRAS_REGISTRY;
+  window.BATTERY2_FEED_IDS = BAT2_IDS;
 
 })();

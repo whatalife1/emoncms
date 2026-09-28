@@ -179,7 +179,7 @@
         text-align: center; font-size: 13px; font-weight: 800; padding: 6px 0;
       }
       #flow-detail-modal .fd-bat2-cellgrid {
-        display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; width: 100%; box-sizing: border-box;
+        display: grid; grid-template-columns: repeat(8, 1fr); gap: 5px; width: 100%; box-sizing: border-box;
       }
       #flow-detail-modal .fd-bat2-cell {
         background: var(--bg-card); border: 1px solid var(--border); border-radius: 7px;
@@ -553,7 +553,7 @@
       else if (/Charging|Discharging|Standby/i.test(t)) action = t;
       else if (/[+-]\d+\s*w/i.test(t)) watts = t;
       else if (/%(\/hr|\/min)/i.test(t)) rate = t;
-      else if (/left|to \d+%/i.test(t)) cutoff = t;
+      else if (/left|to \d+%|reached/i.test(t)) cutoff = t;
       else if (/Chg:\s*M:/i.test(t)) chgM = t.replace(/Chg:\s*/i, '');
       else if (/Disch:\s*M:/i.test(t)) dischM = t.replace(/Disch:\s*/i, '');
       else if (/T:.*Y:/i.test(t)) {
@@ -588,6 +588,10 @@
     html += '<div class="fd-bat-divider"></div>';
     html += '<div class="fd-bat-stat" style="' + _batStyle(9, 10.5, 'color:#10b981;') + '">' + (chgTY || 'T: 0w Y: 0w') + '</div>';
     html += '<div class="fd-bat-stat" style="' + _batStyle(8, 10.5, 'color:#10b981;') + '">' + (chgM || 'M: 0w') + '</div>';
+    // Mirror the DISCHARGE card stats here too (per request)
+    html += '<div class="fd-bat-divider"></div>';
+    html += '<div class="fd-bat-stat" style="' + _batStyle(11, 10.5, 'color:#f97316;font-weight:700;') + '">' + (dischTY || 'T: 0w Y: 0w') + '</div>';
+    html += '<div class="fd-bat-stat" style="' + _batStyle(10, 10.5, 'color:#f97316;') + '">' + (dischM || 'M: 0w') + '</div>';
     html += '</div>';
 
     // ── Box 2: Hero SOC (Center) ──
@@ -680,25 +684,28 @@
       (disLimA != null ? disLimA.toFixed(1) + 'A' : '--') + '</div>';
     html += '</div>';
 
-    // All 16 cell voltages at once, with min/max highlighted + spread summary
+    // All 16 cell voltages in an 8×2 grid
     if (validCells.length > 0) {
       const cMin = Math.min(...validCells.map(c => c.v));
       const cMax = Math.max(...validCells.map(c => c.v));
       const spreadMv = Math.round((cMax - cMin) * 1000);
       const minIdx = validCells.find(c => c.v === cMin)?.idx;
       const maxIdx = validCells.find(c => c.v === cMax)?.idx;
-      const spreadColor = spreadMv > 30 ? '#ef4444' : spreadMv > 15 ? '#facc15' : '#4ade80';
+      const spreadColor = spreadMv > 30 ? '#ef4444' : (spreadMv > 15 ? '#facc15' : '#4ade80');
 
-      html += '<div>';
-      html += '<div class="fd-bat2-section-title">🔋 Cell Voltages (' + validCells.length + '/16) &middot; Spread: <span style="color:' + spreadColor + ';">' + spreadMv + 'mV</span></div>';
+      html += '<div style="margin-top:6px;">';
+      html += '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">' +
+        '<span class="fd-bat2-section-title" style="margin:0;">🔋 16S Cell Voltages (8×2)</span>' +
+        '<span style="font-size:11px; font-weight:700; color:' + spreadColor + ';">Min: C' + minIdx + ' (' + cMin.toFixed(3) + 'V) · Max: C' + maxIdx + ' (' + cMax.toFixed(3) + 'V) · Δ' + spreadMv + 'mV</span>' +
+        '</div>';
       html += '<div class="fd-bat2-cellgrid">';
       cells.forEach(function (c) {
         if (c.v == null) {
-          html += '<div class="fd-bat2-cell"><span>C' + c.idx + '</span><span class="cv">--</span></div>';
+          html += '<div class="fd-bat2-cell"><span class="cnum">' + c.idx + '</span><span class="cv">--</span></div>';
           return;
         }
         const cls = c.idx === maxIdx ? 'cmax' : (c.idx === minIdx ? 'cmin' : '');
-        html += '<div class="fd-bat2-cell ' + cls + '"><span>C' + c.idx + '</span><span class="cv">' + c.v.toFixed(3) + 'V</span></div>';
+        html += '<div class="fd-bat2-cell ' + cls + '"><span class="cnum">' + c.idx + '</span><span class="cv">' + c.v.toFixed(3) + '</span></div>';
       });
       html += '</div></div>';
     } else {

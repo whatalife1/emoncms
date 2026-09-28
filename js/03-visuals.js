@@ -134,15 +134,22 @@ async function fetchTodayBatteryEnergy() {
       }
     });
 
-    // Reconcile discharge energy with true BMS ΔSOC drop
+    // Reconcile discharge energy with the BMS SOC reading.
+    // Matches the Graphs tab: uses (100 - currentSoc) as the true "energy
+    // missing since last full charge" instead of the max-min range which
+    // over-estimates whenever SOC bounced up and down during the day
+    // (e.g. a momentary sensor glitch to 16% would add 84% * pack to the
+    // discharge total even though the battery only really lost 8%).
     const socPts = parsePts(socText);
-    const validSoc = socPts.filter(p => p && p[1] != null && p[1] > 10).map(p => p[1]);
+    const validSocPts = socPts
+      .filter(p => p && p[1] != null && p[1] > 10)
+      .map(p => ({ t: p[0] < 2e9 ? p[0] * 1000 : p[0], v: parseFloat(p[1]) }))
+      .sort((a, b) => a.t - b.t);
     let socDisWh = 0;
-    if (validSoc.length >= 2) {
-      const maxSoc = Math.max(...validSoc);
-      const minSoc = Math.min(...validSoc);
+    if (validSocPts.length >= 1) {
       const packKwh = (typeof solarCfg !== 'undefined' && solarCfg && solarCfg.batteryKwh > 0) ? solarCfg.batteryKwh : 5.12;
-      socDisWh = ((maxSoc - minSoc) / 100) * packKwh * 1000;
+      const lastSoc = validSocPts[validSocPts.length - 1].v;
+      socDisWh = Math.max(0, ((100 - lastSoc) / 100) * packKwh * 1000);
     }
     const finalDisWh = Math.max(disWh, socDisWh);
 
@@ -157,7 +164,7 @@ async function fetchTodayBatteryEnergy() {
     if (window.monthlyUnits.batPastDisM != null) {
       window.monthlyUnits.batDisM = window.monthlyUnits.batPastDisM + disWh;
     }
-    return { chgWh, disWh };
+    return { chgWh, disWh: finalDisWh };
   } catch (e) {
     console.warn("fetchTodayBatteryEnergy failed", e);
     return null;

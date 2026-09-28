@@ -27,7 +27,8 @@ function _pointsToBars(pts, nav, feedKey) {
     feedKey === 'solv' ||
     feedKey === 'battery' ||
     feedKey === 'batv' ||
-    feedKey === 'soc'
+    feedKey === 'soc' ||
+    (feedKey.startsWith('bat2') && feedKey !== 'bat2power')
   );
 
   if (nav && nav.isMonthBilling) {

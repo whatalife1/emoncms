@@ -86,11 +86,14 @@ function openSettings() {
     if (gn) gn.forEach(n => used.add(n)); else used.add(f.name);
     settingsSet.push(f);
   });
-  list.innerHTML = settingsSet.map(f => `
+  list.innerHTML = settingsSet.map(f => {
+    const lbl = f.name === 'Bat2 Power' ? '🔋 Battery 2 (Dyness 5kWh)' : f.name;
+    return `
     <div class="setting-item" data-id="${f.id}" draggable="true">
-      <span class="setting-label">${f.name}</span>
+      <span class="setting-label">${lbl}</span>
       <label class="switch"><input type="checkbox" ${f.enabled ? 'checked' : ''}><span class="slider"></span></label>
-    </div>`).join('');
+    </div>`;
+  }).join('');
   setupDragAndDrop();
 }
 

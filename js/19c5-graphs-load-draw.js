@@ -291,6 +291,149 @@ async function _loadAndDraw(forceRefresh = false) {
       _showGraphLoading(false); graphIsLoading = false; return;
     }
 
+    
+    // ── Special Case: Battery 2 16-Cell Diagnostics Mode ──
+    if (graphFeedKey === 'bat2cells') {
+      const cellIds = window.BATTERY2_CELL_IDS || [];
+      const rawSeries = await Promise.all(cellIds.map(id => _gFetch(id, nav.startMs, nav.endMs, nav.interval)));
+      const cellBars = rawSeries.map(s => _pointsToBars(s, nav, 'bat2cells'));
+      const n = nav.nBars || cellBars[0]?.length || 720;
+
+      let lastIdx = n;
+      if (graphTab === 'day' && graphDateNav === 0) {
+        lastIdx = Math.floor((Date.now() - 60000 - nav.startMs) / (nav.resSeconds * 1000)) + 1;
+        lastIdx = Math.max(0, Math.min(lastIdx, n));
+      }
+
+      const minBars = new Array(lastIdx).fill(null);
+      const maxBars = new Array(lastIdx).fill(null);
+      const avgBars = new Array(lastIdx).fill(null);
+      const spreadBars = new Array(lastIdx).fill(null);
+      const deltaCellBars = Array.from({ length: 16 }, () => new Array(lastIdx).fill(null));
+
+      for (let k = 0; k < lastIdx; k++) {
+        const vals = [];
+        for (let c = 0; c < 16; c++) {
+          const v = cellBars[c] ? cellBars[c][k] : null;
+          if (v != null && v > 2.0) vals.push({ idx: c + 1, v });
+        }
+        if (vals.length >= 2) {
+          const vs = vals.map(x => x.v);
+          const minV = Math.min(...vs);
+          const maxV = Math.max(...vs);
+          const avgV = vs.reduce((a, b) => a + b, 0) / vs.length;
+          minBars[k] = minV;
+          maxBars[k] = maxV;
+          avgBars[k] = avgV;
+          spreadBars[k] = (maxV - minV) * 1000; // mV
+
+          for (let c = 0; c < 16; c++) {
+            const cv = cellBars[c] ? cellBars[c][k] : null;
+            if (cv != null && cv > 2.0) {
+              deltaCellBars[c][k] = (cv - avgV) * 1000; // ±mV from avg
+            }
+          }
+        }
+      }
+
+      const cellColors = window.BATTERY2_CELL_COLORS || [];
+      const mode = window.graphBat2CellMode || 'band';
+      const solo = window.graphBat2SoloCell;
+
+      let multiData = [];
+      let isCellBand = false;
+      let unit = 'V';
+      let chartMinV = 3.10, chartMaxV = 3.50;
+
+      if (solo !== null && solo >= 1 && solo <= 16) {
+        // Solo mode: Envelope + isolated solo cell line
+        const soloClr = cellColors[solo - 1] || '#38bdf8';
+        multiData = [
+          { key: 'min', label: 'Min Cell', color: '#ef4444', data: minBars },
+          { key: 'max', label: 'Max Cell', color: '#22c55e', data: maxBars },
+          { key: `c${solo}`, label: `Cell ${solo}`, color: soloClr, data: cellBars[solo - 1] || [] }
+        ];
+        isCellBand = true;
+      } else if (mode === 'all') {
+        // Show all 16 cells in spectrum colors
+        multiData = cellBars.map((bars, i) => ({
+          key: `c${i+1}`,
+          label: `Cell ${i+1}`,
+          color: cellColors[i] || '#38bdf8',
+          data: bars
+        }));
+      } else if (mode === 'delta') {
+        // Balance mode: deviation from pack average in ±mV
+        unit = 'mV';
+        multiData = deltaCellBars.map((bars, i) => ({
+          key: `c${i+1}`,
+          label: `C${i+1} (Δ)`,
+          color: cellColors[i] || '#38bdf8',
+          data: bars
+        }));
+      } else {
+        // Default Band mode: Min, Max, Avg with shaded area
+        multiData = [
+          { key: 'min', label: 'Min Cell', color: '#ef4444', data: minBars },
+          { key: 'max', label: 'Max Cell', color: '#22c55e', data: maxBars },
+          { key: 'avg', label: 'Pack Avg', color: '#38bdf8', data: avgBars }
+        ];
+        isCellBand = true;
+      }
+
+      // Calculate tight Y-axis limits
+      const allVals = multiData.flatMap(m => m.data).filter(v => v != null && isFinite(v));
+      if (allVals.length > 0) {
+        const vMin = Math.min(...allVals);
+        const vMax = Math.max(...allVals);
+        if (unit === 'mV') {
+          const absM = Math.max(Math.abs(vMin), Math.abs(vMax), 10);
+          chartMinV = -absM * 1.2;
+          chartMaxV = absM * 1.2;
+        } else {
+          chartMinV = Math.max(2.5, vMin - 0.015);
+          chartMaxV = Math.min(3.7, vMax + 0.015);
+        }
+      }
+      const range = Math.max(0.01, chartMaxV - chartMinV);
+
+      // Optional secondary Y-axis: Spread Δ (mV)
+      let barsTemp = [];
+      let tempMaxV = 50;
+      const showSpread = window.graphBat2ShowSpreadOverlay && mode !== 'delta';
+      if (showSpread) {
+        barsTemp = spreadBars;
+        const validSpreads = spreadBars.filter(v => v != null);
+        if (validSpreads.length) tempMaxV = Math.max(...validSpreads, 15) * 1.15;
+      }
+
+      graphDataCache = {
+        bars1: minBars, bars2: maxBars,
+        labels: nav.labels, timeLabels: nav.timeLabels || nav.labels, fullLabels: nav.fullLabels || nav.labels,
+        color1: '#ef4444', color2: '#22c55e', unit: unit, isCombined: false, nav, lastIdx,
+        multiData, minV: chartMinV, maxV: chartMaxV, range,
+        isCellBand, minBars, maxBars, avgBars,
+        bat2AllCells: { cellBars, minBars, maxBars, avgBars, spreadBars, rawSeries },
+        barsTemp: showSpread ? barsTemp : [],
+        tempMinV: 0, tempMaxV: tempMaxV, tempRange: tempMaxV,
+        tempUnit: 'mV', tempColor: '#f59e0b', overlayLabel: 'Spread Δ (mV)', isDualY: showSpread
+      };
+
+      _drawChart(canvas, minBars, maxBars, nav.labels, '#ef4444', '#22c55e', unit, false, nav, lastIdx, multiData,
+        chartMinV, chartMaxV, range, barsTemp, 0, tempMaxV, tempMaxV, 'mV', '#f59e0b', 'Spread Δ (mV)');
+
+      _renderFeedStats(stat, {
+        bars1: minBars, bars2: maxBars, pts1: [], pts2: [], nav, lastIdx, multiData,
+        isGridAll: false, isCombined: false, fA: { color: '#38bdf8' },
+        color1: '#38bdf8', color2: null, unit, isTemp: false, graphFeedKey: 'bat2cells',
+        cellBars, minBars, maxBars, avgBars, spreadBars
+      });
+
+      _showGraphLoading(false);
+      graphIsLoading = false;
+      return;
+    }
+
     // ── Special Case: Battery tab with Voltage & Power overlays ──
     if (graphFeedKey === 'battery') {
       const feedSoc = GRAPH_FEEDS.find(f => f.key === 'battery') || { id: '546019', color: '#10b981' };
@@ -379,6 +522,9 @@ async function _loadAndDraw(forceRefresh = false) {
       multiData = [];
       const results = await Promise.all(visible.map(f => _gFetch(f.id, nav.startMs, nav.endMs, nav.interval)));
       visible.forEach((f, i) => multiData.push({ label: f.label, color: f.color, data: _pointsToBars(results[i], nav, f.key), rawPts: results[i] }));
+    } else if (graphFeedKey === 'bat2cellspread') {
+      pts1 = await fetchBattery2CellSpreadPoints(nav.startMs, nav.endMs, nav.interval);
+      bars1 = _pointsToBars(pts1, nav, 'bat2cellspread');
     } else if (graphFeedKey === 'batchg' || graphFeedKey === 'batdis') {
       const isChg = graphFeedKey === 'batchg';
       const [ampPts, voltPts] = await Promise.all([
@@ -491,8 +637,22 @@ async function _loadAndDraw(forceRefresh = false) {
       }
     }
 
-    let maxV = 1, minV = 0; const all = (multiData?multiData.flatMap(m=>m.data):[...bars1,...bars2]).filter(v=>v>0);
-    if (all.length) { maxV = Math.max(...all)*1.1; if(isTemp){ minV = Math.max(0, Math.min(...all)-5); maxV = Math.max(maxV, minV+10); } }
+    let maxV = 1, minV = 0; const all = (multiData?multiData.flatMap(m=>m.data):[...bars1,...bars2]).filter(v=>v!=null);
+    if (all.length) {
+      const minVal = Math.min(...all);
+      const maxVal = Math.max(...all);
+      if (graphFeedKey === 'bat2power' || minVal < -5) {
+        const absMax = Math.max(Math.abs(minVal), Math.abs(maxVal), 50);
+        minV = -absMax * 1.15;
+        maxV = absMax * 1.15;
+      } else {
+        maxV = Math.max(maxVal * 1.1, 1);
+        if (isTemp) {
+          minV = Math.max(0, minVal - 5);
+          maxV = Math.max(maxV, minV + 10);
+        }
+      }
+    }
     const maxBT = barsTemp.length > 0 ? Math.max(...barsTemp, 0.1) : 1;
     const maxBT2 = barsTemp2.length > 0 ? Math.max(...barsTemp2, 0.1) : 1;
     const combinedMaxBT = Math.max(maxBT, maxBT2);

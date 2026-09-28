@@ -1,9 +1,4 @@
 /* js\08b-render-b.js */
-// NOTE: FLOW_DETAIL_CONFIG lives in js/22-flow-detail.js and now includes
-// a `battery2` entry (title "Battery 2 (Dyness)") whose popup body is
-// rendered by _renderBattery2Grid in that same file, and whose extras +
-// SOC chart are built in js/23-flow-extras.js (buildBattery2Extras,
-// window.renderBattery2SocChart).
 function updateOfflineWarningBanner(byName) {
   const wrap = document.getElementById('offline-warning-wrap');
   if (!wrap) return;
@@ -160,9 +155,8 @@ function updateOfflineWarningBanner(byName) {
   }
 }
 
-// ── Battery 2 (Dyness) card renderer ──────────────────────────────────
-// Renders a summary card with SOC/V/A/Power/Temps/SOH/Cycles plus the
-// full 16-cell voltage grid (with min/max highlighted), toggleable.
+
+// ── Battery 2 (Dyness DL5.0F) Card Renderer below UI ───────────────────
 window._bat2CellsExpanded = window._bat2CellsExpanded !== undefined ? window._bat2CellsExpanded : true;
 
 function renderBattery2Card(byName) {
@@ -171,14 +165,14 @@ function renderBattery2Card(byName) {
   const hasAnyBat2Data = byName.get('Bat2 SOC') || byName.get('Bat2 Voltage') || byName.get('Bat2 Power');
   if (!hasAnyBat2Data) return '';
 
-  const soc   = byName.get('Bat2 SOC')?.value;
-  const soh   = byName.get('Bat2 SOH')?.value;
-  const volt  = byName.get('Bat2 Voltage')?.value;
-  const amps  = byName.get('Bat2 Current')?.value;
-  const watt  = byName.get('Bat2 Power')?.value ?? ((volt != null && amps != null) ? volt * amps : null);
-  const cyc   = byName.get('Bat2 Cycle Count')?.value;
-  const mosT  = byName.get('Bat2 Mosfet Temp')?.value;
-  const bmsT  = byName.get('Bat2 BMS Temp')?.value;
+  const soc     = byName.get('Bat2 SOC')?.value;
+  const soh     = byName.get('Bat2 SOH')?.value;
+  const volt    = byName.get('Bat2 Voltage')?.value;
+  const amps    = byName.get('Bat2 Current')?.value;
+  const watt    = byName.get('Bat2 Power')?.value ?? ((volt != null && amps != null) ? volt * amps : null);
+  const cyc     = byName.get('Bat2 Cycle Count')?.value;
+  const mosT    = byName.get('Bat2 Mosfet Temp')?.value;
+  const bmsT    = byName.get('Bat2 BMS Temp')?.value;
   const chgLimV = byName.get('Bat2 Chg Limit V')?.value;
   const chgLimA = byName.get('Bat2 Chg Limit A')?.value;
   const disLimV = byName.get('Bat2 Dis Limit V')?.value;
@@ -207,9 +201,9 @@ function renderBattery2Card(byName) {
 
     cellGridHtml = `<div class="bat2-cell-grid" id="bat2-cell-grid" style="${window._bat2CellsExpanded ? '' : 'display:none;'}">
       ${cells.map(c => {
-        if (c.v == null) return `<div class="bat2-cell-item"><span>C${c.idx}</span><span class="bat2-cell-v">--</span></div>`;
+        if (c.v == null) return `<div class="bat2-cell-item"><span class="bat2-cell-idx">C${c.idx}</span><span class="bat2-cell-v">--</span></div>`;
         const cls = c.idx === maxIdx ? 'bat2-cell-max' : (c.idx === minIdx ? 'bat2-cell-min' : '');
-        return `<div class="bat2-cell-item ${cls}"><span>C${c.idx}</span><span class="bat2-cell-v">${c.v.toFixed(3)}</span></div>`;
+        return `<div class="bat2-cell-item ${cls}"><span class="bat2-cell-idx">C${c.idx}</span><span class="bat2-cell-v">${c.v.toFixed(3)}</span></div>`;
       }).join('')}
     </div>
     <div class="bat2-cell-toggle" onclick="window._bat2CellsExpanded = !window._bat2CellsExpanded; const g = document.getElementById('bat2-cell-grid'); if (g) g.style.display = window._bat2CellsExpanded ? 'grid' : 'none'; this.textContent = window._bat2CellsExpanded ? '▲ Hide 16 cell voltages' : '▼ Show 16 cell voltages';">
@@ -217,7 +211,7 @@ function renderBattery2Card(byName) {
     </div>`;
   }
 
-  const fmtLimits = (v, unit) => (v != null ? v.toFixed(1) + unit : '--');
+  const fmtLimits = (v, u) => (v != null ? v.toFixed(1) + u : '--');
 
   return `<div class="card card-battery2"><div class="hero-header">
     <div style="flex:1"><span class="card-name">🔋 Battery 2 SOC</span><span class="hero-val" style="color:${socColor}">${soc != null ? Math.round(soc) : '--'}%</span></div>

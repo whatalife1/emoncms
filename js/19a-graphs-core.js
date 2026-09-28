@@ -40,6 +40,7 @@ const GRAPH_FEEDS = [
     { key: 'bat2current', name: 'Bat2 Current',        id: '546370', color: '#818cf8', label: '⚡ Bat2 Current',   isWatts: false, statLabel: '⚡ Battery 2 Current' },
     { key: 'bat2mosftemp',name: 'Bat2 Mosfet Temp',    id: '546373', color: '#f472b6', label: '🌡 Bat2 Mosfet',    isWatts: false, isTemp: true },
     { key: 'bat2bmstemp', name: 'Bat2 BMS Temp',       id: '546374', color: '#fb7185', label: '🌡 Bat2 BMS',       isWatts: false, isTemp: true },
+    { key: 'bat2cells',   name: 'Bat2 16 Cells',       id: null,     color: '#38bdf8', label: '🔋 Bat2 16-Cells',  isWatts: false, isComputed: true, statLabel: '🔋 Battery 2 (16-Cell Diagnostics)' },
     { key: 'bat2cellspread', name: 'Bat2 Cell Spread', id: null,     color: '#f59e0b', label: '🔋 Bat2 Cell Δ',    isWatts: false, isComputed: true, statLabel: '🔋 Battery 2 Cell Spread (mV)' },
 
     { key: 'gridall',   name: 'All',             id: null,     color: '#ff6b6b', label: '⚡ All',         isWatts: true, isMultiLine: true }
@@ -188,3 +189,11 @@ async function fetchBattery2CellSpreadPoints(startMs, endMs, interval) {
   return out;
 }
 window.fetchBattery2CellSpreadPoints = fetchBattery2CellSpreadPoints;
+
+const BATTERY2_CELL_COLORS = [
+  '#38bdf8', '#818cf8', '#a78bfa', '#c084fc',
+  '#e879f9', '#f472b6', '#fb7185', '#f87171',
+  '#fb923c', '#f59e0b', '#facc15', '#a3e635',
+  '#4ade80', '#34d399', '#2dd4bf', '#22d3ee'
+];
+window.BATTERY2_CELL_COLORS = BATTERY2_CELL_COLORS;

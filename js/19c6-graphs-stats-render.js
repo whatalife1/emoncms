@@ -91,6 +91,51 @@ function _renderFeedStats(stat, ctx) {
     };
   };
 
+    if (gfk === 'bat2cells') {
+    const validSpreads = (ctx.spreadBars || []).filter(v => v != null);
+    const validAvgs = (ctx.avgBars || []).filter(v => v != null);
+    const validMins = (ctx.minBars || []).filter(v => v != null);
+    const validMaxs = (ctx.maxBars || []).filter(v => v != null);
+
+    const latestSpread = validSpreads.length ? validSpreads[validSpreads.length - 1] : 0;
+    const maxSpread = validSpreads.length ? Math.max(...validSpreads) : 0;
+    const avgSpread = validSpreads.length ? (validSpreads.reduce((a,b)=>a+b,0) / validSpreads.length) : 0;
+
+    const latestAvgV = validAvgs.length ? validAvgs[validAvgs.length - 1] : 0;
+    const latestMinV = validMins.length ? validMins[validMins.length - 1] : 0;
+    const latestMaxV = validMaxs.length ? validMaxs[validMaxs.length - 1] : 0;
+
+    // Find current lowest & highest cell index
+    let curMinIdx = 1, curMaxIdx = 1;
+    if (ctx.cellBars && validAvgs.length) {
+      const lastK = (ctx.spreadBars || []).length - 1;
+      let lowestV = 999, highestV = -999;
+      for (let c = 0; c < 16; c++) {
+        const v = ctx.cellBars[c] ? ctx.cellBars[c][lastK] : null;
+        if (v != null && v > 2.0) {
+          if (v < lowestV) { lowestV = v; curMinIdx = c + 1; }
+          if (v > highestV) { highestV = v; curMaxIdx = c + 1; }
+        }
+      }
+    }
+
+    const spreadColor = latestSpread > 30 ? '#ef4444' : (latestSpread > 15 ? '#f59e0b' : '#4ade80');
+    const peakColor = maxSpread > 30 ? '#ef4444' : (maxSpread > 15 ? '#f59e0b' : '#4ade80');
+
+    stat.innerHTML = `
+      <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:8px; padding:6px 10px; margin-bottom:4px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:4px;">
+          <span style="font-weight:800; font-size:12.5px; color:#38bdf8;">🔋 Battery 2: 16-Cell Diagnostics</span>
+          <span style="font-size:11px; font-weight:700;">Spread: <b style="color:${spreadColor}; font-size:13px;">Δ${Math.round(latestSpread)} mV</b> &bull; Peak: <b style="color:${peakColor};">Δ${Math.round(maxSpread)} mV</b> (Avg: Δ${avgSpread.toFixed(1)} mV)</span>
+        </div>
+        <div style="font-size:11px; color:var(--text-muted); margin-top:2px; display:flex; justify-content:space-between;">
+          <span>Pack Avg: <b style="color:var(--text-main);">${latestAvgV.toFixed(3)} V</b></span>
+          <span>Lowest: <b style="color:#f87171;">C${curMinIdx} (${latestMinV.toFixed(3)}V)</b> &bull; Highest: <b style="color:#4ade80;">C${curMaxIdx} (${latestMaxV.toFixed(3)}V)</b></span>
+        </div>
+      </div>
+    `;
+    return;
+  }
   if (isGridAll) {
     const df = (graphTab === 'month' || graphTab === 'year') ? 1 : (nav.resSeconds / 3600) / 1000;
     stat.innerHTML = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;">${multiData.map(m => {
@@ -151,7 +196,8 @@ function _renderFeedStats(stat, ctx) {
     }
     stat.innerHTML = _formatStatLine('☀', 'Solar', t1, color1, p1, a1, d1, dt1, null, null, unit, true, graphTab) +
       _formatStatLine('⚡', 'Grid', t2, color2, p2, a2, d2, dt2, n2, nt2, unit, true, graphTab);
-  } else if (gfk === 'battery') {
+  } else if (gfk === 'battery' || gfk === 'bat2soc') {
+    const isBat2 = (gfk === 'bat2soc');
     const validBars = (graphTab === 'day' ? bars1.slice(0, lastIdx) : bars1).filter(v => v !== null && v !== undefined && !isNaN(v) && v > 0);
     const latestV = validBars.length > 0 ? validBars[validBars.length - 1] : 0;
     const pk = validBars.length > 0 ? Math.max(...validBars) : 0;
@@ -172,7 +218,7 @@ function _renderFeedStats(stat, ctx) {
     if (graphTab === 'day' && window.graphBatteryShowSessions !== false && typeof detectBatterySessions === 'function') {
       const resSec = (nav && nav.resSeconds) ? nav.resSeconds : 120;
       const sessions = detectBatterySessions(bars1, resSec, lastIdx, 10, 2.0);
-      const packKwh = (typeof solarCfg !== 'undefined' && solarCfg && solarCfg.batteryKwh > 0) ? solarCfg.batteryKwh : 5.12;
+      const packKwh = (typeof isBat2 !== 'undefined' && isBat2) ? 5.12 : ((typeof solarCfg !== 'undefined' && solarCfg && solarCfg.batteryKwh > 0) ? solarCfg.batteryKwh : 5.12);
 
       if (sessions.length > 0) {
         let totalChgKwh = 0, totalDisKwh = 0;
@@ -239,7 +285,7 @@ function _renderFeedStats(stat, ctx) {
 
     stat.innerHTML = statHtml;
     return;
-  } else if (isTemp || gfk === 'water' || gfk === 'batv') {
+  } else if (isTemp || gfk === 'water' || gfk === 'batv' || gfk === 'bat2volt' || gfk === 'bat2current' || gfk === 'bat2cellspread') {
     // ── Environmental Sensors: Temperature 1, 2, Inv Temp, Water Tank, Bat V ──
     const validBars = (graphTab === 'day' ? bars1.slice(0, lastIdx) : bars1).filter(v => v !== null && v !== undefined && !isNaN(v) && v > 0);
     const latestV = validBars.length > 0 ? validBars[validBars.length - 1] : 0;
@@ -255,7 +301,7 @@ function _renderFeedStats(stat, ctx) {
     }
 
     const mainVal = (graphTab === 'month' || graphTab === 'year') ? av : latestV;
-    const icon = gfk === 'water' ? '💧' : '🌡';
+    const icon = gfk === 'water' ? '💧' : (gfk.includes('volt') || gfk.includes('current') ? '⚡' : (gfk.includes('spread') ? '🔋' : '🌡'));
     stat.innerHTML = _formatStatLine(icon, (fA?.statLabel || fA?.label || gfk), mainVal, color1, pk, av, dAv, null, nAv, null, unit, false, graphTab);
   } else if (gfk === 'acvolts') {
     // ── AC Input Volts Stats + Outage Tracker ──
@@ -378,7 +424,7 @@ function _renderFeedStats(stat, ctx) {
       av = bars1.filter(v => v > 0).length > 0 ? t1 / bars1.filter(v => v > 0).length : 0;
     }
     if (gfk === 'batdis' && graphTab === 'day') {
-      const packKwh = (typeof solarCfg !== 'undefined' && solarCfg && solarCfg.batteryKwh > 0) ? solarCfg.batteryKwh : 5.12;
+      const packKwh = (typeof isBat2 !== 'undefined' && isBat2) ? 5.12 : ((typeof solarCfg !== 'undefined' && solarCfg && solarCfg.batteryKwh > 0) ? solarCfg.batteryKwh : 5.12);
       const bSocBars = graphDataCache?.bars1;
       let socKwh = null;
       if (window.lastResultsMap) {

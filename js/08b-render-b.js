@@ -155,6 +155,80 @@ function updateOfflineWarningBanner(byName) {
   }
 }
 
+
+// ── Battery 2 (Dyness DL5.0F) Card Renderer below UI ───────────────────
+window._bat2CellsExpanded = window._bat2CellsExpanded !== undefined ? window._bat2CellsExpanded : true;
+
+function renderBattery2Card(byName) {
+  const cellNames = window.BATTERY2_CELL_NAMES || [];
+  const cells = cellNames.map((n, i) => ({ idx: i + 1, v: byName.get(n)?.value }));
+  const hasAnyBat2Data = byName.get('Bat2 SOC') || byName.get('Bat2 Voltage') || byName.get('Bat2 Power');
+  if (!hasAnyBat2Data) return '';
+
+  const soc     = byName.get('Bat2 SOC')?.value;
+  const soh     = byName.get('Bat2 SOH')?.value;
+  const volt    = byName.get('Bat2 Voltage')?.value;
+  const amps    = byName.get('Bat2 Current')?.value;
+  const watt    = byName.get('Bat2 Power')?.value ?? ((volt != null && amps != null) ? volt * amps : null);
+  const cyc     = byName.get('Bat2 Cycle Count')?.value;
+  const mosT    = byName.get('Bat2 Mosfet Temp')?.value;
+  const bmsT    = byName.get('Bat2 BMS Temp')?.value;
+  const chgLimV = byName.get('Bat2 Chg Limit V')?.value;
+  const chgLimA = byName.get('Bat2 Chg Limit A')?.value;
+  const disLimV = byName.get('Bat2 Dis Limit V')?.value;
+  const disLimA = byName.get('Bat2 Dis Limit A')?.value;
+
+  const isCharging = (amps != null && amps > 0.3) || (watt != null && watt > 15);
+  const isDischarging = (amps != null && amps < -0.3) || (watt != null && watt < -15);
+  const statusText = isCharging ? 'Charging' : (isDischarging ? 'Discharging' : 'Standby');
+  const statusColor = isCharging ? '#4ade80' : (isDischarging ? '#f59e0b' : 'var(--text-muted)');
+  const socColor = (soc != null && soc <= 20) ? '#ef4444' : (soc != null && soc <= 50) ? '#facc15' : '#4ade80';
+
+  const validCells = cells.filter(c => c.v != null && c.v > 0);
+  let cellGridHtml = '';
+  let spreadHtml = '';
+  if (validCells.length > 0) {
+    const cMin = Math.min(...validCells.map(c => c.v));
+    const cMax = Math.max(...validCells.map(c => c.v));
+    const spreadMv = Math.round((cMax - cMin) * 1000);
+    const minIdx = validCells.find(c => c.v === cMin)?.idx;
+    const maxIdx = validCells.find(c => c.v === cMax)?.idx;
+
+    spreadHtml = `<div class="linked-value" style="grid-column: 1 / -1; border-top:1px dashed var(--border); padding-top:4px; margin-top:2px;">
+      <span>Cell Spread</span>
+      <span class="linked-reading" style="color:${spreadMv > 30 ? '#ef4444' : spreadMv > 15 ? '#facc15' : '#4ade80'}; font-weight:800;">${cMin.toFixed(3)}V – ${cMax.toFixed(3)}V &nbsp;(Δ${spreadMv}mV)</span>
+    </div>`;
+
+    cellGridHtml = `<div class="bat2-cell-grid" id="bat2-cell-grid" style="${window._bat2CellsExpanded ? '' : 'display:none;'}">
+      ${cells.map(c => {
+        if (c.v == null) return `<div class="bat2-cell-item"><span class="bat2-cell-idx">C${c.idx}</span><span class="bat2-cell-v">--</span></div>`;
+        const cls = c.idx === maxIdx ? 'bat2-cell-max' : (c.idx === minIdx ? 'bat2-cell-min' : '');
+        return `<div class="bat2-cell-item ${cls}"><span class="bat2-cell-idx">C${c.idx}</span><span class="bat2-cell-v">${c.v.toFixed(3)}</span></div>`;
+      }).join('')}
+    </div>
+    <div class="bat2-cell-toggle" onclick="window._bat2CellsExpanded = !window._bat2CellsExpanded; const g = document.getElementById('bat2-cell-grid'); if (g) g.style.display = window._bat2CellsExpanded ? 'grid' : 'none'; this.textContent = window._bat2CellsExpanded ? '▲ Hide 16 cell voltages' : '▼ Show 16 cell voltages';">
+      ${window._bat2CellsExpanded ? '▲ Hide 16 cell voltages' : '▼ Show 16 cell voltages'}
+    </div>`;
+  }
+
+  const fmtLimits = (v, u) => (v != null ? v.toFixed(1) + u : '--');
+
+  return `<div class="card card-battery2"><div class="hero-header">
+    <div style="flex:1"><span class="card-name">🔋 Battery 2 SOC</span><span class="hero-val" style="color:${socColor}">${soc != null ? Math.round(soc) : '--'}%</span></div>
+    <div style="flex:1;text-align:center"><span class="card-name">Voltage</span><span class="hero-val" style="color:var(--accent-kwh)">${volt != null ? volt.toFixed(2) : '--'}V</span></div>
+    <div style="flex:1;text-align:right"><span class="card-name">Power</span><span class="hero-val" style="color:${watt > 0 ? '#4ade80' : (watt < 0 ? '#f59e0b' : 'var(--text-muted)')}">${watt != null ? (watt > 0 ? '+' : '') + Math.round(watt) : '--'}W</span></div>
+  </div><div class="linked-values linked-values-pair">
+    <div class="linked-value"><span>Status</span><span class="linked-reading" style="color:${statusColor}">${statusText}${amps != null ? ' (' + Math.abs(amps).toFixed(1) + 'A)' : ''}</span></div>
+    <div class="linked-value"><span>SOH / Cycles</span><span class="linked-reading">${soh != null ? Math.round(soh) + '%' : '--'} &bull; ${cyc != null ? Math.round(cyc) : '--'}</span></div>
+  </div><div class="linked-values linked-values-pair" style="border-top:1px dashed var(--border); padding-top:4px; margin-top:4px;">
+    <div class="linked-value"><span>Mosfet / BMS Temp</span><span class="linked-reading">${fmtLimits(mosT, '°C')} &bull; ${fmtLimits(bmsT, '°C')}</span></div>
+    <div class="linked-value"><span>Chg / Dis Limits</span><span class="linked-reading" style="font-size:10px;">Chg ${fmtLimits(chgLimV,'V')}/${fmtLimits(chgLimA,'A')} &bull; Dis ${fmtLimits(disLimV,'V')}/${fmtLimits(disLimA,'A')}</span></div>
+    ${spreadHtml}
+  </div>
+  ${cellGridHtml}
+  </div>`;
+}
+
 function renderResults(results) {
   const byName = new Map(results.map(r => [r.name, r]));
   const used   = new Set();
@@ -295,6 +369,10 @@ function renderResults(results) {
         <div class="linked-value"><span>Chrg Energy</span><span class="linked-reading" style="color:#10b981">T: ${fmtE(batStats.batChgT)} &bull; M: ${fmtE(batStats.batChgM)}</span></div>
         <div class="linked-value"><span>Disc Energy</span><span class="linked-reading" style="color:#10b981">T: ${fmtE(batStats.batDisT)} &bull; M: ${fmtE(batStats.batDisM)}</span></div>
       </div></div>`;
+    }
+
+    if (gn && gn.includes('Bat2 Power') && gn.includes('Bat2 SOC')) {
+      return renderBattery2Card(byName);
     }
 
     if (gn && gn.includes('Fridge') && gn.includes('Fridge2')) {

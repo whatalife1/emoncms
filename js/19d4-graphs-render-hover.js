@@ -37,6 +37,71 @@ function _handleGraphHover(e, pin) {
   if (!tooltip) { tooltip = document.createElement('div'); tooltip.id = 'graph-tooltip'; document.body.appendChild(tooltip); }
   const closeBtn = pin ? `<span class="close-btn" onclick="hideTooltip();">✕</span>` : '';
 
+  
+  // ─── Battery 2: 16-Cell Matrix Tooltip ───
+  if (graphDataCache.bat2AllCells && (graphFeedKey === 'bat2cells' || graphFeedKey === 'bat2cellspread')) {
+    const b2 = graphDataCache.bat2AllCells;
+    const cellBars = b2.cellBars || [];
+    const cellVals = [];
+    for (let c = 0; c < 16; c++) {
+      const v = cellBars[c] ? cellBars[c][idx] : null;
+      cellVals.push({ idx: c + 1, v });
+    }
+    const valids = cellVals.filter(x => x.v != null && x.v > 2.0);
+    let minIdx = -1, maxIdx = -1, spreadMv = 0, avgV = 0;
+    if (valids.length >= 2) {
+      const vs = valids.map(x => x.v);
+      const cMin = Math.min(...vs);
+      const cMax = Math.max(...vs);
+      spreadMv = Math.round((cMax - cMin) * 1000);
+      avgV = vs.reduce((a,b)=>a+b,0) / vs.length;
+      minIdx = valids.find(x => x.v === cMin)?.idx;
+      maxIdx = valids.find(x => x.v === cMax)?.idx;
+    }
+
+    const spreadColor = spreadMv > 30 ? '#ef4444' : (spreadMv > 15 ? '#f59e0b' : '#4ade80');
+    let cellsGrid = '<div style="display:grid; grid-template-columns:repeat(8, 1fr); gap:3px; margin-top:6px; box-sizing:border-box;">';
+    cellVals.forEach(cell => {
+      const isMin = cell.idx === minIdx;
+      const isMax = cell.idx === maxIdx;
+      let bg = 'rgba(255,255,255,0.04)';
+      let border = 'rgba(255,255,255,0.1)';
+      let textClr = 'var(--text-main)';
+      if (isMin) { bg = 'rgba(239,68,68,0.2)'; border = '#ef4444'; textClr = '#fca5a5'; }
+      else if (isMax) { bg = 'rgba(34,197,94,0.2)'; border = '#22c55e'; textClr = '#86efac'; }
+      const valStr = cell.v != null ? cell.v.toFixed(3) : '--';
+
+      cellsGrid += `
+        <div style="background:${bg}; border:1px solid ${border}; border-radius:5px; padding:3px 1px; text-align:center; font-family:monospace; line-height:1.15;">
+          <div style="font-size:9px; color:${isMin?'#f87171':(isMax?'#4ade80':'var(--text-muted)')}; font-weight:700;">C${cell.idx}</div>
+          <div style="font-size:10.5px; font-weight:800; color:${textClr};">${valStr}</div>
+        </div>`;
+    });
+    cellsGrid += '</div>';
+
+    tooltip.innerHTML = `
+      <div style="font-weight:800; font-size:12px; color:var(--text-main); border-bottom:1px solid var(--border); padding-bottom:3px; display:flex; justify-content:space-between; align-items:center;">
+        <span>🕒 ${timeLabel} · 🔋 16-Cell Matrix</span> ${closeBtn}
+      </div>
+      <div style="font-size:10.5px; margin-top:4px; display:flex; justify-content:space-between; align-items:center;">
+        <span>Spread: <b style="color:${spreadColor}; font-size:12px;">Δ${spreadMv} mV</b></span>
+        <span>Avg: <b>${avgV.toFixed(3)}V</b></span>
+        <span style="font-size:9.5px; color:var(--text-muted);"><b style="color:#f87171">C${minIdx}</b> min &bull; <b style="color:#4ade80">C${maxIdx}</b> max</span>
+      </div>
+      ${cellsGrid}
+    `;
+
+    tooltip.style.display = 'block';
+    tooltip.classList.toggle('pinned', pin);
+    let left = clientX + 15; let top = clientY - 15;
+    const tRect = tooltip.getBoundingClientRect();
+    if (left + tRect.width > window.innerWidth - 10) left = clientX - tRect.width - 15;
+    if (top + tRect.height > window.innerHeight - 10) top = window.innerHeight - tRect.height - 10;
+    tooltip.style.left = Math.max(10, left) + 'px';
+    tooltip.style.top  = Math.max(10, top) + 'px';
+    return;
+  }
+
   // ─── Moment Flow Inspector tooltip ───
   if (graphDataCache.isMomentFlow && multiData) {
     const timestampSec = Math.floor((nav.startMs + (idx * nav.resSeconds * 1000)) / 1000);

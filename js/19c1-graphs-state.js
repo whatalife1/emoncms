@@ -427,3 +427,14 @@ function detectBatterySessions(socBars, resSec, lastIdx, minDurationMin, minDelt
 }
 window.detectBatterySessions = detectBatterySessions;
 
+
+// ─── Battery 2 16-Cell Diagnostics State ────────────────────────────────────
+if (typeof window.graphBat2CellMode === 'undefined') {
+  window.graphBat2CellMode = localStorage.getItem('graphBat2CellMode') || 'band';
+}
+if (typeof window.graphBat2SoloCell === 'undefined') {
+  window.graphBat2SoloCell = null;
+}
+if (typeof window.graphBat2ShowSpreadOverlay === 'undefined') {
+  window.graphBat2ShowSpreadOverlay = localStorage.getItem('graphBat2ShowSpreadOverlay') !== 'false';
+}

@@ -1187,7 +1187,22 @@
     const titleEl  = modal.querySelector('.fd-title');
     const chartsEl = modal.querySelector('.fd-charts');
     panel.style.setProperty('--fd-color', cfg.color);
-    titleEl.textContent = cfg.title;
+    if (boxKey === 'battery' || boxKey === 'battery2') {
+      titleEl.innerHTML = `
+        <div style="display:flex; gap:6px; align-items:center;">
+          <button type="button" class="fd-btn" id="fd-tab-bat1" style="font-size:11px; padding:3px 8px; font-weight:800; border-color:${boxKey==='battery'?'#10b981':'var(--border)'}; background:${boxKey==='battery'?'rgba(16,185,129,0.2)':'transparent'}; color:${boxKey==='battery'?'#4ade80':'var(--text-muted)'};">🔋 Bat 1 (Inverter)</button>
+          <button type="button" class="fd-btn" id="fd-tab-bat2" style="font-size:11px; padding:3px 8px; font-weight:800; border-color:${boxKey==='battery2'?'#a78bfa':'var(--border)'}; background:${boxKey==='battery2'?'rgba(167,139,250,0.2)':'transparent'}; color:${boxKey==='battery2'?'#c4b5fd':'var(--text-muted)'};">🔋 Bat 2 (Dyness 5k)</button>
+        </div>
+      `;
+      setTimeout(() => {
+        const b1 = document.getElementById('fd-tab-bat1');
+        const b2 = document.getElementById('fd-tab-bat2');
+        if (b1) b1.onclick = () => openFlowDetail('battery');
+        if (b2) b2.onclick = () => openFlowDetail('battery2');
+      }, 10);
+    } else {
+      titleEl.textContent = cfg.title;
+    }
     modal.classList.add('open');
     _refreshModalBody(boxKey);
     // FLOW_EXTRAS_PATCH_V1
@@ -1312,6 +1327,23 @@
         e.stopPropagation();
         openFlowDetail(key);
       });
+    });
+
+    svg.addEventListener('click', function (e) {
+      const pt = svg.createSVGPoint();
+      pt.x = e.clientX;
+      pt.y = e.clientY;
+      const ctm = svg.getScreenCTM();
+      if (!ctm) return;
+      const svgP = pt.matrixTransform(ctm.inverse());
+      for (const [key, d] of Object.entries(LAYOUT)) {
+        if (!FLOW_DETAIL_CONFIG[key]) continue;
+        if (svgP.x >= d.x && svgP.x <= d.x + d.w && svgP.y >= d.y && svgP.y <= d.y + d.h) {
+          e.stopPropagation();
+          openFlowDetail(key);
+          break;
+        }
+      }
     });
   }
   function _patchFlowDiagram() {

@@ -1,4 +1,83 @@
 
+// ─── Battery 2: 16-Cell Mode & Pill Toggles ─────────────────────────────────
+function _renderBattery2CellToggles() {
+  const existing = document.getElementById('bat2cells-toggles');
+  if (existing) existing.remove();
+  if (graphFeedKey !== 'bat2cells') return;
+
+  const wrap = document.createElement('div');
+  wrap.id = 'bat2cells-toggles';
+  wrap.style.cssText = 'display:flex; flex-direction:column; gap:6px; padding:6px 0 8px; flex-shrink:0; align-items:center; justify-content:center; width:100%;';
+
+  // Mode row: Band, All 16, Delta (+Spread toggle)
+  const modeRow = document.createElement('div');
+  modeRow.style.cssText = 'display:flex; gap:6px; flex-wrap:wrap; justify-content:center; align-items:center;';
+
+  const modes = [
+    { id: 'band',  label: '📊 Min/Max Band' },
+    { id: 'all',   label: '📈 Show All 16' },
+    { id: 'delta', label: '⚖️ Delta (±mV from Avg)' }
+  ];
+
+  modes.forEach(m => {
+    const active = (window.graphBat2CellMode === m.id && window.graphBat2SoloCell === null);
+    const btn = document.createElement('button');
+    btn.style.cssText = `padding:3px 10px; border-radius:14px; font-size:11px; font-weight:700; cursor:pointer; width:auto; border:1px solid ${active ? '#38bdf8' : 'var(--border)'}; background:${active ? 'rgba(56,189,248,0.2)' : 'var(--bg-card)'}; color:${active ? '#38bdf8' : 'var(--text-muted)'};`;
+    btn.textContent = m.label;
+    btn.onclick = () => {
+      window.graphBat2CellMode = m.id;
+      window.graphBat2SoloCell = null;
+      try { localStorage.setItem('graphBat2CellMode', m.id); } catch(e){}
+      _renderBattery2CellToggles();
+      if (typeof _loadAndDraw === 'function') _loadAndDraw();
+    };
+    modeRow.appendChild(btn);
+  });
+
+  const spreadActive = window.graphBat2ShowSpreadOverlay;
+  const spreadBtn = document.createElement('button');
+  spreadBtn.style.cssText = `padding:3px 10px; border-radius:14px; font-size:11px; font-weight:700; cursor:pointer; width:auto; border:1px solid ${spreadActive ? '#f59e0b' : 'var(--border)'}; background:${spreadActive ? 'rgba(245,158,11,0.2)' : 'var(--bg-card)'}; color:${spreadActive ? '#f59e0b' : 'var(--text-muted)'};`;
+  spreadBtn.textContent = spreadActive ? '⚡ Spread Δ: ON' : '⚡ + Spread Δ (mV)';
+  spreadBtn.onclick = () => {
+    window.graphBat2ShowSpreadOverlay = !window.graphBat2ShowSpreadOverlay;
+    try { localStorage.setItem('graphBat2ShowSpreadOverlay', window.graphBat2ShowSpreadOverlay ? 'true' : 'false'); } catch(e){}
+    _renderBattery2CellToggles();
+    if (typeof _loadAndDraw === 'function') _loadAndDraw();
+  };
+  modeRow.appendChild(spreadBtn);
+  wrap.appendChild(modeRow);
+
+  // Cell pills row (C1 to C16)
+  const cellRow = document.createElement('div');
+  cellRow.style.cssText = 'display:flex; gap:4px; flex-wrap:wrap; justify-content:center; align-items:center; max-width:680px;';
+
+  const cellColors = window.BATTERY2_CELL_COLORS || [];
+  for (let c = 1; c <= 16; c++) {
+    const isSolo = (window.graphBat2SoloCell === c);
+    const clr = cellColors[c - 1] || '#38bdf8';
+    const cBtn = document.createElement('button');
+    cBtn.style.cssText = `padding:2px 7px; border-radius:10px; font-size:10px; font-weight:800; cursor:pointer; width:auto; border:1.5px solid ${isSolo ? clr : 'var(--border)'}; background:${isSolo ? clr + '33' : 'var(--bg-card)'}; color:${isSolo ? clr : 'var(--text-muted)'};`;
+    cBtn.textContent = `C${c}`;
+    cBtn.title = `Isolate Cell ${c}`;
+    cBtn.onclick = () => {
+      if (window.graphBat2SoloCell === c) {
+        window.graphBat2SoloCell = null;
+      } else {
+        window.graphBat2SoloCell = c;
+      }
+      _renderBattery2CellToggles();
+      if (typeof _loadAndDraw === 'function') _loadAndDraw();
+    };
+    cellRow.appendChild(cBtn);
+  }
+  wrap.appendChild(cellRow);
+
+  const feedTabsWrap = document.getElementById('graph-feed-tabs');
+  if (feedTabsWrap) feedTabsWrap.parentNode.insertBefore(wrap, feedTabsWrap);
+}
+window._renderBattery2CellToggles = _renderBattery2CellToggles;
+
+
 // ─── Moment Flow Toggle Pills ───────────────────────────────────────────────
 function _renderMomentFlowToggles() {
   const existing = document.getElementById('momentflow-toggles');

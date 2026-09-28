@@ -276,7 +276,7 @@ function renderResults(results) {
       if (batRate) {
         rateRowHtml = `
         <div class="linked-value" style="grid-column: 1 / -1; border-top:1px dashed var(--border); padding-top:4px; margin-top:2px;">
-          <span>Rate (Cont. 1m+)</span>
+          <span>Rate (Cont. 20s+)</span>
           <span class="linked-reading" style="color:${isCharging ? '#4ade80' : '#facc15'}; font-size:12px; font-weight:800;">${batRate.text}</span>
         </div>`;
       }

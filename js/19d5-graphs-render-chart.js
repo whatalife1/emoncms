@@ -52,6 +52,30 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
   ctx.beginPath(); ctx.rect(PL, PT, cW, cH); ctx.clip();
   const n = (nav && nav.nBars) ? nav.nBars : (bars1.length || (multiData?.[0]?.data?.length ?? 0));
   if (n > 0) {
+        // ── Shaded Min/Max Cell Spread Band ──
+    if (graphDataCache && graphDataCache.isCellBand && graphDataCache.minBars && graphDataCache.maxBars) {
+      ctx.save();
+      ctx.beginPath();
+      const minB = graphDataCache.minBars;
+      const maxB = graphDataCache.maxBars;
+      let first = true;
+      for (let i = 0; i < lastIdx; i++) {
+        if (maxB[i] == null) continue;
+        const px = mapX(PL + (i / n) * cW);
+        const py = PT + cH - ((maxB[i] - minV) / range) * cH;
+        if (first) { ctx.moveTo(px, py); first = false; } else ctx.lineTo(px, py);
+      }
+      for (let i = lastIdx - 1; i >= 0; i--) {
+        if (minB[i] == null) continue;
+        const px = mapX(PL + (i / n) * cW);
+        const py = PT + cH - ((minB[i] - minV) / range) * cH;
+        ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+      ctx.fillStyle = 'rgba(56, 189, 248, 0.16)';
+      ctx.fill();
+      ctx.restore();
+    }
     if (multiData && multiData.length > 0) {
       multiData.forEach(line => {
         _renderPlot(ctx, line.data, n, line.color, chartType, mapX, PL, PT, cW, cH, minV, range, lastIdx, false);

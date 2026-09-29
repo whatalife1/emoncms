@@ -133,7 +133,7 @@ function renderFlowDiagram(byName) {
     const pWatts = solarCfg.panelWatts || 580;
     const totalKw = ((pCount * pWatts) / 1000).toFixed(1);
     const battKw = (solarCfg.batteryKwh && solarCfg.batteryKwh > 0) ? solarCfg.batteryKwh.toFixed(1) : '5.1';
-    titleEl.innerHTML = `⚡6kW Inverter &bull; ☀ Solar ${totalKw}kW (${pCount}×${pWatts}) &bull; 🔋${battKw}kWh Battery &bull; 🔋5.0kWh Battery 2`;
+    titleEl.innerHTML = `⚡6kW Inverter &bull; ☀ Solar ${totalKw}kW (${pCount}×${pWatts}) &bull; 🔋${battKw}kWh Battery`;
   }
 
   const getV = (n) => byName.get(n)?.value ?? 0;

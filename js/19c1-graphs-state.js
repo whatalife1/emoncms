@@ -296,6 +296,63 @@ function smoothBatterySocBars(inputBars, lastIdx, isSmoothEnabled) {
       }
       p = Math.max(p + 1, pEnd);
     }
+
+    // 3. Filter transient V-dip voltage-sag artifacts (e.g. microwave, kettle, or pump momentary dips)
+    const MAX_LOOKAHEAD = 16; // search window up to ~30 mins (at 120s resolution)
+    const MIN_DIP_PCT = 1.8;  // threshold for temporary voltage-sag drop
+
+    let k = 1;
+    while (k < n - 2) {
+      const vStart = bars[k - 1];
+      if (vStart == null || isNaN(vStart) || vStart <= 10) {
+        k++;
+        continue;
+      }
+
+      // Check if there is a sharp dip ahead
+      let minVal = vStart;
+      let minIdx = -1;
+      const maxLook = Math.min(n - 1, k + MAX_LOOKAHEAD);
+
+      for (let j = k; j <= maxLook; j++) {
+        const val = bars[j];
+        if (val != null && !isNaN(val) && val > 10) {
+          if (val < minVal) {
+            minVal = val;
+            minIdx = j;
+          }
+        }
+      }
+
+      const dip = vStart - minVal;
+      if (minIdx !== -1 && dip >= MIN_DIP_PCT) {
+        // Look for rebound after minIdx
+        let reboundIdx = -1;
+        const recoveryTarget = vStart - Math.max(1.5, dip * 0.25); // recovered at least 75% of the dip
+
+        for (let j = minIdx + 1; j <= Math.min(n - 1, minIdx + MAX_LOOKAHEAD); j++) {
+          const val = bars[j];
+          if (val != null && !isNaN(val) && val >= recoveryTarget) {
+            reboundIdx = j;
+            break;
+          }
+        }
+
+        if (reboundIdx !== -1) {
+          // Rebounded! This was a momentary appliance voltage-sag dip.
+          // Linearly interpolate between (k - 1) and reboundIdx
+          const span = reboundIdx - (k - 1);
+          const vEnd = bars[reboundIdx];
+          for (let m = k; m < reboundIdx; m++) {
+            const frac = (m - (k - 1)) / span;
+            bars[m] = vStart + frac * (vEnd - vStart);
+          }
+          k = reboundIdx;
+          continue;
+        }
+      }
+      k++;
+    }
   }
 
   return bars;

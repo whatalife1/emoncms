@@ -276,103 +276,91 @@ function renderResults(results) {
     }
 
     if (gn && gn.includes('Bat V') && gn.includes('SOC %')) {
-      const v   = byName.get('Bat V');
-      const ca  = byName.get('bt_battery_charging_current') || byName.get('Chg A');
-      const da  = byName.get('bt_battery_discharge_current') || byName.get('Dis A');
-      const soc = byName.get('SOC %');
+      const v    = byName.get('Bat V') || byName.get('Bat2 Voltage');
+      const ca   = byName.get('bt_battery_charging_current') || byName.get('Chg A');
+      const da   = byName.get('bt_battery_discharge_current') || byName.get('Dis A');
+      const soc  = byName.get('SOC %') || byName.get('Dyness SOC') || byName.get('Bat2 SOC');
+      const wattFeed = byName.get('Bat Power') || byName.get('Bat2 Power');
+      const soh  = byName.get('Bat SOH')?.value || byName.get('Bat2 SOH')?.value;
+      const cyc  = byName.get('Bat Cycle Count')?.value || byName.get('Bat2 Cycle Count')?.value;
+      const mosT = byName.get('Bat Mosfet Temp')?.value || byName.get('Bat2 Mosfet Temp')?.value;
+      const bmsT = byName.get('Bat BMS Temp')?.value || byName.get('Bat2 BMS Temp')?.value;
+      const chgLimA = byName.get('Bat Chg Limit A')?.value || byName.get('Bat2 Chg Limit A')?.value;
+      const disLimA = byName.get('Bat Dis Limit A')?.value || byName.get('Bat2 Dis Limit A')?.value;
 
-      const batV = v?.value || 52.8;
+      const batV = v?.value || 52.0;
       const chgA = ca?.value || 0;
       const disA = da?.value || 0;
-      const isCharging = chgA > 0.5;
-      const isDischarging = disA > 0.5;
+      const isCharging = chgA > 0.5 || (wattFeed && wattFeed.value > 15);
+      const isDischarging = disA > 0.5 || (wattFeed && wattFeed.value < -15);
       const netA = (chgA > 0.1 ? chgA : 0) - (disA > 0.1 ? disA : 0);
-      const netW = Math.round(batV * netA);
+      const netW = wattFeed?.value != null ? Math.round(wattFeed.value) : Math.round(batV * netA);
 
-      const s = byName.get('Solar')?.value || 0;
-      const b = byName.get('Breaker')?.value || 0;
-      const l = byName.get('Tot Load')?.value || 0;
-      const acV = byName.get('AC Volts')?.value || 0;
-      const gridOff = acV < 10;
-      const useGrid = (typeof BATTERY_EST_USE_GRID !== 'undefined') ? BATTERY_EST_USE_GRID : true;
-      const effGrid = (useGrid && b > 25 && !gridOff) ? b : 0;
-      const netSurplus = (s + effGrid) - l;
-      let estBatW = 0;
-      if (netSurplus >= 50) estBatW = Math.round(netSurplus - 50);
-      else if (netSurplus > 0) estBatW = 0;
-      else estBatW = Math.round(netSurplus - 50);
-
-      const estSign = estBatW > 0 ? `+${estBatW}` : `${estBatW}`;
-      const estText = ` (${estSign}W)`;
       const socVal = soc?.value != null ? Math.round(soc.value) : '--';
-      const socColor = (soc?.value > 50) ? 'var(--accent-env)' : (soc?.value > 20 ? 'var(--accent-solar)' : '#ef4444');
-
-      const packKwh = (typeof solarCfg !== 'undefined' && solarCfg?.batteryKwh > 0) ? solarCfg.batteryKwh : 5.12;
-      const packWh = packKwh * 1000;
-      let est20Str = '';
-      let estTimeStr = '';
-      if (isDischarging && netW < -15) {
-        if (socVal > 20) {
-          const usable20Wh = packWh * ((socVal - 20) / 100);
-          const hrs20 = usable20Wh / Math.abs(netW);
-          const h20 = Math.floor(hrs20);
-          const m20 = Math.round((hrs20 - h20) * 60);
-          est20Str = h20 > 0 ? `~${h20}h ${m20}m` : `~${m20}m`;
-        } else {
-          est20Str = 'Cutoff Active';
-        }
-        const usableWh = packWh * (Math.max(0, socVal - 10) / 100);
-        const hrs = usableWh / Math.abs(netW);
-        const h = Math.floor(hrs);
-        const m = Math.round((hrs - h) * 60);
-        estTimeStr = h > 0 ? `~${h}h ${m}m` : `~${m}m`;
-      } else if (isCharging && netW > 15) {
-        const neededWh = packWh * ((100 - socVal) / 100);
-        const hrs = neededWh / netW;
-        const h = Math.floor(hrs);
-        const m = Math.round((hrs - h) * 60);
-        estTimeStr = h > 0 ? `~${h}h ${m}m to full` : `~${m}m to full`;
-      }
+      const socColor = (socVal > 50) ? '#4ade80' : (socVal > 20 ? '#facc15' : '#ef4444');
 
       let stText = 'Standby';
-      if (isCharging) {
-        stText = estTimeStr ? `Charging (${estTimeStr})` : 'Charging';
-      } else if (isDischarging) {
-        stText = `Discharge (20% Off: ${est20Str} · Empty: ${estTimeStr})`;
-      }
+      if (isCharging) stText = `Charging (${chgA.toFixed(1)}A)`;
+      else if (isDischarging) stText = `Discharging (${disA.toFixed(1)}A)`;
 
-      let currentText = 'Standby';
-      if (isCharging) currentText = `Charging: ${chgA.toFixed(1)}A`;
-      else if (isDischarging) currentText = `Discharging: ${disA.toFixed(1)}A`;
+      const batStats = window.monthlyUnits || {};
+      const fmtE = (wh) => (wh >= 500 ? (wh / 1000).toFixed(1) + ' kWh' : Math.round(wh || 0) + ' Wh');
 
-      const batRate = window.lastBatRate || (typeof getBatteryContinuousRate === 'function' ? getBatteryContinuousRate(isCharging, isDischarging, (isCharging ? liveChgWatts : (isDischarging ? liveDisWatts : 0)), packWh) : null);
-      let rateRowHtml = '';
-      if (batRate) {
-        rateRowHtml = `
-        <div class="linked-value" style="grid-column: 1 / -1; border-top:1px dashed var(--border); padding-top:4px; margin-top:2px;">
-          <span>Rate (Cont. 20s+)</span>
-          <span class="linked-reading" style="color:${isCharging ? '#4ade80' : '#facc15'}; font-size:12px; font-weight:800;">${batRate.text}</span>
+      // 16 Dyness Cells
+      const cellNames = window.BATTERY_CELL_NAMES || window.BATTERY2_CELL_NAMES || [];
+      const cells = cellNames.map((n, i) => ({ idx: i + 1, v: byName.get(n)?.value }));
+      const validCells = cells.filter(c => c.v != null && c.v > 0);
+
+      let spreadHtml = '';
+      let cellGridHtml = '';
+      if (validCells.length > 0) {
+        const cMin = Math.min(...validCells.map(c => c.v));
+        const cMax = Math.max(...validCells.map(c => c.v));
+        const spreadMv = Math.round((cMax - cMin) * 1000);
+        const minIdx = validCells.find(c => c.v === cMin)?.idx;
+        const maxIdx = validCells.find(c => c.v === cMax)?.idx;
+        const spreadColor = spreadMv > 30 ? '#ef4444' : (spreadMv > 15 ? '#facc15' : '#4ade80');
+
+        spreadHtml = `<div class="linked-value" style="grid-column: 1 / -1; border-top:1px dashed var(--border); padding-top:4px; margin-top:2px;">
+          <span>Cell Spread</span>
+          <span class="linked-reading" style="color:${spreadColor}; font-weight:800;">C${minIdx} (${cMin.toFixed(3)}V) &ndash; C${maxIdx} (${cMax.toFixed(3)}V) &nbsp;(Δ${spreadMv}mV)</span>
+        </div>`;
+
+        cellGridHtml = `<div class="bat2-cell-grid" id="bat-cell-grid" style="${window._batCellsExpanded ? '' : 'display:none;'}">
+          ${cells.map(c => {
+            if (c.v == null) return `<div class="bat2-cell-item"><span class="bat2-cell-idx">C${c.idx}</span><span class="bat2-cell-v">--</span></div>`;
+            const cls = c.idx === maxIdx ? 'bat2-cell-max' : (c.idx === minIdx ? 'bat2-cell-min' : '');
+            return `<div class="bat2-cell-item ${cls}"><span class="bat2-cell-idx">C${c.idx}</span><span class="bat2-cell-v">${c.v.toFixed(3)}</span></div>`;
+          }).join('')}
+        </div>
+        <div class="bat2-cell-toggle" onclick="window._batCellsExpanded = !window._batCellsExpanded; const g = document.getElementById('bat-cell-grid'); if (g) g.style.display = window._batCellsExpanded ? 'grid' : 'none'; this.textContent = window._batCellsExpanded ? '▲ Hide 16 cell voltages' : '▼ Show 16 cell voltages';">
+          ${window._batCellsExpanded ? '▲ Hide 16 cell voltages' : '▼ Show 16 cell voltages'}
         </div>`;
       }
 
-      const batStats = window.monthlyUnits || {};
-      const fmtE = (wh) => (wh >= 500 ? (wh / 1000).toFixed(1) + ' kwh' : Math.round(wh || 0) + 'w');
+      const fmtL = (val, u) => (val != null ? val.toFixed(1) + u : '--');
 
-      return `<div class="card" style="border-left: 3px solid var(--accent-env)"><div class="hero-header">
-        <div style="flex:1"><span class="card-name">Battery SOC</span>${sparkSvg(soc?.id, '#10b981')}<span class="hero-val" style="color:${socColor}">${socVal}%</span></div>
-        <div style="flex:1;text-align:center"><span class="card-name">Voltage</span><span class="hero-val" style="color:var(--accent-kwh)">${batV.toFixed(1)}V</span></div>
-        <div style="flex:1;text-align:right"><span class="card-name">Net Power</span><span class="hero-val" style="color:${netW > 0 ? '#4ade80' : (netW < 0 ? '#f59e0b' : 'var(--text-muted)')}">${netW > 0 ? '+' + netW : netW}W</span></div>
-      </div><div class="linked-values linked-values-pair">
-        <div class="linked-value"><span>Status</span><span class="linked-reading" style="color:var(--accent-kwh)">${stText}</span></div>
-        <div class="linked-value"><span>Activity</span><span class="linked-reading">${currentText}</span></div>
-      </div><div class="linked-values linked-values-pair" style="border-top:1px dashed var(--border); padding-top:4px; margin-top:4px;">
-        <div class="linked-value"><span>Chrg Energy</span><span class="linked-reading" style="color:#10b981">T: ${fmtE(batStats.batChgT)} &bull; M: ${fmtE(batStats.batChgM)}</span></div>
-        <div class="linked-value"><span>Disc Energy</span><span class="linked-reading" style="color:#10b981">T: ${fmtE(batStats.batDisT)} &bull; M: ${fmtE(batStats.batDisM)}</span></div>
-      </div></div>`;
-    }
-
-    if (gn && gn.includes('Bat2 Power') && gn.includes('Bat2 SOC')) {
-      return renderBattery2Card(byName);
+      return `<div class="card" style="border-left: 3px solid #10b981;">
+        <div class="hero-header">
+          <div style="flex:1"><span class="card-name">🔋 Battery SOC</span><span class="hero-val" style="color:${socColor}">${socVal}%</span></div>
+          <div style="flex:1;text-align:center"><span class="card-name">Voltage</span><span class="hero-val" style="color:var(--accent-kwh)">${batV.toFixed(1)}V</span></div>
+          <div style="flex:1;text-align:right"><span class="card-name">Power</span><span class="hero-val" style="color:${netW > 0 ? '#4ade80' : (netW < 0 ? '#f59e0b' : 'var(--text-muted)')}">${netW > 0 ? '+' : ''}${netW}W</span></div>
+        </div>
+        <div class="linked-values linked-values-pair">
+          <div class="linked-value"><span>Status</span><span class="linked-reading" style="color:var(--accent-kwh)">${stText}</span></div>
+          <div class="linked-value"><span>SOH / Cycles</span><span class="linked-reading">${soh != null ? Math.round(soh) + '%' : '--'} &bull; ${cyc != null ? Math.round(cyc) : '--'}</span></div>
+        </div>
+        <div class="linked-values linked-values-pair" style="border-top:1px dashed var(--border); padding-top:4px; margin-top:4px;">
+          <div class="linked-value"><span>Chrg Energy</span><span class="linked-reading" style="color:#10b981">T: ${fmtE(batStats.batChgT)} &bull; M: ${fmtE(batStats.batChgM)}</span></div>
+          <div class="linked-value"><span>Disc Energy</span><span class="linked-reading" style="color:#f97316">T: ${fmtE(batStats.batDisT)} &bull; M: ${fmtE(batStats.batDisM)}</span></div>
+        </div>
+        <div class="linked-values linked-values-pair" style="border-top:1px dashed var(--border); padding-top:4px; margin-top:4px;">
+          <div class="linked-value"><span>BMS / Mosfet Temp</span><span class="linked-reading">${fmtL(bmsT, '°C')} &bull; ${fmtL(mosT, '°C')}</span></div>
+          <div class="linked-value"><span>Limits (Chg/Dis)</span><span class="linked-reading" style="font-size:10.5px;">${fmtL(chgLimA, 'A')} / ${fmtL(disLimA, 'A')}</span></div>
+          ${spreadHtml}
+        </div>
+        ${cellGridHtml}
+      </div>`;
     }
 
     if (gn && gn.includes('Fridge') && gn.includes('Fridge2')) {

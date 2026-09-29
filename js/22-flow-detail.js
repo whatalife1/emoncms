@@ -1188,18 +1188,7 @@
     const chartsEl = modal.querySelector('.fd-charts');
     panel.style.setProperty('--fd-color', cfg.color);
     if (boxKey === 'battery' || boxKey === 'battery2') {
-      titleEl.innerHTML = `
-        <div style="display:flex; gap:6px; align-items:center;">
-          <button type="button" class="fd-btn" id="fd-tab-bat1" style="font-size:11px; padding:3px 8px; font-weight:800; border-color:${boxKey==='battery'?'#10b981':'var(--border)'}; background:${boxKey==='battery'?'rgba(16,185,129,0.2)':'transparent'}; color:${boxKey==='battery'?'#4ade80':'var(--text-muted)'};">🔋 Bat 1 (Inverter)</button>
-          <button type="button" class="fd-btn" id="fd-tab-bat2" style="font-size:11px; padding:3px 8px; font-weight:800; border-color:${boxKey==='battery2'?'#a78bfa':'var(--border)'}; background:${boxKey==='battery2'?'rgba(167,139,250,0.2)':'transparent'}; color:${boxKey==='battery2'?'#c4b5fd':'var(--text-muted)'};">🔋 Bat 2 (Dyness 5k)</button>
-        </div>
-      `;
-      setTimeout(() => {
-        const b1 = document.getElementById('fd-tab-bat1');
-        const b2 = document.getElementById('fd-tab-bat2');
-        if (b1) b1.onclick = () => openFlowDetail('battery');
-        if (b2) b2.onclick = () => openFlowDetail('battery2');
-      }, 10);
+      titleEl.textContent = '🔋 Dyness 5.12kWh Battery';
     } else {
       titleEl.textContent = cfg.title;
     }

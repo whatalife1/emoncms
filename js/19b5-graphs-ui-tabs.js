@@ -3,7 +3,7 @@
 function _renderBattery2CellToggles() {
   const existing = document.getElementById('bat2cells-toggles');
   if (existing) existing.remove();
-  if (graphFeedKey !== 'bat2cells') return;
+  if (graphFeedKey !== 'bat2cells' && graphFeedKey !== 'batcells') return;
 
   const wrap = document.createElement('div');
   wrap.id = 'bat2cells-toggles';
@@ -227,6 +227,7 @@ function _renderGFeedTabs() {
   wrap.querySelectorAll('.gfeed-tab').forEach(b => { b.addEventListener('click', () => { graphFeedKey = b.dataset.gkey; graphZoomLevel = 1; graphPanOffset = 0; hideTooltip(); _renderGFeedTabs(); if (typeof _loadAndDraw === 'function') _loadAndDraw(); }); });
   _renderGridAllToggles(); 
   _renderOverlayToggles();
+  if (typeof _renderBattery2CellToggles === 'function') _renderBattery2CellToggles();
   if (typeof _renderMomentFlowToggles === 'function') _renderMomentFlowToggles(); 
   if (typeof _renderOthersFridgeToggle === 'function') _renderOthersFridgeToggle();
   if (typeof _renderWmToggles === 'function') _renderWmToggles();

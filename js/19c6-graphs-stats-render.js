@@ -424,21 +424,9 @@ function _renderFeedStats(stat, ctx) {
       av = bars1.filter(v => v > 0).length > 0 ? t1 / bars1.filter(v => v > 0).length : 0;
     }
     if (gfk === 'batdis' && graphTab === 'day') {
-      const packKwh = (typeof isBat2 !== 'undefined' && isBat2) ? 5.12 : ((typeof solarCfg !== 'undefined' && solarCfg && solarCfg.batteryKwh > 0) ? solarCfg.batteryKwh : 5.12);
-      const bSocBars = graphDataCache?.bars1;
-      let socKwh = null;
-      if (window.lastResultsMap) {
-        const curSoc = window.lastResultsMap.get('SOC %')?.value;
-        if (curSoc != null && curSoc > 0 && curSoc < 98) {
-          socKwh = ((100 - curSoc) / 100) * packKwh;
-        }
-      }
-      const dispKwh = (socKwh && socKwh > t1) ? socKwh : t1;
-      let extraNote = '';
-      if (socKwh && socKwh > t1 + 0.3) {
-        extraNote = ` <span style="color:var(--text-muted);font-size:11px;font-weight:600;">(BMS: <b style="color:#f97316;">${socKwh.toFixed(1)} kWh</b> · Measured: ${t1.toFixed(1)} kWh)</span>`;
-      }
-      stat.innerHTML = _formatStatLine('', (fA?.statLabel || fA?.label || gfk), dispKwh, color1, pk, av, dAv, dTt, nAv, nTt, unit, true, graphTab) + extraNote;
+      // For daily discharge, rely directly on the measured integration (t1).
+      // If discharge is 0 W across the board, display 0.0 kWh without phantom (100 - SOC) offsets.
+      stat.innerHTML = _formatStatLine('', (fA?.statLabel || fA?.label || gfk), t1, color1, pk, av, dAv, dTt, nAv, nTt, unit, true, graphTab);
     } else {
       stat.innerHTML = _formatStatLine('', (fA?.statLabel || fA?.label || gfk), t1, color1, pk, av, dAv, dTt, nAv, nTt, unit, !isAvgF, graphTab);
     }

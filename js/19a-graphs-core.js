@@ -33,15 +33,14 @@ const GRAPH_FEEDS = [
     { key: 'wm',        name: 'Washing Machine', id: '544694', color: '#e879f9', label: '👕 W/M', statLabel: "👕 Washing Machine",       isWatts: true },
 { key: 'others',    name: 'Others',          id: null,     color: '#f59e0b', label: '💡 Others',      isWatts: true, isComputed: true },
 
-    // ── Battery 2 (Dyness DL5.0F, 5kWh) ─────────────────────────────
-    { key: 'bat2soc',     name: 'Battery 2',           id: '546371', color: '#a78bfa', label: '🔋 Battery 2',      isWatts: false, statLabel: '🔋 Battery 2 SOC' },
-    { key: 'bat2power',   name: 'Bat2 Power',          id: '546365', color: '#a78bfa', label: '⚡🔋 Bat2 Power',   isWatts: true,  statLabel: '⚡🔋 Battery 2 Power' },
-    { key: 'bat2volt',    name: 'Bat2 Voltage',        id: '546369', color: '#c4b5fd', label: '⚡ Bat2 Voltage',   isWatts: false, statLabel: '⚡ Battery 2 Voltage' },
-    { key: 'bat2current', name: 'Bat2 Current',        id: '546370', color: '#818cf8', label: '⚡ Bat2 Current',   isWatts: false, statLabel: '⚡ Battery 2 Current' },
-    { key: 'bat2mosftemp',name: 'Bat2 Mosfet Temp',    id: '546373', color: '#f472b6', label: '🌡 Bat2 Mosfet',    isWatts: false, isTemp: true },
-    { key: 'bat2bmstemp', name: 'Bat2 BMS Temp',       id: '546374', color: '#fb7185', label: '🌡 Bat2 BMS',       isWatts: false, isTemp: true },
-    { key: 'bat2cells',   name: 'Bat2 16 Cells',       id: null,     color: '#38bdf8', label: '🔋 Bat2 16-Cells',  isWatts: false, isComputed: true, statLabel: '🔋 Battery 2 (16-Cell Diagnostics)' },
-    { key: 'bat2cellspread', name: 'Bat2 Cell Spread', id: null,     color: '#f59e0b', label: '🔋 Bat2 Cell Δ',    isWatts: false, isComputed: true, statLabel: '🔋 Battery 2 Cell Spread (mV)' },
+    // ── Unified Battery Telemetry & Diagnostics ─────────────────────────────
+    { key: 'bat2power',      name: 'Bat Power',           id: '546365', color: '#10b981', label: '⚡🔋 Bat Power',   isWatts: true,  statLabel: '⚡🔋 Battery Power' },
+    { key: 'bat2volt',       name: 'Bat Voltage',         id: '546369', color: '#35c0b7', label: '⚡ Bat Voltage',   isWatts: false, statLabel: '⚡ Battery Voltage' },
+    { key: 'bat2current',    name: 'Bat Current',         id: '546370', color: '#facc15', label: '⚡ Bat Current',   isWatts: false, statLabel: '⚡ Battery Current' },
+    { key: 'bat2mosftemp',   name: 'Bat Mosfet Temp',     id: '546373', color: '#f472b6', label: '🌡 Bat Mosfet',    isWatts: false, isTemp: true },
+    { key: 'bat2bmstemp',    name: 'Bat BMS Temp',        id: '546374', color: '#fb7185', label: '🌡 Bat BMS',       isWatts: false, isTemp: true },
+    { key: 'bat2cells',      name: '16 Cell Voltages',    id: null,     color: '#38bdf8', label: '🔋 16-Cells',      isWatts: false, isComputed: true, statLabel: '🔋 Battery (16-Cell Diagnostics)' },
+    { key: 'bat2cellspread', name: 'Cell Spread',         id: null,     color: '#f59e0b', label: '🔋 Cell Δ (mV)',   isWatts: false, isComputed: true, statLabel: '🔋 Battery Cell Spread (mV)' },
 
     { key: 'gridall',   name: 'All',             id: null,     color: '#ff6b6b', label: '⚡ All',         isWatts: true, isMultiLine: true }
 ];

@@ -144,12 +144,23 @@ async function fetchTodayBatteryEnergy() {
     const validSocPts = socPts
       .filter(p => p && p[1] != null && p[1] > 10)
       .map(p => ({ t: p[0] < 2e9 ? p[0] * 1000 : p[0], v: parseFloat(p[1]) }))
+      .filter(p => p.t >= todayStartMs)
       .sort((a, b) => a.t - b.t);
     let socDisWh = 0;
-    if (validSocPts.length >= 1) {
+    if (validSocPts.length >= 2) {
       const packKwh = (typeof solarCfg !== 'undefined' && solarCfg && solarCfg.batteryKwh > 0) ? solarCfg.batteryKwh : 5.12;
-      const lastSoc = validSocPts[validSocPts.length - 1].v;
-      socDisWh = Math.max(0, ((100 - lastSoc) / 100) * packKwh * 1000);
+      // Track real downward drop since today's cycle started (7:00 AM)
+      let peakSoc = validSocPts[0].v;
+      let maxDownwardDrop = 0;
+      for (let i = 1; i < validSocPts.length; i++) {
+        const val = validSocPts[i].v;
+        if (val > peakSoc) {
+          peakSoc = val;
+        } else if (peakSoc - val > maxDownwardDrop) {
+          maxDownwardDrop = peakSoc - val;
+        }
+      }
+      socDisWh = (maxDownwardDrop / 100) * packKwh * 1000;
     }
     const finalDisWh = Math.max(disWh, socDisWh);
 
@@ -288,6 +299,11 @@ async function fetchMonthlyUnits() {
     batChgMonthWh = pastChgWh;
     batDisMonthWh = pastDisWh;
     batChgYestWh = yestChgWh;
+    // Fallback: If raw inverter current integration missed yesterday's discharge,
+    // reconcile with the verified Night Discharge calculation or Dyness delta
+    if (yestDisWh < 100 && window._batNightCache && window._batNightCache.Y > 0) {
+      yestDisWh = window._batNightCache.Y;
+    }
     batDisYestWh = yestDisWh;
 
     try {

@@ -1,0 +1,745 @@
+// js/02-flow.js
+// ── CANVAS HEIGHT CONFIG ─────────────────────────────────────────────
+const FLOW_CANVAS_HEIGHT = 1320;
+
+try { window.FLOW_CANVAS_HEIGHT = FLOW_CANVAS_HEIGHT; } catch (e) {}
+
+function _resolveFlowHeight(autoH) {
+  if (typeof FLOW_CANVAS_HEIGHT === 'number' && FLOW_CANVAS_HEIGHT > 0) {
+    return FLOW_CANVAS_HEIGHT;
+  }
+  try {
+    const saved = parseInt(localStorage.getItem('editor_preset_height'), 10);
+    if (!isNaN(saved) && saved > 0) return saved;
+  } catch (e) {}
+  return autoH;
+}
+
+const LAYOUT = {
+ weather: { x:5, y:2, w:708, h:42, color:'#0ea5e9', label:'Weather', ly1:20, fs:22, c1:'#ffffff',  },
+ solar: { x:12, y:52, w:299, h:460, color:'#f59e0b', label:'Solar', ly1:39, fs:46, c1:'#ffff00', ly2:106, fs2:45, c2:'#2c8758', ly3:212, fs3:27, c3:'#b4b635', ly4:267, fs4:20, c4:'#21c442', ly5:399, fs5:22, c5:'#3de31c', ly6:431, fs6:20, c6:'#38bdf8', ly7:168, fs7:22, c7:'#a1a1aa', ly8:305, fs8:21, c8:'#21c442', ly12:NaN,  },
+ grid: { x:311, y:53, w:156, h:452, color:'#ef4444', label:'Grid', ly1:25, fs:28, c1:'#ef4444', ly2:67, fs2:44, c2:'#ef4444', ly3:114, fs3:18, c3:'#a1a1aa', ly4:161, fs4:27, c4:'#35c0b7', ly5:195, fs5:22, c5:'#35c0b7', ly6:249, fs6:18, c6:'#a1a1aa', ly7:328, fs7:21, c7:'#3de3e4', ly8:354, fs8:19, c8:'#3de3e4', ly9:406, fs9:20, c9:'#38bdf8', ly10:432, fs10:19, c10:'#38bdf8', ly11:380, fs11:20, c11:'#3de3e4',  },
+ battery: { x:471, y:50, w:257, h:455, color:'#10b981', label:'Battery', ly1:17, fs:34, c1:'#10b981', ly2:64, fs2:53, c2:'#25f447', ly3:175, fs3:24, c3:'#facc15', ly4:105, fs4:29, c4:'#35c0b7', ly5:278, fs5:20, c5:'#38bdf8', ly6:204, fs6:24, c6:'#4ade80', ly7:139, fs7:18, c7:'#a1a1aa', ly8:330, fs8:23, c8:'#10b981', ly9:362, fs9:21, c9:'#10b981', ly10:391, fs10:22, c10:'#10b981', ly11:421, fs11:23, c11:'#10b981', ly12:282, fs12:21, c12:'#facc15', ly13:246, fs13:20, c13:'#facc15',  },
+ haier: { x:6, y:510, w:179, h:206, color:'#38bdf8', label:'Haier 1T', ly1:17, fs:28, c1:'#38bdf8', ly2:65, fs2:55, c2:'#25f447', ly3:143, fs3:25, c3:'#00c8f0', ly4:175, fs4:25, c4:'#518e35', ly5:113, fs5:17, c5:'#a1a1aa',  },
+ k15: { x:192, y:510, w:196, h:198, color:'#38bdf8', label:'Kenwood 1.5T', ly1:21, fs:27, c1:'#38bdf8', ly2:68, fs2:53, c2:'#25f447', ly3:142, fs3:25, c3:'#00c8f0', ly4:175, fs4:25, c4:'#518e35', ly5:114, fs5:16, c5:'#a1a1aa',  },
+ k1: { x:395, y:507, w:189, h:198, color:'#38bdf8', label:'Kenwood 1T', ly1:20, fs:30, c1:'#38bdf8', ly2:64, fs2:52, c2:'#25f447', ly3:143, fs3:21, c3:'#00c8f0', ly4:175, fs4:22, c4:'#518e35', ly5:114, fs5:18, c5:'#a1a1aa',  },
+ pc: { x:591, y:509, w:133, h:240, color:'#10b9f8', label:'PC', ly1:17, fs:40, c1:'#38bdf8', ly2:61, fs2:44, c2:'#25f447', ly3:174, fs3:19, c3:'#00c8f0', ly4:219, fs4:19, c4:'#518e35', ly5:113, fs5:18, c5:'#a1a1aa',  },
+ wm: { x:582, y:756, w:139, h:238, color:'#e879f9', label:'Washing|Machine', ly1:16, fs:29, c1:'#e879f9', ly2:92, fs2:43, c2:'#25f447', ly3:180, fs3:19, c3:'#00c8f0', ly4:219, fs4:21, c4:'#518e35',  },
+ water: { x:421, y:754, w:152, h:242, color:'#0ea5e9', label:'Water|Tank', ly1:15, fs:32, c1:'#0ea5e9', ly2:97, fs2:52, c2:'#25f447', ly3:139, fs3:27, c3:'#9ca3af', ly4:171, fs4:19, c4:'#0ce4e0', ly5:203, fs5:20, c5:'#38bdf8', ly6:224, fs6:18, c6:'#a1a1aa',  },
+ motor: { x:233, y:755, w:183, h:243, color:'#fbbf24', label:'Water|Motor', ly1:15, fs:37, c1:'#fbbf24', ly2:105, fs2:52, c2:'#38bdf8', ly3:188, fs3:21, c3:'#518e35', ly4:221, fs4:22, c4:'#518e35', ly5:150, fs5:18, c5:'#a1a1aa',  },
+ fridge: { x:5, y:755, w:224, h:239, color:'#c084fc', label:'Fridges', ly1:16, fs:36, c1:'#38bdf8', ly2:53, fs2:52, c2:'#25f447', ly3:103, fs3:17, c3:'#518e35', ly4:129, fs4:36, c4:'#38bdf8', ly5:171, fs5:52, c5:'#25f447', ly6:228, fs6:18, c6:'#518e35', ly7:86, fs7:14, c7:'#a1a1aa', ly8:205, fs8:17, c8:'#a1a1aa',  },
+ temp: { x:396, y:710, w:189, h:38, color:'#22c55e', label:'temp', ly1:16, fs:24, c1:'#25f447',  },
+ temp2: { x:722, y:703, w:179, h:36, color:'#22c55e', label:'temp2', ly1:16, fs:21, c1:'#25f447',  },
+ battery2: { x:9, y:1002, w:720, h:305, color:'#a78bfa', label:'Battery 2 (Dyness)', ly1:22, fs:26, c1:'#a78bfa', ly2:66, fs2:46, c2:'#25f447', ly3:66, fs3:22, c3:'#35c0b7', ly4:100, fs4:18, c4:'#facc15', ly5:128, fs5:16, c5:'#a1a1aa', ly6:156, fs6:15, c6:'#10b981', ly7:156, fs7:15, c7:'#38bdf8', ly8:184, fs8:14, c8:'#9ca3af',  },
+};
+
+const FLOW_BAND_GAP = 60;
+
+// ── Continuous State Helper Functions (20s minimum) ─────────────────────────
+function getBatteryContinuousRate(isCharging, isDischarging, activeWatts, packWh) {
+  const now = Date.now();
+  let currentMode = 'standby';
+  if (isCharging && activeWatts > 15) currentMode = 'charging';
+  else if (isDischarging && activeWatts > 15) currentMode = 'discharging';
+
+  let state = window._batActivityState;
+  if (!state) {
+    try {
+      const saved = localStorage.getItem('bat_cont_activity');
+      if (saved) state = JSON.parse(saved);
+    } catch (e) {}
+  }
+
+  if (!state || state.mode !== currentMode || state.startTime > now) {
+    state = { mode: currentMode, startTime: now };
+    window._batActivityState = state;
+    try { localStorage.setItem('bat_cont_activity', JSON.stringify(state)); } catch (e) {}
+  } else {
+    window._batActivityState = state;
+  }
+
+  if (currentMode === 'standby') return null;
+
+  const elapsedSec = (now - state.startTime) / 1000;
+  if (elapsedSec < 20) return null;
+
+  if (!packWh || packWh <= 0) packWh = 5120;
+  const ratePerHour = (activeWatts / packWh) * 100;
+  const ratePerMin = ratePerHour / 60;
+  const arrow = currentMode === 'charging' ? '▲' : '▼';
+
+  return {
+    mode: currentMode,
+    ratePerHour,
+    ratePerMin,
+    elapsedSec,
+    arrow,
+    text: `${arrow} ${ratePerHour.toFixed(1)}%/hr | ${ratePerMin.toFixed(2)}%/min`,
+    rawText: `${ratePerHour.toFixed(1)}%/hr | ${ratePerMin.toFixed(2)}%/min`
+  };
+}
+window.getBatteryContinuousRate = getBatteryContinuousRate;
+
+function getBattery2ContinuousRate(isCharging, isDischarging, activeWatts, packWh) {
+  const now = Date.now();
+  let currentMode = 'standby';
+  if (isCharging && activeWatts > 15) currentMode = 'charging';
+  else if (isDischarging && activeWatts > 15) currentMode = 'discharging';
+
+  let state = window._bat2ActivityState;
+  if (!state) {
+    try {
+      const saved = localStorage.getItem('bat2_cont_activity');
+      if (saved) state = JSON.parse(saved);
+    } catch (e) {}
+  }
+
+  if (!state || state.mode !== currentMode || state.startTime > now) {
+    state = { mode: currentMode, startTime: now };
+    window._bat2ActivityState = state;
+    try { localStorage.setItem('bat2_cont_activity', JSON.stringify(state)); } catch (e) {}
+  } else {
+    window._bat2ActivityState = state;
+  }
+
+  if (currentMode === 'standby') return null;
+
+  const elapsedSec = (now - state.startTime) / 1000;
+  if (elapsedSec < 20) return null;
+
+  if (!packWh || packWh <= 0) packWh = 5120;
+  const ratePerHour = (activeWatts / packWh) * 100;
+  const ratePerMin = ratePerHour / 60;
+  const arrow = currentMode === 'charging' ? '▲' : '▼';
+
+  return {
+    mode: currentMode,
+    ratePerHour,
+    ratePerMin,
+    elapsedSec,
+    arrow,
+    text: `${arrow} ${ratePerHour.toFixed(1)}%/hr | ${ratePerMin.toFixed(2)}%/min`,
+    rawText: `${ratePerHour.toFixed(1)}%/hr | ${ratePerMin.toFixed(2)}%/min`
+  };
+}
+window.getBattery2ContinuousRate = getBattery2ContinuousRate;
+
+function renderFlowDiagram(byName) {
+  if (!byName) return;
+
+  const titleEl = document.getElementById('flow-title');
+  if (titleEl && typeof solarCfg !== 'undefined') {
+    const pCount = solarCfg.panelCount || 9;
+    const pWatts = solarCfg.panelWatts || 580;
+    const totalKw = ((pCount * pWatts) / 1000).toFixed(1);
+    const battKw = (solarCfg.batteryKwh && solarCfg.batteryKwh > 0) ? solarCfg.batteryKwh.toFixed(1) : '5.1';
+    titleEl.innerHTML = `⚡6kW Inverter &bull; ☀ Solar ${totalKw}kW (${pCount}×${pWatts}) &bull; 🔋${battKw}kWh Battery`;
+  }
+
+  const getV = (n) => byName.get(n)?.value ?? 0;
+  
+  const offlineList = window.applianceOfflineDetected || [];
+  const getStatus = (name) => offlineList.find(a => a.name === name);
+
+  const s = getV('Solar');
+  const b = getV('Breaker');
+  const l = getV('Tot Load');
+  const v = getV('AC Volts');
+  const sv = getV('Solar Volts') || getV('Solar V');
+  const sa = getV('Solar Amps');
+  const invT = getV('Inverter Temp');
+  const tk = getV('Water Tank');
+  const tp = getV('Temperature');
+  const hm = getV('Humidity');
+  const tp2 = getV('Temperature 2');
+  const hm2 = getV('Humidity 2');
+  const solar_t = getV('Solar Today');
+  const grid_t = getV('Breaker Today');
+  const motW = getV('Water Motor');
+
+  const mU = window.monthlyUnits || {};
+  const rate = window.pkrRate || 60;
+  const L = LAYOUT;
+  const cx = o => o.x + o.w / 2;
+
+  const nF = x => Math.round(x).toLocaleString('en-US');
+  const pF = x => Math.round(x) + ' w';
+  
+  const predF = x => {
+    if (x >= 1000) return (x / 1000).toFixed(1) + ' kW';
+    return Math.round(x) + ' W';
+  };
+
+  const kF = x => {
+    const val = Math.round(x);
+    if (val >= 1000) return (val / 1000).toFixed(1) + 'k';
+    return val.toLocaleString('en-US');
+  };
+  const tpProps = 'font-family="system-ui, -apple-system, sans-serif" dominant-baseline="central" text-anchor="middle" font-weight="700"';
+  
+  const autoH = Object.values(LAYOUT).reduce((max, d) => Math.max(max, d.y + d.h), 0) + 15;
+  const maxH = _resolveFlowHeight(autoH);
+  
+  let svg = `<svg viewBox="0 0 730 ${maxH}" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%" preserveAspectRatio="xMidYMid meet">`;
+
+  // 0. WEATHER
+  let o = L.weather;
+  const weatherStr = localStorage.getItem('lhr_weather_v2');
+  let tW = '--', feels = '--', humW = '--', wCode = -1;
+  if (weatherStr) {
+    try { 
+      const currentWea = JSON.parse(weatherStr).data.current;
+      tW = Math.round(currentWea.temperature_2m);
+      feels = Math.round(currentWea.apparent_temperature);
+      humW = Math.round(currentWea.relative_humidity_2m);
+      wCode = currentWea.weather_code;
+    } catch(e){}
+  }
+  const cl = window.currentCloud !== undefined ? window.currentCloud : '--';
+  const rn = window.currentRain !== undefined ? window.currentRain : '--';
+  const clearSky = cl !== '--' ? Math.max(0, 100 - cl) : '--';
+
+  let wIcon = '🌤';
+  if (wCode === 0) wIcon = '☀';
+  else if (wCode >= 1 && wCode <= 3) wIcon = '⛅';
+  else if (wCode >= 45 && wCode <= 48) wIcon = '🌫';
+  else if (wCode >= 51 && wCode <= 67) wIcon = '🌧';
+  else if (wCode >= 71 && wCode <= 77) wIcon = '❄';
+  else if (wCode >= 80 && wCode <= 82) wIcon = '🌧';
+  else if (wCode >= 95) wIcon = '⛈';
+
+  if (o) {
+    const sFs = Math.round(o.fs * 0.78);
+    const mFs = Math.round(o.fs * 0.72);
+    const timeNow = getPktNow().toLocaleTimeString('en-PK', { hour: 'numeric', minute: '2-digit', hour12: true }).toLowerCase().replace(' ', '');
+    svg += `<rect x="${o.x}" y="${o.y}" width="${o.w}" height="${o.h}" rx="10" fill="#0f172a" stroke="${o.color}" stroke-width="2"/>`;
+    svg += `<text x="${cx(o)}" y="${o.y+o.ly1}" ${tpProps} font-size="${o.fs}" fill="${o.c1}"><tspan fill="#a1a1aa" font-size="${sFs}">${timeNow}</tspan> <tspan fill="#334155" font-size="${mFs}">|</tspan> ${wIcon} ${tW}°C <tspan fill="#334155" font-size="${mFs}">|</tspan> <tspan fill="#f59e0b" font-size="${sFs}">Feels: ${feels}°C</tspan> <tspan fill="#334155" font-size="${mFs}">|</tspan> <tspan fill="#38bdf8" font-size="${sFs}">Hum: ${humW}%</tspan> <tspan fill="#334155" font-size="${mFs}">|</tspan> <tspan fill="#cbd5e1" font-size="${sFs}">☁ ${cl}%</tspan> <tspan fill="#334155" font-size="${mFs}">|</tspan> <tspan fill="#60a5fa" font-size="${sFs}">🌧 ${rn}%</tspan> <tspan fill="#334155" font-size="${mFs}">|</tspan> <tspan fill="#facc15" font-size="${sFs}">☀️ ${clearSky}%</tspan></text>`;
+  }
+
+  // 1. SOLAR
+  o = L.solar;
+  const predW = window.currentPredW || 0; 
+  const pred2W = window.currentPred2W || 0;
+  const cloud = window.currentCloud || 0;
+  const rain = window.currentRain || 0;
+  const solAct = s > 20;
+  const lTime = byName.get('Tot Load')?.time;
+  const lTimeStr = lTime ? new Date(lTime * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--';
+
+  svg += `<rect class="${solAct ? 'pulse-animation' : ''}" style="--pulse-clr:${o.color}" x="${o.x}" y="${o.y}" width="${o.w}" height="${o.h}" rx="10" fill="#1a1508" stroke="${o.color}" stroke-width="2"/>`;
+  svg += `<text x="${cx(o)}" y="${o.y+o.ly1}" ${tpProps} font-size="${o.fs}" fill="${o.c1}" data-maxw="${o.w-12}">${o.label}: ${pF(s)}</text>`;
+  svg += `<text x="${cx(o)}" y="${o.y+o.ly2}" ${tpProps} font-size="${o.fs2}" fill="${o.c2}" data-maxw="${o.w-12}">Load: ${pF(l)}</text>`;
+  if (o.ly7) svg += `<text x="${cx(o)}" y="${o.y+o.ly7}" ${tpProps} font-size="${o.fs7}" fill="${o.c7}">${lTimeStr}</text>`;
+  svg += `<text x="${cx(o)}" y="${o.y+o.ly3}" ${tpProps} font-size="${o.fs3}" fill="${o.c3}">${Math.round(sv)}V | ${sa.toFixed(1)}A | ${invT.toFixed(1)}°C</text>`;
+  const rainStr = rain > 0 ? ` 🌧 ${rain}%` : '';
+  svg += `<text x="${cx(o)}" y="${o.y+o.ly4}" ${tpProps} font-size="${o.fs4}" fill="${o.c4}">Pred: ${predF(predW)} | ☁ ${cloud}%${rainStr}</text>`;
+  if (o.ly8) svg += `<text x="${cx(o)}" y="${o.y+o.ly8}" ${tpProps} font-size="${o.fs8}" fill="${o.c8}">Pred2: ${predF(pred2W)} | ☀️ ${window.currentPred2SunPct != null ? window.currentPred2SunPct : Math.max(0, 100 - cloud)}%</text>`;
+  const sol_t = (mU.solar_t != null && mU.solar_t > 0) ? mU.solar_t : solar_t;
+  const sol_m = (mU.solar != null && mU.solar > 0) ? mU.solar : ((mU.solar_y || 0) + sol_t);
+  svg += `<text x="${cx(o)}" y="${o.y+o.ly5}" ${tpProps} font-size="${o.fs5}" fill="${o.c5}">Today: ${sol_t.toFixed(1)} kWh | ${kF(sol_t*rate)} PKR</text>`;
+  svg += `<text x="${cx(o)}" y="${o.y+o.ly6}" ${tpProps} font-size="${o.fs6}" fill="${o.c6}">Month: ${nF(sol_m)} kWh | ${kF(sol_m*rate)} PKR</text>`;
+
+  // 2. GRID 
+  o = L.grid; 
+  const grdAct = Math.abs(b) > 20;
+  const gridOff = v < 10;
+
+  const breakerStatus = getStatus('Breaker') || getStatus('Grid Power');
+  const isBreakerZero = breakerStatus && breakerStatus.type === 'zeroW';
+
+  const nowSec = Math.floor(Date.now() / 1000);
+  let breaker0WLocal = false;
+  let bLastActiveStr = localStorage.getItem('Breaker_last_active');
+  if (b <= 5 && !gridOff) {
+    if (bLastActiveStr) {
+      const bLastActive = parseInt(bLastActiveStr, 10);
+      if ((nowSec - bLastActive) >= 10 * 60) {
+        breaker0WLocal = true;
+      }
+    }
+  } else {
+    localStorage.setItem('Breaker_last_active', nowSec.toString());
+  }
+
+  const showBreakerZeroWarn = (isBreakerZero || breaker0WLocal) && !gridOff;
+
+  let gClass = '';
+  let gFill = gridOff ? '#2a0a0a' : (grdAct ? '#2a0a0a' : '#1f1f23');
+  let gStroke = gridOff ? '#ef4444' : (grdAct ? o.color : '#666');
+
+  if (gridOff) {
+    gClass = 'grid-off-anim';
+    gFill = '#2a0a0a';
+    gStroke = '#ef4444';
+  } else if (showBreakerZeroWarn) {
+    gClass = 'zeroW-anim';
+    gStroke = '#f59e0b';
+    gFill = '#1f1f23';
+  } else if (grdAct) {
+    gClass = 'pulse-animation';
+  }
+
+  let gridBadge = '';
+  if (gridOff) {
+    gridBadge = ' <tspan fill="#ef4444" font-weight="900">⚠ OFF</tspan>';
+  } else if (showBreakerZeroWarn) {
+    gridBadge = ' <tspan fill="#f59e0b" font-weight="900">⚠ 0 W</tspan>';
+  }
+
+  const vTime = byName.get('AC Volts')?.time;
+  const vTimeStr = vTime ? new Date(vTime * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--';
+
+  const gTime = byName.get('Breaker')?.time;
+  const gTimeStr = gTime ? new Date(gTime * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--';
+
+  svg += `<rect class="${gClass}" style="--pulse-clr:${o.color}" x="${o.x}" y="${o.y}" width="${o.w}" height="${o.h}" rx="10" fill="${gFill}" stroke="${gStroke}" stroke-width="2"/>`;
+  if (gridOff) {
+    svg += `<text x="${cx(o)}" y="${o.y+o.ly1}" ${tpProps} font-size="${o.fs}" fill="#ef4444" data-maxw="${o.w-12}">GRID OFF${gridBadge}</text>`;
+  } else {
+    svg += `<text x="${cx(o)}" y="${o.y+o.ly1}" ${tpProps} font-size="${o.fs}" fill="${grdAct ? o.c1 : (showBreakerZeroWarn ? '#f59e0b' : '#777')}" data-maxw="${o.w-12}">${o.label}${gridBadge}</text>`;
+  }
+  svg += `<text x="${cx(o)}" y="${o.y+o.ly2}" ${tpProps} font-size="${o.fs2}" fill="${gridOff ? '#ef4444' : (grdAct ? o.c2 : (showBreakerZeroWarn ? '#f59e0b' : '#777'))}" data-maxw="${o.w-12}">${pF(b)}</text>`;
+  if (o.ly3) svg += `<text x="${cx(o)}" y="${o.y+o.ly3}" ${tpProps} font-size="${o.fs3}" fill="${gridOff ? '#ef4444' : o.c3}">${gTimeStr}</text>`;
+  if (o.ly4) svg += `<text x="${cx(o)}" y="${o.y+o.ly4}" ${tpProps} font-size="${o.fs4}" fill="${gridOff ? '#ef4444' : o.c4}" data-maxw="${o.w-12}">AC Input</text>`;
+  if (o.ly5) svg += `<text x="${cx(o)}" y="${o.y+o.ly5}" ${tpProps} font-size="${o.fs5}" fill="${gridOff ? '#ef4444' : o.c5}">${Math.round(v)}V</text>`;
+  if (o.ly6) svg += `<text x="${cx(o)}" y="${o.y+o.ly6}" ${tpProps} font-size="${o.fs6}" fill="${gridOff ? '#ef4444' : o.c6}">${vTimeStr}</text>`;
+  const g_t = (mU.gridT != null) ? mU.gridT : grid_t;
+  const g_y = (mU.gridY != null) ? mU.gridY : 0;
+  const g_m = (mU.grid != null && mU.grid > 0) ? mU.grid : (g_y + g_t);
+  if (o.ly7) svg += `<text x="${cx(o)}" y="${o.y+o.ly7}" ${tpProps} font-size="${o.fs7}" fill="${o.c7}" data-maxw="${o.w-12}">T: ${g_t.toFixed(1)} kWh</text>`;
+  if (o.ly8) svg += `<text x="${cx(o)}" y="${o.y+o.ly8}" ${tpProps} font-size="${o.fs8}" fill="${o.c8}" data-maxw="${o.w-12}">${kF(g_t*rate)} PKR</text>`;
+  if (o.ly11) svg += `<text x="${cx(o)}" y="${o.y+o.ly11}" ${tpProps} font-size="${o.fs11}" fill="${o.c11 || '#3de3e4'}" data-maxw="${o.w-12}">Y: ${g_y.toFixed(1)} kwh</text>`;
+  if (o.ly9) svg += `<text x="${cx(o)}" y="${o.y+o.ly9}" ${tpProps} font-size="${o.fs9}" fill="${o.c9}" data-maxw="${o.w-12}">M: ${nF(g_m)} kWh</text>`;
+  if (o.ly10) svg += `<text x="${cx(o)}" y="${o.y+o.ly10}" ${tpProps} font-size="${o.fs10}" fill="${o.c10}" data-maxw="${o.w-12}">${kF(g_m*rate)} PKR</text>`;
+
+  const formatBatEnergy = (wh) => {
+    const val = Math.max(0, wh || 0);
+    if (val >= 500) return (val / 1000).toFixed(1) + ' kwh';
+    return Math.round(val) + 'w';
+  };
+
+  // 2.5 BATTERY
+  o = L.battery;
+  if (o) {
+    const batV = getV('Bat V') || 52.8;
+    const chgA = getV('bt_battery_charging_current') || getV('Chg A');
+    const disA = getV('bt_battery_discharge_current') || getV('Dis A');
+    const socFeed = byName.get('SOC %');
+    const socVal = socFeed?.value != null ? Math.round(socFeed.value) : Math.round(getV('SOC %'));
+
+    const isCharging = chgA > 0.5;
+    const isDischarging = disA > 0.5;
+    const isBatActive = isCharging || isDischarging;
+    const netA = (chgA > 0.1 ? chgA : 0) - (disA > 0.1 ? disA : 0);
+    const batW = Math.round(batV * netA);
+
+    const useGrid = (typeof BATTERY_EST_USE_GRID !== 'undefined') ? BATTERY_EST_USE_GRID : true;
+    const effGrid = (useGrid && b > 25 && !gridOff) ? b : 0;
+    const netSurplus = (s + effGrid) - l;
+    let estBatW = 0;
+
+    if (netSurplus >= 50) {
+      estBatW = Math.round(netSurplus - 50);
+    } else if (netSurplus > 0) {
+      estBatW = 0;
+    } else {
+      estBatW = Math.round(netSurplus - 50);
+    }
+
+    const estSign = estBatW > 0 ? `+${estBatW}` : `${estBatW}`;
+    const estColor = estBatW > 0 ? '#4ade80' : (estBatW < 0 ? '#f59e0b' : '#a1a1aa');
+
+    const cutoffSoc = (typeof BATTERY_HEAVY_LOAD_CUTOFF_SOC !== 'undefined') ? BATTERY_HEAVY_LOAD_CUTOFF_SOC : 20;
+    const packKwh = (typeof solarCfg !== 'undefined' && solarCfg?.batteryKwh > 0) ? solarCfg.batteryKwh : 5.12;
+    const packWh = packKwh * 1000;
+    let estLine12 = '';
+    let estColor12 = o.c12 || '#facc15';
+
+    const liveDisWatts = Math.abs(estBatW) > 15 ? Math.abs(estBatW) : (Math.abs(batW) || (batV * disA));
+    const liveChgWatts = estBatW > 15 ? estBatW : (Math.abs(batW) || (batV * chgA));
+
+    // Suppress rate and estimate lines when battery is at 100% and discharging at idle <= 1.0A
+    const isDischargingAt100 = isDischarging && socVal >= 100 && (disA <= 1.05 || liveDisWatts <= 65);
+
+    if ((isDischarging || estBatW < -15) && !isDischargingAt100) {
+      if (liveDisWatts > 15 && socVal > 0) {
+        if (socVal > cutoffSoc) {
+          const usable20Wh = packWh * ((socVal - cutoffSoc) / 100);
+          const hrs20 = usable20Wh / liveDisWatts;
+          const h20 = Math.floor(hrs20);
+          const m20 = Math.round((hrs20 - h20) * 60);
+          estLine12 = h20 > 0 ? `(~${h20}h ${m20}m left: ${cutoffSoc}%)` : `(~${m20}m left: ${cutoffSoc}%)`;
+          estColor12 = o.c12 || '#facc15';
+        } else {
+          estLine12 = `(${cutoffSoc}% cutoff reached)`;
+          estColor12 = '#ef4444';
+        }
+      }
+    } else if (isCharging || estBatW > 15) {
+      if (liveChgWatts > 15) {
+        if (socVal < 100) {
+          if (socVal < cutoffSoc) {
+            const needed20Wh = packWh * ((cutoffSoc - socVal) / 100);
+            const hrs20 = needed20Wh / liveChgWatts;
+            const h20 = Math.floor(hrs20);
+            const m20 = Math.round((hrs20 - h20) * 60);
+            estLine12 = h20 > 0 ? `(~${h20}h ${m20}m to ${cutoffSoc}%)` : `(~${m20}m to ${cutoffSoc}%)`;
+            estColor12 = o.c12 || '#facc15';
+          } else {
+            const neededWh = packWh * ((100 - socVal) / 100);
+            const hrs = neededWh / liveChgWatts;
+            const h = Math.floor(hrs);
+            const m = Math.round((hrs - h) * 60);
+            estLine12 = h > 0 ? `(~${h}h ${m}m to 100%)` : `(~${m}m to 100%)`;
+            estColor12 = '#4ade80';
+          }
+        } else {
+          estLine12 = `(100% full reached)`;
+          estColor12 = '#4ade80';
+        }
+      }
+    }
+
+    let actionLine = 'Standby';
+    let actionColor = '#38bdf8';
+
+    if (isCharging) {
+      actionLine = `Charging: ${chgA.toFixed(1)}A`;
+      actionColor = '#25f447';
+    } else if (isDischarging) {
+      actionLine = `Discharging: ${disA.toFixed(1)}A`;
+      actionColor = o.c3 || '#facc15';
+    }
+
+    if (actionLine === 'Standby' || (!isCharging && !isDischarging)) {
+      estLine12 = '';
+    }
+
+    const bTime = byName.get('SOC %')?.time || 
+                  byName.get('Bat V')?.time || 
+                  byName.get('Status')?.time || 
+                  byName.get('bt_battery_charging_current')?.time;
+    const bTimeStr = bTime ? new Date(bTime * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--';
+
+    let bClass = isBatActive ? 'pulse-animation' : '';
+    let bFill = '#0e1f18';
+    let bStroke = o.color;
+    let pulseClr = isCharging ? '#10b981' : (isDischarging ? '#f59e0b' : o.color);
+
+    if (socVal <= 20 && socVal > 0) {
+      bStroke = '#ef4444';
+      bFill = '#2a0a0a';
+      pulseClr = '#ef4444';
+    }
+
+    const pwrSign = batW > 0 ? `+${batW}` : `${batW}`;
+    const pwrColor = batW > 0 ? o.c6 : (batW < 0 ? '#f59e0b' : '#a1a1aa');
+
+    const batStats = window.monthlyUnits || {};
+    const chgTStr = formatBatEnergy(batStats.batChgT || 0);
+    const chgYStr = formatBatEnergy(batStats.batChgY || 0);
+    const chgMStr = formatBatEnergy(batStats.batChgM || 0);
+    const disTStr = formatBatEnergy(batStats.batDisT || 0);
+    const disYStr = formatBatEnergy(batStats.batDisY || 0);
+    const disMStr = formatBatEnergy(batStats.batDisM || 0);
+
+    svg += `<rect class="${bClass}" style="--pulse-clr:${pulseClr}" x="${o.x}" y="${o.y}" width="${o.w}" height="${o.h}" rx="10" fill="${bFill}" stroke="${bStroke}" stroke-width="2"/>`;
+    svg += `<text x="${cx(o)}" y="${o.y+o.ly1}" ${tpProps} font-size="${o.fs}" fill="${o.c1}" data-maxw="${o.w-12}">${o.label}</text>`;
+    svg += `<text x="${cx(o)}" y="${o.y+o.ly2}" ${tpProps} font-size="${o.fs2}" fill="${o.c2}">${socVal}%</text>`;
+    svg += `<text x="${cx(o)}" y="${o.y+o.ly4}" ${tpProps} font-size="${o.fs4}" fill="${o.c4}" data-maxw="${o.w-12}">${batV.toFixed(1)}V</text>`;
+    if (o.ly7) svg += `<text x="${cx(o)}" y="${o.y+o.ly7}" ${tpProps} font-size="${o.fs7}" fill="${o.c7}">${bTimeStr}</text>`;
+    svg += `<text x="${cx(o)}" y="${o.y+o.ly3}" ${tpProps} font-size="${o.fs3}" fill="${actionColor}" data-maxw="${o.w-10}">${actionLine}</text>`;
+
+    const isStandbyZero = (!isBatActive || batW === 0);
+    const estTag = (!isStandbyZero && Math.abs(estBatW) > 10) ? ` <tspan fill="${estColor}">(${estSign}w)</tspan>` : '';
+
+    if (o.ly6 && actionLine !== 'Standby') {
+      svg += `<text x="${cx(o)}" y="${o.y+o.ly6}" ${tpProps} font-size="${o.fs6}" fill="${pwrColor}" data-maxw="${o.w-10}">${pwrSign} w${estTag}</text>`;
+    }
+
+    // ── Continuous Charge/Discharge Rate ──
+    const activeWatts = isCharging ? liveChgWatts : (isDischarging ? liveDisWatts : 0);
+    const batRate = getBatteryContinuousRate(isCharging, (isDischarging && !isDischargingAt100), activeWatts, packWh);
+    window.lastBatRate = batRate;
+
+    if (batRate && actionLine !== 'Standby' && !isDischargingAt100) {
+      const rateY = o.ly13 ? (o.y + o.ly13) : (o.y + 208);
+      const rateFs = o.fs13 || 19;
+      const rateColor = isCharging ? '#4ade80' : '#facc15';
+      svg += `<text x="${cx(o)}" y="${rateY}" ${tpProps} font-size="${rateFs}" fill="${rateColor}" data-maxw="${o.w-12}">${batRate.text}</text>`;
+    }
+    if (estLine12 && o.ly12) {
+      svg += `<text x="${cx(o)}" y="${o.y+o.ly12}" ${tpProps} font-size="${o.fs12 || 19}" fill="${estColor12}" data-maxw="${o.w-12}">${estLine12}</text>`;
+    }
+    if (o.ly8)  svg += `<text x="${cx(o)}" y="${o.y+o.ly8}"  ${tpProps} font-size="${o.fs8}"  fill="${o.c8  || '#10b981'}" data-maxw="${o.w-8}">Chg: M: ${chgMStr}</text>`;
+    if (o.ly9)  svg += `<text x="${cx(o)}" y="${o.y+o.ly9}"  ${tpProps} font-size="${o.fs9}"  fill="${o.c9  || '#10b981'}" data-maxw="${o.w-8}">T: ${chgTStr} Y: ${chgYStr}</text>`;
+    if (o.ly10) svg += `<text x="${cx(o)}" y="${o.y+o.ly10}" ${tpProps} font-size="${o.fs10}" fill="${o.c10 || '#10b981'}" data-maxw="${o.w-8}">Disch: M: ${disMStr}</text>`;
+    if (o.ly11) svg += `<text x="${cx(o)}" y="${o.y+o.ly11}" ${tpProps} font-size="${o.fs11}" fill="${o.c11 || '#10b981'}" data-maxw="${o.w-8}">T: ${disTStr} Y: ${disYStr}</text>`;
+  }
+
+  // 3. WATER 
+  o = L.water;
+  const tkFeed = byName.get('Water Tank');
+  const tkTime = tkFeed?.time;
+  const isWasting = window.waterWasteDetected?.active;
+
+  let wS = "CRITICAL", wC = "#f87171";
+  if (isWasting) {
+    wS = "🚨 VALVE OPEN";
+    wC = "#ef4444";
+  } else if (tk > 95) { wS = "FULL"; wC = "#38bdf8"; }
+  else if (tk > 70) { wS = "GOOD"; wC = "#4ade80"; }
+  else if (tk > 40) { wS = "MODERATE"; wC = "#facc15"; }
+  else if (tk > 20) { wS = "LOW"; wC = "#f59e0b"; }
+
+  const boxClass = isWasting ? "pulse-animation" : "";
+  svg += `<rect class="${boxClass}" style="--pulse-clr:#ef4444" x="${o.x}" y="${o.y}" width="${o.w}" height="${o.h}" rx="10" fill="${isWasting?'#2a0a0a':'#0f1a20'}" stroke="${wC}" stroke-width="2"/>`;
+  const wLblParts = String(o.label).split('|');
+  const isMultiW  = wLblParts.length > 1;
+  const wLblHtml  = isMultiW ? wLblParts.map((pp, i) => `<tspan x="${cx(o)}" dy="${i === 0 ? 0 : o.fs + 2}">${pp}</tspan>`).join('') : o.label;
+  svg += `<text x="${cx(o)}" y="${o.y+o.ly1}" ${tpProps} font-size="${o.fs}" fill="${isWasting?'#ef4444':o.c1}"${isMultiW ? '' : ` data-maxw="${o.w-12}"`}>${wLblHtml}</text>`;
+  svg += `<text x="${cx(o)}" y="${o.y+o.ly2}" ${tpProps} font-size="${o.fs2}" fill="${isWasting?'#fca5a5':o.c2}">${Math.round(tk)}%</text>`;
+  svg += `<text x="${cx(o)}" y="${o.y+o.ly3}" ${tpProps} font-size="${o.fs3}" fill="${wC}" data-maxw="${o.w-8}">${wS}</text>`;
+  if (tkTime) {
+    const timeStr = new Date(tkTime * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    svg += `<text x="${cx(o)}" y="${o.y+o.ly4}" ${tpProps} font-size="${o.fs4}" fill="${o.c4}">${timeStr}</text>`;
+  }
+
+  const flowRate = window.waterFlowRate || 0;
+  const lastFlow = window.lastFlowRate || 0;
+  const lastOnTime = window.lastMotorOnTime || 0;
+  const showFlow = flowRate > 0.1 || (lastOnTime > 0 && (Date.now() - lastOnTime < 15 * 60 * 1000) && lastFlow > 0.1);
+  const avgFlow = window.waterAvgFlowRate || 0;
+
+  if (isWasting && o.ly5) {
+    const rateHr = window.waterWasteDetected.ratePerHour || 0;
+    svg += `<text x="${cx(o)}" y="${o.y+o.ly5}" ${tpProps} font-size="${o.fs5}" fill="#ef4444">▼ -${rateHr.toFixed(1)}%/hr</text>`;
+  } else if (showFlow && o.ly5) {
+    const displayFlow = flowRate > 0.1 ? flowRate : lastFlow;
+    const prefix = flowRate > 0.1 ? '▲ ' : 'Last: ';
+    svg += `<text x="${cx(o)}" y="${o.y+o.ly5}" ${tpProps} font-size="${o.fs5}" fill="${o.c5}">${prefix}${displayFlow.toFixed(1)} L/min</text>`;
+  }
+
+  if (showFlow && avgFlow > 0.1 && o.ly6 && !isWasting) {
+    svg += `<text x="${cx(o)}" y="${o.y+o.ly6}" ${tpProps} font-size="${o.fs6}" fill="${o.c6 || '#a1a1aa'}">Ø ${avgFlow.toFixed(1)} L/min</text>`;
+  }
+
+  // 4. APPLIANCES
+  const drawApp = (k, name, suffix="Today") => {
+    if (!L[k]) return;
+    const oA = L[k]; const val = getV(name); const act = val > 6;
+    const t = (mU[k + '_t'] != null) ? mU[k + '_t'] : getV(name + " " + suffix);
+    const mon = (mU[k] != null && mU[k] > 0) ? mU[k] : ((mU[k + '_y'] || 0) + t);
+    const aTime = byName.get(name)?.time;
+    const aTimeStr = aTime ? new Date(aTime * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--';
+    
+    svg += `<rect class="${act ? 'pulse-animation' : ''}" style="--pulse-clr:${oA.color}" x="${oA.x}" y="${oA.y}" width="${oA.w}" height="${oA.h}" rx="10" fill="${act?'#141416':'#1a1a1c'}" stroke="${act?oA.color:'#333'}" stroke-width="2"/>`;
+    const lblParts = String(oA.label).split('|');
+    const isMulti  = lblParts.length > 1;
+    const lblHtml  = isMulti ? lblParts.map((pp, i) => `<tspan x="${cx(oA)}" dy="${i === 0 ? 0 : oA.fs + 2}">${pp}</tspan>`).join('') : oA.label;
+    svg += `<text x="${cx(oA)}" y="${oA.y+oA.ly1}" ${tpProps} font-size="${oA.fs}" fill="${act?oA.c1:'#777'}"${isMulti ? '' : ` data-maxw="${oA.w-12}"`}>${lblHtml}</text>`;
+    svg += `<text x="${cx(oA)}" y="${oA.y+oA.ly2}" ${tpProps} font-size="${oA.fs2}" fill="${act?oA.c2:'#555'}">${pF(val)}</text>`;
+    if (oA.ly5) svg += `<text x="${cx(oA)}" y="${oA.y+oA.ly5}" ${tpProps} font-size="${oA.fs5}" fill="${oA.c5}">${aTimeStr}</text>`;
+    
+    svg += `<text x="${cx(oA)}" y="${oA.y+oA.ly3}" ${tpProps} font-size="${oA.fs3}" fill="${oA.c3}">T: ${t.toFixed(k === 'wm' ? 2 : 1)} kWh</text>`;
+    svg += `<text x="${cx(oA)}" y="${oA.y+oA.ly4}" ${tpProps} font-size="${oA.fs4}" fill="${oA.c4}">M: ${mon.toFixed(1)} kWh</text>`;
+  };
+  drawApp('haier', 'Haier 1Ton'); drawApp('k15', 'Kenwood 1.5Ton'); drawApp('k1', 'Kenwood 1Ton'); drawApp('pc', 'PC'); drawApp('motor', 'Water Motor');
+  drawApp('wm', 'Washing Machine');
+  
+  const f1W = getV('Fridge'); const f2W = getV('Fridge2');
+  const f1T = getV('Fridge Today'); const f2T = getV('Fridge2 Today');
+  const fAct = (f1W + f2W) > 6;
+
+  const f1Status = getStatus('Fridge');
+  const f2Status = getStatus('Fridge2');
+  const isFridge1Stale = f1Status && f1Status.type === 'stale';
+  const isFridge2Stale = f2Status && f2Status.type === 'stale';
+  const isFridge1Zero = f1Status && f1Status.type === 'zeroW';
+  const isFridge2Zero = f2Status && f2Status.type === 'zeroW';
+
+  o = L.fridge;
+  let rectClass = '';
+  let rectStroke = o.color;
+  let rectFill = fAct ? '#141416' : '#1a1a1c';
+
+  if (isFridge1Stale || isFridge2Stale) {
+    rectClass = 'offline-anim';
+    rectStroke = '#ef4444';
+    rectFill = '#2a0a0a';
+  } else if (isFridge1Zero || isFridge2Zero) {
+    rectClass = 'zeroW-anim';
+    rectStroke = '#f59e0b';
+    rectFill = '#1a1a1c';
+  }
+
+  svg += `<rect class="${rectClass}" style="--pulse-clr:${o.color}" x="${o.x}" y="${o.y}" width="${o.w}" height="${o.h}" rx="10" fill="${rectFill}" stroke="${rectStroke}" stroke-width="2"/>`;
+  const f1Time = byName.get('Fridge')?.time;
+  const f1TimeStr = f1Time ? new Date(f1Time * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--';
+  const f2Time = byName.get('Fridge2')?.time;
+  const f2TimeStr = (f2Time && !isNaN(f2Time)) ? new Date(f2Time * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--';
+
+  let badge1 = '';
+  if (isFridge1Stale) badge1 = ' <tspan fill="#ef4444" font-weight="900">⚠ OFF</tspan>';
+  else if (isFridge1Zero) badge1 = ' <tspan fill="#f59e0b" font-weight="900">⚠ Low (' + Math.round(f1W) + 'W)</tspan>';
+  svg += `<text x="${cx(o)}" y="${o.y+o.ly1}" ${tpProps} font-size="${o.fs}" fill="${f1W>6?o.c1:'#777'}" data-maxw="${o.w-12}">Fridge 1${badge1}</text>`;
+  svg += `<text x="${cx(o)}" y="${o.y+o.ly2}" ${tpProps} font-size="${o.fs2}" fill="${f1W>6?o.c2:'#555'}">${pF(f1W)}</text>`;
+  if (o.ly7) svg += `<text x="${cx(o)}" y="${o.y+o.ly7}" ${tpProps} font-size="${o.fs7}" fill="${o.c7}">${f1TimeStr}</text>`;
+  const f1_t = (mU.f1_t != null) ? mU.f1_t : f1T;
+  const f1_m = (mU.f1 != null && mU.f1 > 0) ? mU.f1 : ((mU.f1_y || 0) + f1_t);
+  svg += `<text x="${cx(o)}" y="${o.y+o.ly3}" ${tpProps} font-size="${o.fs3}" fill="${o.c3}">T: ${f1_t.toFixed(2)} kWh M: ${f1_m.toFixed(1)} kWh</text>`;
+
+  let badge2 = '';
+  if (isFridge2Stale) badge2 = ' <tspan fill="#ef4444" font-weight="900">⚠ OFF</tspan>';
+  else if (isFridge2Zero) badge2 = ' <tspan fill="#f59e0b" font-weight="900">⚠ Low (' + Math.round(f2W) + 'W)</tspan>';
+  svg += `<text x="${cx(o)}" y="${o.y+o.ly4}" ${tpProps} font-size="${o.fs4}" fill="${f2W>6?o.c4:'#777'}" data-maxw="${o.w-12}">Fridge 2${badge2}</text>`;
+  svg += `<text x="${cx(o)}" y="${o.y+o.ly5}" ${tpProps} font-size="${o.fs5}" fill="${f2W>6?o.c5:'#555'}">${pF(f2W)}</text>`;
+  if (o.ly8) svg += `<text x="${cx(o)}" y="${o.y+o.ly8}" ${tpProps} font-size="${o.fs8}" fill="${o.c8}">${f2TimeStr}</text>`;
+  const f2_t = (mU.f2_t != null) ? mU.f2_t : f2T;
+  const f2_m = (mU.f2 != null && mU.f2 > 0) ? mU.f2 : ((mU.f2_y || 0) + f2_t);
+  svg += `<text x="${cx(o)}" y="${o.y+o.ly6}" ${tpProps} font-size="${o.fs6}" fill="${o.c6}">T: ${f2_t.toFixed(2)} kWh M: ${f2_m.toFixed(1)} kWh</text>`;
+
+  // 5. TEMP
+  const oT = L.temp;
+  svg += `<rect x="${oT.x}" y="${oT.y}" width="${oT.w}" height="${oT.h}" rx="8" fill="#141416" stroke="${oT.color}" stroke-width="1.5"/><text x="${cx(oT)}" y="${oT.y+oT.ly1}" ${tpProps} font-size="${oT.fs}" fill="${oT.c1}">${tp.toFixed(1)}°C / ${Math.round(hm)}%</text>`;
+  const oT2 = L.temp2;
+  svg += `<rect x="${oT2.x}" y="${oT2.y}" width="${oT2.w}" height="${oT2.h}" rx="8" fill="#141416" stroke="${oT2.color}" stroke-width="1.5"/><text x="${cx(oT2)}" y="${oT2.y+oT2.ly1}" ${tpProps} font-size="${oT2.fs}" fill="${oT2.c1}">${tp2.toFixed(1)}°C / ${Math.round(hm2)}%</text>`;
+
+  // 6. BATTERY 2 (Dyness DL5.0F) — with 8×2 cell voltage grid
+  o = L.battery2;
+  if (o) {
+    const b2V    = getV('Bat2 Voltage') || 52.0;
+    const b2A    = getV('Bat2 Current');
+    const b2Watt = getV('Bat2 Power') || (b2V * b2A);
+    const b2Soc  = Math.round(getV('Bat2 SOC'));
+    const b2Soh  = Math.round(getV('Bat2 SOH'));
+    const b2Cyc  = Math.round(getV('Bat2 Cycle Count'));
+    const b2MosT = getV('Bat2 Mosfet Temp');
+    const b2BmsT = getV('Bat2 BMS Temp');
+
+    const b2IsCharging    = b2A > 0.3 || b2Watt > 15;
+    const b2IsDischarging = b2A < -0.3 || b2Watt < -15;
+    const b2IsActive      = b2IsCharging || b2IsDischarging;
+
+    // Suppress rate line when at 100% and discharging at idle <= 1.0A
+    const b2IsDischargingAt100 = b2IsDischarging && b2Soc >= 100 && (Math.abs(b2A) <= 1.05 || Math.abs(b2Watt) <= 65);
+
+    let b2ActionLine = 'Standby';
+    let b2ActionColor = '#38bdf8';
+    if (b2IsCharging) { b2ActionLine = `Charging: ${Math.abs(b2A).toFixed(1)}A`; b2ActionColor = '#25f447'; }
+    else if (b2IsDischarging) { b2ActionLine = `Discharging: ${Math.abs(b2A).toFixed(1)}A`; b2ActionColor = '#facc15'; }
+
+    const b2PwrSign = b2Watt > 0 ? `+${Math.round(b2Watt)}` : `${Math.round(b2Watt)}`;
+    const b2PwrColor = b2Watt > 0 ? '#4ade80' : (b2Watt < 0 ? '#f59e0b' : '#a1a1aa');
+
+    let b2Stroke = o.color;
+    let b2Fill = '#1a1530';
+    let b2PulseClr = b2IsCharging ? '#10b981' : (b2IsDischarging ? '#f59e0b' : o.color);
+    if (b2Soc > 0 && b2Soc <= 20) { b2Stroke = '#ef4444'; b2Fill = '#2a0a0a'; b2PulseClr = '#ef4444'; }
+
+    const b2Time = byName.get('Bat2 SOC')?.time || byName.get('Bat2 Voltage')?.time || byName.get('Bat2 Power')?.time;
+    const b2TimeStr = b2Time ? new Date(b2Time * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--';
+
+    const b2PackKwh = 5.12;
+    const b2Rate = getBattery2ContinuousRate(b2IsCharging, (b2IsDischarging && !b2IsDischargingAt100), Math.abs(b2Watt), b2PackKwh * 1000);
+    window.lastBat2Rate = b2Rate;
+
+    svg += `<rect class="${b2IsActive ? 'pulse-animation' : ''}" style="--pulse-clr:${b2PulseClr}" x="${o.x}" y="${o.y}" width="${o.w}" height="${o.h}" rx="12" fill="${b2Fill}" stroke="${b2Stroke}" stroke-width="2"/>`;
+    svg += `<text x="${o.x + 16}" y="${o.y + o.ly1}" font-family="system-ui, -apple-system, sans-serif" dominant-baseline="central" text-anchor="start" font-weight="800" font-size="${o.fs}" fill="${o.c1}">🔋 ${o.label}</text>`;
+    svg += `<text x="${o.x + o.w - 16}" y="${o.y + o.ly1}" font-family="system-ui, -apple-system, sans-serif" dominant-baseline="central" text-anchor="end" font-weight="700" font-size="16" fill="#a1a1aa">${b2TimeStr}</text>`;
+    svg += `<text x="${o.x + o.w * 0.20}" y="${o.y + o.ly2}" ${tpProps} font-size="${o.fs2}" fill="${b2Soc <= 20 ? '#ef4444' : (b2Soc <= 50 ? '#facc15' : '#25f447')}">${b2Soc}%</text>`;
+    svg += `<text x="${o.x + o.w * 0.50}" y="${o.y + o.ly3}" ${tpProps} font-size="${o.fs3}" fill="#35c0b7">${b2V.toFixed(2)}V</text>`;
+    svg += `<text x="${o.x + o.w * 0.80}" y="${o.y + o.ly3}" ${tpProps} font-size="${o.fs3}" fill="${b2PwrColor}">${b2PwrSign} W</text>`;
+    svg += `<text x="${cx(o)}" y="${o.y + o.ly4}" ${tpProps} font-size="${o.fs4}" fill="${b2ActionColor}">${b2ActionLine}</text>`;
+
+    if (b2Rate && b2ActionLine !== 'Standby' && !b2IsDischargingAt100) {
+      const rColor = b2IsCharging ? '#4ade80' : '#facc15';
+      svg += `<text x="${cx(o)}" y="${o.y + o.ly5}" ${tpProps} font-size="${o.fs5}" fill="${rColor}">${b2Rate.text}</text>`;
+    }
+
+    svg += `<text x="${o.x + 16}" y="${o.y + o.ly6}" font-family="system-ui, -apple-system, sans-serif" dominant-baseline="central" text-anchor="start" font-weight="700" font-size="${o.fs6}" fill="#10b981">SOH: ${b2Soh}%</text>`;
+    svg += `<text x="${cx(o)}" y="${o.y + o.ly6}" ${tpProps} font-size="${o.fs6}" fill="#10b981">Cycles: ${b2Cyc}</text>`;
+    svg += `<text x="${o.x + o.w - 16}" y="${o.y + o.ly7}" font-family="system-ui, -apple-system, sans-serif" dominant-baseline="central" text-anchor="end" font-weight="700" font-size="${o.fs7}" fill="#38bdf8">BMS: ${b2BmsT.toFixed(1)}°C · Mosfet: ${b2MosT.toFixed(1)}°C</text>`;
+
+    // ── 8×2 Cell Voltage Grid ──
+    const cellNames = window.BATTERY2_CELL_NAMES || [];
+    const cellObjs = cellNames.map((n, i) => ({ idx: i + 1, v: byName.get(n)?.value }));
+    const validCells = cellObjs.filter(c => c.v != null && c.v > 0);
+
+    if (validCells.length > 0) {
+      const cMin = Math.min(...validCells.map(c => c.v));
+      const cMax = Math.max(...validCells.map(c => c.v));
+      const spreadMv = Math.round((cMax - cMin) * 1000);
+      const minIdx = validCells.find(c => c.v === cMin)?.idx;
+      const maxIdx = validCells.find(c => c.v === cMax)?.idx;
+      const spreadColor = spreadMv > 30 ? '#ef4444' : (spreadMv > 15 ? '#facc15' : '#4ade80');
+
+      const cardW = 82;
+      const cardH = 46;
+      const padX = 12;
+      const colGap = (o.w - (padX * 2) - (cardW * 8)) / 7;
+      const rowGap = 5;
+      const startY = o.y + 172;
+
+      for (let i = 0; i < 16; i++) {
+        const col = i % 8;
+        const row = Math.floor(i / 8);
+        const cX = o.x + padX + col * (cardW + colGap);
+        const cY = startY + row * (cardH + rowGap);
+        const cMidX = cX + cardW / 2;
+
+        const cell = cellObjs[i];
+        const cVal = cell?.v;
+        const isMin = cell && cell.idx === minIdx && spreadMv > 0;
+        const isMax = cell && cell.idx === maxIdx && spreadMv > 0;
+
+        let bg = 'rgba(255,255,255,0.03)';
+        let stroke = '#27272a';
+        let strokeW = '1';
+        let valFill = '#f4f4f5';
+
+        if (isMin) {
+          bg = 'rgba(239,68,68,0.14)';
+          stroke = '#ef4444';
+          strokeW = '1.5';
+          valFill = '#fca5a5';
+        } else if (isMax) {
+          bg = 'rgba(34,197,94,0.14)';
+          stroke = '#22c55e';
+          strokeW = '1.5';
+          valFill = '#86efac';
+        }
+
+        svg += `<rect x="${cX}" y="${cY}" width="${cardW}" height="${cardH}" rx="6" fill="${bg}" stroke="${stroke}" stroke-width="${strokeW}"/>`;
+        const numColor = isMin ? '#f87171' : (isMax ? '#4ade80' : '#71717a');
+        svg += `<text x="${cMidX}" y="${cY + 14}" font-family="system-ui, sans-serif" dominant-baseline="central" text-anchor="middle" font-weight="700" font-size="10.5" fill="${numColor}">${i + 1}</text>`;
+        const valStr = (cVal != null && cVal > 0) ? cVal.toFixed(3) : '--';
+        svg += `<text x="${cMidX}" y="${cY + 33}" font-family="monospace, system-ui" dominant-baseline="central" text-anchor="middle" font-weight="800" font-size="13" fill="${valFill}">${valStr}</text>`;
+      }
+
+      svg += `<text x="${cx(o)}" y="${o.y + 288}" ${tpProps} font-size="12" fill="#9ca3af">Min: <tspan fill="#fca5a5" font-weight="800">C${minIdx} (${cMin.toFixed(3)}V)</tspan> &bull; Max: <tspan fill="#86efac" font-weight="800">C${maxIdx} (${cMax.toFixed(3)}V)</tspan> &bull; Spread: <tspan fill="${spreadColor}" font-weight="900">Δ${spreadMv}mV</tspan></text>`;
+    }
+
+    window.lastBattery2Snapshot = {
+      soc: b2Soc, soh: b2Soh, volt: b2V, amps: b2A, watt: b2Watt,
+      cycles: b2Cyc, mosfetTemp: b2MosT, bmsTemp: b2BmsT,
+      isCharging: b2IsCharging, isDischarging: b2IsDischarging,
+      time: b2TimeStr
+    };
+  }
+
+  svg += `</svg>`;
+  
+  const flowWrap = document.getElementById('flow-svg-wrap');
+  flowWrap.innerHTML = svg;
+  flowWrap.querySelectorAll('text[data-maxw]').forEach(t => {
+    try {
+      const maxW = parseFloat(t.getAttribute('data-maxw'));
+      const len  = t.getComputedTextLength();
+      if (len > maxW) {
+        const fs = parseFloat(t.getAttribute('font-size')) || 12;
+        t.setAttribute('font-size', Math.max(9, (fs * maxW) / len).toFixed(1));
+      }
+    } catch (e) {}
+  });
+}

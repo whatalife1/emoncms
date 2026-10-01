@@ -162,7 +162,22 @@ async function fetchTodayBatteryEnergy() {
       }
       socDisWh = (maxDownwardDrop / 100) * packKwh * 1000;
     }
-    const finalDisWh = Math.max(disWh, socDisWh);
+    // Cap discharge to the true BMS chemical drop + safety margin to eliminate sensor noise/drift
+    let finalDisWh = disWh;
+    if (socDisWh > 0) {
+      if (disWh > socDisWh + 1200) {
+        finalDisWh = socDisWh;
+      } else {
+        finalDisWh = Math.max(disWh, socDisWh);
+      }
+    }
+
+    // A single 5.12kWh pack can never exceed pack capacity in one cycle without equivalent daytime recharge
+    const packMaxWh = (typeof solarCfg !== 'undefined' && solarCfg && solarCfg.batteryKwh > 0) 
+      ? solarCfg.batteryKwh * 1000 
+      : 5120;
+    const maxPossibleDisWh = packMaxWh + (chgWh * 0.95);
+    finalDisWh = Math.min(finalDisWh, maxPossibleDisWh);
 
     if (!window.monthlyUnits) {
       window.monthlyUnits = {};
@@ -173,7 +188,7 @@ async function fetchTodayBatteryEnergy() {
       window.monthlyUnits.batChgM = window.monthlyUnits.batPastChgM + chgWh;
     }
     if (window.monthlyUnits.batPastDisM != null) {
-      window.monthlyUnits.batDisM = window.monthlyUnits.batPastDisM + disWh;
+      window.monthlyUnits.batDisM = window.monthlyUnits.batPastDisM + finalDisWh;
     }
     return { chgWh, disWh: finalDisWh };
   } catch (e) {

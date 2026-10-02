@@ -95,11 +95,12 @@ function renderDetailedReport(feedData, startMs, endMs, pkrPerKwh, acBreakdown =
   const avgSolar = totalSolarKwh / dates.length, avgGrid = gridImportKwh / dates.length;
 
   let headerHtml = `<tr class=h1><th rowspan=2>Date</th><th rowspan=2 class='dv' style='color:#ef4444;'>Outage<div class='head-split'>Hours</div></th>`;
-  EXPORT_FEEDS.forEach(f => headerHtml += f.isSolar ? `<th rowspan=2 class=dv>${f.name}</th>` : `<th colspan=3 class=dv>${f.name}</th>`);
+  headerHtml += `<th rowspan=2 class=dv>${solarF.name}</th>`;
   headerHtml += `<th colspan=3 class=dv style="color:#10b981;">Battery<div class='head-split' style="color:#10b981;">Chg / Disch / Night</div></th>`;
+  EXPORT_FEEDS.forEach(f => { if (!f.isSolar) headerHtml += `<th colspan=3 class=dv>${f.name}</th>`; });
   headerHtml += `<th rowspan=2 class=tot>Solar+Breaker<div class='head-split'>kWh / Rs</div></th><th rowspan=2 class=col-save>Solar Saved<div class='head-split'>kWh / Rs</div></th><th rowspan=2 class=col-bill>Grid Bill<div class='head-split'>kWh / Rs</div></th></tr><tr class=h2>`;
-  EXPORT_FEEDS.forEach(f => { if (!f.isSolar) headerHtml += `<th class=c24>24hr</th><th class=cday>${f.isPc ? "Day*" : "Day"}</th><th class='dv cnight'>Night</th>`; });
   headerHtml += `<th class=cday style="color:#10b981;">Chg</th><th style="color:#f97316;">Disch</th><th class='dv cnight' style="color:#c084fc;">Night</th>`;
+  EXPORT_FEEDS.forEach(f => { if (!f.isSolar) headerHtml += `<th class=c24>24hr</th><th class=cday>${f.isPc ? "Day*" : "Day"}</th><th class='dv cnight'>Night</th>`; });
   headerHtml += '</tr>';
 
   let tableRows = headerHtml;
@@ -112,13 +113,14 @@ function renderDetailedReport(feedData, startMs, endMs, pkrPerKwh, acBreakdown =
 
     tableRows += `<tr><td class=dt>${fmtDate}</td><td class='dv' style='color:${dOutage && dOutage.offMinutes > 0 ? "#ef4444" : "inherit"};font-weight:${dOutage && dOutage.offMinutes > 0 ? "bold" : "normal"};'>${dOutageStr}</td>`;
     let dSolarWh = (sums[solarF.id].h24[date]||0), dBreakerWh = (sums[breakerF.id].h24[date]||0);
-    EXPORT_FEEDS.forEach(f => {
-      const h24 = (sums[f.id].h24[date]||0), day = (sums[f.id].day[date]||0), night = (sums[f.id].night[date]||0);
-      if (f.isSolar) tableRows += `<td class='dv c24'>${fmtKwh(h24)}</td>`;
-      else tableRows += `<td class=c24>${fmtKwh(h24)}</td><td class=cday>${fmtKwh(day)}</td><td class='dv cnight'>${fmtKwh(night)}</td>`;
-    });
+    tableRows += `<td class='dv c24'>${fmtKwh(dSolarWh)}</td>`;
     const dBat = batteryData?.byDay?.[date] || { chgWh: 0, disWh: 0, disNightWh: 0 };
     tableRows += `<td class=cday style="color:#10b981;">${fmtKwh(dBat.chgWh)}</td><td style="color:#f97316;">${fmtKwh(dBat.disWh)}</td><td class='dv cnight' style="color:#c084fc;">${fmtKwh(dBat.disNightWh)}</td>`;
+    EXPORT_FEEDS.forEach(f => {
+      if (f.isSolar) return;
+      const h24 = (sums[f.id].h24[date]||0), day = (sums[f.id].day[date]||0), night = (sums[f.id].night[date]||0);
+      tableRows += `<td class=c24>${fmtKwh(h24)}</td><td class=cday>${fmtKwh(day)}</td><td class='dv cnight'>${fmtKwh(night)}</td>`;
+    });
     const saveKwh = dSolarWh / 1000.0, billKwh = dBreakerWh / 1000.0, combKwh = (dSolarWh + dBreakerWh) / 1000.0;
     tableRows += `<td class=tot>${splitCell(combKwh.toFixed(2), fmtPkr(combKwh * pkrPerKwh))}</td><td class=col-save>${splitCell(saveKwh.toFixed(2), fmtPkr(saveKwh * pkrPerKwh))}</td><td class=col-bill>${splitCell(billKwh.toFixed(2), fmtPkr(billKwh * pkrPerKwh))}</td></tr>`;
   });
@@ -139,6 +141,11 @@ function renderDetailedReport(feedData, startMs, endMs, pkrPerKwh, acBreakdown =
     const solKwh = (colTotals[solarF.id].h24 / 1000) / divisor;
     tableRows += `<td class="dv c24">${solKwh.toFixed(2)}</td>`;
 
+    const bChgKwh = (batteryData ? (isAvg ? batteryData.totalChgKwh / dayCount : batteryData.totalChgKwh) : 0);
+    const bDisKwh = (batteryData ? (isAvg ? batteryData.totalDisKwh / dayCount : batteryData.totalDisKwh) : 0);
+    const bDisNightKwh = (batteryData ? (isAvg ? batteryData.totalDisNightKwh / dayCount : batteryData.totalDisNightKwh) : 0);
+    tableRows += `<td class="cday" style="color:#10b981;">${bChgKwh.toFixed(2)}</td><td style="color:#f97316;">${bDisKwh.toFixed(2)}</td><td class="dv cnight" style="color:#c084fc;">${bDisNightKwh.toFixed(2)}</td>`;
+
     EXPORT_FEEDS.forEach(f => {
       if (f.isSolar) return;
       const h24 = (colTotals[f.id].h24 / 1000) / divisor;
@@ -146,11 +153,6 @@ function renderDetailedReport(feedData, startMs, endMs, pkrPerKwh, acBreakdown =
       const night = (colTotals[f.id].night / 1000) / divisor;
       tableRows += `<td class="c24">${h24.toFixed(2)}</td><td class="cday">${day.toFixed(2)}</td><td class="dv cnight">${night.toFixed(2)}</td>`;
     });
-
-    const bChgKwh = (batteryData ? (isAvg ? batteryData.totalChgKwh / dayCount : batteryData.totalChgKwh) : 0);
-    const bDisKwh = (batteryData ? (isAvg ? batteryData.totalDisKwh / dayCount : batteryData.totalDisKwh) : 0);
-    const bDisNightKwh = (batteryData ? (isAvg ? batteryData.totalDisNightKwh / dayCount : batteryData.totalDisNightKwh) : 0);
-    tableRows += `<td class="cday" style="color:#10b981;">${bChgKwh.toFixed(2)}</td><td style="color:#f97316;">${bDisKwh.toFixed(2)}</td><td class="dv cnight" style="color:#c084fc;">${bDisNightKwh.toFixed(2)}</td>`;
 
     const finalSolarKwh = totalSolarKwh / divisor;
     const finalGridKwh = gridImportKwh / divisor;
@@ -163,6 +165,27 @@ function renderDetailedReport(feedData, startMs, endMs, pkrPerKwh, acBreakdown =
     </tr>`;
   });
 
+  // ── Dedicated "☀️ SAVED BY SOLAR" Summary Row ──
+  const solarSavedPkr = totalSolarKwh * pkrPerKwh;
+  tableRows += `<tr class="tr" style="background:rgba(245,158,11,0.08); font-weight:bold; color:#f59e0b;">
+    <td class="dt" style="color:#f59e0b; font-weight:bold;">☀️ SAVED BY SOLAR</td>
+    <td class="dv" style="color:#f59e0b;">-</td>
+    <td class="dv c24" style="color:#f59e0b; font-weight:bold;">${totalSolarKwh.toFixed(2)}</td>
+    <td class="cday" style="color:#f59e0b;">-</td>
+    <td style="color:#f59e0b;">-</td>
+    <td class="dv cnight" style="color:#f59e0b;">-</td>`;
+
+  EXPORT_FEEDS.forEach(f => {
+    if (f.isSolar) return;
+    tableRows += `<td class="c24" style="color:#f59e0b;">-</td><td class="cday" style="color:#f59e0b;">-</td><td class="dv cnight" style="color:#f59e0b;">-</td>`;
+  });
+
+  tableRows += `
+    <td class="tot" style="color:#f59e0b;">-</td>
+    <td class="col-save" style="color:#16a34a; font-weight:bold; border-left:3px solid #16a34a;">${splitCell(totalSolarKwh.toFixed(2), fmtPkr(solarSavedPkr))}</td>
+    <td class="col-bill" style="color:#16a34a; font-weight:bold;">-${splitCell(totalSolarKwh.toFixed(2), fmtPkr(solarSavedPkr))}</td>
+  </tr>`;
+
   // ── Dedicated "🔋 SAVED BY BATTERY" Summary Row ──
   if (batteryData) {
     const batDisKwh = batteryData.totalDisKwh || 0;
@@ -172,7 +195,10 @@ function renderDetailedReport(feedData, startMs, endMs, pkrPerKwh, acBreakdown =
     tableRows += `<tr class="tr" style="background:rgba(16,185,129,0.08); font-weight:bold; color:#10b981;">
       <td class="dt" style="color:#10b981; font-weight:bold;">🔋 SAVED BY BATTERY</td>
       <td class="dv" style="color:#10b981;">-</td>
-      <td class="dv c24" style="color:#10b981;">-</td>`;
+      <td class="dv c24" style="color:#10b981;">-</td>
+      <td class="cday" style="color:#10b981;">-</td>
+      <td style="color:#10b981; font-weight:bold;">-${batDisKwh.toFixed(2)}</td>
+      <td class="dv cnight" style="color:#10b981; font-weight:bold; background:rgba(16,185,129,0.18);">-${batDisNightKwh.toFixed(2)}</td>`;
 
     EXPORT_FEEDS.forEach(f => {
       if (f.isSolar) return;
@@ -180,9 +206,6 @@ function renderDetailedReport(feedData, startMs, endMs, pkrPerKwh, acBreakdown =
     });
 
     tableRows += `
-      <td class="cday" style="color:#10b981;">-</td>
-      <td style="color:#10b981; font-weight:bold;">-${batDisKwh.toFixed(2)}</td>
-      <td class="dv cnight" style="color:#10b981; font-weight:bold; background:rgba(16,185,129,0.18);">-${batDisNightKwh.toFixed(2)}</td>
       <td class="tot" style="color:#10b981;">-</td>
       <td class="col-save" style="color:#10b981; font-weight:bold; border-left:3px solid #10b981;">${splitCell(batDisKwh.toFixed(2), fmtPkr(batSavedPkr))}</td>
       <td class="col-bill" style="color:#10b981; font-weight:bold;">-${splitCell(batDisKwh.toFixed(2), fmtPkr(batSavedPkr))}</td>
@@ -190,13 +213,13 @@ function renderDetailedReport(feedData, startMs, endMs, pkrPerKwh, acBreakdown =
   }
 
   tableRows += `<tr class="h2"><td></td><td></td><td></td>`;
-  EXPORT_FEEDS.forEach(f => { if (!f.isSolar) tableRows += `<td class="c24">24hr</td><td class="cday">Day</td><td class="dv cnight">Night</td>`; });
   tableRows += `<td class="cday" style="color:#10b981;">Chg</td><td style="color:#f97316;">Disch</td><td class="dv cnight" style="color:#c084fc;">Night</td>`;
+  EXPORT_FEEDS.forEach(f => { if (!f.isSolar) tableRows += `<td class="c24">24hr</td><td class="cday">Day</td><td class="dv cnight">Night</td>`; });
   tableRows += `<td></td><td></td><td></td></tr>`;
   
   tableRows += `<tr class="h1"><td class="dt">Date (PKT)</td><td class="dv" style="color:#ef4444;">Outage</td><td class="dv">Solar</td>`;
-  EXPORT_FEEDS.forEach(f => { if (!f.isSolar) tableRows += `<td colspan="3" class="dv">${f.name}</td>`; });
   tableRows += `<td colspan="3" class="dv" style="color:#10b981;">Battery</td>`;
+  EXPORT_FEEDS.forEach(f => { if (!f.isSolar) tableRows += `<td colspan="3" class="dv">${f.name}</td>`; });
   tableRows += `<td class="tot">Solar+Breaker</td><td class="col-save">Solar Saved</td><td class="col-bill">Grid Bill</td></tr>`;
 
   const blocks = ['_', '▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];

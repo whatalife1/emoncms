@@ -248,6 +248,13 @@ window.generateGraphReport = async function(forceRefresh = false) {
 		];
 		txt += parts.join(' ') + '\n';
 	}
+	txt += '-'.repeat(header.length) + '\n';
+	const solarRowTxt = rows.find(r => r.isSolar);
+	const solKwhTxt = solarRowTxt ? solarRowTxt.totalKwh : 0;
+	txt += 'TOTAL LOAD (Actual)'.padEnd(colWidths.name) + ' ' + totalLoadKwh.toFixed(2).padStart(colWidths.total) + ' ' + totalDayLoadKwh.toFixed(2).padStart(colWidths.day) + ' ' + totalNightLoadKwh.toFixed(2).padStart(colWidths.night) + '\n';
+	txt += '☀️ SAVED BY SOLAR'.padEnd(colWidths.name) + ' ' + `-${solKwhTxt.toFixed(2)}`.padStart(colWidths.total) + ' ' + `-${solKwhTxt.toFixed(2)}`.padStart(colWidths.day) + ' ' + '0.00'.padStart(colWidths.night) + '\n';
+	txt += '🔋 SAVED BY BATTERY'.padEnd(colWidths.name) + ' ' + `-${batSavedTotalKwh.toFixed(2)}`.padStart(colWidths.total) + ' ' + `-${batSavedDayKwh.toFixed(2)}`.padStart(colWidths.day) + ' ' + `-${batSavedNightKwh.toFixed(2)}`.padStart(colWidths.night) + '\n';
+	txt += '⚡ NET GRID LOAD'.padEnd(colWidths.name) + ' ' + netLoadTotalKwh.toFixed(2).padStart(colWidths.total) + ' ' + netLoadDayKwh.toFixed(2).padStart(colWidths.day) + ' ' + netLoadNightKwh.toFixed(2).padStart(colWidths.night) + '\n';
 	// HTML report
 	let html = `<div class="report-wrapper" style="background:#fff;color:#18181b;border:1px solid #d4d4d8;border-radius:10px;padding:12px;margin-top:10px;font-family:system-ui,sans-serif;box-sizing:border-box;width:100%;max-width:100%;">`;
 	html += `<h4 style="margin:0 0 8px 0;font-size:14px;border-bottom:1px solid #d4d4d8;padding-bottom:4px;color:#18181b;">Consumption Breakdown</h4>`;
@@ -350,7 +357,20 @@ window.generateGraphReport = async function(forceRefresh = false) {
 	html += `<td style="border:1px solid #d4d4d8;padding:6px;text-align:right;">100%</td>`;
 	html += `</tr>`;
 
-	// 2. Battery Savings Row
+	// 2. Solar Savings Row
+	const solarRow = rows.find(r => r.isSolar);
+	const solarSavedTotalKwh = solarRow ? solarRow.totalKwh : 0;
+	const solarSavedDayKwh = solarSavedTotalKwh;
+	html += `<tr style="background:rgba(245,158,11,0.06);font-weight:bold;color:#f59e0b;">`;
+	html += `<td style="border:1px solid #d4d4d8;padding:6px;">☀️ SAVED BY SOLAR</td>`;
+	html += `<td style="border:1px solid #d4d4d8;padding:6px;text-align:right;color:#f59e0b;">-${solarSavedTotalKwh.toFixed(2)}</td>`;
+	html += `<td style="border:1px solid #d4d4d8;padding:6px;text-align:right;color:#f59e0b;">-${solarSavedDayKwh.toFixed(2)}</td>`;
+	html += `<td style="border:1px solid #c4b5fd;padding:6px;text-align:right;background:#fef3c7;color:#b45309;font-weight:900;">0.00</td>`;
+	html += `<td style="border:1px solid #d4d4d8;padding:6px;text-align:right;color:#b45309;">0.00</td>`;
+	html += `<td style="border:1px solid #d4d4d8;padding:6px;text-align:right;" colspan="7">Direct savings covered by solar</td>`;
+	html += `</tr>`;
+
+	// 3. Battery Savings Row
 	html += `<tr style="background:rgba(16,185,129,0.06);font-weight:bold;color:#10b981;">`;
 	html += `<td style="border:1px solid #d4d4d8;padding:6px;">🔋 SAVED BY BATTERY</td>`;
 	html += `<td style="border:1px solid #d4d4d8;padding:6px;text-align:right;color:#10b981;">-${batSavedTotalKwh.toFixed(2)}</td>`;

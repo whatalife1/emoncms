@@ -491,18 +491,40 @@
 
     const packKwh = (typeof solarCfg !== 'undefined' && solarCfg && solarCfg.batteryKwh > 0) ? solarCfg.batteryKwh : 5.12;
 
-    const state = { zoom: 1, panX: 0, bars, rawBars, sessions, resSec, startMs, packKwh };
+    // Frame latest 24 hours by default
+    const n24 = Math.round((24 * 3600) / resSec);
+    const defaultZoom = Math.max(1, nBars / n24);
+    const rect = canvas.getBoundingClientRect();
+    const PL = 34, PR = 10;
+    const cW = Math.max(100, (rect.width || 600) - PL - PR);
+    const defaultPanX = _panXFromStartIdxSoc(nBars, defaultZoom, nBars - n24, cW);
+
+    const state = {
+      zoom: defaultZoom,
+      panX: defaultPanX,
+      defaultZoom: defaultZoom,
+      defaultPanX: defaultPanX,
+      bars, rawBars, sessions, resSec, startMs, packKwh
+    };
     canvas.__socState = state;
 
     function redraw() {
       _drawAnnotatedSocChart(canvas, state.bars, state.sessions, state.resSec, state.startMs, state.packKwh, state.zoom, state.panX);
       if (resetBtn) {
-        if (Math.abs(state.zoom - 1) > 0.05 || Math.abs(state.panX) > 1) resetBtn.classList.add('visible');
+        const isChanged = Math.abs(state.zoom - state.defaultZoom) > 0.08 ||
+                          Math.abs(state.panX - state.defaultPanX) > 10;
+        if (isChanged) resetBtn.classList.add('visible');
         else resetBtn.classList.remove('visible');
       }
     }
     state.redraw = redraw;
-    state.reset = function () { state.zoom = 1; state.panX = 0; redraw(); };
+    state.reset = function () {
+      const r = canvas.getBoundingClientRect();
+      const curCw = Math.max(100, (r.width || 600) - PL - PR);
+      state.zoom = state.defaultZoom;
+      state.panX = _panXFromStartIdxSoc(state.bars.length, state.defaultZoom, state.bars.length - n24, curCw);
+      redraw();
+    };
 
     redraw();
     if (loadingEl) loadingEl.style.display = 'none';
@@ -588,18 +610,40 @@
 
     const packKwh = 5.12; // Dyness DL5.0F usable capacity
 
-    const state = { zoom: 1, panX: 0, bars, rawBars, sessions, resSec, startMs, packKwh };
+    // Frame latest 24 hours by default
+    const n24_2 = Math.round((24 * 3600) / resSec);
+    const defaultZoom2 = Math.max(1, nBars / n24_2);
+    const rect2 = canvas.getBoundingClientRect();
+    const PL2 = 34, PR2 = 10;
+    const cW2 = Math.max(100, (rect2.width || 600) - PL2 - PR2);
+    const defaultPanX2 = _panXFromStartIdxSoc(nBars, defaultZoom2, nBars - n24_2, cW2);
+
+    const state = {
+      zoom: defaultZoom2,
+      panX: defaultPanX2,
+      defaultZoom: defaultZoom2,
+      defaultPanX: defaultPanX2,
+      bars, rawBars, sessions, resSec, startMs, packKwh
+    };
     canvas.__soc2State = state;
 
     function redraw() {
       _drawAnnotatedSocChart(canvas, state.bars, state.sessions, state.resSec, state.startMs, state.packKwh, state.zoom, state.panX);
       if (resetBtn) {
-        if (Math.abs(state.zoom - 1) > 0.05 || Math.abs(state.panX) > 1) resetBtn.classList.add('visible');
+        const isChanged = Math.abs(state.zoom - state.defaultZoom) > 0.08 ||
+                          Math.abs(state.panX - state.defaultPanX) > 10;
+        if (isChanged) resetBtn.classList.add('visible');
         else resetBtn.classList.remove('visible');
       }
     }
     state.redraw = redraw;
-    state.reset = function () { state.zoom = 1; state.panX = 0; redraw(); };
+    state.reset = function () {
+      const r = canvas.getBoundingClientRect();
+      const curCw = Math.max(100, (r.width || 600) - PL2 - PR2);
+      state.zoom = state.defaultZoom;
+      state.panX = _panXFromStartIdxSoc(state.bars.length, state.defaultZoom, state.bars.length - n24_2, curCw);
+      redraw();
+    };
 
     redraw();
     if (loadingEl) loadingEl.style.display = 'none';
@@ -748,7 +792,7 @@
     ctx.scale(dpr, dpr);
     ctx.clearRect(0, 0, rect.width, rect.height);
 
-    const PL = 34, PR = 10, PT = 24, PB = 34;
+    const PL = 34, PR = 10, PT = 32, PB = 34;
     const cW = rect.width - PL - PR;
     const cH = rect.height - PT - PB;
     if (cW <= 0 || cH <= 0) return;
@@ -764,13 +808,25 @@
     let minV = visible.length ? Math.min(...visible) : 0;
     let maxV = visible.length ? Math.max(...visible) : 100;
     minV = Math.max(0, minV - 5);
-    maxV = Math.max(108, maxV + 8);
+    maxV = Math.max(118, maxV + 15);
     const range = Math.max(1, maxV - minV);
 
     function mapX(i) { return PL + ((i - startIdx) / visibleN) * cW; }
     function mapY(v) { return PT + cH - ((v - minV) / range) * cH; }
 
-    // Grid lines
+    // Ensures the 100% graph curve floats with a visible 6px distance below the 100% line
+    function mapCurveY(v) {
+      const y = mapY(v);
+      const y100 = mapY(100);
+      const distFrom100 = y - y100;
+      if (distFrom100 < 30) {
+        const blend = Math.max(0, 1 - distFrom100 / 30);
+        return y + (6 * blend);
+      }
+      return y;
+    }
+
+    // Grid lines (100% line rendered as clean dashed reference ceiling)
     ctx.fillStyle = '#71717a';
     ctx.font = '9px system-ui';
     ctx.textAlign = 'right';
@@ -778,8 +834,11 @@
     gridTicks.forEach(val => {
       const y = mapY(val);
       ctx.fillText(Math.round(val) + '%', PL - 5, y + 3);
-      ctx.strokeStyle = val === 100 ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.05)';
-      ctx.beginPath(); ctx.moveTo(PL, y); ctx.lineTo(PL + cW, y); ctx.stroke();
+      ctx.strokeStyle = val === 100 ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.05)';
+      ctx.beginPath();
+      if (val === 100) ctx.setLineDash([4, 4]); else ctx.setLineDash([]);
+      ctx.moveTo(PL, y); ctx.lineTo(PL + cW, y); ctx.stroke();
+      ctx.setLineDash([]);
     });
 
     // ── Visible Window Time Range (Top right indicator) ──
@@ -792,14 +851,16 @@
     ctx.fillStyle = '#a1a1aa';
     ctx.font = 'bold 9.5px system-ui, -apple-system, sans-serif';
     ctx.textAlign = 'right';
-    ctx.fillText(`🕒 ${firstTimeStr} → ${lastTimeStr} (${visDurationHours}h)`, rect.width - PR - 2, PT - 8);
+    ctx.fillText(`🕒 ${firstTimeStr} → ${lastTimeStr} (${visDurationHours}h)`, rect.width - PR - 2, PT - 10);
 
-    // Zoom factor indicator (Top left)
-    if (Math.abs(zoom - 1) > 0.05) {
+    // Zoom indicator relative to default 24h view
+    const curDefZoom = canvas.__socState?.defaultZoom || canvas.__soc2State?.defaultZoom || 1;
+    const relZoom = zoom / curDefZoom;
+    if (Math.abs(relZoom - 1) > 0.08) {
       ctx.fillStyle = 'rgba(255,255,255,0.85)';
       ctx.font = 'bold 10px system-ui';
       ctx.textAlign = 'left';
-      ctx.fillText(`${zoom.toFixed(1)}×`, PL + 4, PT - 8);
+      ctx.fillText(`${relZoom.toFixed(1)}×`, PL + 4, PT - 10);
     }
 
     // Gradient fill and main line
@@ -816,7 +877,7 @@
     let started = false, firstX = null, lastX = null;
     for (let i = i0; i <= i1; i++) {
       if (bars[i] == null) continue;
-      const x = mapX(i), y = mapY(bars[i]);
+      const x = mapX(i), y = mapCurveY(bars[i]);
       if (!started) { firstX = x; ctx.moveTo(x, PT + cH); ctx.lineTo(x, y); started = true; }
       else ctx.lineTo(x, y);
       lastX = x;
@@ -832,7 +893,7 @@
     started = false;
     for (let i = i0; i <= i1; i++) {
       if (bars[i] == null) { started = false; continue; }
-      const x = mapX(i), y = mapY(bars[i]);
+      const x = mapX(i), y = mapCurveY(bars[i]);
       if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y);
     }
     ctx.strokeStyle = '#10b981';
@@ -846,20 +907,120 @@
       const isCharge = seg.type === 'charge';
       const clr = isCharge ? '#4ade80' : '#fb923c';
 
-      ctx.save();
-      ctx.beginPath();
-      let first = true;
-      for (let k = Math.max(seg.startIdx, i0); k <= Math.min(seg.endIdx, i1); k++) {
-        if (bars[k] == null) continue;
-        const x = mapX(k), y = mapY(bars[k]);
-        if (first) { ctx.moveTo(x, y); first = false; } else ctx.lineTo(x, y);
+      const ranges = (seg.ranges && seg.ranges.length) ? seg.ranges : [{ startIdx: seg.startIdx, endIdx: seg.endIdx }];
+      ranges.forEach(rng => {
+        if (rng.endIdx < i0 || rng.startIdx > i1) return;
+        ctx.save();
+        ctx.beginPath();
+        let first = true;
+        for (let k = Math.max(rng.startIdx, i0); k <= Math.min(rng.endIdx, i1); k++) {
+          if (bars[k] == null) continue;
+          const x = mapX(k), y = mapCurveY(bars[k]);
+          if (first) { ctx.moveTo(x, y); first = false; } else ctx.lineTo(x, y);
+        }
+        ctx.strokeStyle = clr;
+        ctx.lineWidth = 3;
+        ctx.shadowColor = clr;
+        ctx.shadowBlur = 6;
+        ctx.stroke();
+        ctx.restore();
+      });
+
+      // 1b. Bridge line below standby pause(s) with pause badge (14px drop)
+      if (ranges.length > 1) {
+        for (let r = 0; r < ranges.length - 1; r++) {
+          const r1 = ranges[r];
+          const r2 = ranges[r + 1];
+          if (r2.startIdx < i0 || r1.endIdx > i1) continue;
+          const v1 = bars[r1.endIdx];
+          const v2 = bars[r2.startIdx];
+          if (v1 == null || v2 == null) continue;
+          const x1 = mapX(r1.endIdx), y1 = mapCurveY(v1);
+          const x2 = mapX(r2.startIdx), y2 = mapCurveY(v2);
+          const dropY = 14;
+
+          ctx.save();
+          // Vertical drop tick from end of slope 1
+          ctx.beginPath();
+          ctx.moveTo(x1, y1);
+          ctx.lineTo(x1, y1 + dropY);
+          ctx.strokeStyle = clr;
+          ctx.lineWidth = 2;
+          ctx.stroke();
+
+          // Dashed glowing bridge line beneath the green segment
+          ctx.beginPath();
+          for (let k = Math.max(r1.endIdx, i0); k <= Math.min(r2.startIdx, i1); k++) {
+            if (bars[k] == null) continue;
+            const px = mapX(k), py = mapCurveY(bars[k]) + dropY;
+            if (k === Math.max(r1.endIdx, i0)) ctx.moveTo(px, py);
+            else ctx.lineTo(px, py);
+          }
+          ctx.setLineDash([5, 4]);
+          ctx.strokeStyle = clr;
+          ctx.lineWidth = 2.5;
+          ctx.shadowColor = clr;
+          ctx.shadowBlur = 6;
+          ctx.stroke();
+
+          // Vertical rise tick to start of slope 2
+          ctx.beginPath();
+          ctx.setLineDash([]);
+          ctx.moveTo(x2, y2 + dropY);
+          ctx.lineTo(x2, y2);
+          ctx.strokeStyle = clr;
+          ctx.lineWidth = 2;
+          ctx.stroke();
+          ctx.restore();
+
+          // Pause badge below the dashed bridge line
+          const pausePts = r2.startIdx - r1.endIdx;
+          const pauseMins = Math.round((pausePts * resSec) / 60);
+          if (pauseMins >= 10 && (x2 - x1) > 40) {
+            const ph = Math.floor(pauseMins / 60);
+            const pm = pauseMins % 60;
+            const pText = ph > 0 ? (pm > 0 ? `${ph}h ${pm}m pause` : `${ph}h pause`) : `${pm}m pause`;
+            const midPX = (x1 + x2) / 2;
+            const midPY = (y1 + y2) / 2 + dropY + 11;
+
+            ctx.save();
+            ctx.font = 'bold 9.5px system-ui, -apple-system, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            const tw = ctx.measureText(`⏸ ${pText}`).width;
+            ctx.fillStyle = 'rgba(20, 20, 22, 0.88)';
+            ctx.strokeStyle = clr;
+            ctx.lineWidth = 1;
+            const bw = tw + 10, bh = 15;
+            if (typeof ctx.roundRect === 'function') {
+              ctx.beginPath();
+              ctx.roundRect(midPX - bw / 2, midPY - bh / 2, bw, bh, 3);
+              ctx.fill();
+              ctx.stroke();
+            }
+            ctx.fillStyle = clr;
+            ctx.fillText(`⏸ ${pText}`, midPX, midPY);
+            ctx.restore();
+          }
+        }
+
+        // 1c. Bottom baseline span bracket marking the full discharge window
+        const xStart = mapX(seg.startIdx);
+        const xEnd = mapX(seg.endIdx);
+        const spanY = PT + cH - 3;
+        if (xEnd > PL && xStart < PL + cW) {
+          ctx.save();
+          ctx.beginPath();
+          ctx.moveTo(xStart, spanY - 4);
+          ctx.lineTo(xStart, spanY);
+          ctx.lineTo(xEnd, spanY);
+          ctx.lineTo(xEnd, spanY - 4);
+          ctx.strokeStyle = clr;
+          ctx.lineWidth = 2;
+          ctx.stroke();
+          ctx.restore();
+        }
       }
-      ctx.strokeStyle = clr;
-      ctx.lineWidth = 3;
-      ctx.shadowColor = clr;
-      ctx.shadowBlur = 6;
-      ctx.stroke();
-      ctx.restore();
     });
 
     ctx.restore(); // Release clip so pills are NEVER cut off!
@@ -875,10 +1036,14 @@
       const bgClr = isCharge ? 'rgba(6, 78, 59, 0.94)' : 'rgba(124, 45, 18, 0.94)';
       const borderClr = isCharge ? '#10b981' : '#f97316';
 
-      const midIdx = Math.round((seg.startIdx + seg.endIdx) / 2);
+      let targetRange = { startIdx: seg.startIdx, endIdx: seg.endIdx };
+      if (seg.ranges && seg.ranges.length > 1) {
+        targetRange = seg.ranges.reduce((best, r) => (r.endIdx - r.startIdx > best.endIdx - best.startIdx ? r : best), seg.ranges[0]);
+      }
+      const midIdx = Math.round((targetRange.startIdx + targetRange.endIdx) / 2);
       const midVal = bars[Math.min(n - 1, Math.max(0, midIdx))];
       if (midVal == null) return;
-      const midX = mapX(midIdx), midY = mapY(midVal);
+      const midX = mapX(midIdx), midY = mapCurveY(midVal);
       if (midX < PL - 30 || midX > PL + cW + 30) return;
 
       const durH = Math.floor(seg.durMin / 60);
@@ -889,12 +1054,19 @@
       const avgW = seg.durMin > 0 ? Math.round((kwhEst * 1000) / (seg.durMin / 60)) : 0;
       const avgStr = avgW >= 1000 ? (avgW / 1000).toFixed(1) + 'kW' : avgW + 'W';
 
+      let pauseStr = '';
+      if (seg.pauseMin > 0) {
+        const ph = Math.floor(seg.pauseMin / 60);
+        const pm = Math.round(seg.pauseMin % 60);
+        pauseStr = ph > 0 ? (pm > 0 ? ` · ${ph}h ${pm}m pause` : ` · ${ph}h pause`) : ` · ${pm}m pause`;
+      }
+
       // Full info matching graphs/day/battery:
       let text = '';
       if (isNarrow) {
         text = `${isCharge ? '▲' : '▼'} ${sign}${Math.abs(seg.delta).toFixed(1)}% · ${durStr} (${kwhEst.toFixed(1)}k · Ø ${avgStr})`;
       } else {
-        text = `${isCharge ? '▲' : '▼'} ${sign}${Math.abs(seg.delta).toFixed(1)}% · ${durStr} (${kwhEst.toFixed(1)}kWh · Ø ${avgStr})`;
+        text = `${isCharge ? '▲' : '▼'} ${sign}${Math.abs(seg.delta).toFixed(1)}% · ${durStr}${pauseStr} (${kwhEst.toFixed(1)}kWh · Ø ${avgStr})`;
       }
 
       ctx.font = `bold ${isNarrow ? 9.5 : 10.5}px system-ui, -apple-system, sans-serif`;

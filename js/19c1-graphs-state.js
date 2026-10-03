@@ -161,7 +161,7 @@ function _formatStatLine(icon, label, mainVal, accentColor, peakVal, avgVal, day
 
   const isSolar = lblLower.includes('solar') && !lblLower.includes('grid');
   const isDay = currentTab === 'day';
-  const hideNight = isSolar || isNonEnergy;
+  const hideNight = isSolar || (isNonEnergy && !isBat);
   const peakLabel = isDay ? "Peak" : (currentTab === 'year' ? "Max Month" : "Max Day");
   const avgLabel  = isDay ? "Avg"  : (currentTab === 'month' ? "Daily Avg" : "Monthly Avg");
 
@@ -471,7 +471,9 @@ function detectBatterySessions(socBars, resSec, lastIdx, minDurationMin, minDelt
         startVal: soc[startIdx],
         endVal: soc[endIdx],
         delta: delta,
-        durMin: durMin
+        durMin: durMin,
+        pauseMin: 0,
+        ranges: [{ startIdx: startIdx, endIdx: endIdx }]
       });
       i = Math.max(i + 1, endIdx);
     } else {
@@ -479,8 +481,55 @@ function detectBatterySessions(socBars, resSec, lastIdx, minDurationMin, minDelt
     }
   }
 
-  console.log('🔋 Battery sessions detected:', sessions.length, sessions);
-  return sessions;
+  // Merge discharge sessions across standby pauses (up to 4 hours of no battery use)
+  const mergedSessions = [];
+  let k = 0;
+  while (k < sessions.length) {
+    let cur = Object.assign({}, sessions[k]);
+    if (!cur.ranges) cur.ranges = [{ startIdx: cur.startIdx, endIdx: cur.endIdx }];
+    if (!cur.pauseMin) cur.pauseMin = 0;
+
+    if (cur.type === 'discharge') {
+      while (k + 1 < sessions.length) {
+        const next = sessions[k + 1];
+        if (next.type !== 'discharge') break;
+
+        const gapPoints = next.startIdx - cur.endIdx;
+        const gapMin = Math.round((gapPoints * resSec) / 60);
+
+        // Gap must be a reasonable standby pause (<= 4h / 240 mins)
+        if (gapMin < 0 || gapMin > 240) break;
+
+        // Ensure battery did not actually recharge during the standby gap
+        // (allow up to 4.5% for open-circuit voltage relaxation / BMS float bounce)
+        let maxGapSoc = -Infinity;
+        for (let idx = cur.endIdx; idx <= next.startIdx; idx++) {
+          if (soc[idx] > maxGapSoc) maxGapSoc = soc[idx];
+        }
+
+        const netRecharge = next.startVal - cur.endVal;
+        const peakBounce = maxGapSoc - Math.max(cur.endVal, next.startVal);
+
+        if (netRecharge > 3.5 || peakBounce > 4.5) break;
+
+        // Merge next discharge phase into current session
+        cur.endIdx = next.endIdx;
+        cur.endVal = next.endVal;
+        cur.delta = cur.endVal - cur.startVal;
+        cur.durMin += next.durMin; // active discharge duration
+        cur.pauseMin += gapMin;
+        const nextRanges = next.ranges || [{ startIdx: next.startIdx, endIdx: next.endIdx }];
+        cur.ranges = cur.ranges.concat(nextRanges);
+
+        k++;
+      }
+    }
+    mergedSessions.push(cur);
+    k++;
+  }
+
+  console.log('🔋 Battery sessions detected:', mergedSessions.length, mergedSessions);
+  return mergedSessions;
 }
 window.detectBatterySessions = detectBatterySessions;
 

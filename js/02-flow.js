@@ -1,8 +1,12 @@
 // js/02-flow.js
 // ── CANVAS HEIGHT CONFIG ─────────────────────────────────────────────
-const FLOW_CANVAS_HEIGHT = 1360;
+const FLOW_CANVAS_HEIGHT = 1010;
 
-try { window.FLOW_CANVAS_HEIGHT = FLOW_CANVAS_HEIGHT; } catch (e) {}
+try {
+  window.FLOW_CANVAS_HEIGHT = FLOW_CANVAS_HEIGHT;
+  const savedH = parseInt(localStorage.getItem('editor_preset_height'), 10);
+  if (savedH > 1100) localStorage.removeItem('editor_preset_height');
+} catch (e) {}
 
 function _resolveFlowHeight(autoH) {
   if (typeof FLOW_CANVAS_HEIGHT === 'number' && FLOW_CANVAS_HEIGHT > 0) {
@@ -30,7 +34,6 @@ const LAYOUT = {
  fridge: { x:5, y:755, w:224, h:239, color:'#c084fc', label:'Fridges', ly1:16, fs:36, c1:'#38bdf8', ly2:53, fs2:52, c2:'#25f447', ly3:103, fs3:17, c3:'#518e35', ly4:129, fs4:36, c4:'#38bdf8', ly5:171, fs5:52, c5:'#25f447', ly6:228, fs6:18, c6:'#518e35', ly7:86, fs7:14, c7:'#a1a1aa', ly8:205, fs8:17, c8:'#a1a1aa',  },
  temp: { x:396, y:710, w:189, h:38, color:'#22c55e', label:'temp', ly1:16, fs:24, c1:'#25f447',  },
  temp2: { x:722, y:703, w:179, h:36, color:'#22c55e', label:'temp2', ly1:16, fs:21, c1:'#25f447',  },
- battery2: { x:9, y:1002, w:720, h:335, color:'#a78bfa', label:'Battery 2 (Dyness)', ly1:22, fs:26, c1:'#a78bfa' },
 };
 
 const FLOW_BAND_GAP = 60;
@@ -605,151 +608,25 @@ function renderFlowDiagram(byName) {
   const oT2 = L.temp2;
   svg += `<rect x="${oT2.x}" y="${oT2.y}" width="${oT2.w}" height="${oT2.h}" rx="8" fill="#141416" stroke="${oT2.color}" stroke-width="1.5"/><text x="${cx(oT2)}" y="${oT2.y+oT2.ly1}" ${tpProps} font-size="${oT2.fs}" fill="${oT2.c1}">${tp2.toFixed(1)}°C / ${Math.round(hm2)}%</text>`;
 
-// 6. BATTERY 2 (Dyness DL5.0F) — matching bottom card info & readable layout
-  o = L.battery2;
-  if (o) {
-    const b2V    = getV('Bat2 Voltage') || 52.0;
-    const b2A    = getV('Bat2 Current');
-    const b2Watt = getV('Bat2 Power') || (b2V * b2A);
-    const b2Soc  = Math.round(getV('Bat2 SOC'));
-    const b2Soh  = Math.round(getV('Bat2 SOH'));
-    const b2Cyc  = Math.round(getV('Bat2 Cycle Count'));
-    const b2MosT = getV('Bat2 Mosfet Temp');
-    const b2BmsT = getV('Bat2 BMS Temp');
-    const b2ChgLimA = getV('Bat2 Chg Limit A') || getV('Bat Chg Limit A');
-    const b2DisLimA = getV('Bat2 Dis Limit A') || getV('Bat Dis Limit A');
+  // Snapshot latest battery telemetry
+  const b2V    = getV('Bat2 Voltage') || getV('Bat V') || 52.0;
+  const b2A    = getV('Bat2 Current') || (getV('bt_battery_charging_current') || 0) - (getV('bt_battery_discharge_current') || 0);
+  const b2Watt = getV('Bat2 Power') ?? (getV('Bat Power') || (b2V * b2A));
+  const b2Soc  = Math.round(getV('Bat2 SOC') || getV('SOC %') || 0);
+  const b2Soh  = Math.round(getV('Bat2 SOH') || getV('Bat SOH') || 100);
+  const b2Cyc  = Math.round(getV('Bat2 Cycle Count') || getV('Bat Cycle Count') || 11);
+  const b2MosT = getV('Bat2 Mosfet Temp') || getV('Bat Mosfet Temp');
+  const b2BmsT = getV('Bat2 BMS Temp') || getV('Bat BMS Temp');
+  const b2Time = byName.get('Bat2 SOC')?.time || byName.get('Bat2 Voltage')?.time || byName.get('Bat2 Power')?.time;
+  const b2TimeStr = b2Time ? new Date(b2Time * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--';
 
-    // Live timestamp definition
-    const b2Time = byName.get('Bat2 SOC')?.time || byName.get('Bat2 Voltage')?.time || byName.get('Bat2 Power')?.time;
-    const b2TimeStr = b2Time ? new Date(b2Time * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--';
-
-    const b2IsCharging    = b2A > 0.3 || b2Watt > 15;
-    const b2IsDischarging = b2A < -0.3 || b2Watt < -15;
-    const b2IsActive      = b2IsCharging || b2IsDischarging;
-
-    let b2ActionLine = 'Standby';
-    let b2ActionColor = 'var(--text-muted)';
-    if (b2IsCharging) {
-      b2ActionLine = `Charging (${Math.abs(b2A).toFixed(1)}A)`;
-      b2ActionColor = '#4ade80';
-    } else if (b2IsDischarging) {
-      b2ActionLine = `Discharging (${Math.abs(b2A).toFixed(1)}A)`;
-      b2ActionColor = '#facc15';
-    }
-
-    const b2PwrSign = b2Watt > 0 ? `+${Math.round(b2Watt)}` : `${Math.round(b2Watt)}`;
-    const b2PwrColor = b2Watt > 0 ? '#4ade80' : (b2Watt < 0 ? '#f59e0b' : '#a1a1aa');
-
-    let b2Stroke = o.color;
-    let b2Fill = '#141416';
-    let b2PulseClr = b2IsCharging ? '#10b981' : (b2IsDischarging ? '#f59e0b' : o.color);
-    const socColor = b2Soc <= 20 ? '#ef4444' : (b2Soc <= 50 ? '#facc15' : '#4ade80');
-    if (b2Soc > 0 && b2Soc <= 20) { b2Stroke = '#ef4444'; b2Fill = '#2a0a0a'; b2PulseClr = '#ef4444'; }
-
-    const batStats = window.monthlyUnits || {};
-    const chgTStr = formatBatEnergy(batStats.batChgT || 0);
-    const chgMStr = formatBatEnergy(batStats.batChgM || 0);
-    const disTStr = formatBatEnergy(batStats.batDisT || 0);
-    const disMStr = formatBatEnergy(batStats.batDisM || 0);
-    const fmtL = (val, u) => (val != null && val > 0 ? val.toFixed(1) + u : '--');
-
-    svg += `<rect class="${b2IsActive ? 'pulse-animation' : ''}" style="--pulse-clr:${b2PulseClr}" x="${o.x}" y="${o.y}" width="${o.w}" height="${o.h}" rx="12" fill="${b2Fill}" stroke="${b2Stroke}" stroke-width="2"/>`;
-
-    // ── Header Row (y = o.y + 26) ──
-    svg += `<text x="${o.x + 18}" y="${o.y + 26}" font-family="system-ui, -apple-system, sans-serif" dominant-baseline="central" text-anchor="start" font-weight="700" font-size="20" fill="var(--text-muted)">🔋 Battery SOC <tspan fill="${socColor}" font-weight="900" font-size="25">${b2Soc}%</tspan></text>`;
-    svg += `<text x="${cx(o)}" y="${o.y + 26}" font-family="system-ui, -apple-system, sans-serif" dominant-baseline="central" text-anchor="middle" font-weight="700" font-size="20" fill="var(--text-muted)">Voltage <tspan fill="#38bdf8" font-weight="900" font-size="24">${b2V.toFixed(2)}V</tspan></text>`;
-    svg += `<text x="${o.x + o.w - 18}" y="${o.y + 26}" font-family="system-ui, -apple-system, sans-serif" dominant-baseline="central" text-anchor="end" font-weight="700" font-size="20" fill="var(--text-muted)">Power <tspan fill="${b2PwrColor}" font-weight="900" font-size="24">${b2PwrSign}W</tspan></text>`;
-
-    // ── Row 1: Status & SOH / Cycles (y = o.y + 58) ──
-    svg += `<text x="${o.x + 18}" y="${o.y + 58}" font-family="system-ui, -apple-system, sans-serif" dominant-baseline="central" text-anchor="start" font-size="19" fill="#a1a1aa">Status <tspan fill="${b2ActionColor}" font-weight="800">${b2ActionLine}</tspan></text>`;
-    svg += `<text x="${o.x + o.w - 18}" y="${o.y + 58}" font-family="system-ui, -apple-system, sans-serif" dominant-baseline="central" text-anchor="end" font-size="19" fill="#a1a1aa">SOH / Cycles <tspan fill="#10b981" font-weight="800">${b2Soh}% • ${b2Cyc}</tspan></text>`;
-
-    // Divider 1 (dashed)
-    svg += `<line x1="${o.x + 14}" y1="${o.y + 75}" x2="${o.x + o.w - 14}" y2="${o.y + 75}" stroke="#27272a" stroke-dasharray="4,4" stroke-width="1.2"/>`;
-
-    // ── Row 2: Chrg Energy & Disc Energy (y = o.y + 94) ──
-    svg += `<text x="${o.x + 18}" y="${o.y + 94}" font-family="system-ui, -apple-system, sans-serif" dominant-baseline="central" text-anchor="start" font-size="19" fill="#a1a1aa">Chrg Energy <tspan fill="#10b981" font-weight="800">T: ${chgTStr} • M: ${chgMStr}</tspan></text>`;
-    svg += `<text x="${o.x + o.w - 18}" y="${o.y + 94}" font-family="system-ui, -apple-system, sans-serif" dominant-baseline="central" text-anchor="end" font-size="19" fill="#a1a1aa">Disc Energy <tspan fill="#f97316" font-weight="800">T: ${disTStr} • M: ${disMStr}</tspan></text>`;
-
-    // Divider 2 (dashed)
-    svg += `<line x1="${o.x + 14}" y1="${o.y + 111}" x2="${o.x + o.w - 14}" y2="${o.y + 111}" stroke="#27272a" stroke-dasharray="4,4" stroke-width="1.2"/>`;
-
-    // ── Row 3: Temps & Limits (y = o.y + 130) ──
-    svg += `<text x="${o.x + 18}" y="${o.y + 130}" font-family="system-ui, -apple-system, sans-serif" dominant-baseline="central" text-anchor="start" font-size="19" fill="#a1a1aa">BMS / Mosfet Temp <tspan fill="#38bdf8" font-weight="800">${b2BmsT.toFixed(1)}°C • ${b2MosT.toFixed(1)}°C</tspan></text>`;
-    svg += `<text x="${o.x + o.w - 18}" y="${o.y + 130}" font-family="system-ui, -apple-system, sans-serif" dominant-baseline="central" text-anchor="end" font-size="19" fill="#a1a1aa">Limits (Chg/Dis) <tspan fill="#35c0b7" font-weight="800">${fmtL(b2ChgLimA, 'A')} / ${fmtL(b2DisLimA, 'A')}</tspan></text>`;
-
-    // Divider 3 (solid)
-    svg += `<line x1="${o.x + 14}" y1="${o.y + 147}" x2="${o.x + o.w - 14}" y2="${o.y + 147}" stroke="#27272a" stroke-width="1.5"/>`;
-
-    // ── 16 Cell Spread & Grid ──
-    const cellNames = window.BATTERY2_CELL_NAMES || [];
-    const cellObjs = cellNames.map((n, i) => ({ idx: i + 1, v: byName.get(n)?.value }));
-    const validCells = cellObjs.filter(c => c.v != null && c.v > 0);
-
-    if (validCells.length > 0) {
-      const cMin = Math.min(...validCells.map(c => c.v));
-      const cMax = Math.max(...validCells.map(c => c.v));
-      const spreadMv = Math.round((cMax - cMin) * 1000);
-      const minIdx = validCells.find(c => c.v === cMin)?.idx;
-      const maxIdx = validCells.find(c => c.v === cMax)?.idx;
-      const spreadColor = spreadMv > 30 ? '#ef4444' : (spreadMv > 15 ? '#facc15' : '#4ade80');
-
-      // Row 4: Cell Spread (y = o.y + 167)
-      svg += `<text x="${o.x + 18}" y="${o.y + 167}" font-family="system-ui, -apple-system, sans-serif" dominant-baseline="central" text-anchor="start" font-size="19" fill="#a1a1aa">Cell Spread</text>`;
-      svg += `<text x="${o.x + o.w - 18}" y="${o.y + 167}" font-family="system-ui, -apple-system, sans-serif" dominant-baseline="central" text-anchor="end" font-size="19"><tspan fill="#fca5a5" font-weight="800">C${minIdx} (${cMin.toFixed(3)}V)</tspan> <tspan fill="#a1a1aa">–</tspan> <tspan fill="#86efac" font-weight="800">C${maxIdx} (${cMax.toFixed(3)}V)</tspan> <tspan fill="${spreadColor}" font-weight="900">(Δ${spreadMv}mV)</tspan></text>`;
-
-      // Larger 8×2 Grid boxes with readable font
-      const cardW = 82;
-      const cardH = 54;
-      const padX = 14;
-      const colGap = (o.w - (padX * 2) - (cardW * 8)) / 7;
-      const rowGap = 7;
-      const startY = o.y + 188;
-
-      for (let i = 0; i < 16; i++) {
-        const col = i % 8;
-        const row = Math.floor(i / 8);
-        const cX = o.x + padX + col * (cardW + colGap);
-        const cY = startY + row * (cardH + rowGap);
-        const cMidX = cX + cardW / 2;
-
-        const cell = cellObjs[i];
-        const cVal = cell?.v;
-        const isMin = cell && cell.idx === minIdx && spreadMv > 0;
-        const isMax = cell && cell.idx === maxIdx && spreadMv > 0;
-
-        let bg = 'rgba(255,255,255,0.035)';
-        let stroke = '#27272a';
-        let strokeW = '1.2';
-        let valFill = '#f4f4f5';
-
-        if (isMin) {
-          bg = 'rgba(239,68,68,0.18)';
-          stroke = '#ef4444';
-          strokeW = '2';
-          valFill = '#fca5a5';
-        } else if (isMax) {
-          bg = 'rgba(34,197,94,0.18)';
-          stroke = '#22c55e';
-          strokeW = '2';
-          valFill = '#86efac';
-        }
-
-        svg += `<rect x="${cX}" y="${cY}" width="${cardW}" height="${cardH}" rx="7" fill="${bg}" stroke="${stroke}" stroke-width="${strokeW}"/>`;
-        const numColor = isMin ? '#f87171' : (isMax ? '#4ade80' : '#71717a');
-        svg += `<text x="${cMidX}" y="${cY + 16}" font-family="system-ui, sans-serif" dominant-baseline="central" text-anchor="middle" font-weight="800" font-size="14.5" fill="${numColor}">C${i + 1}</text>`;
-        const valStr = (cVal != null && cVal > 0) ? cVal.toFixed(3) : '--';
-        svg += `<text x="${cMidX}" y="${cY + 38}" font-family="monospace, system-ui" dominant-baseline="central" text-anchor="middle" font-weight="900" font-size="17" fill="${valFill}">${valStr}</text>`;
-      }
-    }
-
-    window.lastBattery2Snapshot = {
-      soc: b2Soc, soh: b2Soh, volt: b2V, amps: b2A, watt: b2Watt,
-      cycles: b2Cyc, mosfetTemp: b2MosT, bmsTemp: b2BmsT,
-      isCharging: b2IsCharging, isDischarging: b2IsDischarging,
-      time: b2TimeStr
-    };
-  }
+  window.lastBattery2Snapshot = {
+    soc: b2Soc, soh: b2Soh, volt: b2V, amps: b2A, watt: b2Watt,
+    cycles: b2Cyc, mosfetTemp: b2MosT, bmsTemp: b2BmsT,
+    isCharging: (b2A > 0.3 || b2Watt > 15),
+    isDischarging: (b2A < -0.3 || b2Watt < -15),
+    time: b2TimeStr
+  };
 
   svg += `</svg>`;
   
@@ -765,4 +642,106 @@ function renderFlowDiagram(byName) {
       }
     } catch (e) {}
   });
+
+  // Render the responsive HTML Dyness battery card directly inside #flow-card
+  renderFlowBattery2Html(byName);
+}
+
+// ── Render Responsive HTML Dyness Battery Card in Flow Section ──
+function renderFlowBattery2Html(byName) {
+  let b2Wrap = document.getElementById('flow-battery2-wrap');
+  if (!b2Wrap) {
+    const flowCard = document.getElementById('flow-card');
+    if (flowCard) {
+      b2Wrap = document.createElement('div');
+      b2Wrap.id = 'flow-battery2-wrap';
+      flowCard.appendChild(b2Wrap);
+    }
+  }
+  if (!b2Wrap) return;
+
+  const getV = (n) => byName.get(n)?.value;
+  const snap = window.lastBattery2Snapshot || {};
+
+  const soc     = snap.soc != null ? snap.soc : (getV('Bat2 SOC') != null ? Math.round(getV('Bat2 SOC')) : (getV('SOC %') != null ? Math.round(getV('SOC %')) : null));
+  const volt    = snap.volt != null ? snap.volt : (getV('Bat2 Voltage') || getV('Bat V'));
+  const amps    = snap.amps != null ? snap.amps : (getV('Bat2 Current') || ((getV('bt_battery_charging_current') || 0) - (getV('bt_battery_discharge_current') || 0)));
+  const watt    = snap.watt != null ? snap.watt : (getV('Bat2 Power') ?? ((volt != null && amps != null) ? volt * amps : null));
+  const soh     = snap.soh != null ? snap.soh : (getV('Bat2 SOH') || getV('Bat SOH') || 100);
+  const cyc     = snap.cycles != null ? snap.cycles : (getV('Bat2 Cycle Count') || getV('Bat Cycle Count') || 11);
+  const mosT    = snap.mosfetTemp != null ? snap.mosfetTemp : (getV('Bat2 Mosfet Temp') || getV('Bat Mosfet Temp'));
+  const bmsT    = snap.bmsTemp != null ? snap.bmsTemp : (getV('Bat2 BMS Temp') || getV('Bat BMS Temp'));
+  const chgLimA = getV('Bat2 Chg Limit A') || getV('Bat Chg Limit A') || 65.0;
+  const disLimA = getV('Bat2 Dis Limit A') || getV('Bat Dis Limit A') || 20.0;
+
+  const isCharging = (amps != null && amps > 0.3) || (watt != null && watt > 15);
+  const isDischarging = (amps != null && amps < -0.3) || (watt != null && watt < -15);
+  const statusText = isCharging ? 'Charging' : (isDischarging ? 'Discharging' : 'Standby');
+  const statusColor = isCharging ? '#4ade80' : (isDischarging ? '#f59e0b' : 'var(--text-muted)');
+  const socColor = (soc != null && soc <= 20) ? '#ef4444' : (soc != null && soc <= 50) ? '#facc15' : '#4ade80';
+
+  const batStats = window.monthlyUnits || {};
+  const fmtE = (wh) => (wh >= 500 ? (wh / 1000).toFixed(1) + ' kWh' : Math.round(wh || 0) + ' Wh');
+  const fmtL = (val, u) => (val != null && val > 0 ? Number(val).toFixed(1) + u : '--');
+
+  // 16 Cells
+  const cellNames = window.BATTERY2_CELL_NAMES || window.BATTERY_CELL_NAMES || [];
+  const cells = cellNames.map((n, i) => ({ idx: i + 1, v: getV(n) }));
+  const validCells = cells.filter(c => c.v != null && c.v > 0);
+
+  let spreadHtml = '';
+  let cellGridHtml = '';
+  if (validCells.length > 0) {
+    const cMin = Math.min(...validCells.map(c => c.v));
+    const cMax = Math.max(...validCells.map(c => c.v));
+    const spreadMv = Math.round((cMax - cMin) * 1000);
+    const minIdx = validCells.find(c => c.v === cMin)?.idx;
+    const maxIdx = validCells.find(c => c.v === cMax)?.idx;
+    const spreadColor = spreadMv > 30 ? '#ef4444' : (spreadMv > 15 ? '#facc15' : '#4ade80');
+
+    spreadHtml = `<div class="linked-value" style="grid-column: 1 / -1; border-top:1px dashed var(--border); padding-top:4px; margin-top:2px;">
+      <span>Cell Spread</span>
+      <span class="linked-reading" style="color:${spreadColor}; font-weight:800;">C${minIdx} (${cMin.toFixed(3)}V) &ndash; C${maxIdx} (${cMax.toFixed(3)}V) &nbsp;(Δ${spreadMv}mV)</span>
+    </div>`;
+
+    if (window._batFlowCellsExpanded === undefined) window._batFlowCellsExpanded = true;
+
+    cellGridHtml = `<div class="bat2-cell-grid" id="bat-flow-cell-grid" style="${window._batFlowCellsExpanded ? '' : 'display:none;'}">
+      ${cells.map(c => {
+        if (c.v == null) return `<div class="bat2-cell-item"><span class="bat2-cell-idx">C${c.idx}</span><span class="bat2-cell-v">--</span></div>`;
+        const cls = c.idx === maxIdx ? 'bat2-cell-max' : (c.idx === minIdx ? 'bat2-cell-min' : '');
+        return `<div class="bat2-cell-item ${cls}"><span class="bat2-cell-idx">C${c.idx}</span><span class="bat2-cell-v">${c.v.toFixed(3)}</span></div>`;
+      }).join('')}
+    </div>
+    <div class="bat2-cell-toggle" onclick="event.stopPropagation(); window._batFlowCellsExpanded = !window._batFlowCellsExpanded; const g = document.getElementById('bat-flow-cell-grid'); if (g) g.style.display = window._batFlowCellsExpanded ? 'grid' : 'none'; this.textContent = window._batFlowCellsExpanded ? '▲ Hide 16 cell voltages' : '▼ Show 16 cell voltages';">
+      ${window._batFlowCellsExpanded ? '▲ Hide 16 cell voltages' : '▼ Show 16 cell voltages'}
+    </div>`;
+  }
+
+  const pwrColor = watt > 0 ? '#4ade80' : (watt < 0 ? '#f59e0b' : 'var(--text-muted)');
+  const pwrSign = (watt != null && watt !== 0) ? ((watt > 0 ? '+' : '') + Math.round(watt)) : '0';
+
+  b2Wrap.innerHTML = `
+    <div class="card card-battery2" style="border-left: 3px solid #10b981; cursor:pointer;" onclick="if (typeof openFlowDetail === 'function') openFlowDetail('battery2');">
+      <div class="hero-header">
+        <div style="flex:1"><span class="card-name">🔋 Battery</span><div class="hero-val" style="color:${socColor}; font-size:16px; margin-left:0; margin-top:2px;">SOC ${soc != null ? Math.round(soc) : '--'}%</div></div>
+        <div style="flex:1;text-align:center"><span class="card-name">Voltage</span><span class="hero-val" style="color:var(--accent-kwh)">${volt != null ? Number(volt).toFixed(1) : '--'}V</span></div>
+        <div style="flex:1;text-align:right"><span class="card-name">Power</span><span class="hero-val" style="color:${pwrColor}">${pwrSign}W</span></div>
+      </div>
+      <div class="linked-values linked-values-pair">
+        <div class="linked-value"><span>Status</span><span class="linked-reading" style="color:${statusColor}">${statusText}${amps != null ? ' (' + Math.abs(amps).toFixed(1) + 'A)' : ''}</span></div>
+        <div class="linked-value"><span>SOH / Cycles</span><span class="linked-reading" style="color:var(--accent-kwh)">${soh != null ? Math.round(soh) + '%' : '--'} &bull; ${cyc != null ? Math.round(cyc) : '--'}</span></div>
+      </div>
+      <div class="linked-values linked-values-pair" style="border-top:1px dashed var(--border); padding-top:4px; margin-top:4px;">
+        <div class="linked-value"><span>Chrg Energy</span><span class="linked-reading" style="color:#10b981">T: ${fmtE(batStats.batChgT)} &bull; M: ${fmtE(batStats.batChgM)}</span></div>
+        <div class="linked-value"><span>Disc Energy</span><span class="linked-reading" style="color:#f97316">T: ${fmtE(batStats.batDisT)} &bull; M: ${fmtE(batStats.batDisM)}</span></div>
+      </div>
+      <div class="linked-values linked-values-pair" style="border-top:1px dashed var(--border); padding-top:4px; margin-top:4px;">
+        <div class="linked-value"><span>BMS / Mosfet Temp</span><span class="linked-reading" style="color:var(--accent-kwh)">${fmtL(bmsT, '°C')} &bull; ${fmtL(mosT, '°C')}</span></div>
+        <div class="linked-value"><span>Limits (Chg/Dis)</span><span class="linked-reading" style="font-size:10.5px; color:var(--accent-kwh);">${fmtL(chgLimA, 'A')} / ${fmtL(disLimA, 'A')}</span></div>
+        ${spreadHtml}
+      </div>
+      ${cellGridHtml}
+    </div>
+  `;
 }

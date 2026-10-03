@@ -115,25 +115,130 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
       const bgClr = isCharge ? 'rgba(6, 78, 59, 0.94)' : 'rgba(124, 45, 18, 0.94)';
       const borderClr = isCharge ? '#10b981' : '#f97316';
 
-      // 1. Accent glow line along slope
-      ctx.save();
-      ctx.beginPath();
-      for (let k = seg.startIdx; k <= seg.endIdx; k++) {
-        const val = (bars1[k] <= 10 && k > 0) ? bars1[k - 1] : bars1[k];
-        const px = mapX(PL + (k / n) * cW);
-        const py = PT + cH - ((val - minV) / range) * cH;
-        if (k === seg.startIdx) ctx.moveTo(px, py);
-        else ctx.lineTo(px, py);
-      }
-      ctx.strokeStyle = clr;
-      ctx.lineWidth = 3.5;
-      ctx.shadowColor = clr;
-      ctx.shadowBlur = 8;
-      ctx.stroke();
-      ctx.restore();
+      // 1. Accent glow line along slope(s)
+      const ranges = (seg.ranges && seg.ranges.length) ? seg.ranges : [{ startIdx: seg.startIdx, endIdx: seg.endIdx }];
+      ranges.forEach(rng => {
+        ctx.save();
+        ctx.beginPath();
+        let first = true;
+        for (let k = rng.startIdx; k <= rng.endIdx; k++) {
+          const val = (bars1[k] <= 10 && k > 0) ? bars1[k - 1] : bars1[k];
+          const px = mapX(PL + (k / n) * cW);
+          const py = PT + cH - ((val - minV) / range) * cH;
+          if (first) { ctx.moveTo(px, py); first = false; }
+          else ctx.lineTo(px, py);
+        }
+        ctx.strokeStyle = clr;
+        ctx.lineWidth = 3.5;
+        ctx.shadowColor = clr;
+        ctx.shadowBlur = 8;
+        ctx.stroke();
+        ctx.restore();
+      });
 
-      // 2. Badge Pill (Collision Aware & Compact on Mobile)
-      const midIdx = Math.round((seg.startIdx + seg.endIdx) / 2);
+      // 1b. Bridge line below standby pause(s) to mark the whole discharge continuously
+      if (ranges.length > 1) {
+        for (let r = 0; r < ranges.length - 1; r++) {
+          const r1 = ranges[r];
+          const r2 = ranges[r + 1];
+          const v1 = (bars1[r1.endIdx] <= 10 && r1.endIdx > 0) ? bars1[r1.endIdx - 1] : bars1[r1.endIdx];
+          const v2 = (bars1[r2.startIdx] <= 10 && r2.startIdx > 0) ? bars1[r2.startIdx - 1] : bars1[r2.startIdx];
+          const x1 = mapX(PL + (r1.endIdx / n) * cW);
+          const y1 = PT + cH - ((v1 - minV) / range) * cH;
+          const x2 = mapX(PL + (r2.startIdx / n) * cW);
+          const y2 = PT + cH - ((v2 - minV) / range) * cH;
+          const dropY = 14;
+
+          ctx.save();
+          // Vertical drop tick from end of slope 1
+          ctx.beginPath();
+          ctx.moveTo(x1, y1);
+          ctx.lineTo(x1, y1 + dropY);
+          ctx.strokeStyle = clr;
+          ctx.lineWidth = 2;
+          ctx.stroke();
+
+          // Dashed glowing bridge line beneath the green segment
+          ctx.beginPath();
+          for (let k = r1.endIdx; k <= r2.startIdx; k++) {
+            const val = (bars1[k] <= 10 && k > 0) ? bars1[k - 1] : bars1[k];
+            const px = mapX(PL + (k / n) * cW);
+            const py = PT + cH - ((val - minV) / range) * cH + dropY;
+            if (k === r1.endIdx) ctx.moveTo(px, py);
+            else ctx.lineTo(px, py);
+          }
+          ctx.setLineDash([5, 4]);
+          ctx.strokeStyle = clr;
+          ctx.lineWidth = 2.5;
+          ctx.shadowColor = clr;
+          ctx.shadowBlur = 6;
+          ctx.stroke();
+
+          // Vertical rise tick to start of slope 2
+          ctx.beginPath();
+          ctx.setLineDash([]);
+          ctx.moveTo(x2, y2 + dropY);
+          ctx.lineTo(x2, y2);
+          ctx.strokeStyle = clr;
+          ctx.lineWidth = 2;
+          ctx.stroke();
+          ctx.restore();
+
+          // Pause badge below the dashed bridge line
+          const pausePts = r2.startIdx - r1.endIdx;
+          const pauseMins = Math.round((pausePts * resSec) / 60);
+          if (pauseMins >= 10 && (x2 - x1) > 40) {
+            const ph = Math.floor(pauseMins / 60);
+            const pm = pauseMins % 60;
+            const pText = ph > 0 ? (pm > 0 ? `${ph}h ${pm}m pause` : `${ph}h pause`) : `${pm}m pause`;
+            const midPX = (x1 + x2) / 2;
+            const midPY = (y1 + y2) / 2 + dropY + 11;
+
+            ctx.save();
+            ctx.font = 'bold 9.5px system-ui, -apple-system, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            const tw = ctx.measureText(`⏸ ${pText}`).width;
+            ctx.fillStyle = 'rgba(20, 20, 22, 0.88)';
+            ctx.strokeStyle = clr;
+            ctx.lineWidth = 1;
+            const bw = tw + 10, bh = 15;
+            if (typeof ctx.roundRect === 'function') {
+              ctx.beginPath();
+              ctx.roundRect(midPX - bw / 2, midPY - bh / 2, bw, bh, 3);
+              ctx.fill();
+              ctx.stroke();
+            }
+            ctx.fillStyle = clr;
+            ctx.fillText(`⏸ ${pText}`, midPX, midPY);
+            ctx.restore();
+          }
+        }
+
+        // 1c. Bottom baseline span bracket marking the full discharge window
+        const xStart = mapX(PL + (seg.startIdx / n) * cW);
+        const xEnd = mapX(PL + (seg.endIdx / n) * cW);
+        const spanY = PT + cH - 3;
+        if (xEnd > PL && xStart < PL + cW) {
+          ctx.save();
+          ctx.beginPath();
+          ctx.moveTo(xStart, spanY - 4);
+          ctx.lineTo(xStart, spanY);
+          ctx.lineTo(xEnd, spanY);
+          ctx.lineTo(xEnd, spanY - 4);
+          ctx.strokeStyle = clr;
+          ctx.lineWidth = 2;
+          ctx.stroke();
+          ctx.restore();
+        }
+      }
+
+      // 2. Badge Pill (anchored to longest active range so pause line stays clean)
+      let targetRange = { startIdx: seg.startIdx, endIdx: seg.endIdx };
+      if (seg.ranges && seg.ranges.length > 1) {
+        targetRange = seg.ranges.reduce((best, r) => (r.endIdx - r.startIdx > best.endIdx - best.startIdx ? r : best), seg.ranges[0]);
+      }
+      const midIdx = Math.round((targetRange.startIdx + targetRange.endIdx) / 2);
       const midVal = (bars1[midIdx] <= 10 && midIdx > 0) ? bars1[midIdx - 1] : bars1[midIdx];
       const midX = mapX(PL + (midIdx / n) * cW);
       const midY = PT + cH - ((midVal - minV) / range) * cH;
@@ -155,12 +260,19 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
       const avgW = seg.durMin > 0 ? Math.round((kwhEst * 1000) / (seg.durMin / 60)) : 0;
       const avgStr = avgW >= 1000 ? (avgW / 1000).toFixed(1) + 'kW' : avgW + 'W';
 
+      let pauseStr = '';
+      if (seg.pauseMin > 0) {
+        const ph = Math.floor(seg.pauseMin / 60);
+        const pm = seg.pauseMin % 60;
+        pauseStr = ph > 0 ? (pm > 0 ? ` · ${ph}h ${pm}m pause` : ` · ${ph}h pause`) : ` · ${pm}m pause`;
+      }
+
       // Compact formatting for mobile screens
       let text = '';
       if (isNarrow) {
         text = (isCharge ? '▲' : '▼') + ' ' + sign + Math.round(seg.delta) + '% · ' + durStr + ' (' + kwhEst.toFixed(1) + 'k · Ø ' + avgStr + ')';
       } else {
-        text = (isCharge ? '▲' : '▼') + ' ' + sign + seg.delta.toFixed(1) + '% · ' + durStr + ' (' + kwhEst.toFixed(1) + 'kWh · Ø ' + avgStr + ')';
+        text = (isCharge ? '▲' : '▼') + ' ' + sign + seg.delta.toFixed(1) + '% · ' + durStr + pauseStr + ' (' + kwhEst.toFixed(1) + 'kWh · Ø ' + avgStr + ')';
       }
 
       ctx.save();

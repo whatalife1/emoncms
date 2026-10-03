@@ -261,3 +261,19 @@
 .bat2-cell-toggle:hover {
   color: var(--text-main);
 }
+
+/* ── Live Power Flow Battery 2 HTML Card Integration ── */
+#flow-battery2-wrap {
+  width: 100%;
+  padding: 4px 0 6px;
+  box-sizing: border-box;
+}
+
+#flow-battery2-wrap .card {
+  margin: 0;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-left: 3px solid #10b981;
+  border-radius: 10px;
+  box-shadow: none;
+}

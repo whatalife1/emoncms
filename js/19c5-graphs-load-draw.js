@@ -501,7 +501,7 @@ async function _loadAndDraw(forceRefresh = false) {
         bars1, bars2: [],
         labels: nav.labels, timeLabels: nav.timeLabels || nav.labels, fullLabels: nav.fullLabels || nav.labels,
         color1: feedSoc.color, color2: null, unit: '%', isCombined: false, nav, lastIdx,
-        multiData: null, minV: 0, maxV: 100, range: 100,
+        multiData: null, minV: 0, maxV: 110, range: 110,
         barsTemp: secBars, tempMinV: secMin, tempMaxV: secMax, tempRange: secRange,
         tempUnit: secUnit, tempColor: secColor, overlayLabel: secLabel, isDualY: !!secBars,
         barsTemp2: (window.graphBatteryIncludeVoltage && window.graphBatteryIncludePower) ? pwrBars : null,
@@ -509,7 +509,7 @@ async function _loadAndDraw(forceRefresh = false) {
         voltBars, pwrBars
       };
 
-      _drawChart(canvas, bars1, [], nav.labels, feedSoc.color, null, '%', false, nav, lastIdx, null, 0, 100, 100,
+      _drawChart(canvas, bars1, [], nav.labels, feedSoc.color, null, '%', false, nav, lastIdx, null, 0, 110, 110,
         secBars, secMin, secMax, secRange, secUnit, secColor, secLabel);
 
       _renderFeedStats(stat, { bars1, bars2: [], pts1: resSoc, pts2: [], nav, lastIdx, multiData: null, isGridAll: false, isCombined: false, fA: feedSoc, color1: feedSoc.color, color2: null, unit: '%', isTemp: false, graphFeedKey: 'battery', voltBars, pwrBars });

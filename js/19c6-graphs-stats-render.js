@@ -248,8 +248,16 @@ function _renderFeedStats(stat, ctx) {
           const bdr = isChg ? 'rgba(16,185,129,0.45)' : 'rgba(249,115,22,0.45)';
           const textClr = isChg ? '#4ade80' : '#fb923c';
 
+          let pauseStr = '';
+          if (s.pauseMin > 0) {
+            const ph = Math.floor(s.pauseMin / 60);
+            const pm = s.pauseMin % 60;
+            const pText = ph > 0 ? (pm > 0 ? `${ph}h ${pm}m` : `${ph}h`) : `${pm}m`;
+            pauseStr = ` (pause ${pText})`;
+          }
+
           return '<span style="display:inline-flex; align-items:center; gap:4px; white-space:nowrap; flex-shrink:0; background:' + bg + '; border:1px solid ' + bdr + '; border-radius:6px; padding:4px 9px; font-size:12px; color:' + textClr + '; font-weight:700;">' +
-            (isChg ? '▲ +' : '▼ ') + s.delta.toFixed(1) + '% (' + kwh.toFixed(1) + ' kWh · Ø ' + avgStr + ') in ' + durStr +
+            (isChg ? '▲ +' : '▼ ') + s.delta.toFixed(1) + '% (' + kwh.toFixed(1) + ' kWh · Ø ' + avgStr + ') in ' + durStr + pauseStr +
             ' <span style="color:var(--text-muted); font-size:10px; font-weight:600; margin-left:2px;">[' + startStr + '→' + endStr + ']</span></span>';
         });
 

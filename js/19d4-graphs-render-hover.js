@@ -37,6 +37,50 @@ function _handleGraphHover(e, pin) {
   if (!tooltip) { tooltip = document.createElement('div'); tooltip.id = 'graph-tooltip'; document.body.appendChild(tooltip); }
   const closeBtn = pin ? `<span class="close-btn" onclick="hideTooltip();">✕</span>` : '';
 
+  // ─── Battery Cycles Tooltip ───
+  if (graphFeedKey === 'batcycles') {
+    const packKwh = (typeof solarCfg !== 'undefined' && solarCfg?.batteryKwh > 0) ? solarCfg.batteryKwh : 5.12;
+    const cycVal = bars1[idx] || 0;
+    const kwhVal = cycVal * packKwh;
+    const dodPct = Math.min(100, Math.round(cycVal * 100));
+    const cumCyc = (barsTemp && barsTemp[idx] != null && barsTemp.length > 0) ? barsTemp[idx] : null;
+
+    let cycTitle = isMonthOrYear ? (graphTab === 'year' ? 'Monthly Cycles' : 'Daily Cycles') : 'Cycles Discharged';
+    let energyStr = kwhVal >= 1 ? `${kwhVal.toFixed(2)} kWh` : `${Math.round(kwhVal * 1000)} Wh`;
+
+    let htmlStr = `
+      <div style="font-weight:800;font-size:12px;color:var(--text-main);margin-bottom:4px;border-bottom:1px solid var(--border);padding-bottom:3px;display:flex;justify-content:space-between;align-items:center;">
+        <span>🕒 ${timeLabel} · 🔄 Battery Cycles</span> ${closeBtn}
+      </div>
+      <div style="color:#10b981; font-weight:800; font-size:13px; margin:3px 0;">
+        <b>${cycTitle}:</b> ${cycVal.toFixed(3)} cycles
+      </div>
+      <div style="color:var(--accent-kwh); font-size:11px; margin:2px 0;">
+        ⚡ <b>Discharged Energy:</b> ${energyStr} (${dodPct}% DoD)
+      </div>
+    `;
+
+    if (cumCyc != null && isMonthOrYear) {
+      htmlStr += `
+        <div style="color:#38bdf8; font-size:11px; margin-top:3px; border-top:1px dashed var(--border); padding-top:3px;">
+          📈 <b>Period Cumulative:</b> ${cumCyc.toFixed(2)} cycles (${(cumCyc * packKwh).toFixed(1)} kWh)
+        </div>
+      `;
+    }
+
+    tooltip.innerHTML = htmlStr;
+    tooltip.style.display = 'block';
+    tooltip.classList.toggle('pinned', pin);
+    let left = clientX + 15; let top = clientY - 15;
+    const tRect = tooltip.getBoundingClientRect();
+    if (left + tRect.width > window.innerWidth - 10) left = clientX - tRect.width - 15;
+    if (top + tRect.height > window.innerHeight - 10) top = window.innerHeight - tRect.height - 10;
+    tooltip.style.left = Math.max(10, left) + 'px';
+    tooltip.style.top  = Math.max(10, top) + 'px';
+    return;
+  }
+
+
   
   // ─── Battery 2: 16-Cell Matrix Tooltip ───
   if (graphDataCache.bat2AllCells && (graphFeedKey === 'bat2cells' || graphFeedKey === 'bat2cellspread')) {

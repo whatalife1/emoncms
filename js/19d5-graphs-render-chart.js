@@ -33,7 +33,7 @@ function _drawChart(canvas, bars1, bars2, labels, color1, color2, unit, isCombin
   for (let i = 0; i <= numGridLines; i++) {
     const val = minV + (i / numGridLines) * range;
     const y   = PT + cH - (i / numGridLines) * cH;
-    let lbl = isKwhView ? val.toFixed(1) : (isTemp ? val.toFixed(1) + '°' : Math.round(val).toLocaleString());
+    let lbl = (unit === 'Cycles' || unit === 'cyc') ? (val < 5 ? val.toFixed(2) : val.toFixed(1)) : (isKwhView ? val.toFixed(1) : (isTemp ? val.toFixed(1) + '°' : Math.round(val).toLocaleString()));
     ctx.fillText(lbl, PL - 5, y + 3);
     ctx.strokeStyle = 'rgba(255,255,255,0.05)';
     ctx.beginPath(); ctx.moveTo(PL, y); ctx.lineTo(PL + cW, y); ctx.stroke();

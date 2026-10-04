@@ -48,6 +48,18 @@ const GRAPH_FEEDS = [
 const GRAPH_COMBINED = { key: 'combined', name: 'Solar + Grid', color: '#facc15', label: '⚡☀ Solar+Grid' };
 const GRAPH_BAT_CHG_DIS = { key: 'batchgdis', name: 'Battery Chg / Dis', color: '#10b981', color2: '#f97316', label: '🔋 Chg vs Dis' };
 window.GRAPH_BAT_CHG_DIS = GRAPH_BAT_CHG_DIS;
+const GRAPH_BAT_CYCLES = {
+  key: 'batcycles',
+  name: 'Battery Cycles',
+  id: '546375',
+  color: '#10b981',
+  label: '🔄 Bat Cycles',
+  isWatts: false,
+  isComputed: true,
+  statLabel: '🔄 Battery Cycles & Lifespan'
+};
+window.GRAPH_BAT_CYCLES = GRAPH_BAT_CYCLES;
+
 
 const GRID_ALL_FEEDS = [
     { key: 'solar',     id: '499380', color: '#facc15', label: 'Solar'        },

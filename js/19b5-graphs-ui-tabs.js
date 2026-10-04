@@ -222,7 +222,8 @@ function _renderOverlayToggles() {
 function _renderGFeedTabs() {
   const wrap = document.getElementById('graph-feed-tabs'); if (!wrap) return;
   const batChgDis = (typeof GRAPH_BAT_CHG_DIS !== 'undefined') ? [GRAPH_BAT_CHG_DIS] : [];
-  const tabs = [GRAPH_COMBINED, ...batChgDis, GRAPH_MOMENT_FLOW, ...GRAPH_FEEDS];
+  const batCycles = (typeof GRAPH_BAT_CYCLES !== 'undefined') ? [GRAPH_BAT_CYCLES] : [];
+  const tabs = [GRAPH_COMBINED, ...batChgDis, ...batCycles, GRAPH_MOMENT_FLOW, ...GRAPH_FEEDS.filter(f => f.key !== 'batcycles')];
   wrap.innerHTML = tabs.map(f => `<button class="gfeed-tab${graphFeedKey===f.key?' active':''}" data-gkey="${f.key}" style="${graphFeedKey===f.key?`border-color:${f.color};color:${f.color}`:''}">${f.label}</button>`).join('') + `<button class="gfeed-tab${graphFeedKey==='report'?' active':''}" data-gkey="report" style="${graphFeedKey==='report'?'border-color:#10b981;color:#10b981':''}">📄 Report</button>`;
   wrap.querySelectorAll('.gfeed-tab').forEach(b => { b.addEventListener('click', () => { graphFeedKey = b.dataset.gkey; graphZoomLevel = 1; graphPanOffset = 0; hideTooltip(); _renderGFeedTabs(); if (typeof _loadAndDraw === 'function') _loadAndDraw(); }); });
   _renderGridAllToggles(); 

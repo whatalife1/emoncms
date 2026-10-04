@@ -37,6 +37,15 @@ async function _loadAndDraw(forceRefresh = false) {
     return;
   }
 
+  // ─── Battery Cycles Mode ───
+  if (graphFeedKey === 'batcycles') {
+    const nav = _gNavInfo();
+    if (typeof _handleBatteryCyclesMode === 'function') {
+      await _handleBatteryCyclesMode(nav, stat, canvas, forceRefresh);
+      return;
+    }
+  }
+
   // ─── Report Mode ───
   if (graphFeedKey === 'report') {
     canvas.style.display = 'none';

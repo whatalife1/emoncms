@@ -207,15 +207,64 @@
       }
 
       #flow-detail-modal .fd-lines {
-        display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start;
-        gap: 6px; padding: 16px 16px; overflow: visible;
+        display: flex; flex-direction: column; align-items: stretch; justify-content: center;
+        gap: 6px; padding: 12px 14px; overflow: visible;
         background:
           radial-gradient(120% 100% at 50% 0%, rgba(255,255,255,.035), transparent 70%),
           var(--bg-panel);
         border: 1px solid var(--border); border-radius: 12px;
-        text-align: center; font-variant-numeric: tabular-nums; min-height: 160px;
-      
+        text-align: center; font-variant-numeric: tabular-nums; min-height: auto;
         margin-bottom: 6px;}
+      /* ── KPI layout shared by every non-battery popup ── */
+      #flow-detail-modal .fd-lines.fd-lines--kpi {
+        padding: 0; background: transparent; border: none; gap: 10px;
+      }
+      #flow-detail-modal .fd-kpi-grid {
+        display: grid; gap: 8px; width: 100%; box-sizing: border-box;
+        grid-template-columns: repeat(auto-fit, minmax(86px, 1fr));
+      }
+      #flow-detail-modal .fd-kpi-card {
+        background: var(--bg-card); border: 1px solid var(--border);
+        border-radius: 10px; padding: 9px 6px;
+        display: flex; flex-direction: column; align-items: center;
+        justify-content: center; gap: 2px; min-height: 62px;
+      }
+      #flow-detail-modal .fd-kpi-lbl {
+        font-size: 9.5px; font-weight: 800; text-transform: uppercase;
+        letter-spacing: .05em; color: var(--text-muted);
+      }
+      #flow-detail-modal .fd-kpi-val {
+        font-size: 20px; font-weight: 900; line-height: 1.05;
+        font-variant-numeric: tabular-nums;
+      }
+      #flow-detail-modal .fd-kpi-unit {
+        font-size: 11px; font-weight: 700; margin-left: 3px;
+        color: var(--text-muted);
+      }
+      #flow-detail-modal .fd-status-row {
+        text-align: center; font-size: 13px; font-weight: 800;
+        padding: 6px 0 2px; letter-spacing: .01em;
+      }
+      #flow-detail-modal .fd-status-row .fd-status-time {
+        font-weight: 600; color: var(--text-muted);
+        font-size: 11px; margin-left: 6px;
+      }
+      #flow-detail-modal .fd-fallback-list {
+        display: flex; flex-direction: column; gap: 3px;
+        padding: 8px 12px;
+        background: var(--bg-panel); border: 1px solid var(--border);
+        border-radius: 10px; font-size: 12px; text-align: left;
+      }
+      #flow-detail-modal .fd-fallback-list .fd-fb-row {
+        display: flex; justify-content: space-between; gap: 10px;
+      }
+      #flow-detail-modal .fd-fallback-list .fd-fb-row span:first-child {
+        color: var(--text-muted); font-weight: 600;
+      }
+      #flow-detail-modal .fd-fallback-list .fd-fb-row span:last-child {
+        color: var(--text-main); font-weight: 700;
+        font-variant-numeric: tabular-nums;
+      }
       #flow-detail-modal .fd-lines.is-loading { animation: fd-pulse 1.2s ease-in-out infinite; }
       @keyframes fd-pulse { 0%,100% { opacity: .6; } 50% { opacity: 1; } }
       #flow-detail-modal .fd-line { line-height: 1.15; word-break: break-word; }
@@ -461,8 +510,12 @@
       return !isNaN(dy) && dy > 0;
     });
     if (!hasBreak) return (el.textContent || '').trim();
-    return tspans.map(function (ts) { return (ts.textContent || '').trim(); })
-                 .filter(Boolean).join('\n');
+    const parts = tspans.map(function (ts) { return (ts.textContent || '').trim(); })
+                        .filter(Boolean);
+    // If every part is a short word, treat the tspans as a single wrapped
+    // label ("Water" / "Motor") rather than a real multi-line content block.
+    const allShort = parts.every(function (p) { return p.length <= 14; });
+    return allShort ? parts.join(' ') : parts.join('\n');
   }
   function _extractBoxLines(boxKey) {
     const wrap = document.getElementById('flow-svg-wrap');
@@ -715,6 +768,161 @@
     container.innerHTML = html;
   }
 
+  // ─── KPI grid renderer (shared by every non-battery popup) ──────────
+  // Turns the scraped SVG lines into the same compact, consistent card
+  // layout the Battery 2 popup uses. Any line that doesn't fit a known
+  // pattern falls through into a small "more info" list at the bottom.
+  function _renderKpiGrid(container, lines, boxKey, cfg) {
+    const body = lines.slice(1)
+                     .map(function (l) { return (l.text || '').trim(); })
+                     .filter(Boolean);
+
+    const metrics  = [];
+    const freeform = [];
+    let lastSeen   = null;
+    let statusWord = null;
+
+    function pushMetric(label, value, unit, color, dimWhenZero) {
+      metrics.push({
+        label: label,
+        value: value,
+        unit:  unit  || '',
+        color: color || 'var(--text-main)',
+        dimWhenZero: !!dimWhenZero
+      });
+    }
+
+    body.forEach(function (t) {
+      // "T: 0.95 kWh M: 8.8 kWh"
+      let m = t.match(/^T:\s*([\d.,]+)\s*kWh\s+M:\s*([\d.,]+)\s*kWh/i);
+      if (m) {
+        pushMetric('TODAY', m[1], 'kWh', 'var(--accent-kwh)');
+        pushMetric('MONTH', m[2], 'kWh', 'var(--accent-kwh)');
+        return;
+      }
+      // "T: 0.0 kWh"
+      m = t.match(/^T:\s*([\d.,]+)\s*kWh/i);
+      if (m) { pushMetric('TODAY', m[1], 'kWh', 'var(--accent-kwh)'); return; }
+      // "M: 8.8 kWh"
+      m = t.match(/^M:\s*([\d.,]+)\s*kWh/i);
+      if (m) { pushMetric('MONTH', m[1], 'kWh', 'var(--accent-kwh)'); return; }
+      // Bare "0.24 kWh"
+      m = t.match(/^([\d.,]+)\s*kWh$/i);
+      if (m) { pushMetric('ENERGY', m[1], 'kWh', 'var(--accent-kwh)'); return; }
+
+      // "673 PKR"
+      m = t.match(/([\d.,]+)\s*PKR/i);
+      if (m) { pushMetric('COST', m[1], 'PKR', '#4ade80'); return; }
+
+      // Pure watts: "0 w", "524 w", "+2186 w", "-408 w"
+      m = t.match(/^([+\-]?[\d.,]+)\s*w$/i);
+      if (m) { pushMetric('CURRENT', m[1], 'W', cfg.color, true); return; }
+
+      // "30.7°C / 69%"
+      m = t.match(/^([\d.,]+)\s*°C\s*\/\s*([\d.,]+)\s*%$/);
+      if (m) {
+        pushMetric('TEMP', m[1], '°C', cfg.color);
+        pushMetric('HUM',  m[2], '%',  '#38bdf8');
+        return;
+      }
+      // "119V | 0.1A | 48.0°C"
+      m = t.match(/^([\d.,]+)\s*V\s*\|\s*([\d.,]+)\s*A\s*\|\s*([\d.,]+)\s*°C$/);
+      if (m) {
+        pushMetric('VOLTS', m[1], 'V',  '#35c0b7');
+        pushMetric('AMPS',  m[2], 'A',  '#facc15');
+        pushMetric('TEMP',  m[3], '°C', '#f59e0b');
+        return;
+      }
+
+      // Percentage-only: "70%"
+      m = t.match(/^([\d.,]+)\s*%$/);
+      if (m) { pushMetric('LEVEL', m[1], '%', cfg.color); return; }
+
+      // Water-tank status words
+      if (/^(FULL|GOOD|MODERATE|LOW|CRITICAL)$/i.test(t)) {
+        statusWord = { text: t.toUpperCase(), color: cfg.color };
+        return;
+      }
+
+      // Time — stash for the status row
+      m = t.match(/^(\d{1,2}:\d{2}\s*(?:AM|PM))$/i);
+      if (m) { lastSeen = m[1]; return; }
+
+      // Anything else -> freeform
+      m = t.match(/^([^:]{1,24}):\s*(.+)$/);
+      if (m) {
+        freeform.push({ label: m[1].trim(), value: m[2].trim() });
+      } else {
+        freeform.push({ label: '', value: t });
+      }
+    });
+
+    // ── Build HTML ──
+    let html = '';
+
+    if (metrics.length > 0) {
+      html += '<div class="fd-kpi-grid">';
+      metrics.forEach(function (mm) {
+        const num = parseFloat(String(mm.value).replace(',', ''));
+        const dim = mm.dimWhenZero && Math.abs(num) < 0.5;
+        const color = dim ? 'var(--text-muted)' : mm.color;
+        html += '<div class="fd-kpi-card">' +
+                  '<div class="fd-kpi-lbl">' + _escape(mm.label) + '</div>' +
+                  '<div class="fd-kpi-val" style="color:' + color + ';">' +
+                    _escape(mm.value) +
+                    (mm.unit ? '<span class="fd-kpi-unit">' + _escape(mm.unit) + '</span>' : '') +
+                  '</div>' +
+                '</div>';
+      });
+      html += '</div>';
+    }
+
+    // Status row: explicit word wins, otherwise infer from CURRENT watts.
+    let statusText  = null;
+    let statusColor = 'var(--text-muted)';
+    if (statusWord) {
+      statusText  = statusWord.text;
+      statusColor = statusWord.color;
+    } else {
+      const cur = metrics.find(function (x) { return x.label === 'CURRENT'; });
+      if (cur) {
+        const num = parseFloat(String(cur.value).replace(',', ''));
+        if (Math.abs(num) >= 6) {
+          statusText  = '⚡ Running';
+          statusColor = '#4ade80';
+        } else {
+          statusText  = '⏸ Standby';
+        }
+      }
+    }
+    if (statusText || lastSeen) {
+      html += '<div class="fd-status-row" style="color:' + statusColor + ';">' +
+                (statusText ? _escape(statusText) : '') +
+                (lastSeen ? '<span class="fd-status-time">· ' + _escape(lastSeen) + '</span>' : '') +
+              '</div>';
+    }
+
+    if (freeform.length > 0) {
+      html += '<div class="fd-fallback-list">';
+      freeform.forEach(function (f) {
+        if (f.label) {
+          html += '<div class="fd-fb-row"><span>' + _escape(f.label) +
+                  '</span><span>' + _escape(f.value) + '</span></div>';
+        } else {
+          html += '<div class="fd-fb-row"><span style="color:var(--text-main);">' +
+                  _escape(f.value) + '</span></div>';
+        }
+      });
+      html += '</div>';
+    }
+
+    if (!html) html = '<div class="fd-empty">No data yet.</div>';
+
+    container.classList.remove('is-loading');
+    container.classList.add('fd-lines--kpi');
+    container.innerHTML = html;
+  }
+
   function _refreshModalBody(boxKey) {
     const cfg = FLOW_DETAIL_CONFIG[boxKey];
     if (!cfg) return;
@@ -722,6 +930,7 @@
     if (!modal) return;
     const container = modal.querySelector('.fd-lines');
     if (!container) return;
+    container.classList.remove('fd-lines--kpi');
 
     // FLOW_BATTERY2_PATCH_V1: Battery 2 has its own dedicated renderer that
     // does not depend on scraping SVG text (its layout is denser than the
@@ -745,6 +954,11 @@
       return;
     }
 
+    // All other boxes share the compact KPI-grid layout.
+    _renderKpiGrid(container, lines, boxKey, cfg);
+    return;
+
+    // eslint-disable-next-line no-unreachable
     const MODAL_DY_SCALE = 0.35;
     let minDy = 0;
     lines.forEach(function (_, i) {

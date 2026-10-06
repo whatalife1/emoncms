@@ -174,13 +174,22 @@
 }
 
 /* ── Battery 2 8×2 Cell Grid ─────────────────────────────────────────── */
+/* ── Battery 2 (Dyness) 16S Cell Grid (Responsive: 4×4 on Mobile, 8×2 on Desktop) ── */
 .bat2-cell-grid,
 #flow-detail-modal .fd-bat2-cellgrid {
   display: grid !important;
-  grid-template-columns: repeat(8, 1fr) !important;
-  gap: 5px !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important; /* 4x4 on mobile */
+  gap: 6px !important;
   width: 100% !important;
   box-sizing: border-box !important;
+}
+
+@media (min-width: 600px) {
+  .bat2-cell-grid,
+  #flow-detail-modal .fd-bat2-cellgrid {
+    grid-template-columns: repeat(8, minmax(0, 1fr)) !important; /* 8x2 on desktop */
+    gap: 5px !important;
+  }
 }
 
 #flow-detail-modal .fd-bat2-cell,
@@ -276,4 +285,21 @@
   border-left: 3px solid #10b981;
   border-radius: 10px;
   box-shadow: none;
+}
+
+
+/* ── Appliance 30-Day Grid (8 cols on mobile, 16 on desktop) ── */
+.fd-grid-16-container {
+  display: grid !important;
+  grid-template-columns: repeat(8, minmax(0, 1fr)) !important; /* 8 columns on mobile phone */
+  gap: 5px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+@media (min-width: 640px) {
+  .fd-grid-16-container {
+    grid-template-columns: repeat(16, minmax(0, 1fr)) !important; /* 16 cols on desktop */
+    gap: 4px !important;
+  }
 }

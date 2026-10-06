@@ -176,6 +176,115 @@
   }
 
   // ── Solar Extras: 16×2 Daily Solar Grid + Month Estimate ─────────────
+  // Safe feed lookup that works whether lastResultsMap is a Map, an Array, or undefined
+  function getFeedVal(name) {
+    if (!window.lastResultsMap) return null;
+    try {
+      if (typeof window.lastResultsMap.get === 'function') {
+        const item = window.lastResultsMap.get(name);
+        return item ? item.value : null;
+      }
+      if (Array.isArray(window.lastResultsMap)) {
+        const item = window.lastResultsMap.find(f => f && f.name === name);
+        return item ? item.value : null;
+      }
+    } catch (e) {}
+    return null;
+  }
+
+  // ── Solar Extras: 16×2 Daily Solar Grid + Month Estimate ─────────────
+  // Safe feed lookup that works whether lastResultsMap is a Map, an Array, or undefined
+  function getFeedVal(name) {
+    if (!window.lastResultsMap) return null;
+    try {
+      if (typeof window.lastResultsMap.get === 'function') {
+        const item = window.lastResultsMap.get(name);
+        return item ? item.value : null;
+      }
+      if (Array.isArray(window.lastResultsMap)) {
+        const item = window.lastResultsMap.find(f => f && f.name === name);
+        return item ? item.value : null;
+      }
+    } catch (e) {}
+    return null;
+  }
+
+  // ── Solar Extras: 16×2 Daily Solar Grid + Month Estimate ─────────────
+  // Safe feed lookup that works whether lastResultsMap is a Map, an Array, or undefined
+  function getFeedVal(name) {
+    if (!window.lastResultsMap) return null;
+    try {
+      if (typeof window.lastResultsMap.get === 'function') {
+        const item = window.lastResultsMap.get(name);
+        return item ? item.value : null;
+      }
+      if (Array.isArray(window.lastResultsMap)) {
+        const item = window.lastResultsMap.find(f => f && f.name === name);
+        return item ? item.value : null;
+      }
+    } catch (e) {}
+    return null;
+  }
+
+  // ── Shared 16×2 Card Grid Renderer (Inline styles ensure 100% reliable layout) ──
+  function render16x2CardGrid(cfg) {
+    const {
+      title, titleColor, dayList, totalKwh, avgKwh, estKwh, estPkr,
+      pkrSuffix, todayUnits, hoverId, valColorDefault, extraHeaderRow
+    } = cfg;
+
+    const startLabel = dayList.length ? dayList[0].dayLabel : '';
+    const endLabel = dayList.length ? dayList[dayList.length - 1].dayLabel : '';
+    const pkrText = estPkr != null ? ` (~PKR ${Math.round(estPkr).toLocaleString()}${pkrSuffix ? ' ' + pkrSuffix : ''})` : '';
+
+    return `
+      <div style="background:var(--bg-card, #141416); border:1px solid var(--border, #27272a); border-left:3px solid ${titleColor}; border-radius:10px; padding:10px 12px; margin-bottom:10px; width:100%; box-sizing:border-box;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; flex-wrap:wrap; gap:4px;">
+          <span style="font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.05em; color:${titleColor};">
+            ${title} (${startLabel} → ${endLabel})
+          </span>
+          <div style="font-size:11px; font-weight:700; color:var(--text-muted, #71717a); display:flex; align-items:center; flex-wrap:wrap; gap:4px;">
+            <span>Total: <b style="color:${titleColor};">${totalKwh.toFixed(1)} kWh</b></span>
+            <span>&bull;</span>
+            <span>Avg: <b style="color:var(--text-main, #f4f4f5);">${avgKwh.toFixed(1)}</b>/d</span>
+            <span>&bull;</span>
+            <span>Est: <b style="color:#facc15;">~${estKwh.toFixed(0)} kWh</b><span style="font-size:10px; color:${titleColor};">${pkrText}</span></span>
+            <span id="${hoverId}" style="margin-left:4px; color:#facc15; font-weight:800;">[Today: ${todayUnits.toFixed(1)} kWh]</span>
+          </div>
+        </div>
+
+        ${extraHeaderRow || ''}
+
+        <div class="fd-grid-16-container" style="display:grid; grid-template-columns:repeat(16, minmax(0, 1fr)); gap:4px; width:100%; box-sizing:border-box;">
+          ${dayList.map(d => {
+            const isToday = d.isToday;
+            const isFuture = d.isFuture;
+            const valText = isFuture ? '-' : (d.kwh != null ? d.kwh.toFixed(1) : '0.0');
+
+            const bg = isToday ? 'rgba(250,204,21,0.14)' : (isFuture ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.03)');
+            const border = isToday ? '1.5px solid #facc15' : (isFuture ? '1px dashed rgba(255,255,255,0.08)' : '1px solid var(--border, #27272a)');
+            const opacity = isFuture ? 'opacity:0.35;' : '';
+            const shadow = isToday ? 'box-shadow:0 0 8px rgba(250,204,21,0.25);' : '';
+            const dateColor = isToday ? '#facc15' : 'var(--text-muted, #71717a)';
+            const valColor = isToday ? '#facc15' : (isFuture ? 'var(--text-muted, #71717a)' : valColorDefault);
+
+            return `
+              <div class="fd-grid-cell ${isToday ? 'is-today' : ''} ${isFuture ? 'is-future' : ''}"
+                   title="${d.dayLabel}: ${isFuture ? 'Upcoming' : (d.kwh != null ? d.kwh.toFixed(1) : '0.0') + ' kWh'}"
+                   onmouseenter="const el=document.getElementById('${hoverId}'); if(el) el.textContent='${d.dayLabel}: ${isFuture ? 'Upcoming' : (d.kwh != null ? d.kwh.toFixed(1) : '0.0') + ' kWh'}';"
+                   ontouchstart="const el=document.getElementById('${hoverId}'); if(el) el.textContent='${d.dayLabel}: ${isFuture ? 'Upcoming' : (d.kwh != null ? d.kwh.toFixed(1) : '0.0') + ' kWh'}';"
+                   style="background:${bg}; border:${border}; border-radius:6px; padding:4px 1px; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; min-height:38px; box-sizing:border-box; transition:background .12s, border-color .12s; cursor:${isFuture ? 'default' : 'pointer'}; user-select:none; ${opacity} ${shadow}">
+                <span class="fd-cell-date" style="font-size:8.5px; font-weight:700; color:${dateColor}; line-height:1; white-space:nowrap;">${d.dayLabel}</span>
+                <span class="fd-cell-val" style="font-size:11px; font-weight:800; font-family:monospace, system-ui; color:${valColor}; line-height:1.15; white-space:nowrap; margin-top:2px;">${valText}</span>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+    `;
+  }
+
+  // ── Solar Extras: 16×2 Daily Solar Grid + Month Estimate ─────────────
   async function buildSolarExtras() {
     let dailySolarHtml = '';
     const extrasHdr = document.querySelector('#flow-detail-modal .fd-extras .fd-extras-header');
@@ -289,45 +398,20 @@
         const avgKwh = elapsedDaysCount > 0 ? (totalCycleKwh / elapsedDaysCount) : 0;
         const estMonthKwh = avgKwh * totalDays;
         const estMonthPkr = estMonthKwh * pkrRate();
-        const startLabel = dayList[0].dayLabel;
-        const endLabel = dayList[dayList.length - 1].dayLabel;
 
-        dailySolarHtml = `
-          <div style="background:var(--bg-card); border:1px solid var(--border); border-left:3px solid #f59e0b; border-radius:10px; padding:10px 12px; margin-bottom:10px; width:100%; box-sizing:border-box;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-wrap:wrap; gap:4px;">
-              <span style="font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.05em; color:#f59e0b;">
-                ☀️ DAILY SOLAR GENERATION (${startLabel} → ${endLabel})
-              </span>
-              <div style="font-size:11px; font-weight:700; color:var(--text-muted); display:flex; align-items:center; flex-wrap:wrap; gap:4px;">
-                <span>Total: <b style="color:#f59e0b;">${totalCycleKwh.toFixed(1)} kWh</b></span>
-                <span>&bull;</span>
-                <span>Avg: <b style="color:var(--text-main);">${avgKwh.toFixed(1)}</b>/d</span>
-                <span>&bull;</span>
-                <span>Est: <b style="color:#4ade80;">~${estMonthKwh.toFixed(0)} kWh</b> <span style="font-size:10px; color:#4ade80;">(~PKR ${Math.round(estMonthPkr).toLocaleString()})</span></span>
-                <span id="fd-solar-cell-hover" style="margin-left:4px; color:#facc15; font-weight:800;">[Today: ${todayUnits.toFixed(1)} kWh]</span>
-              </div>
-            </div>
-            
-            <div class="fd-grid-16-container">
-              ${dayList.map(d => {
-                let cellClass = 'fd-grid-cell';
-                let valText = d.isFuture ? '-' : (d.kwh != null ? d.kwh.toFixed(1) : '0.0');
-                if (d.isToday) cellClass += ' is-today';
-                else if (d.isFuture) cellClass += ' is-future';
-
-                return `
-                  <div class="${cellClass}"
-                       title="${d.dayLabel}: ${d.isFuture ? 'Upcoming' : (d.kwh != null ? d.kwh.toFixed(1) : '0.0') + ' kWh'}"
-                       onmouseenter="const el=document.getElementById('fd-solar-cell-hover'); if(el) el.textContent='${d.dayLabel}: ${d.isFuture ? 'Upcoming' : (d.kwh != null ? d.kwh.toFixed(1) : '0.0') + ' kWh'}';"
-                       ontouchstart="const el=document.getElementById('fd-solar-cell-hover'); if(el) el.textContent='${d.dayLabel}: ${d.isFuture ? 'Upcoming' : (d.kwh != null ? d.kwh.toFixed(1) : '0.0') + ' kWh'}';">
-                    <span class="fd-cell-date">${d.dayLabel}</span>
-                    <span class="fd-cell-val" style="color:${d.isToday ? '#facc15' : '#f59e0b'};">${valText}</span>
-                  </div>
-                `;
-              }).join('')}
-            </div>
-          </div>
-        `;
+        dailySolarHtml = render16x2CardGrid({
+          title: '☀️ DAILY SOLAR GENERATION',
+          titleColor: '#f59e0b',
+          dayList,
+          totalKwh: totalCycleKwh,
+          avgKwh,
+          estKwh: estMonthKwh,
+          estPkr: estMonthPkr,
+          pkrSuffix: 'saved',
+          todayUnits,
+          hoverId: 'fd-solar-cell-hover',
+          valColorDefault: '#f59e0b'
+        });
       }
     } catch (e) {
       console.warn('Solar daily calculation error:', e);
@@ -474,45 +558,20 @@
         const avgKwh = elapsedDaysCount > 0 ? (totalCycleKwh / elapsedDaysCount) : 0;
         const estMonthKwh = avgKwh * totalDays;
         const estMonthPkr = estMonthKwh * pkrRate();
-        const startLabel = dayList[0].dayLabel;
-        const endLabel = dayList[dayList.length - 1].dayLabel;
 
-        dailyGridHtml = `
-          <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:10px; padding:10px 12px; margin-bottom:10px; width:100%; box-sizing:border-box;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-wrap:wrap; gap:4px;">
-              <span style="font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.05em; color:#ef4444;">
-                ⚡ DAILY GRID UNITS (${startLabel} → ${endLabel})
-              </span>
-              <div style="font-size:11px; font-weight:700; color:var(--text-muted); display:flex; align-items:center; flex-wrap:wrap; gap:4px;">
-                <span>Total: <b style="color:#ef4444;">${totalCycleKwh.toFixed(1)} kWh</b></span>
-                <span>&bull;</span>
-                <span>Avg: <b style="color:var(--text-main);">${avgKwh.toFixed(1)}</b>/d</span>
-                <span>&bull;</span>
-                <span>Est: <b style="color:#f97316;">~${estMonthKwh.toFixed(1)} kWh</b> <span style="font-size:10px; color:#f87171;">(~PKR ${Math.round(estMonthPkr).toLocaleString()})</span></span>
-                <span id="fd-grid-cell-hover" style="margin-left:4px; color:#facc15; font-weight:800;">[Today: ${todayUnits.toFixed(1)} kWh]</span>
-              </div>
-            </div>
-            
-            <div class="fd-grid-16-container">
-              ${dayList.map(d => {
-                let cellClass = 'fd-grid-cell';
-                let valText = d.isFuture ? '-' : (d.kwh != null ? d.kwh.toFixed(1) : '0.0');
-                if (d.isToday) cellClass += ' is-today';
-                else if (d.isFuture) cellClass += ' is-future';
-
-                return `
-                  <div class="${cellClass}"
-                       title="${d.dayLabel}: ${d.isFuture ? 'Upcoming' : (d.kwh != null ? d.kwh.toFixed(1) : '0.0') + ' kWh'}"
-                       onmouseenter="const el=document.getElementById('fd-grid-cell-hover'); if(el) el.textContent='${d.dayLabel}: ${d.isFuture ? 'Upcoming' : (d.kwh != null ? d.kwh.toFixed(1) : '0.0') + ' kWh'}';"
-                       ontouchstart="const el=document.getElementById('fd-grid-cell-hover'); if(el) el.textContent='${d.dayLabel}: ${d.isFuture ? 'Upcoming' : (d.kwh != null ? d.kwh.toFixed(1) : '0.0') + ' kWh'}';">
-                    <span class="fd-cell-date">${d.dayLabel}</span>
-                    <span class="fd-cell-val">${valText}</span>
-                  </div>
-                `;
-              }).join('')}
-            </div>
-          </div>
-        `;
+        dailyGridHtml = render16x2CardGrid({
+          title: '⚡ DAILY GRID UNITS',
+          titleColor: '#ef4444',
+          dayList,
+          totalKwh: totalCycleKwh,
+          avgKwh,
+          estKwh: estMonthKwh,
+          estPkr: estMonthPkr,
+          pkrSuffix: '',
+          todayUnits,
+          hoverId: 'fd-grid-cell-hover',
+          valColorDefault: '#f87171'
+        });
       }
     } catch (err) {
       console.warn('Error loading daily grid units:', err);
@@ -673,51 +732,27 @@
         const estMonthCycles = estMonthDischargeKwh / packKwh;
         const bmsTotalCycles = getFeedVal('Bat2 Cycle Count') || getFeedVal('Bat Cycle Count') || 13;
 
-        const startLabel = dayList[0].dayLabel;
-        const endLabel = dayList[dayList.length - 1].dayLabel;
-
-        dailyDischargeHtml = `
-          <div style="background:var(--bg-card); border:1px solid var(--border); border-left:3px solid #10b981; border-radius:10px; padding:10px 12px; margin-bottom:10px; width:100%; box-sizing:border-box;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; flex-wrap:wrap; gap:4px;">
-              <span style="font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.05em; color:#10b981;">
-                🔋 DAILY BATTERY DISCHARGE (${startLabel} → ${endLabel})
-              </span>
-              <div style="font-size:11px; font-weight:700; color:var(--text-muted); display:flex; align-items:center; flex-wrap:wrap; gap:4px;">
-                <span>Total: <b style="color:#10b981;">${totalDischargeKwh.toFixed(1)} kWh</b></span>
-                <span>&bull;</span>
-                <span>Avg: <b style="color:var(--text-main);">${avgKwh.toFixed(1)}</b>/d</span>
-                <span>&bull;</span>
-                <span>Est: <b style="color:#4ade80;">~${estMonthDischargeKwh.toFixed(0)} kWh</b> <span style="font-size:10px; color:#4ade80;">(~PKR ${Math.round(estMonthSavedPkr).toLocaleString()})</span></span>
-                <span id="fd-battery-cell-hover" style="margin-left:4px; color:#facc15; font-weight:800;">[Today: ${todayDischargeKwh.toFixed(1)} kWh]</span>
-              </div>
-            </div>
-
-            <!-- Cycle statistics header line identical to your design -->
-            <div style="display:flex; justify-content:space-between; align-items:center; font-size:10.5px; font-weight:700; color:var(--text-muted); margin-bottom:8px; padding-bottom:6px; border-bottom:1px dashed var(--border); flex-wrap:wrap; gap:4px;">
-              <span>Cycles (Cycle): <b style="color:#10b981;">${cyclesSoFar.toFixed(1)} cyc</b> (Avg: ${avgCyclesPerDay.toFixed(2)}/d)</span>
-              <span>Est. Month Cycles: <b style="color:#38bdf8;">~${estMonthCycles.toFixed(1)} cyc</b> &bull; BMS Lifetime: <b style="color:var(--text-main);">${bmsTotalCycles}</b></span>
-            </div>
-            
-            <div class="fd-grid-16-container">
-              ${dayList.map(d => {
-                let cellClass = 'fd-grid-cell';
-                let valText = d.isFuture ? '-' : (d.kwh != null ? d.kwh.toFixed(1) : '0.0');
-                if (d.isToday) cellClass += ' is-today';
-                else if (d.isFuture) cellClass += ' is-future';
-
-                return `
-                  <div class="${cellClass}"
-                       title="${d.dayLabel}: ${d.isFuture ? 'Upcoming' : (d.kwh != null ? d.kwh.toFixed(1) : '0.0') + ' kWh (' + (d.kwh / packKwh).toFixed(2) + ' cyc)'}"
-                       onmouseenter="const el=document.getElementById('fd-battery-cell-hover'); if(el) el.textContent='${d.dayLabel}: ${d.isFuture ? 'Upcoming' : (d.kwh != null ? d.kwh.toFixed(1) : '0.0') + ' kWh (' + (d.kwh / packKwh).toFixed(2) + ' cyc)'}';"
-                       ontouchstart="const el=document.getElementById('fd-battery-cell-hover'); if(el) el.textContent='${d.dayLabel}: ${d.isFuture ? 'Upcoming' : (d.kwh != null ? d.kwh.toFixed(1) : '0.0') + ' kWh (' + (d.kwh / packKwh).toFixed(2) + ' cyc)'}';">
-                    <span class="fd-cell-date">${d.dayLabel}</span>
-                    <span class="fd-cell-val" style="color:${d.isToday ? '#facc15' : '#f97316'};">${valText}</span>
-                  </div>
-                `;
-              }).join('')}
-            </div>
+        const cycleRowHtml = `
+          <div style="display:flex; justify-content:space-between; align-items:center; font-size:10.5px; font-weight:700; color:var(--text-muted); margin-bottom:8px; padding-bottom:6px; border-bottom:1px dashed var(--border); flex-wrap:wrap; gap:4px;">
+            <span>Cycles (Cycle): <b style="color:#10b981;">${cyclesSoFar.toFixed(1)} cyc</b> (Avg: ${avgCyclesPerDay.toFixed(2)}/d)</span>
+            <span>Est. Month Cycles: <b style="color:#38bdf8;">~${estMonthCycles.toFixed(1)} cyc</b> &bull; BMS Lifetime: <b style="color:var(--text-main);">${bmsTotalCycles}</b></span>
           </div>
         `;
+
+        dailyDischargeHtml = render16x2CardGrid({
+          title: '🔋 DAILY BATTERY DISCHARGE',
+          titleColor: '#10b981',
+          dayList,
+          totalKwh: totalDischargeKwh,
+          avgKwh,
+          estKwh: estMonthDischargeKwh,
+          estPkr: estMonthSavedPkr,
+          pkrSuffix: 'saved',
+          todayUnits: todayDischargeKwh,
+          hoverId: 'fd-battery-cell-hover',
+          valColorDefault: '#f97316',
+          extraHeaderRow: cycleRowHtml
+        });
       }
     } catch (e) {
       console.warn('Battery daily discharge calculation error:', e);

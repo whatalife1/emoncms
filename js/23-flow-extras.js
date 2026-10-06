@@ -17,6 +17,21 @@
 
 (function () {
   'use strict';
+  const BAT2_IDS = {
+    power:      '546365',
+    volt:       '546369',
+    current:    '546370',
+    soc:        '546371',
+    soh:        '546372',
+    mosfetTemp: '546373',
+    bmsTemp:    '546374',
+    cycleCount: '546375',
+    chgLimV:    '546376',
+    chgLimA:    '546377',
+    disLimV:    '546378',
+    disLimA:    '546379'
+  };
+
 
   const EXTRAS_REGISTRY = {
     solar:   { build: buildSolarExtras   },
@@ -255,7 +270,7 @@
 
         ${extraHeaderRow || ''}
 
-        <div class="fd-grid-16-container" style="display:grid; grid-template-columns:repeat(16, minmax(0, 1fr)); gap:4px; width:100%; box-sizing:border-box;">
+        <div class="fd-grid-16-container">
           ${dayList.map(d => {
             const isToday = d.isToday;
             const isFuture = d.isFuture;
@@ -315,10 +330,10 @@
     const unitLabel = isPct ? '%' : 'kWh';
 
     const nightStats = (totalNightKwh != null && !hideNight)
-      ? ` (<span style="color:#c084fc;">🌙 ${totalNightKwh.toFixed(1)}k</span>)`
+      ? ` (<span style="color:#c084fc;">🌙 ${totalNightKwh.toFixed(1)} kWh</span>)`
       : '';
     const avgNightStats = (avgNightKwh != null && !hideNight)
-      ? ` (<span style="color:#c084fc;">🌙 ${avgNightKwh.toFixed(1)}/d</span>)`
+      ? ` (<span style="color:#c084fc;">🌙 ${avgNightKwh.toFixed(1)} kWh/d</span>)`
       : '';
 
     return `
@@ -330,15 +345,15 @@
           <div style="font-size:11px; font-weight:700; color:var(--text-muted, #71717a); display:flex; align-items:center; flex-wrap:wrap; gap:4px;">
             <span>${isPct ? 'Cycle Avg' : 'Total'}: <b style="color:${titleColor};">${totalKwh.toFixed(1)} ${unitLabel}</b>${nightStats}</span>
             <span>&bull;</span>
-            <span>${isPct ? 'Min' : 'Avg'}: <b style="color:var(--text-main, #f4f4f5);">${avgKwh.toFixed(1)}</b>${isPct ? '%' : '/d'}${avgNightStats}</span>
+            <span>${isPct ? 'Min' : 'Avg'}: <b style="color:var(--text-main, #f4f4f5);">${avgKwh.toFixed(1)}</b> ${isPct ? '%' : 'kWh/d'}${avgNightStats}</span>
             ${estKwh != null ? `<span>&bull;</span><span>Est: <b style="color:#facc15;">~${estKwh.toFixed(0)} kWh</b><span style="font-size:10px; color:${titleColor};">${pkrText}</span></span>` : ''}
-            <span id="${hoverId}" style="margin-left:4px; color:#facc15; font-weight:800;">[Today: ${todayUnits != null ? (isPct ? Math.round(todayUnits) + '%' : todayUnits.toFixed(1) + 'k') : '--'}${todayNightUnits != null && !hideNight ? ` <span style="color:#c084fc;">(🌙 ${todayNightUnits.toFixed(1)}k)</span>` : ''}]</span>
+            <span id="${hoverId}" style="margin-left:4px; color:#facc15; font-weight:800;">[Today: ${todayUnits != null ? (isPct ? Math.round(todayUnits) + '%' : todayUnits.toFixed(1) + ' kWh') : '--'}${todayNightUnits != null && !hideNight ? ` <span style="color:#c084fc;">(🌙 ${todayNightUnits.toFixed(1)}k)</span>` : ''}]</span>
           </div>
         </div>
 
         ${extraHeaderRow || ''}
 
-        <div class="fd-grid-16-container" style="display:grid; grid-template-columns:repeat(16, minmax(0, 1fr)); gap:4px; width:100%; box-sizing:border-box;">
+        <div class="fd-grid-16-container">
           ${dayList.map(d => {
             const isToday = d.isToday;
             const isFuture = d.isFuture;
@@ -361,10 +376,10 @@
                    title="${hoverInfo}"
                    onmouseenter="const el=document.getElementById('${hoverId}'); if(el) el.textContent='${hoverInfo}';"
                    ontouchstart="const el=document.getElementById('${hoverId}'); if(el) el.textContent='${hoverInfo}';"
-                   style="background:${bg}; border:${border}; border-radius:6px; padding:3px 1px; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; min-height:42px; box-sizing:border-box; transition:background .12s, border-color .12s; cursor:${isFuture ? 'default' : 'pointer'}; user-select:none; ${opacity} ${shadow}">
-                <span class="fd-cell-date" style="font-size:8px; font-weight:700; color:${dateColor}; line-height:1; white-space:nowrap;">${d.dayLabel}</span>
-                <span class="fd-cell-val" style="font-size:10px; font-weight:800; font-family:monospace, system-ui; color:${valColor}; line-height:1.15; white-space:nowrap; margin-top:1.5px;">${valText}</span>
-                ${nightText ? `<span class="fd-cell-night" style="font-size:7.5px; font-weight:800; font-family:monospace, system-ui; color:#c084fc; line-height:1; white-space:nowrap; margin-top:1px;">🌙${nightText}</span>` : (isFuture ? `<span style="font-size:7.5px; color:var(--text-muted); opacity:0.35;">-</span>` : '')}
+                   style="background:${bg}; border:${border}; border-radius:6px; padding:3px 1px; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; min-height:46px; min-width:0; box-sizing:border-box; transition:background .12s, border-color .12s; cursor:${isFuture ? 'default' : 'pointer'}; user-select:none; ${opacity} ${shadow}">
+                <span class="fd-cell-date" style="font-size:9px; font-weight:700; color:${dateColor}; line-height:1; white-space:nowrap;">${d.dayLabel}</span>
+                <span class="fd-cell-val" style="font-size:11.5px; font-weight:800; font-family:monospace, system-ui; color:${valColor}; line-height:1.15; white-space:nowrap; margin-top:1.5px;">${valText}</span>
+                ${nightText ? `<span class="fd-cell-night" style="font-size:8.5px; font-weight:800; font-family:monospace, system-ui; color:#c084fc; line-height:1; white-space:nowrap; margin-top:1px;">🌙${nightText}</span>` : (isFuture ? `<span style="font-size:8.5px; color:var(--text-muted); opacity:0.35;">-</span>` : '')}
               </div>
             `;
           }).join('')}

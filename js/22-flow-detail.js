@@ -183,8 +183,8 @@
       }
       #flow-detail-modal .fd-bat2-cell {
         background: var(--bg-card); border: 1px solid var(--border); border-radius: 7px;
-        padding: 5px 6px; display: flex; justify-content: space-between; align-items: center;
-        font-size: 11px; color: var(--text-muted);
+        padding: 6px 3px; display: flex; flex-direction: column; justify-content: center; align-items: center;
+        text-align: center; gap: 2px; box-sizing: border-box; min-width: 0;
       }
       #flow-detail-modal .fd-bat2-cell .cv {
         font-weight: 800; color: var(--text-main); font-variant-numeric: tabular-nums;
@@ -748,17 +748,17 @@
 
       html += '<div style="margin-top:6px;">';
       html += '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">' +
-        '<span class="fd-bat2-section-title" style="margin:0;">🔋 16S Cell Voltages (8×2)</span>' +
+        '<span class="fd-bat2-section-title" style="margin:0;">🔋 16S Cell Voltages (4×4)</span>' +
         '<span style="font-size:11px; font-weight:700; color:' + spreadColor + ';">Min: C' + minIdx + ' (' + cMin.toFixed(3) + 'V) · Max: C' + maxIdx + ' (' + cMax.toFixed(3) + 'V) · Δ' + spreadMv + 'mV</span>' +
         '</div>';
       html += '<div class="fd-bat2-cellgrid">';
       cells.forEach(function (c) {
         if (c.v == null) {
-          html += '<div class="fd-bat2-cell"><span class="cnum">' + c.idx + '</span><span class="cv">--</span></div>';
+          html += '<div class="fd-bat2-cell"><span class="cnum">C\' + c.idx + \'</span><span class="cv">--</span></div>';
           return;
         }
         const cls = c.idx === maxIdx ? 'cmax' : (c.idx === minIdx ? 'cmin' : '');
-        html += '<div class="fd-bat2-cell ' + cls + '"><span class="cnum">' + c.idx + '</span><span class="cv">' + c.v.toFixed(3) + '</span></div>';
+        html += '<div class="fd-bat2-cell ' + cls + '"><span class="cnum">C\' + c.idx + \'</span><span class="cv">' + c.v.toFixed(3) + '</span></div>';
       });
       html += '</div></div>';
     } else {

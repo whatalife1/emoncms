@@ -301,17 +301,25 @@
     return null;
   }
 
-  // ── Shared 16×2 Card Grid Renderer ───────────────────────────────────────
+  // ── Shared 16×2 Card Grid (Shows Total kWh + 🌙 Night 4pm-7am kWh) ──────
   function render16x2CardGrid(cfg) {
     const {
-      title, titleColor, dayList, totalKwh, avgKwh, estKwh, estPkr,
-      pkrSuffix, todayUnits, hoverId, valColorDefault, extraHeaderRow, isPct
+      title, titleColor, dayList, totalKwh, totalNightKwh, avgKwh, avgNightKwh,
+      estKwh, estPkr, pkrSuffix, todayUnits, todayNightUnits, hoverId, valColorDefault,
+      extraHeaderRow, isPct, hideNight
     } = cfg;
 
     const startLabel = dayList.length ? dayList[0].dayLabel : '';
     const endLabel = dayList.length ? dayList[dayList.length - 1].dayLabel : '';
     const pkrText = estPkr != null ? ` (~PKR ${Math.round(estPkr).toLocaleString()}${pkrSuffix ? ' ' + pkrSuffix : ''})` : '';
     const unitLabel = isPct ? '%' : 'kWh';
+
+    const nightStats = (totalNightKwh != null && !hideNight)
+      ? ` (<span style="color:#c084fc;">🌙 ${totalNightKwh.toFixed(1)}k</span>)`
+      : '';
+    const avgNightStats = (avgNightKwh != null && !hideNight)
+      ? ` (<span style="color:#c084fc;">🌙 ${avgNightKwh.toFixed(1)}/d</span>)`
+      : '';
 
     return `
       <div style="background:var(--bg-card, #141416); border:1px solid var(--border, #27272a); border-left:3px solid ${titleColor}; border-radius:10px; padding:10px 12px; margin-bottom:10px; width:100%; box-sizing:border-box;">
@@ -320,11 +328,11 @@
             ${title} (${startLabel} → ${endLabel})
           </span>
           <div style="font-size:11px; font-weight:700; color:var(--text-muted, #71717a); display:flex; align-items:center; flex-wrap:wrap; gap:4px;">
-            <span>${isPct ? 'Cycle Avg' : 'Total'}: <b style="color:${titleColor};">${totalKwh.toFixed(1)} ${unitLabel}</b></span>
+            <span>${isPct ? 'Cycle Avg' : 'Total'}: <b style="color:${titleColor};">${totalKwh.toFixed(1)} ${unitLabel}</b>${nightStats}</span>
             <span>&bull;</span>
-            <span>${isPct ? 'Min' : 'Avg'}: <b style="color:var(--text-main, #f4f4f5);">${avgKwh.toFixed(1)}</b>${isPct ? '%' : '/d'}</span>
+            <span>${isPct ? 'Min' : 'Avg'}: <b style="color:var(--text-main, #f4f4f5);">${avgKwh.toFixed(1)}</b>${isPct ? '%' : '/d'}${avgNightStats}</span>
             ${estKwh != null ? `<span>&bull;</span><span>Est: <b style="color:#facc15;">~${estKwh.toFixed(0)} kWh</b><span style="font-size:10px; color:${titleColor};">${pkrText}</span></span>` : ''}
-            <span id="${hoverId}" style="margin-left:4px; color:#facc15; font-weight:800;">[Today: ${todayUnits != null ? (isPct ? Math.round(todayUnits) + '%' : todayUnits.toFixed(1) + ' kWh') : '--'}]</span>
+            <span id="${hoverId}" style="margin-left:4px; color:#facc15; font-weight:800;">[Today: ${todayUnits != null ? (isPct ? Math.round(todayUnits) + '%' : todayUnits.toFixed(1) + 'k') : '--'}${todayNightUnits != null && !hideNight ? ` <span style="color:#c084fc;">(🌙 ${todayNightUnits.toFixed(1)}k)</span>` : ''}]</span>
           </div>
         </div>
 
@@ -335,6 +343,7 @@
             const isToday = d.isToday;
             const isFuture = d.isFuture;
             const valText = isFuture ? '-' : (d.kwh != null ? (isPct ? Math.round(d.kwh) : d.kwh.toFixed(1)) : '0.0');
+            const nightText = (d.nightKwh != null && !isFuture && !hideNight) ? (isPct ? Math.round(d.nightKwh) + '%' : d.nightKwh.toFixed(1)) : null;
 
             const bg = isToday ? 'rgba(250,204,21,0.14)' : (isFuture ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.03)');
             const border = isToday ? '1.5px solid #facc15' : (isFuture ? '1px dashed rgba(255,255,255,0.08)' : '1px solid var(--border, #27272a)');
@@ -343,14 +352,19 @@
             const dateColor = isToday ? '#facc15' : 'var(--text-muted, #71717a)';
             const valColor = isToday ? '#facc15' : (isFuture ? 'var(--text-muted, #71717a)' : valColorDefault);
 
+            const hoverInfo = isFuture
+              ? `${d.dayLabel}: Upcoming`
+              : `${d.dayLabel}: Total ${valText} ${unitLabel}${nightText ? ' · ☀️ Day: ' + ((d.kwh||0)-(d.nightKwh||0)).toFixed(1) + ' · 🌙 Night: ' + nightText : ''}`;
+
             return `
               <div class="fd-grid-cell ${isToday ? 'is-today' : ''} ${isFuture ? 'is-future' : ''}"
-                   title="${d.dayLabel}: ${isFuture ? 'Upcoming' : (d.kwh != null ? (isPct ? Math.round(d.kwh) + '%' : d.kwh.toFixed(1) + ' kWh') : '0.0')}"
-                   onmouseenter="const el=document.getElementById('${hoverId}'); if(el) el.textContent='${d.dayLabel}: ${isFuture ? 'Upcoming' : (d.kwh != null ? (isPct ? Math.round(d.kwh) + '%' : d.kwh.toFixed(1) + ' kWh') : '0.0')}';"
-                   ontouchstart="const el=document.getElementById('${hoverId}'); if(el) el.textContent='${d.dayLabel}: ${isFuture ? 'Upcoming' : (d.kwh != null ? (isPct ? Math.round(d.kwh) + '%' : d.kwh.toFixed(1) + ' kWh') : '0.0')}';"
-                   style="background:${bg}; border:${border}; border-radius:6px; padding:4px 1px; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; min-height:38px; box-sizing:border-box; transition:background .12s, border-color .12s; cursor:${isFuture ? 'default' : 'pointer'}; user-select:none; ${opacity} ${shadow}">
-                <span class="fd-cell-date" style="font-size:8.5px; font-weight:700; color:${dateColor}; line-height:1; white-space:nowrap;">${d.dayLabel}</span>
-                <span class="fd-cell-val" style="font-size:11px; font-weight:800; font-family:monospace, system-ui; color:${valColor}; line-height:1.15; white-space:nowrap; margin-top:2px;">${valText}</span>
+                   title="${hoverInfo}"
+                   onmouseenter="const el=document.getElementById('${hoverId}'); if(el) el.textContent='${hoverInfo}';"
+                   ontouchstart="const el=document.getElementById('${hoverId}'); if(el) el.textContent='${hoverInfo}';"
+                   style="background:${bg}; border:${border}; border-radius:6px; padding:3px 1px; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; min-height:42px; box-sizing:border-box; transition:background .12s, border-color .12s; cursor:${isFuture ? 'default' : 'pointer'}; user-select:none; ${opacity} ${shadow}">
+                <span class="fd-cell-date" style="font-size:8px; font-weight:700; color:${dateColor}; line-height:1; white-space:nowrap;">${d.dayLabel}</span>
+                <span class="fd-cell-val" style="font-size:10px; font-weight:800; font-family:monospace, system-ui; color:${valColor}; line-height:1.15; white-space:nowrap; margin-top:1.5px;">${valText}</span>
+                ${nightText ? `<span class="fd-cell-night" style="font-size:7.5px; font-weight:800; font-family:monospace, system-ui; color:#c084fc; line-height:1; white-space:nowrap; margin-top:1px;">🌙${nightText}</span>` : (isFuture ? `<span style="font-size:7.5px; color:var(--text-muted); opacity:0.35;">-</span>` : '')}
               </div>
             `;
           }).join('')}
@@ -359,11 +373,11 @@
     `;
   }
 
-  // ── Generalized Appliance Daily Grid Engine (7 AM Cycle Aligned) ────────
+  // ── Generalized Appliance Daily Grid Engine (Total + Night 4pm-7am) ────
   async function buildGenericApplianceDailyGrid(opts) {
     const {
       title, titleColor, feedId, secondFeedId, liveTodayName, secondLiveName,
-      hoverId, valColor, isPct
+      hoverId, valColor, isPct, hideNight
     } = opts;
 
     try {
@@ -380,7 +394,6 @@
 
       const nowMs = Date.now();
 
-      // Parallel fetch for primary feed and optional secondary feed (e.g. Fridge 1 + Fridge 2)
       const fetchPromises = [
         (typeof fetchWithCache === 'function') ? fetchWithCache(feedId, range.startMs, nowMs) : {}
       ];
@@ -390,7 +403,9 @@
       const [raw1, raw2] = await Promise.all(fetchPromises);
 
       const daySums = {};
+      const nightSums = {};
       const dayCounts = {};
+      const nightCounts = {};
 
       const processFeed = (rawMap) => {
         for (const [tsStr, val] of Object.entries(rawMap || {})) {
@@ -413,8 +428,16 @@
           }
 
           const key = `${cYr}-${String(cMo).padStart(2, '0')}-${String(cDy).padStart(2, '0')}`;
-          daySums[key] = (daySums[key] || 0) + parseFloat(val);
+          const numVal = parseFloat(val);
+          daySums[key] = (daySums[key] || 0) + numVal;
           dayCounts[key] = (dayCounts[key] || 0) + 1;
+
+          // Night definition: 4:00 PM (16:00) to 7:00 AM
+          const isNight = (p.hour >= 16 || p.hour < 7);
+          if (isNight) {
+            nightSums[key] = (nightSums[key] || 0) + numVal;
+            nightCounts[key] = (nightCounts[key] || 0) + 1;
+          }
         }
       };
 
@@ -432,8 +455,10 @@
       const dayList = [];
       const totalDays = Math.max(1, Math.round((range.endMs - range.startMs) / 86400000));
       let totalCycleKwh = 0;
+      let totalNightKwh = 0;
       let elapsedDaysCount = 0;
       let todayUnits = 0;
+      let todayNightUnits = 0;
 
       for (let dIdx = 0; dIdx < totalDays; dIdx++) {
         const curMs = range.startMs + (dIdx * 86400000) + (10 * 3600 * 1000);
@@ -447,12 +472,15 @@
         const isPast = (key <= todayKey);
 
         let kwh = null;
+        let nightKwh = null;
+
         if (isPast) {
           if (isPct) {
-            const cnt = dayCounts[key] || 1;
-            kwh = (daySums[key] || 0) / cnt;
+            kwh = (daySums[key] || 0) / (dayCounts[key] || 1);
+            nightKwh = (nightSums[key] || 0) / (nightCounts[key] || 1);
           } else {
             kwh = (daySums[key] || 0) / 1000;
+            nightKwh = (nightSums[key] || 0) / 1000;
           }
 
           if (isToday) {
@@ -460,10 +488,13 @@
             if (secondLiveName) live = (live || 0) + (getFeedVal(secondLiveName) || 0);
             if (live != null && (isPct || live > kwh)) kwh = live;
             todayUnits = kwh;
+            todayNightUnits = nightKwh || 0;
           }
 
           kwh = Math.max(0, kwh);
+          nightKwh = Math.max(0, nightKwh);
           totalCycleKwh += kwh;
+          totalNightKwh += nightKwh;
           elapsedDaysCount++;
         }
 
@@ -471,6 +502,7 @@
           dateKey: key,
           dayLabel: `${p.day}/${p.month}`,
           kwh: kwh,
+          nightKwh: nightKwh,
           isToday: isToday,
           isFuture: !isPast
         });
@@ -478,6 +510,7 @@
 
       if (dayList.length > 0) {
         const avgKwh = elapsedDaysCount > 0 ? (totalCycleKwh / elapsedDaysCount) : 0;
+        const avgNightKwh = elapsedDaysCount > 0 ? (totalNightKwh / elapsedDaysCount) : 0;
         const estMonthKwh = isPct ? null : avgKwh * totalDays;
         const estMonthPkr = isPct ? null : estMonthKwh * pkrRate();
 
@@ -486,14 +519,18 @@
           titleColor,
           dayList,
           totalKwh: isPct ? avgKwh : totalCycleKwh,
+          totalNightKwh: isPct ? null : totalNightKwh,
           avgKwh: isPct ? Math.min(...dayList.filter(d=>!d.isFuture).map(d=>d.kwh||0)) : avgKwh,
+          avgNightKwh: isPct ? null : avgNightKwh,
           estKwh: estMonthKwh,
           estPkr: estMonthPkr,
           pkrSuffix: '',
           todayUnits,
+          todayNightUnits,
           hoverId,
           valColorDefault: valColor,
-          isPct
+          isPct,
+          hideNight
         });
       }
     } catch (e) {
@@ -502,7 +539,7 @@
     return '';
   }
 
-  // ── Solar Extras ─────────────────────────────────────────────────────────
+  // ── Solar Extras: 16×2 Daily Solar Grid ──────────────────────────────────
   async function buildSolarExtras() {
     const gridHtml = await buildGenericApplianceDailyGrid({
       title: '☀️ DAILY SOLAR GENERATION',
@@ -510,7 +547,8 @@
       feedId: (typeof FEEDS_BASE !== 'undefined' && FEEDS_BASE.find(f => f.name === 'Solar'))?.id || '499380',
       liveTodayName: 'Solar Today',
       hoverId: 'fd-solar-cell-hover',
-      valColor: '#f59e0b'
+      valColor: '#f59e0b',
+      hideNight: true
     });
 
     let extraRowsHtml = '';
@@ -540,7 +578,7 @@
     return gridHtml + extraRowsHtml;
   }
 
-  // ── Grid Extras ──────────────────────────────────────────────────────────
+  // ── Grid Extras: 16×2 Daily Units Grid ───────────────────────────────────
   async function buildGridExtras() {
     const gridHtml = await buildGenericApplianceDailyGrid({
       title: '⚡ DAILY GRID UNITS',
@@ -575,7 +613,7 @@
     return gridHtml + outageHtml;
   }
 
-  // ── Battery Extras ───────────────────────────────────────────────────────
+  // ── Battery Extras: 16×2 Daily Discharge Grid ────────────────────────────
   async function buildBatteryExtras() {
     let dailyDischargeHtml = '';
     const extrasHdr = document.querySelector('#flow-detail-modal .fd-extras .fd-extras-header');
@@ -611,9 +649,10 @@
       } catch (err) {}
 
       const daySums = {};
-      const allTs = Object.keys(batDisRaw || {});
-      for (const tsStr of allTs) {
-        const dA = parseFloat(batDisRaw[tsStr] || 0);
+      const nightSums = {};
+
+      for (const [tsStr, dAVal] of Object.entries(batDisRaw || {})) {
+        const dA = parseFloat(dAVal || 0);
         if (dA <= 0) continue;
         const v = (batVRaw && batVRaw[tsStr] > 35) ? parseFloat(batVRaw[tsStr]) : 52.0;
         const disWh = v * dA;
@@ -635,6 +674,11 @@
 
         const key = `${cYr}-${String(cMo).padStart(2, '0')}-${String(cDy).padStart(2, '0')}`;
         daySums[key] = (daySums[key] || 0) + disWh;
+
+        const isNight = (p.hour >= 16 || p.hour < 7);
+        if (isNight) {
+          nightSums[key] = (nightSums[key] || 0) + disWh;
+        }
       }
 
       const nowPkt = (typeof getKarachiDate === 'function') ? getKarachiDate(nowMs) : { year: yr, month: mo, day: dy, hour: 12 };
@@ -648,8 +692,10 @@
       const dayList = [];
       const totalDays = Math.max(1, Math.round((range.endMs - range.startMs) / 86400000));
       let totalDischargeKwh = 0;
+      let totalNightKwh = 0;
       let elapsedDaysCount = 0;
       let todayDischargeKwh = 0;
+      let todayNightKwh = 0;
 
       for (let dIdx = 0; dIdx < totalDays; dIdx++) {
         const curMs = range.startMs + (dIdx * 86400000) + (10 * 3600 * 1000);
@@ -663,18 +709,22 @@
         const isPast = (key <= todayKey);
 
         let kwh = null;
+        let nightKwh = null;
+
         if (isPast) {
-          let dayWh = daySums[key] || 0;
-          kwh = dayWh / 1000;
+          kwh = (daySums[key] || 0) / 1000;
+          nightKwh = (nightSums[key] || 0) / 1000;
 
           if (isToday) {
             const liveDisWh = window.monthlyUnits?.batDisT || 0;
             if (liveDisWh > 0) kwh = Math.max(kwh, liveDisWh / 1000);
             todayDischargeKwh = kwh;
+            todayNightKwh = nightKwh;
           }
 
           kwh = Math.max(0, kwh);
           totalDischargeKwh += kwh;
+          totalNightKwh += (nightKwh || 0);
           elapsedDaysCount++;
         }
 
@@ -682,6 +732,7 @@
           dateKey: key,
           dayLabel: `${p.day}/${p.month}`,
           kwh: kwh,
+          nightKwh: nightKwh,
           isToday: isToday,
           isFuture: !isPast
         });
@@ -689,6 +740,7 @@
 
       if (dayList.length > 0) {
         const avgKwh = elapsedDaysCount > 0 ? (totalDischargeKwh / elapsedDaysCount) : 0;
+        const avgNightKwh = elapsedDaysCount > 0 ? (totalNightKwh / elapsedDaysCount) : 0;
         const estMonthDischargeKwh = avgKwh * totalDays;
         const estMonthSavedPkr = estMonthDischargeKwh * pkrRate();
 
@@ -709,18 +761,21 @@
           titleColor: '#10b981',
           dayList,
           totalKwh: totalDischargeKwh,
+          totalNightKwh,
           avgKwh,
+          avgNightKwh,
           estKwh: estMonthDischargeKwh,
           estPkr: estMonthSavedPkr,
           pkrSuffix: 'saved',
           todayUnits: todayDischargeKwh,
+          todayNightUnits: todayNightKwh,
           hoverId: 'fd-battery-cell-hover',
           valColorDefault: '#f97316',
           extraHeaderRow: cycleRowHtml
         });
       }
     } catch (e) {
-      console.warn('Battery daily discharge error:', e);
+      console.warn('Battery daily discharge calculation error:', e);
     }
 
     let extraRowsHtml = '';
@@ -764,18 +819,27 @@
     return buildBatteryExtras();
   }
 
-  // ── Fridges: Combined Fridge 1 + Fridge 2 Daily Units Grid ───────────────
+  // ── Fridges: SEPARATE 16×2 Grids for Fridge 1 and Fridge 2 ───────────────
   async function buildFridgeExtras() {
-    const gridHtml = await buildGenericApplianceDailyGrid({
-      title: '🧊 COMBINED FRIDGES DAILY UNITS',
-      titleColor: '#c084fc',
-      feedId: '499373',         // Fridge 1
-      secondFeedId: '541348',   // Fridge 2
-      liveTodayName: 'Fridge Today',
-      secondLiveName: 'Fridge2 Today',
-      hoverId: 'fd-fridge-cell-hover',
-      valColor: '#c084fc'
-    });
+    // Parallel fetch for Fridge 1 & Fridge 2 separate grids
+    const [grid1Html, grid2Html] = await Promise.all([
+      buildGenericApplianceDailyGrid({
+        title: '🧊 FRIDGE 1 DAILY UNITS',
+        titleColor: '#38bdf8',
+        feedId: '499373',         // Fridge 1 Watts
+        liveTodayName: 'Fridge Today',
+        hoverId: 'fd-fridge1-cell-hover',
+        valColor: '#38bdf8'
+      }),
+      buildGenericApplianceDailyGrid({
+        title: '🧊 FRIDGE 2 DAILY UNITS',
+        titleColor: '#c084fc',
+        feedId: '541348',         // Fridge 2 Watts
+        liveTodayName: 'Fridge2 Today',
+        hoverId: 'fd-fridge2-cell-hover',
+        valColor: '#c084fc'
+      })
+    ]);
 
     let extraRowsHtml = '';
     try {
@@ -793,7 +857,7 @@
       });
     } catch (e) {}
 
-    return gridHtml + extraRowsHtml;
+    return grid1Html + grid2Html + extraRowsHtml;
   }
 
   // ── AC Extras: Kenwood 1.5T, Kenwood 1T, Haier 1T ─────────────────────────
@@ -842,7 +906,8 @@
       liveTodayName: 'Water Tank',
       hoverId: 'fd-water-cell-hover',
       valColor: '#0ea5e9',
-      isPct: true
+      isPct: true,
+      hideNight: true
     });
 
     let extraRowsHtml = '';

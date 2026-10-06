@@ -285,15 +285,89 @@
   }
 
   // ── Solar Extras: 16×2 Daily Solar Grid + Month Estimate ─────────────
-  async function buildSolarExtras() {
-    let dailySolarHtml = '';
-    const extrasHdr = document.querySelector('#flow-detail-modal .fd-extras .fd-extras-header');
-    if (extrasHdr) extrasHdr.style.display = 'none';
+  // Safe feed lookup that works whether lastResultsMap is a Map, an Array, or undefined
+  function getFeedVal(name) {
+    if (!window.lastResultsMap) return null;
+    try {
+      if (typeof window.lastResultsMap.get === 'function') {
+        const item = window.lastResultsMap.get(name);
+        return item ? item.value : null;
+      }
+      if (Array.isArray(window.lastResultsMap)) {
+        const item = window.lastResultsMap.find(f => f && f.name === name);
+        return item ? item.value : null;
+      }
+    } catch (e) {}
+    return null;
+  }
+
+  // ── Shared 16×2 Card Grid Renderer ───────────────────────────────────────
+  function render16x2CardGrid(cfg) {
+    const {
+      title, titleColor, dayList, totalKwh, avgKwh, estKwh, estPkr,
+      pkrSuffix, todayUnits, hoverId, valColorDefault, extraHeaderRow, isPct
+    } = cfg;
+
+    const startLabel = dayList.length ? dayList[0].dayLabel : '';
+    const endLabel = dayList.length ? dayList[dayList.length - 1].dayLabel : '';
+    const pkrText = estPkr != null ? ` (~PKR ${Math.round(estPkr).toLocaleString()}${pkrSuffix ? ' ' + pkrSuffix : ''})` : '';
+    const unitLabel = isPct ? '%' : 'kWh';
+
+    return `
+      <div style="background:var(--bg-card, #141416); border:1px solid var(--border, #27272a); border-left:3px solid ${titleColor}; border-radius:10px; padding:10px 12px; margin-bottom:10px; width:100%; box-sizing:border-box;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; flex-wrap:wrap; gap:4px;">
+          <span style="font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.05em; color:${titleColor};">
+            ${title} (${startLabel} → ${endLabel})
+          </span>
+          <div style="font-size:11px; font-weight:700; color:var(--text-muted, #71717a); display:flex; align-items:center; flex-wrap:wrap; gap:4px;">
+            <span>${isPct ? 'Cycle Avg' : 'Total'}: <b style="color:${titleColor};">${totalKwh.toFixed(1)} ${unitLabel}</b></span>
+            <span>&bull;</span>
+            <span>${isPct ? 'Min' : 'Avg'}: <b style="color:var(--text-main, #f4f4f5);">${avgKwh.toFixed(1)}</b>${isPct ? '%' : '/d'}</span>
+            ${estKwh != null ? `<span>&bull;</span><span>Est: <b style="color:#facc15;">~${estKwh.toFixed(0)} kWh</b><span style="font-size:10px; color:${titleColor};">${pkrText}</span></span>` : ''}
+            <span id="${hoverId}" style="margin-left:4px; color:#facc15; font-weight:800;">[Today: ${todayUnits != null ? (isPct ? Math.round(todayUnits) + '%' : todayUnits.toFixed(1) + ' kWh') : '--'}]</span>
+          </div>
+        </div>
+
+        ${extraHeaderRow || ''}
+
+        <div class="fd-grid-16-container" style="display:grid; grid-template-columns:repeat(16, minmax(0, 1fr)); gap:4px; width:100%; box-sizing:border-box;">
+          ${dayList.map(d => {
+            const isToday = d.isToday;
+            const isFuture = d.isFuture;
+            const valText = isFuture ? '-' : (d.kwh != null ? (isPct ? Math.round(d.kwh) : d.kwh.toFixed(1)) : '0.0');
+
+            const bg = isToday ? 'rgba(250,204,21,0.14)' : (isFuture ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.03)');
+            const border = isToday ? '1.5px solid #facc15' : (isFuture ? '1px dashed rgba(255,255,255,0.08)' : '1px solid var(--border, #27272a)');
+            const opacity = isFuture ? 'opacity:0.35;' : '';
+            const shadow = isToday ? 'box-shadow:0 0 8px rgba(250,204,21,0.25);' : '';
+            const dateColor = isToday ? '#facc15' : 'var(--text-muted, #71717a)';
+            const valColor = isToday ? '#facc15' : (isFuture ? 'var(--text-muted, #71717a)' : valColorDefault);
+
+            return `
+              <div class="fd-grid-cell ${isToday ? 'is-today' : ''} ${isFuture ? 'is-future' : ''}"
+                   title="${d.dayLabel}: ${isFuture ? 'Upcoming' : (d.kwh != null ? (isPct ? Math.round(d.kwh) + '%' : d.kwh.toFixed(1) + ' kWh') : '0.0')}"
+                   onmouseenter="const el=document.getElementById('${hoverId}'); if(el) el.textContent='${d.dayLabel}: ${isFuture ? 'Upcoming' : (d.kwh != null ? (isPct ? Math.round(d.kwh) + '%' : d.kwh.toFixed(1) + ' kWh') : '0.0')}';"
+                   ontouchstart="const el=document.getElementById('${hoverId}'); if(el) el.textContent='${d.dayLabel}: ${isFuture ? 'Upcoming' : (d.kwh != null ? (isPct ? Math.round(d.kwh) + '%' : d.kwh.toFixed(1) + ' kWh') : '0.0')}';"
+                   style="background:${bg}; border:${border}; border-radius:6px; padding:4px 1px; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; min-height:38px; box-sizing:border-box; transition:background .12s, border-color .12s; cursor:${isFuture ? 'default' : 'pointer'}; user-select:none; ${opacity} ${shadow}">
+                <span class="fd-cell-date" style="font-size:8.5px; font-weight:700; color:${dateColor}; line-height:1; white-space:nowrap;">${d.dayLabel}</span>
+                <span class="fd-cell-val" style="font-size:11px; font-weight:800; font-family:monospace, system-ui; color:${valColor}; line-height:1.15; white-space:nowrap; margin-top:2px;">${valText}</span>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+    `;
+  }
+
+  // ── Generalized Appliance Daily Grid Engine (7 AM Cycle Aligned) ────────
+  async function buildGenericApplianceDailyGrid(opts) {
+    const {
+      title, titleColor, feedId, secondFeedId, liveTodayName, secondLiveName,
+      hoverId, valColor, isPct
+    } = opts;
 
     try {
-      const cycleStartHour = (typeof window.graphDayStartHour !== 'undefined')
-        ? window.graphDayStartHour : 7;
-
+      const cycleStartHour = (typeof window.graphDayStartHour !== 'undefined') ? window.graphDayStartHour : 7;
       const pktNow = (typeof getPktNow === 'function') ? getPktNow() : new Date();
       const isPkt = (new Date().getTimezoneOffset() === -300);
       const yr = isPkt ? pktNow.getFullYear() : pktNow.getUTCFullYear();
@@ -302,53 +376,56 @@
 
       const range = (typeof getPktBillingRange === 'function')
         ? getPktBillingRange(yr, dy < 26 ? mo : mo + 1)
-        : {
-            startMs: Date.UTC(yr, (dy < 26 ? mo - 2 : mo - 1), 25) - 18000000,
-            endMs: Date.UTC(yr, (dy < 26 ? mo - 1 : mo), 26) - 18000000
-          };
+        : { startMs: Date.UTC(yr, (dy < 26 ? mo - 2 : mo - 1), 25) - 18000000, endMs: Date.UTC(yr, (dy < 26 ? mo - 1 : mo), 26) - 18000000 };
 
       const nowMs = Date.now();
-      const solarFeedId = (typeof FEEDS_BASE !== 'undefined' && FEEDS_BASE.find(f => f.name === 'Solar'))?.id || '499380';
 
-      let rawData = {};
-      if (typeof fetchWithCache === 'function') {
-        rawData = await fetchWithCache(solarFeedId, range.startMs, nowMs);
-      } else if (typeof _gFetch === 'function') {
-        const pts = await _gFetch(solarFeedId, range.startMs, nowMs, 3600);
-        (pts || []).forEach(p => { if (p && p[0] != null) rawData[p[0]] = p[1]; });
+      // Parallel fetch for primary feed and optional secondary feed (e.g. Fridge 1 + Fridge 2)
+      const fetchPromises = [
+        (typeof fetchWithCache === 'function') ? fetchWithCache(feedId, range.startMs, nowMs) : {}
+      ];
+      if (secondFeedId) {
+        fetchPromises.push((typeof fetchWithCache === 'function') ? fetchWithCache(secondFeedId, range.startMs, nowMs) : {});
       }
+      const [raw1, raw2] = await Promise.all(fetchPromises);
 
       const daySums = {};
-      for (const [tsStr, watts] of Object.entries(rawData || {})) {
-        if (watts == null || isNaN(watts) || watts < 0) continue;
-        const ts = parseInt(tsStr, 10);
-        const tsMs = ts < 2e9 ? ts * 1000 : ts;
-        const p = (typeof getKarachiDate === 'function') ? getKarachiDate(tsMs) : {
-          year: new Date(tsMs + 18000000).getUTCFullYear(),
-          month: new Date(tsMs + 18000000).getUTCMonth() + 1,
-          day: new Date(tsMs + 18000000).getUTCDate(),
-          hour: new Date(tsMs + 18000000).getUTCHours()
-        };
+      const dayCounts = {};
 
-        let cYr = p.year, cMo = p.month, cDy = p.day;
-        if (cycleStartHour > 0 && p.hour < cycleStartHour) {
-          const prevD = new Date(Date.UTC(cYr, cMo - 1, cDy - 1));
-          cYr = prevD.getUTCFullYear();
-          cMo = prevD.getUTCMonth() + 1;
-          cDy = prevD.getUTCDate();
+      const processFeed = (rawMap) => {
+        for (const [tsStr, val] of Object.entries(rawMap || {})) {
+          if (val == null || isNaN(val) || val < 0) continue;
+          const ts = parseInt(tsStr, 10);
+          const tsMs = ts < 2e9 ? ts * 1000 : ts;
+          if (tsMs < range.startMs || tsMs > nowMs + 3600000) continue;
+
+          const p = (typeof getKarachiDate === 'function') ? getKarachiDate(tsMs) : {
+            year: new Date(tsMs + 18000000).getUTCFullYear(),
+            month: new Date(tsMs + 18000000).getUTCMonth() + 1,
+            day: new Date(tsMs + 18000000).getUTCDate(),
+            hour: new Date(tsMs + 18000000).getUTCHours()
+          };
+
+          let cYr = p.year, cMo = p.month, cDy = p.day;
+          if (cycleStartHour > 0 && p.hour < cycleStartHour) {
+            const prevD = new Date(Date.UTC(cYr, cMo - 1, cDy - 1));
+            cYr = prevD.getUTCFullYear(); cMo = prevD.getUTCMonth() + 1; cDy = prevD.getUTCDate();
+          }
+
+          const key = `${cYr}-${String(cMo).padStart(2, '0')}-${String(cDy).padStart(2, '0')}`;
+          daySums[key] = (daySums[key] || 0) + parseFloat(val);
+          dayCounts[key] = (dayCounts[key] || 0) + 1;
         }
+      };
 
-        const key = `${cYr}-${String(cMo).padStart(2, '0')}-${String(cDy).padStart(2, '0')}`;
-        daySums[key] = (daySums[key] || 0) + parseFloat(watts);
-      }
+      processFeed(raw1);
+      if (secondFeedId) processFeed(raw2);
 
       const nowPkt = (typeof getKarachiDate === 'function') ? getKarachiDate(nowMs) : { year: yr, month: mo, day: dy, hour: 12 };
       let todayYr = nowPkt.year, todayMo = nowPkt.month, todayDy = nowPkt.day;
       if (cycleStartHour > 0 && nowPkt.hour < cycleStartHour) {
         const prev = new Date(Date.UTC(todayYr, todayMo - 1, todayDy - 1));
-        todayYr = prev.getUTCFullYear();
-        todayMo = prev.getUTCMonth() + 1;
-        todayDy = prev.getUTCDate();
+        todayYr = prev.getUTCFullYear(); todayMo = prev.getUTCMonth() + 1; todayDy = prev.getUTCDate();
       }
       const todayKey = `${todayYr}-${String(todayMo).padStart(2, '0')}-${String(todayDy).padStart(2, '0')}`;
 
@@ -371,12 +448,17 @@
 
         let kwh = null;
         if (isPast) {
-          let dayWh = daySums[key] || 0;
-          kwh = dayWh / 1000;
+          if (isPct) {
+            const cnt = dayCounts[key] || 1;
+            kwh = (daySums[key] || 0) / cnt;
+          } else {
+            kwh = (daySums[key] || 0) / 1000;
+          }
 
           if (isToday) {
-            const liveToday = getFeedVal('Solar Today');
-            if (liveToday != null && liveToday > kwh) kwh = liveToday;
+            let live = getFeedVal(liveTodayName);
+            if (secondLiveName) live = (live || 0) + (getFeedVal(secondLiveName) || 0);
+            if (live != null && (isPct || live > kwh)) kwh = live;
             todayUnits = kwh;
           }
 
@@ -396,30 +478,44 @@
 
       if (dayList.length > 0) {
         const avgKwh = elapsedDaysCount > 0 ? (totalCycleKwh / elapsedDaysCount) : 0;
-        const estMonthKwh = avgKwh * totalDays;
-        const estMonthPkr = estMonthKwh * pkrRate();
+        const estMonthKwh = isPct ? null : avgKwh * totalDays;
+        const estMonthPkr = isPct ? null : estMonthKwh * pkrRate();
 
-        dailySolarHtml = render16x2CardGrid({
-          title: '☀️ DAILY SOLAR GENERATION',
-          titleColor: '#f59e0b',
+        return render16x2CardGrid({
+          title,
+          titleColor,
           dayList,
-          totalKwh: totalCycleKwh,
-          avgKwh,
+          totalKwh: isPct ? avgKwh : totalCycleKwh,
+          avgKwh: isPct ? Math.min(...dayList.filter(d=>!d.isFuture).map(d=>d.kwh||0)) : avgKwh,
           estKwh: estMonthKwh,
           estPkr: estMonthPkr,
-          pkrSuffix: 'saved',
+          pkrSuffix: '',
           todayUnits,
-          hoverId: 'fd-solar-cell-hover',
-          valColorDefault: '#f59e0b'
+          hoverId,
+          valColorDefault: valColor,
+          isPct
         });
       }
     } catch (e) {
-      console.warn('Solar daily calculation error:', e);
+      console.warn(`Appliance grid error for ${title}:`, e);
     }
+    return '';
+  }
+
+  // ── Solar Extras ─────────────────────────────────────────────────────────
+  async function buildSolarExtras() {
+    const gridHtml = await buildGenericApplianceDailyGrid({
+      title: '☀️ DAILY SOLAR GENERATION',
+      titleColor: '#f59e0b',
+      feedId: (typeof FEEDS_BASE !== 'undefined' && FEEDS_BASE.find(f => f.name === 'Solar'))?.id || '499380',
+      liveTodayName: 'Solar Today',
+      hoverId: 'fd-solar-cell-hover',
+      valColor: '#f59e0b'
+    });
 
     let extraRowsHtml = '';
     try {
-      const pts = await fetch24h('solar');
+      const pts = await fetch24h('solar', 300);
       if (Array.isArray(pts) && pts.length) {
         let peakW = 0, peakTs = null;
         for (let i = 0; i < pts.length; i++) {
@@ -441,145 +537,23 @@
       }
     } catch (e) {}
 
-    return dailySolarHtml + extraRowsHtml;
+    return gridHtml + extraRowsHtml;
   }
 
-  // ── Grid Extras: Daily Units Grid (7 AM Cycle, Rows of 16, Date + kWh) ─
+  // ── Grid Extras ──────────────────────────────────────────────────────────
   async function buildGridExtras() {
-    let dailyGridHtml = '';
-    const extrasHdr = document.querySelector('#flow-detail-modal .fd-extras .fd-extras-header');
-    if (extrasHdr) extrasHdr.style.display = 'none';
-
-    try {
-      const cycleStartHour = (typeof window.graphDayStartHour !== 'undefined')
-        ? window.graphDayStartHour : 7;
-
-      const pktNow = (typeof getPktNow === 'function') ? getPktNow() : new Date();
-      const isPkt = (new Date().getTimezoneOffset() === -300);
-      const yr = isPkt ? pktNow.getFullYear() : pktNow.getUTCFullYear();
-      const mo = (isPkt ? pktNow.getMonth() : pktNow.getUTCMonth()) + 1;
-      const dy = isPkt ? pktNow.getDate() : pktNow.getUTCDate();
-
-      const range = (typeof getPktBillingRange === 'function')
-        ? getPktBillingRange(yr, dy < 26 ? mo : mo + 1)
-        : {
-            startMs: Date.UTC(yr, (dy < 26 ? mo - 2 : mo - 1), 25) - 18000000,
-            endMs: Date.UTC(yr, (dy < 26 ? mo - 1 : mo), 26) - 18000000
-          };
-
-      const nowMs = Date.now();
-      const breakerFeedId = (typeof FEEDS_BASE !== 'undefined' && FEEDS_BASE.find(f => f.name === 'Breaker'))?.id || '499374';
-
-      let rawData = {};
-      if (typeof fetchWithCache === 'function') {
-        rawData = await fetchWithCache(breakerFeedId, range.startMs, nowMs);
-      } else if (typeof _gFetch === 'function') {
-        const pts = await _gFetch(breakerFeedId, range.startMs, nowMs, 3600);
-        (pts || []).forEach(p => { if (p && p[0] != null) rawData[p[0]] = p[1]; });
-      }
-
-      const daySums = {};
-      for (const [tsStr, watts] of Object.entries(rawData || {})) {
-        if (watts == null || isNaN(watts) || watts < 0) continue;
-        const ts = parseInt(tsStr, 10);
-        const tsMs = ts < 2e9 ? ts * 1000 : ts;
-        const p = (typeof getKarachiDate === 'function') ? getKarachiDate(tsMs) : {
-          year: new Date(tsMs + 18000000).getUTCFullYear(),
-          month: new Date(tsMs + 18000000).getUTCMonth() + 1,
-          day: new Date(tsMs + 18000000).getUTCDate(),
-          hour: new Date(tsMs + 18000000).getUTCHours()
-        };
-
-        let cYr = p.year, cMo = p.month, cDy = p.day;
-        if (cycleStartHour > 0 && p.hour < cycleStartHour) {
-          const prevD = new Date(Date.UTC(cYr, cMo - 1, cDy - 1));
-          cYr = prevD.getUTCFullYear();
-          cMo = prevD.getUTCMonth() + 1;
-          cDy = prevD.getUTCDate();
-        }
-
-        const key = `${cYr}-${String(cMo).padStart(2, '0')}-${String(cDy).padStart(2, '0')}`;
-        daySums[key] = (daySums[key] || 0) + parseFloat(watts);
-      }
-
-      const nowPkt = (typeof getKarachiDate === 'function') ? getKarachiDate(nowMs) : { year: yr, month: mo, day: dy, hour: 12 };
-      let todayYr = nowPkt.year, todayMo = nowPkt.month, todayDy = nowPkt.day;
-      if (cycleStartHour > 0 && nowPkt.hour < cycleStartHour) {
-        const prev = new Date(Date.UTC(todayYr, todayMo - 1, todayDy - 1));
-        todayYr = prev.getUTCFullYear();
-        todayMo = prev.getUTCMonth() + 1;
-        todayDy = prev.getUTCDate();
-      }
-      const todayKey = `${todayYr}-${String(todayMo).padStart(2, '0')}-${String(todayDy).padStart(2, '0')}`;
-
-      const dayList = [];
-      const totalDays = Math.max(1, Math.round((range.endMs - range.startMs) / 86400000));
-      let totalCycleKwh = 0;
-      let elapsedDaysCount = 0;
-      let todayUnits = 0;
-
-      for (let dIdx = 0; dIdx < totalDays; dIdx++) {
-        const curMs = range.startMs + (dIdx * 86400000) + (10 * 3600 * 1000);
-        const p = (typeof getKarachiDate === 'function') ? getKarachiDate(curMs) : {
-          year: new Date(curMs + 18000000).getUTCFullYear(),
-          month: new Date(curMs + 18000000).getUTCMonth() + 1,
-          day: new Date(curMs + 18000000).getUTCDate()
-        };
-        const key = `${p.year}-${String(p.month).padStart(2, '0')}-${String(p.day).padStart(2, '0')}`;
-        const isToday = (key === todayKey);
-        const isPast = (key <= todayKey);
-
-        let kwh = null;
-        if (isPast) {
-          let dayWh = daySums[key] || 0;
-          kwh = dayWh / 1000;
-
-          if (isToday) {
-            const liveToday = getFeedVal('Breaker Today');
-            if (liveToday != null && liveToday > kwh) kwh = liveToday;
-            todayUnits = kwh;
-          }
-
-          kwh = Math.max(0, kwh);
-          totalCycleKwh += kwh;
-          elapsedDaysCount++;
-        }
-
-        dayList.push({
-          dateKey: key,
-          dayLabel: `${p.day}/${p.month}`,
-          kwh: kwh,
-          isToday: isToday,
-          isFuture: !isPast
-        });
-      }
-
-      if (dayList.length > 0) {
-        const avgKwh = elapsedDaysCount > 0 ? (totalCycleKwh / elapsedDaysCount) : 0;
-        const estMonthKwh = avgKwh * totalDays;
-        const estMonthPkr = estMonthKwh * pkrRate();
-
-        dailyGridHtml = render16x2CardGrid({
-          title: '⚡ DAILY GRID UNITS',
-          titleColor: '#ef4444',
-          dayList,
-          totalKwh: totalCycleKwh,
-          avgKwh,
-          estKwh: estMonthKwh,
-          estPkr: estMonthPkr,
-          pkrSuffix: '',
-          todayUnits,
-          hoverId: 'fd-grid-cell-hover',
-          valColorDefault: '#f87171'
-        });
-      }
-    } catch (err) {
-      console.warn('Error loading daily grid units:', err);
-    }
+    const gridHtml = await buildGenericApplianceDailyGrid({
+      title: '⚡ DAILY GRID UNITS',
+      titleColor: '#ef4444',
+      feedId: (typeof FEEDS_BASE !== 'undefined' && FEEDS_BASE.find(f => f.name === 'Breaker'))?.id || '499374',
+      liveTodayName: 'Breaker Today',
+      hoverId: 'fd-grid-cell-hover',
+      valColor: '#f87171'
+    });
 
     let outageHtml = '';
     try {
-      const pts = await fetch24h('acvolts');
+      const pts = await fetch24h('acvolts', 300);
       if (Array.isArray(pts) && pts.length) {
         const sessions = detectSessions(pts.map(([t, v]) => [t, v != null && v < 50 ? 1 : 0]), 0.5, 1);
         const totalOutageMin = totalRuntimeMin(sessions);
@@ -598,10 +572,10 @@
       outageHtml += row('Cost today', fmtPkr(gridTodayKwh * pkrRate()), { color: '#f87171', sub: `${gridTodayKwh.toFixed(1)} kWh imported` });
     } catch (e) {}
 
-    return dailyGridHtml + outageHtml;
+    return gridHtml + outageHtml;
   }
 
-  // ── Battery Extras: 16×2 Daily Discharge, Cycle Stats & Month Estimate ───
+  // ── Battery Extras ───────────────────────────────────────────────────────
   async function buildBatteryExtras() {
     let dailyDischargeHtml = '';
     const extrasHdr = document.querySelector('#flow-detail-modal .fd-extras .fd-extras-header');
@@ -610,9 +584,7 @@
     const packKwh = (typeof solarCfg !== 'undefined' && solarCfg?.batteryKwh > 0) ? solarCfg.batteryKwh : 5.12;
 
     try {
-      const cycleStartHour = (typeof window.graphDayStartHour !== 'undefined')
-        ? window.graphDayStartHour : 7;
-
+      const cycleStartHour = (typeof window.graphDayStartHour !== 'undefined') ? window.graphDayStartHour : 7;
       const pktNow = (typeof getPktNow === 'function') ? getPktNow() : new Date();
       const isPkt = (new Date().getTimezoneOffset() === -300);
       const yr = isPkt ? pktNow.getFullYear() : pktNow.getUTCFullYear();
@@ -621,10 +593,7 @@
 
       const range = (typeof getPktBillingRange === 'function')
         ? getPktBillingRange(yr, dy < 26 ? mo : mo + 1)
-        : {
-            startMs: Date.UTC(yr, (dy < 26 ? mo - 2 : mo - 1), 25) - 18000000,
-            endMs: Date.UTC(yr, (dy < 26 ? mo - 1 : mo), 26) - 18000000
-          };
+        : { startMs: Date.UTC(yr, (dy < 26 ? mo - 2 : mo - 1), 25) - 18000000, endMs: Date.UTC(yr, (dy < 26 ? mo - 1 : mo), 26) - 18000000 };
 
       const nowMs = Date.now();
 
@@ -661,9 +630,7 @@
         let cYr = p.year, cMo = p.month, cDy = p.day;
         if (cycleStartHour > 0 && p.hour < cycleStartHour) {
           const prevD = new Date(Date.UTC(cYr, cMo - 1, cDy - 1));
-          cYr = prevD.getUTCFullYear();
-          cMo = prevD.getUTCMonth() + 1;
-          cDy = prevD.getUTCDate();
+          cYr = prevD.getUTCFullYear(); cMo = prevD.getUTCMonth() + 1; cDy = prevD.getUTCDate();
         }
 
         const key = `${cYr}-${String(cMo).padStart(2, '0')}-${String(cDy).padStart(2, '0')}`;
@@ -674,9 +641,7 @@
       let todayYr = nowPkt.year, todayMo = nowPkt.month, todayDy = nowPkt.day;
       if (cycleStartHour > 0 && nowPkt.hour < cycleStartHour) {
         const prev = new Date(Date.UTC(todayYr, todayMo - 1, todayDy - 1));
-        todayYr = prev.getUTCFullYear();
-        todayMo = prev.getUTCMonth() + 1;
-        todayDy = prev.getUTCDate();
+        todayYr = prev.getUTCFullYear(); todayMo = prev.getUTCMonth() + 1; todayDy = prev.getUTCDate();
       }
       const todayKey = `${todayYr}-${String(todayMo).padStart(2, '0')}-${String(todayDy).padStart(2, '0')}`;
 
@@ -755,7 +720,7 @@
         });
       }
     } catch (e) {
-      console.warn('Battery daily discharge calculation error:', e);
+      console.warn('Battery daily discharge error:', e);
     }
 
     let extraRowsHtml = '';
@@ -775,7 +740,7 @@
         sub: netTodayWh >= 0 ? 'net charged' : 'net discharged'
       });
 
-      const pts = await fetch24h('battery');
+      const pts = await fetch24h('battery', 300);
       if (Array.isArray(pts) && pts.length) {
         let peakSoc = -1, peakTs = null;
         for (let i = 0; i < pts.length; i++) {
@@ -799,178 +764,204 @@
     return buildBatteryExtras();
   }
 
+  // ── Fridges: Combined Fridge 1 + Fridge 2 Daily Units Grid ───────────────
   async function buildFridgeExtras() {
-    const [pts1, pts2] = await Promise.all([fetch24h('fridge1'), fetch24h('fridge2')]);
-    let html = '';
-    [{ label: 'Fridge 1', pts: pts1 }, { label: 'Fridge 2', pts: pts2 }].forEach(({ label, pts }) => {
-      if (!pts.length) return;
-      const sessions = detectSessions(pts, 6, 1);
-      const runtimeMin = totalRuntimeMin(sessions);
-      const dutyPct = (runtimeMin / (24 * 60)) * 100;
-      const avgW = sessions.length ? sessions.reduce((a, s) => a + s.avgW, 0) / sessions.length : 0;
-      html += row(`${label} duty cycle`, `${dutyPct.toFixed(0)}%`, {
-        color: dutyPct > 70 ? '#f59e0b' : '#4ade80',
-        sub: `${fmtDuration(runtimeMin)} running \u00b7 avg ${Math.round(avgW)}W while on`
-      });
+    const gridHtml = await buildGenericApplianceDailyGrid({
+      title: '🧊 COMBINED FRIDGES DAILY UNITS',
+      titleColor: '#c084fc',
+      feedId: '499373',         // Fridge 1
+      secondFeedId: '541348',   // Fridge 2
+      liveTodayName: 'Fridge Today',
+      secondLiveName: 'Fridge2 Today',
+      hoverId: 'fd-fridge-cell-hover',
+      valColor: '#c084fc'
     });
-    return html || '<div style="color:var(--text-muted);font-size:12px;">No 24h data available.</div>';
+
+    let extraRowsHtml = '';
+    try {
+      const [pts1, pts2] = await Promise.all([fetch24h('fridge1', 300), fetch24h('fridge2', 300)]);
+      [{ label: 'Fridge 1', pts: pts1 }, { label: 'Fridge 2', pts: pts2 }].forEach(({ label, pts }) => {
+        if (!Array.isArray(pts) || !pts.length) return;
+        const sessions = detectSessions(pts, 6, 1);
+        const runtimeMin = totalRuntimeMin(sessions);
+        const dutyPct = (runtimeMin / (24 * 60)) * 100;
+        const avgW = sessions.length ? sessions.reduce((a, s) => a + s.avgW, 0) / sessions.length : 0;
+        extraRowsHtml += row(`${label} duty cycle`, `${dutyPct.toFixed(0)}%`, {
+          color: dutyPct > 70 ? '#f59e0b' : '#4ade80',
+          sub: `${fmtDuration(runtimeMin)} running \u00b7 avg ${Math.round(avgW)}W while on`
+        });
+      });
+    } catch (e) {}
+
+    return gridHtml + extraRowsHtml;
   }
 
+  // ── AC Extras: Kenwood 1.5T, Kenwood 1T, Haier 1T ─────────────────────────
   async function buildAcExtras(feedKey) {
-    const pts = await fetch24h(feedKey);
-    if (!pts.length) return '<div style="color:var(--text-muted);font-size:12px;">No 24h data available.</div>';
-    const sessions = detectSessions(pts, 100, 2);
-    const runtimeMin = totalRuntimeMin(sessions);
-    const avgW = sessions.length ? sessions.reduce((a, s) => a + s.avgW, 0) / sessions.length : 0;
-    const kwh = energyKwhFromSessions(sessions);
-    let html = '';
-    html += row('Runtime (24h)', fmtDuration(runtimeMin), { color: '#38bdf8', sub: `${sessions.length} session${sessions.length === 1 ? '' : 's'}` });
-    if (sessions.length) {
-      html += row('Avg power while running', `${Math.round(avgW)} W`);
-    }
-    html += row('Est. cost (24h)', fmtPkr(kwh * pkrRate()), { color: '#f87171', sub: `${kwh.toFixed(2)} kWh` });
-    return html;
+    const acConfigs = {
+      k15:   { title: '❄️ KENWOOD 1.5T DAILY UNITS', color: '#38bdf8', feedId: '499362', live: 'Kenwood 1.5Ton Today' },
+      k1:    { title: '❄️ KENWOOD 1T DAILY UNITS',   color: '#7dd3fc', feedId: '499364', live: 'Kenwood 1Ton Today' },
+      haier: { title: '❄️ HAIER 1T DAILY UNITS',     color: '#a5f3fc', feedId: '499367', live: 'Haier 1Ton Today' }
+    };
+    const cfg = acConfigs[feedKey] || acConfigs.k15;
+
+    const gridHtml = await buildGenericApplianceDailyGrid({
+      title: cfg.title,
+      titleColor: cfg.color,
+      feedId: cfg.feedId,
+      liveTodayName: cfg.live,
+      hoverId: `fd-${feedKey}-cell-hover`,
+      valColor: cfg.color
+    });
+
+    let extraRowsHtml = '';
+    try {
+      const pts = await fetch24h(feedKey, 300);
+      if (Array.isArray(pts) && pts.length) {
+        const sessions = detectSessions(pts, 100, 2);
+        const runtimeMin = totalRuntimeMin(sessions);
+        const avgW = sessions.length ? sessions.reduce((a, s) => a + s.avgW, 0) / sessions.length : 0;
+        const kwh = energyKwhFromSessions(sessions);
+        extraRowsHtml += row('Runtime (24h)', fmtDuration(runtimeMin), { color: '#38bdf8', sub: `${sessions.length} session${sessions.length === 1 ? '' : 's'}` });
+        if (sessions.length) {
+          extraRowsHtml += row('Avg power while running', `${Math.round(avgW)} W`);
+        }
+        extraRowsHtml += row('Est. cost (24h)', fmtPkr(kwh * pkrRate()), { color: '#f87171', sub: `${kwh.toFixed(2)} kWh` });
+      }
+    } catch (e) {}
+
+    return gridHtml + extraRowsHtml;
   }
 
+  // ── Water Tank Extras: 16×2 Daily Level (%) ──────────────────────────────
   async function buildWaterTankExtras() {
-    let html = '';
-    const lastOn = window.lastMotorOnTime || 0;
-    if (lastOn) {
-      html += row('Last fill', timeAgoStr(lastOn), { sub: formatPktTime(lastOn, 'time') });
-    }
-    const curLevel = window.lastResultsMap?.get('Water Tank')?.value;
-    if (curLevel != null) {
-      html += row('Current level', `${Math.round(curLevel)}%`, {
-        color: curLevel > 50 ? '#38bdf8' : curLevel > 20 ? '#f59e0b' : '#ef4444'
-      });
-    }
-    const pts = await fetch24h('water');
-    if (pts.length >= 2) {
-      let fillEvents = 0;
-      for (let i = 1; i < pts.length; i++) {
-        const prev = pts[i - 1][1], cur = pts[i][1];
-        if (prev != null && cur != null && cur - prev > 3) fillEvents++;
+    const gridHtml = await buildGenericApplianceDailyGrid({
+      title: '💧 WATER TANK DAILY LEVEL (%)',
+      titleColor: '#0ea5e9',
+      feedId: '499431',
+      liveTodayName: 'Water Tank',
+      hoverId: 'fd-water-cell-hover',
+      valColor: '#0ea5e9',
+      isPct: true
+    });
+
+    let extraRowsHtml = '';
+    try {
+      const lastOn = window.lastMotorOnTime || 0;
+      if (lastOn) {
+        extraRowsHtml += row('Last fill', timeAgoStr(lastOn), { sub: formatPktTime(lastOn, 'time') });
       }
-      html += row('Fill events (24h)', `${fillEvents}`, { color: '#0ea5e9' });
-    }
-    return html || '<div style="color:var(--text-muted);font-size:12px;">No recent activity data.</div>';
+      const curLevel = getFeedVal('Water Tank');
+      if (curLevel != null) {
+        extraRowsHtml += row('Current level', `${Math.round(curLevel)}%`, {
+          color: curLevel > 50 ? '#38bdf8' : curLevel > 20 ? '#f59e0b' : '#ef4444'
+        });
+      }
+      const pts = await fetch24h('water', 300);
+      if (Array.isArray(pts) && pts.length >= 2) {
+        let fillEvents = 0;
+        for (let i = 1; i < pts.length; i++) {
+          if (!Array.isArray(pts[i-1]) || !Array.isArray(pts[i])) continue;
+          const prev = pts[i - 1][1], cur = pts[i][1];
+          if (prev != null && cur != null && cur - prev > 3) fillEvents++;
+        }
+        extraRowsHtml += row('Fill events (24h)', `${fillEvents}`, { color: '#0ea5e9' });
+      }
+    } catch (e) {}
+
+    return gridHtml + extraRowsHtml;
   }
 
+  // ── Water Motor Extras: 16×2 Daily Pumping Units ─────────────────────────
   async function buildMotorExtras() {
-    const pts = await fetch24h('motor');
-    if (!pts.length) return '<div style="color:var(--text-muted);font-size:12px;">No 24h data available.</div>';
-    const sessions = detectSessions(pts, 50, 1);
-    const runtimeMin = totalRuntimeMin(sessions);
-    const kwh = energyKwhFromSessions(sessions);
-    const avgFlow = window.waterAvgFlowRate || 0;
-    const litersEst = avgFlow > 0 ? avgFlow * runtimeMin : null;
+    const gridHtml = await buildGenericApplianceDailyGrid({
+      title: '🚿 WATER MOTOR DAILY UNITS',
+      titleColor: '#fbbf24',
+      feedId: '542850',
+      liveTodayName: 'Water Motor Today',
+      hoverId: 'fd-motor-cell-hover',
+      valColor: '#fbbf24'
+    });
 
-    let html = '';
-    html += row('Runtime (24h)', fmtDuration(runtimeMin), { color: '#fbbf24', sub: `${sessions.length} cycle${sessions.length === 1 ? '' : 's'}` });
-    if (litersEst != null) {
-      html += row('Est. water pumped', `${Math.round(litersEst)} L`, { sub: 'based on avg flow rate' });
-    }
-    html += row('Est. cost (24h)', fmtPkr(kwh * pkrRate()), { sub: `${kwh.toFixed(2)} kWh` });
-    return html;
+    let extraRowsHtml = '';
+    try {
+      const pts = await fetch24h('motor', 300);
+      if (Array.isArray(pts) && pts.length) {
+        const sessions = detectSessions(pts, 50, 1);
+        const runtimeMin = totalRuntimeMin(sessions);
+        const kwh = energyKwhFromSessions(sessions);
+        const avgFlow = window.waterAvgFlowRate || 0;
+        const litersEst = avgFlow > 0 ? avgFlow * runtimeMin : null;
+
+        extraRowsHtml += row('Runtime (24h)', fmtDuration(runtimeMin), { color: '#fbbf24', sub: `${sessions.length} cycle${sessions.length === 1 ? '' : 's'}` });
+        if (litersEst != null) {
+          extraRowsHtml += row('Est. water pumped', `${Math.round(litersEst)} L`, { sub: 'based on avg flow rate' });
+        }
+        extraRowsHtml += row('Est. cost (24h)', fmtPkr(kwh * pkrRate()), { sub: `${kwh.toFixed(2)} kWh` });
+      }
+    } catch (e) {}
+
+    return gridHtml + extraRowsHtml;
   }
 
+  // ── Washing Machine Extras: 16×2 Daily Laundry Units ─────────────────────
   async function buildWmExtras() {
-    const pts = await fetch24h('wm');
-    if (!pts.length) return '<div style="color:var(--text-muted);font-size:12px;">No 24h data available.</div>';
-    const sessions = detectSessions(pts, 20, 3);
-    const kwh = energyKwhFromSessions(sessions);
-    let html = '';
-    html += row('Loads today', `${sessions.length}`, { color: '#e879f9' });
-    if (sessions.length) {
-      const last = sessions[sessions.length - 1];
-      html += row('Last load', `${formatPktTime(last.start, 'time')} \u2013 ${formatPktTime(last.end, 'time')}`, {
-        sub: fmtDuration(last.durMin)
-      });
-      const avgDur = sessions.reduce((a, s) => a + s.durMin, 0) / sessions.length;
-      html += row('Avg cycle length', fmtDuration(avgDur));
-    }
-    html += row('Est. cost (24h)', fmtPkr(kwh * pkrRate()), { sub: `${kwh.toFixed(2)} kWh` });
-    return html;
+    const gridHtml = await buildGenericApplianceDailyGrid({
+      title: '👕 WASHING MACHINE DAILY UNITS',
+      titleColor: '#e879f9',
+      feedId: '544694',
+      liveTodayName: 'Washing Machine Today',
+      hoverId: 'fd-wm-cell-hover',
+      valColor: '#e879f9'
+    });
+
+    let extraRowsHtml = '';
+    try {
+      const pts = await fetch24h('wm', 300);
+      if (Array.isArray(pts) && pts.length) {
+        const sessions = detectSessions(pts, 20, 3);
+        const kwh = energyKwhFromSessions(sessions);
+        extraRowsHtml += row('Loads today', `${sessions.length}`, { color: '#e879f9' });
+        if (sessions.length) {
+          const last = sessions[sessions.length - 1];
+          extraRowsHtml += row('Last load', `${formatPktTime(last.start, 'time')} → ${formatPktTime(last.end, 'time')}`, {
+            sub: fmtDuration(last.durMin)
+          });
+          const avgDur = sessions.reduce((a, s) => a + s.durMin, 0) / sessions.length;
+          extraRowsHtml += row('Avg cycle length', fmtDuration(avgDur));
+        }
+        extraRowsHtml += row('Est. cost (24h)', fmtPkr(kwh * pkrRate()), { sub: `${kwh.toFixed(2)} kWh` });
+      }
+    } catch (e) {}
+
+    return gridHtml + extraRowsHtml;
   }
 
+  // ── PC Extras: 16×2 Daily Workstation Units ──────────────────────────────
   async function buildPcExtras() {
-    const pts = await fetch24h('pc');
-    if (!pts.length) return '<div style="color:var(--text-muted);font-size:12px;">No 24h data available.</div>';
-    const sessions = detectSessions(pts, 20, 2);
-    const runtimeMin = totalRuntimeMin(sessions);
-    const kwh = energyKwhFromSessions(sessions);
-    let html = '';
-    html += row('Uptime (24h)', fmtDuration(runtimeMin), { color: '#4ade80' });
-    html += row('Est. cost (24h)', fmtPkr(kwh * pkrRate()), { sub: `${kwh.toFixed(2)} kWh` });
-    return html;
+    const gridHtml = await buildGenericApplianceDailyGrid({
+      title: '💻 PC WORKSTATION DAILY UNITS',
+      titleColor: '#4ade80',
+      feedId: '499422',
+      liveTodayName: 'PC Today',
+      hoverId: 'fd-pc-cell-hover',
+      valColor: '#4ade80'
+    });
+
+    let extraRowsHtml = '';
+    try {
+      const pts = await fetch24h('pc', 300);
+      if (Array.isArray(pts) && pts.length) {
+        const sessions = detectSessions(pts, 20, 2);
+        const runtimeMin = totalRuntimeMin(sessions);
+        const kwh = energyKwhFromSessions(sessions);
+        extraRowsHtml += row('Uptime (24h)', fmtDuration(runtimeMin), { color: '#4ade80' });
+        extraRowsHtml += row('Est. cost (24h)', fmtPkr(kwh * pkrRate()), { sub: `${kwh.toFixed(2)} kWh` });
+      }
+    } catch (e) {}
+
+    return gridHtml + extraRowsHtml;
   }
-
-  // ── FLOW_BATTERY2_PATCH_V1: Battery 2 (Dyness) extras ────────────────
-  // Feed IDs are hard-coded here (not routed through GRAPH_FEEDS) since
-  // Battery 2 isn't necessarily added to the Graphs panel's feed list.
-  const BAT2_IDS = {
-    power: '546365', voltage: '546369', current: '546370',
-    soc: '546371', soh: '546372', mosfetTemp: '546373', bmsTemp: '546374',
-    cycles: '546375',
-    chgLimV: '546376', chgLimA: '546377', disLimV: '546378', disLimA: '546379'
-  };
-
-  async function buildBattery2Extras() {
-    const pts = await fetch24hById(BAT2_IDS.power);
-    let html = '';
-
-    if (pts.length) {
-      const chgSessions = detectSessions(pts.map(([t, v]) => [t, v != null && v > 15 ? v : 0]), 15, 5);
-      const disSessions = detectSessions(pts.map(([t, v]) => [t, v != null && v < -15 ? Math.abs(v) : 0]), 15, 5);
-      const chgKwh = energyKwhFromSessions(chgSessions);
-      const disKwh = energyKwhFromSessions(disSessions);
-
-      html += row('Charged (24h)', fmtKwhVal(chgKwh), { color: '#4ade80', sub: `${chgSessions.length} session${chgSessions.length === 1 ? '' : 's'}` });
-      html += row('Discharged (24h)', fmtKwhVal(disKwh), { color: '#f59e0b', sub: `${disSessions.length} session${disSessions.length === 1 ? '' : 's'}` });
-
-      let peakW = 0, peakTs = null;
-      for (const [ts, v] of pts) {
-        if (v != null && Math.abs(v) > Math.abs(peakW)) { peakW = v; peakTs = ts < 2e9 ? ts * 1000 : ts; }
-      }
-      if (peakTs) {
-        html += row('Peak power (24h)', `${peakW > 0 ? '+' : ''}${Math.round(peakW)} W`, {
-          color: peakW > 0 ? '#4ade80' : '#f59e0b',
-          sub: `at ${formatPktTime(peakTs, 'time')}`
-        });
-      }
-    }
-
-    // Cell spread trend: compare current spread vs 24h ago isn't tractable
-    // without per-cell history for all 16 cells, so just show current spread.
-    const byName = window.lastResultsMap;
-    const cellNames = window.BATTERY2_CELL_NAMES || [];
-    if (byName && cellNames.length) {
-      const vals = cellNames.map(n => byName.get(n)?.value).filter(v => v != null && v > 0);
-      if (vals.length > 1) {
-        const spreadMv = Math.round((Math.max(...vals) - Math.min(...vals)) * 1000);
-        html += row('Cell spread (now)', `${spreadMv} mV`, {
-          color: spreadMv > 30 ? '#ef4444' : spreadMv > 15 ? '#facc15' : '#4ade80',
-          sub: `${vals.length}/16 cells reporting`
-        });
-      }
-    }
-
-    const soh = byName?.get('Bat2 SOH')?.value;
-    const cyc = byName?.get('Bat2 Cycle Count')?.value;
-    if (soh != null) html += row('State of Health', `${Math.round(soh)}%`, { color: '#10b981' });
-    if (cyc != null) html += row('Cycle count', `${Math.round(cyc)}`, { color: '#10b981' });
-
-    return html || '<div style="color:var(--text-muted);font-size:12px;">No 24h data available.</div>';
-  }
-
-  // ── Battery: session-annotated, zoom/pan-capable SOC chart ──────────
-  //
-  // Reuses window.detectBatterySessions (js/19c1-graphs-state.js) so the
-  // session-detection algorithm matches the main Graphs view exactly.
-  // Zoom/pan uses the same _computeWindow-style math as the plain 24h
-  // charts in js/22-flow-detail.js (scroll = zoom around cursor, drag =
-  // pan, pinch = zoom on touch), reimplemented here since it needs to
-  // redraw session pills (not just a plain line) on every frame.
 
   function _computeSocWindow(n, zoom, panX, cW) {
     if (n <= 0) return { startIdx: 0, visibleN: 0 };

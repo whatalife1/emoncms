@@ -85,7 +85,7 @@
     if (!feed || !feed.id) return [];
     const now = Date.now();
     const startMs = now - 24 * 3600 * 1000;
-    const resolutions = resOverride ? [resOverride] : [120, 300, 900, 3600];
+    const resolutions = resOverride ? [resOverride, 120, 300, 600, 900, 1800, 3600] : [120, 300, 600, 900, 1800, 3600];
     for (const res of resolutions) {
       try {
         const pts = await _gFetch(feed.id, startMs, now, res);
@@ -101,7 +101,7 @@
     if (typeof _gFetch !== 'function' || !feedId) return [];
     const now = Date.now();
     const startMs = now - 24 * 3600 * 1000;
-    const resolutions = resOverride ? [resOverride] : [120, 300, 900, 3600];
+    const resolutions = resOverride ? [resOverride, 120, 300, 600, 900, 1800, 3600] : [120, 300, 600, 900, 1800, 3600];
     for (const res of resolutions) {
       try {
         const pts = await _gFetch(feedId, startMs, now, res);
@@ -556,41 +556,75 @@
 
   // ── Solar Extras: 16×2 Daily Solar Grid ──────────────────────────────────
   async function buildSolarExtras() {
-    const gridHtml = await buildGenericApplianceDailyGrid({
-      title: '☀️ DAILY SOLAR GENERATION',
-      titleColor: '#f59e0b',
-      feedId: (typeof FEEDS_BASE !== 'undefined' && FEEDS_BASE.find(f => f.name === 'Solar'))?.id || '499380',
-      liveTodayName: 'Solar Today',
-      hoverId: 'fd-solar-cell-hover',
-      valColor: '#f59e0b',
-      hideNight: true
-    });
+    const extrasHdr = document.querySelector('#flow-detail-modal .fd-extras .fd-extras-header');
+    if (extrasHdr) extrasHdr.style.display = '';
 
     let extraRowsHtml = '';
     try {
-      const pts = await fetch24h('solar', 300);
+      const pts = await fetch24h('solar');
+      let peakW = 0, peakTs = null;
       if (Array.isArray(pts) && pts.length) {
-        let peakW = 0, peakTs = null;
         for (let i = 0; i < pts.length; i++) {
           const p = pts[i];
           if (!Array.isArray(p)) continue;
           const ts = p[0], v = p[1];
           if (v != null && v > peakW) { peakW = v; peakTs = ts < 2e9 ? ts * 1000 : ts; }
         }
-        const peakTimeStr = peakTs && typeof formatPktTime === 'function' ? formatPktTime(peakTs, 'time') : '--';
-        const solarTodayWh = (getFeedVal('Solar Today') || 0) * 1000;
-        const gridTodayWh = (getFeedVal('Breaker Today') || 0) * 1000;
-        const totalTodayWh = solarTodayWh + gridTodayWh;
-        const selfConsumptionPct = totalTodayWh > 0 ? (solarTodayWh / totalTodayWh * 100) : 0;
-        const co2Kg = (solarTodayWh / 1000) * 0.4;
-
-        extraRowsHtml += row('Peak today', `${Math.round(peakW)} W`, { color: '#facc15', sub: `at ${peakTimeStr}` });
-        extraRowsHtml += row('Self-consumption', `${selfConsumptionPct.toFixed(0)}%`, { color: '#4ade80', sub: 'of today’s total energy use' });
-        extraRowsHtml += row('Est. CO₂ saved today', `${co2Kg.toFixed(1)} kg`, { color: '#38bdf8' });
       }
+      const peakTimeStr = peakTs && typeof formatPktTime === 'function' ? formatPktTime(peakTs, 'time') : '';
+      const solarTodayWh = (getFeedVal('Solar Today') || (window.monthlyUnits && window.monthlyUnits.solar_t) || 0) * 1000;
+      const gridTodayWh = (getFeedVal('Breaker Today') || (window.monthlyUnits && window.monthlyUnits.gridT) || 0) * 1000;
+      const totalTodayWh = solarTodayWh + gridTodayWh;
+      const selfConsumptionPct = totalTodayWh > 0 ? (solarTodayWh / totalTodayWh * 100) : 0;
+      const co2Kg = (solarTodayWh / 1000) * 0.4;
+
+      extraRowsHtml += row('Peak today', `${Math.round(peakW)} W`, { color: '#facc15', sub: peakTimeStr ? `at ${peakTimeStr}` : '' });
+      extraRowsHtml += row('Self-consumption', `${selfConsumptionPct.toFixed(0)}%`, { color: '#4ade80', sub: 'of today’s total energy use' });
+
+      let onTrackPct = null;
+      try {
+        const solarTodayKwh = solarTodayWh / 1000;
+        let predKwh = 0;
+        if (typeof _calcDayKwh === 'function') {
+          const cycleStartMs = (typeof getPktTodayStart === 'function') ? getPktTodayStart() : Date.now();
+          const pktDate = (typeof getKarachiDate === 'function') ? getKarachiDate(cycleStartMs + 3600000 * 2) : {
+            year: new Date().getFullYear(),
+            month: new Date().getMonth() + 1,
+            day: new Date().getDate()
+          };
+          predKwh = await _calcDayKwh(pktDate.year, pktDate.month, pktDate.day);
+        }
+        if (predKwh > 0 && solarTodayKwh > 0) {
+          onTrackPct = Math.round((solarTodayKwh / predKwh) * 100);
+        }
+      } catch (err) {}
+
+      if (onTrackPct != null) {
+        extraRowsHtml += row('On track vs forecast', `${onTrackPct}%`, { color: '#facc15' });
+      }
+
+      extraRowsHtml += row('Est. CO₂ saved today', `${co2Kg.toFixed(1)} kg`, {
+        color: '#38bdf8',
+        sub: 'rough estimate, 0.4 kg/kWh grid factor'
+      });
+    } catch (e) {
+      console.warn('buildSolarExtras error', e);
+    }
+
+    let gridHtml = '';
+    try {
+      gridHtml = await buildGenericApplianceDailyGrid({
+        title: '☀️ DAILY SOLAR GENERATION',
+        titleColor: '#f59e0b',
+        feedId: (typeof FEEDS_BASE !== 'undefined' && FEEDS_BASE.find(f => f.name === 'Solar'))?.id || '499380',
+        liveTodayName: 'Solar Today',
+        hoverId: 'fd-solar-cell-hover',
+        valColor: '#f59e0b',
+        hideNight: true
+      });
     } catch (e) {}
 
-    return gridHtml + extraRowsHtml;
+    return extraRowsHtml + gridHtml;
   }
 
   // ── Grid Extras: 16×2 Daily Units Grid ───────────────────────────────────

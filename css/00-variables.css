@@ -32,7 +32,7 @@
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-body { background: var(--bg-base); color: var(--text-main); font-family: system-ui, -apple-system, sans-serif; font-size: 14px; width: 100%; min-height: 100vh; overflow-x: hidden; transition: background 0.25s, color 0.25s; }
+body { background: var(--bg-base); color: var(--text-main); font-family: system-ui, -apple-system, sans-serif; font-size: 14px; width: 100%; min-height: 100vh; overflow-x: auto; transition: background 0.25s, color 0.25s; }
 
 /* ── App Shell Desktop Constraint ─────────────────────────────────────── */
 .main-shell {

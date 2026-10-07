@@ -558,9 +558,16 @@
     const kind = _classifyLine(line.text, idx === 0);
     const color = (line.fill && line.fill !== 'none') ? line.fill : accentColor;
     let size, weight;
-    if (kind === 'hero')       { size = 40; weight = 800; }
-    else if (kind === 'title') { size = 22; weight = 800; }
-    else                       { size = 17; weight = 700; }
+    if (boxKey === 'solar') {
+      if (idx === 0) { size = 24; weight = 800; }
+      else if (idx === 1) { size = 18; weight = 700; }
+      else if (idx === 2) { size = 14; weight = 600; }
+      else { size = 16; weight = 700; }
+    } else {
+      if (kind === 'hero')       { size = 40; weight = 800; }
+      else if (kind === 'title') { size = 22; weight = 800; }
+      else                       { size = 17; weight = 700; }
+    }
 
     const ov = _textOv(boxKey, idx);
     if (typeof ov.fs === 'number' && ov.fs > 0) size = ov.fs;
@@ -951,6 +958,28 @@
 
     if (boxKey === 'battery') {
       _renderBattery3Boxes(container, lines);
+      return;
+    }
+
+    if (boxKey === 'solar') {
+      const MODAL_DY_SCALE = 0.35;
+      let minDy = 0;
+      const solarLines = lines.filter(function (l) {
+        return !/^(Today|Month|Pred2):/i.test(l.text.trim());
+      });
+      solarLines.forEach(function (_, i) {
+        const ov = _textOv(boxKey, i);
+        if (typeof ov.dy === 'number' && ov.dy < minDy) minDy = ov.dy;
+      });
+      const extraTop = Math.max(0, -minDy * MODAL_DY_SCALE);
+      container.style.paddingTop = (16 + extraTop) + 'px';
+      container.style.paddingBottom = '16px';
+      container.style.gap = '8px';
+      container.__fdDyScale = MODAL_DY_SCALE;
+
+      container.innerHTML = solarLines.map(function (l, i) {
+        return _lineHtml(l, i, cfg.color, boxKey);
+      }).join('');
       return;
     }
 
@@ -1412,6 +1441,8 @@
     (function () {
       const extrasBody = modal.querySelector('.fd-extras .fd-extras-body');
       const extrasWrap = modal.querySelector('.fd-extras');
+      const extrasHdr = modal.querySelector('.fd-extras .fd-extras-header');
+      if (extrasHdr) extrasHdr.style.display = '';
       if (typeof window.renderFlowExtras === 'function' && window.FLOW_EXTRAS_REGISTRY && window.FLOW_EXTRAS_REGISTRY[boxKey]) {
         if (extrasWrap) extrasWrap.style.display = '';
         window.renderFlowExtras(boxKey, extrasBody);

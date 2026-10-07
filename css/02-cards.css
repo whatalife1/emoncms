@@ -303,3 +303,12 @@
     gap: 4px !important;
   }
 }
+/* ── Allow Native Pinch-to-Zoom over Flow SVG on Mobile Chrome ── */
+#flow-wrap,
+#flow-card,
+#flow-svg-wrap,
+#flow-svg-wrap svg,
+#flow-svg-wrap rect,
+#flow-svg-wrap text {
+  touch-action: pan-x pan-y pinch-zoom !important;
+}

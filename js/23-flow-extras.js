@@ -1,20 +1,4 @@
 // js/23-flow-extras.js
-// See js/19a-graphs-core.js for Battery 2 (Dyness) feed entries added to
-// GRAPH_FEEDS (keys: bat2soc, bat2power, bat2volt, bat2current, bat2cellspread)
-// so Battery 2 is selectable in the Graphs panel like any other feed.
-// FLOW_EXTRAS_PATCH_V1
-// FLOW_EXTRAS_PATCH_V2
-// FLOW_EXTRAS_PATCH_V3
-// FLOW_BATTERY2_PATCH_V1 — Battery 2 (Dyness) extras + dedicated SOC chart
-// ─────────────────────────────────────────────────────────────────────────
-// Extra per-box stats shown in the flow-detail popup ("Extra Info" section),
-// plus a dedicated session-annotated, zoom/pan-capable SOC chart for the
-// Battery box (mirrors Graphs -> Day -> Battery: colored pills for each
-// charge/discharge session, scroll/pinch to zoom, drag to pan).
-//
-// Computed on-demand only when a popup is opened (not on every poll).
-// ─────────────────────────────────────────────────────────────────────────
-
 (function () {
   'use strict';
   const BAT2_IDS = {
@@ -32,7 +16,6 @@
     disLimA:    '546379'
   };
 
-
   const EXTRAS_REGISTRY = {
     solar:   { build: buildSolarExtras   },
     grid:    { build: buildGridExtras    },
@@ -45,24 +28,19 @@
     motor:   { build: buildMotorExtras   },
     wm:      { build: buildWmExtras      },
     pc:      { build: buildPcExtras      },
-    // FLOW_BATTERY2_PATCH_V1
     battery2:{ build: buildBattery2Extras }
   };
-
-  // ── Small helpers ────────────────────────────────────────────────────
 
   function pkrRate() {
     return (typeof solarCfg !== 'undefined' && solarCfg && solarCfg.pkrPerUnit) || 60;
   }
 
-  // v is in kWh
   function fmtKwhVal(v) {
     if (v == null || isNaN(v)) return '0 Wh';
     const wh = v * 1000;
     return Math.abs(wh) >= 500 ? (wh / 1000).toFixed(1) + ' kWh' : Math.round(wh) + ' Wh';
   }
 
-  // v is already in Wh
   function fmtWhVal(v) {
     if (v == null || isNaN(v)) return '0 Wh';
     return Math.abs(v) >= 500 ? (v / 1000).toFixed(1) + ' kWh' : Math.round(v) + ' Wh';
@@ -90,13 +68,11 @@
       try {
         const pts = await _gFetch(feed.id, startMs, now, res);
         if (pts && pts.length) return pts;
-      } catch (e) { /* try coarser */ }
+      } catch (e) {}
     }
     return [];
   }
 
-  // Like fetch24h but takes a raw feed ID directly, for feeds that aren't
-  // registered in GRAPH_FEEDS (e.g. Battery 2 SOC/limits/cells).
   async function fetch24hById(feedId, resOverride) {
     if (typeof _gFetch !== 'function' || !feedId) return [];
     const now = Date.now();
@@ -172,9 +148,6 @@
     </div>`;
   }
 
-  // ── Per-box builders ─────────────────────────────────────────────────
-
-  // Safe feed lookup that works whether lastResultsMap is a Map, an Array, or undefined
   function getFeedVal(name) {
     if (!window.lastResultsMap) return null;
     try {
@@ -190,133 +163,7 @@
     return null;
   }
 
-  // ── Solar Extras: 16×2 Daily Solar Grid + Month Estimate ─────────────
-  // Safe feed lookup that works whether lastResultsMap is a Map, an Array, or undefined
-  function getFeedVal(name) {
-    if (!window.lastResultsMap) return null;
-    try {
-      if (typeof window.lastResultsMap.get === 'function') {
-        const item = window.lastResultsMap.get(name);
-        return item ? item.value : null;
-      }
-      if (Array.isArray(window.lastResultsMap)) {
-        const item = window.lastResultsMap.find(f => f && f.name === name);
-        return item ? item.value : null;
-      }
-    } catch (e) {}
-    return null;
-  }
-
-  // ── Solar Extras: 16×2 Daily Solar Grid + Month Estimate ─────────────
-  // Safe feed lookup that works whether lastResultsMap is a Map, an Array, or undefined
-  function getFeedVal(name) {
-    if (!window.lastResultsMap) return null;
-    try {
-      if (typeof window.lastResultsMap.get === 'function') {
-        const item = window.lastResultsMap.get(name);
-        return item ? item.value : null;
-      }
-      if (Array.isArray(window.lastResultsMap)) {
-        const item = window.lastResultsMap.find(f => f && f.name === name);
-        return item ? item.value : null;
-      }
-    } catch (e) {}
-    return null;
-  }
-
-  // ── Solar Extras: 16×2 Daily Solar Grid + Month Estimate ─────────────
-  // Safe feed lookup that works whether lastResultsMap is a Map, an Array, or undefined
-  function getFeedVal(name) {
-    if (!window.lastResultsMap) return null;
-    try {
-      if (typeof window.lastResultsMap.get === 'function') {
-        const item = window.lastResultsMap.get(name);
-        return item ? item.value : null;
-      }
-      if (Array.isArray(window.lastResultsMap)) {
-        const item = window.lastResultsMap.find(f => f && f.name === name);
-        return item ? item.value : null;
-      }
-    } catch (e) {}
-    return null;
-  }
-
-  // ── Shared 16×2 Card Grid Renderer (Inline styles ensure 100% reliable layout) ──
-  function render16x2CardGrid(cfg) {
-    const {
-      title, titleColor, dayList, totalKwh, avgKwh, estKwh, estPkr,
-      pkrSuffix, todayUnits, hoverId, valColorDefault, extraHeaderRow
-    } = cfg;
-
-    const startLabel = dayList.length ? dayList[0].dayLabel : '';
-    const endLabel = dayList.length ? dayList[dayList.length - 1].dayLabel : '';
-    const pkrText = estPkr != null ? ` (~PKR ${Math.round(estPkr).toLocaleString()}${pkrSuffix ? ' ' + pkrSuffix : ''})` : '';
-
-    return `
-      <div style="background:var(--bg-card, #141416); border:1px solid var(--border, #27272a); border-left:3px solid ${titleColor}; border-radius:10px; padding:10px 12px; margin-bottom:10px; width:100%; box-sizing:border-box;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; flex-wrap:wrap; gap:4px;">
-          <span style="font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.05em; color:${titleColor};">
-            ${title} (${startLabel} → ${endLabel})
-          </span>
-          <div style="font-size:11px; font-weight:700; color:var(--text-muted, #71717a); display:flex; align-items:center; flex-wrap:wrap; gap:4px;">
-            <span>Total: <b style="color:${titleColor};">${totalKwh.toFixed(1)} kWh</b></span>
-            <span>&bull;</span>
-            <span>Avg: <b style="color:var(--text-main, #f4f4f5);">${avgKwh.toFixed(1)}</b>/d</span>
-            <span>&bull;</span>
-            <span>Est: <b style="color:#facc15;">~${estKwh.toFixed(0)} kWh</b><span style="font-size:10px; color:${titleColor};">${pkrText}</span></span>
-            <span id="${hoverId}" style="margin-left:4px; color:#facc15; font-weight:800;">[Today: ${todayUnits.toFixed(1)} kWh]</span>
-          </div>
-        </div>
-
-        ${extraHeaderRow || ''}
-
-        <div class="fd-grid-16-container">
-          ${dayList.map(d => {
-            const isToday = d.isToday;
-            const isFuture = d.isFuture;
-            const valText = isFuture ? '-' : (d.kwh != null ? d.kwh.toFixed(1) : '0.0');
-
-            const bg = isToday ? 'rgba(250,204,21,0.14)' : (isFuture ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.03)');
-            const border = isToday ? '1.5px solid #facc15' : (isFuture ? '1px dashed rgba(255,255,255,0.08)' : '1px solid var(--border, #27272a)');
-            const opacity = isFuture ? 'opacity:0.35;' : '';
-            const shadow = isToday ? 'box-shadow:0 0 8px rgba(250,204,21,0.25);' : '';
-            const dateColor = isToday ? '#facc15' : 'var(--text-muted, #71717a)';
-            const valColor = isToday ? '#facc15' : (isFuture ? 'var(--text-muted, #71717a)' : valColorDefault);
-
-            return `
-              <div class="fd-grid-cell ${isToday ? 'is-today' : ''} ${isFuture ? 'is-future' : ''}"
-                   title="${d.dayLabel}: ${isFuture ? 'Upcoming' : (d.kwh != null ? d.kwh.toFixed(1) : '0.0') + ' kWh'}"
-                   onmouseenter="const el=document.getElementById('${hoverId}'); if(el) el.textContent='${d.dayLabel}: ${isFuture ? 'Upcoming' : (d.kwh != null ? d.kwh.toFixed(1) : '0.0') + ' kWh'}';"
-                   ontouchstart="const el=document.getElementById('${hoverId}'); if(el) el.textContent='${d.dayLabel}: ${isFuture ? 'Upcoming' : (d.kwh != null ? d.kwh.toFixed(1) : '0.0') + ' kWh'}';"
-                   style="background:${bg}; border:${border}; border-radius:6px; padding:4px 1px; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; min-height:38px; box-sizing:border-box; transition:background .12s, border-color .12s; cursor:${isFuture ? 'default' : 'pointer'}; user-select:none; ${opacity} ${shadow}">
-                <span class="fd-cell-date" style="font-size:8.5px; font-weight:700; color:${dateColor}; line-height:1; white-space:nowrap;">${d.dayLabel}</span>
-                <span class="fd-cell-val" style="font-size:11px; font-weight:800; font-family:monospace, system-ui; color:${valColor}; line-height:1.15; white-space:nowrap; margin-top:2px;">${valText}</span>
-              </div>
-            `;
-          }).join('')}
-        </div>
-      </div>
-    `;
-  }
-
-  // ── Solar Extras: 16×2 Daily Solar Grid + Month Estimate ─────────────
-  // Safe feed lookup that works whether lastResultsMap is a Map, an Array, or undefined
-  function getFeedVal(name) {
-    if (!window.lastResultsMap) return null;
-    try {
-      if (typeof window.lastResultsMap.get === 'function') {
-        const item = window.lastResultsMap.get(name);
-        return item ? item.value : null;
-      }
-      if (Array.isArray(window.lastResultsMap)) {
-        const item = window.lastResultsMap.find(f => f && f.name === name);
-        return item ? item.value : null;
-      }
-    } catch (e) {}
-    return null;
-  }
-
-  // ── Shared 16×2 Card Grid (Shows Total kWh + 🌙 Night 4pm-7am kWh) ──────
+  // ── Shared 16×2 Card Grid ──
   function render16x2CardGrid(cfg) {
     const {
       title, titleColor, dayList, totalKwh, totalNightKwh, avgKwh, avgNightKwh,
@@ -330,24 +177,24 @@
     const unitLabel = isPct ? '%' : 'kWh';
 
     const nightStats = (totalNightKwh != null && !hideNight)
-      ? ` (<span style="color:#c084fc;">🌙 ${totalNightKwh.toFixed(1)} kWh</span>)`
+      ? ` (<span style="color:#c084fc;">${totalNightKwh.toFixed(1)} kWh</span>)`
       : '';
     const avgNightStats = (avgNightKwh != null && !hideNight)
-      ? ` (<span style="color:#c084fc;">🌙 ${avgNightKwh.toFixed(1)} kWh/d</span>)`
+      ? ` (<span style="color:#c084fc;">${avgNightKwh.toFixed(1)} kWh/d</span>)`
       : '';
 
     return `
       <div style="background:var(--bg-card, #141416); border:1px solid var(--border, #27272a); border-left:3px solid ${titleColor}; border-radius:10px; padding:10px 12px; margin-bottom:10px; width:100%; box-sizing:border-box;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; flex-wrap:wrap; gap:4px;">
-          <span style="font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.05em; color:${titleColor};">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; flex-wrap:wrap; gap:5px;">
+          <span style="font-size:13px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; color:${titleColor};">
             ${title} (${startLabel} → ${endLabel})
           </span>
-          <div style="font-size:11px; font-weight:700; color:var(--text-muted, #71717a); display:flex; align-items:center; flex-wrap:wrap; gap:4px;">
+          <div style="font-size:12.5px; font-weight:700; color:var(--text-muted, #71717a); display:flex; align-items:center; flex-wrap:wrap; gap:5px;">
             <span>${isPct ? 'Cycle Avg' : 'Total'}: <b style="color:${titleColor};">${totalKwh.toFixed(1)} ${unitLabel}</b>${nightStats}</span>
             <span>&bull;</span>
             <span>${isPct ? 'Min' : 'Avg'}: <b style="color:var(--text-main, #f4f4f5);">${avgKwh.toFixed(1)}</b> ${isPct ? '%' : 'kWh/d'}${avgNightStats}</span>
-            ${estKwh != null ? `<span>&bull;</span><span>Est: <b style="color:#facc15;">~${estKwh.toFixed(0)} kWh</b><span style="font-size:10px; color:${titleColor};">${pkrText}</span></span>` : ''}
-            <span id="${hoverId}" style="margin-left:4px; color:#facc15; font-weight:800;">[Today: ${todayUnits != null ? (isPct ? Math.round(todayUnits) + '%' : todayUnits.toFixed(1) + ' kWh') : '--'}${todayNightUnits != null && !hideNight ? ` <span style="color:#c084fc;">(🌙 ${todayNightUnits.toFixed(1)}k)</span>` : ''}]</span>
+            ${estKwh != null ? `<span>&bull;</span><span>Est: <b style="color:#facc15;">~${estKwh.toFixed(0)} kWh</b><span style="font-size:11.5px; color:${titleColor};">${pkrText}</span></span>` : ''}
+            <span id="${hoverId}" style="margin-left:4px; color:#facc15; font-weight:800;">[Today: ${todayUnits != null ? (isPct ? Math.round(todayUnits) + '%' : todayUnits.toFixed(1) + ' kWh') : '--'}${todayNightUnits != null && !hideNight ? ` <span style="color:#c084fc;">(${todayNightUnits.toFixed(1)}k)</span>` : ''}]</span>
           </div>
         </div>
 
@@ -369,7 +216,7 @@
 
             const hoverInfo = isFuture
               ? `${d.dayLabel}: Upcoming`
-              : `${d.dayLabel}: Total ${valText} ${unitLabel}${nightText ? ' · ☀️ Day: ' + ((d.kwh||0)-(d.nightKwh||0)).toFixed(1) + ' · 🌙 Night: ' + nightText : ''}`;
+              : `${d.dayLabel}: Total ${valText} ${unitLabel}${nightText ? ' · ☀️ Day: ' + ((d.kwh||0)-(d.nightKwh||0)).toFixed(1) + ' · Night: ' + nightText : ''}`;
 
             return `
               <div class="fd-grid-cell ${isToday ? 'is-today' : ''} ${isFuture ? 'is-future' : ''}"
@@ -377,9 +224,9 @@
                    onmouseenter="const el=document.getElementById('${hoverId}'); if(el) el.textContent='${hoverInfo}';"
                    ontouchstart="const el=document.getElementById('${hoverId}'); if(el) el.textContent='${hoverInfo}';"
                    style="background:${bg}; border:${border}; border-radius:6px; padding:3px 1px; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; min-height:46px; min-width:0; box-sizing:border-box; transition:background .12s, border-color .12s; cursor:${isFuture ? 'default' : 'pointer'}; user-select:none; ${opacity} ${shadow}">
-                <span class="fd-cell-date" style="font-size:9px; font-weight:700; color:${dateColor}; line-height:1; white-space:nowrap;">${d.dayLabel}</span>
-                <span class="fd-cell-val" style="font-size:11.5px; font-weight:800; font-family:monospace, system-ui; color:${valColor}; line-height:1.15; white-space:nowrap; margin-top:1.5px;">${valText}</span>
-                ${nightText ? `<span class="fd-cell-night" style="font-size:8.5px; font-weight:800; font-family:monospace, system-ui; color:#c084fc; line-height:1; white-space:nowrap; margin-top:1px;">🌙${nightText}</span>` : (isFuture ? `<span style="font-size:8.5px; color:var(--text-muted); opacity:0.35;">-</span>` : '')}
+                <span class="fd-cell-date" style="font-size:9.5px; font-weight:700; color:${dateColor}; line-height:1; white-space:nowrap;">${d.dayLabel}</span>
+                <span class="fd-cell-val" style="font-size:12px; font-weight:800; font-family:monospace, system-ui; color:${valColor}; line-height:1.15; white-space:nowrap; margin-top:1.5px;">${valText}</span>
+                ${nightText ? `<span class="fd-cell-night" style="font-size:9.5px; font-weight:800; font-family:monospace, system-ui; color:#c084fc; line-height:1; white-space:nowrap; margin-top:1.5px;">${nightText}</span>` : (isFuture ? `<span style="font-size:9px; color:var(--text-muted); opacity:0.35;">-</span>` : '')}
               </div>
             `;
           }).join('')}
@@ -388,7 +235,6 @@
     `;
   }
 
-  // ── Generalized Appliance Daily Grid Engine (Total + Night 4pm-7am) ────
   async function buildGenericApplianceDailyGrid(opts) {
     const {
       title, titleColor, feedId, secondFeedId, liveTodayName, secondLiveName,
@@ -447,7 +293,6 @@
           daySums[key] = (daySums[key] || 0) + numVal;
           dayCounts[key] = (dayCounts[key] || 0) + 1;
 
-          // Night definition: 4:00 PM (16:00) to 7:00 AM
           const isNight = (p.hour >= 16 || p.hour < 7);
           if (isNight) {
             nightSums[key] = (nightSums[key] || 0) + numVal;
@@ -554,7 +399,6 @@
     return '';
   }
 
-  // ── Solar Extras: 16×2 Daily Solar Grid ──────────────────────────────────
   async function buildSolarExtras() {
     const extrasHdr = document.querySelector('#flow-detail-modal .fd-extras .fd-extras-header');
     if (extrasHdr) extrasHdr.style.display = '';
@@ -627,7 +471,6 @@
     return extraRowsHtml + gridHtml;
   }
 
-  // ── Grid Extras: 16×2 Daily Units Grid ───────────────────────────────────
   async function buildGridExtras() {
     const gridHtml = await buildGenericApplianceDailyGrid({
       title: '⚡ DAILY GRID UNITS',
@@ -662,7 +505,6 @@
     return gridHtml + outageHtml;
   }
 
-  // ── Battery Extras: 16×2 Daily Discharge Grid ────────────────────────────
   async function buildBatteryExtras() {
     let dailyDischargeHtml = '';
     const extrasHdr = document.querySelector('#flow-detail-modal .fd-extras .fd-extras-header');
@@ -799,7 +641,7 @@
         const bmsTotalCycles = getFeedVal('Bat2 Cycle Count') || getFeedVal('Bat Cycle Count') || 13;
 
         const cycleRowHtml = `
-          <div style="display:flex; justify-content:space-between; align-items:center; font-size:10.5px; font-weight:700; color:var(--text-muted); margin-bottom:8px; padding-bottom:6px; border-bottom:1px dashed var(--border); flex-wrap:wrap; gap:4px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; font-size:12.5px; font-weight:700; color:var(--text-muted); margin-bottom:8px; padding-bottom:6px; border-bottom:1px dashed var(--border); flex-wrap:wrap; gap:5px;">
             <span>Cycles (Cycle): <b style="color:#10b981;">${cyclesSoFar.toFixed(1)} cyc</b> (Avg: ${avgCyclesPerDay.toFixed(2)}/d)</span>
             <span>Est. Month Cycles: <b style="color:#38bdf8;">~${estMonthCycles.toFixed(1)} cyc</b> &bull; BMS Lifetime: <b style="color:var(--text-main);">${bmsTotalCycles}</b></span>
           </div>
@@ -868,14 +710,12 @@
     return buildBatteryExtras();
   }
 
-  // ── Fridges: SEPARATE 16×2 Grids for Fridge 1 and Fridge 2 ───────────────
   async function buildFridgeExtras() {
-    // Parallel fetch for Fridge 1 & Fridge 2 separate grids
     const [grid1Html, grid2Html] = await Promise.all([
       buildGenericApplianceDailyGrid({
         title: '🧊 FRIDGE 1 DAILY UNITS',
         titleColor: '#38bdf8',
-        feedId: '499373',         // Fridge 1 Watts
+        feedId: '499373',
         liveTodayName: 'Fridge Today',
         hoverId: 'fd-fridge1-cell-hover',
         valColor: '#38bdf8'
@@ -883,7 +723,7 @@
       buildGenericApplianceDailyGrid({
         title: '🧊 FRIDGE 2 DAILY UNITS',
         titleColor: '#c084fc',
-        feedId: '541348',         // Fridge 2 Watts
+        feedId: '541348',
         liveTodayName: 'Fridge2 Today',
         hoverId: 'fd-fridge2-cell-hover',
         valColor: '#c084fc'
@@ -909,7 +749,6 @@
     return grid1Html + grid2Html + extraRowsHtml;
   }
 
-  // ── AC Extras: Kenwood 1.5T, Kenwood 1T, Haier 1T ─────────────────────────
   async function buildAcExtras(feedKey) {
     const acConfigs = {
       k15:   { title: '❄️ KENWOOD 1.5T DAILY UNITS', color: '#38bdf8', feedId: '499362', live: 'Kenwood 1.5Ton Today' },
@@ -946,7 +785,6 @@
     return gridHtml + extraRowsHtml;
   }
 
-  // ── Water Tank Extras: 16×2 Daily Level (%) ──────────────────────────────
   async function buildWaterTankExtras() {
     const gridHtml = await buildGenericApplianceDailyGrid({
       title: '💧 WATER TANK DAILY LEVEL (%)',
@@ -986,7 +824,6 @@
     return gridHtml + extraRowsHtml;
   }
 
-  // ── Water Motor Extras: 16×2 Daily Pumping Units ─────────────────────────
   async function buildMotorExtras() {
     const gridHtml = await buildGenericApplianceDailyGrid({
       title: '🚿 WATER MOTOR DAILY UNITS',
@@ -1018,7 +855,6 @@
     return gridHtml + extraRowsHtml;
   }
 
-  // ── Washing Machine Extras: 16×2 Daily Laundry Units ─────────────────────
   async function buildWmExtras() {
     const gridHtml = await buildGenericApplianceDailyGrid({
       title: '👕 WASHING MACHINE DAILY UNITS',
@@ -1051,7 +887,6 @@
     return gridHtml + extraRowsHtml;
   }
 
-  // ── PC Extras: 16×2 Daily Workstation Units ──────────────────────────────
   async function buildPcExtras() {
     const gridHtml = await buildGenericApplianceDailyGrid({
       title: '💻 PC WORKSTATION DAILY UNITS',
@@ -1100,7 +935,6 @@
     const feed = GRAPH_FEEDS.find(f => f.key === 'battery');
     if (!feed || !feed.id) return;
 
-    // Fetch up to 48 hours so the user can zoom out significantly more
     const now = Date.now();
     const startFetchMs = now - 48 * 3600 * 1000;
     
@@ -1142,7 +976,6 @@
 
     const packKwh = (typeof solarCfg !== 'undefined' && solarCfg && solarCfg.batteryKwh > 0) ? solarCfg.batteryKwh : 5.12;
 
-    // Frame latest 24 hours by default
     const n24 = Math.round((24 * 3600) / resSec);
     const defaultZoom = Math.max(1, nBars / n24);
     const rect = canvas.getBoundingClientRect();
@@ -1213,10 +1046,6 @@
     window.addEventListener('resize', redraw);
   }
 
-  // ── FLOW_BATTERY2_PATCH_V1: Battery 2 (Dyness) SOC chart ─────────────
-  // Same annotated-session chart as Battery 1, but pointed at feed 546371
-  // (Bat2 SOC) and using the fixed 5.12 kWh Dyness pack capacity for the
-  // %→kWh conversion in session pills.
   async function buildBattery2SocChart(canvas, loadingEl, resetBtn) {
     if (!canvas) return;
     if (typeof _gFetch !== 'function') return;
@@ -1259,9 +1088,8 @@
       catch (e) { console.warn('detectBatterySessions (bat2) failed', e); }
     }
 
-    const packKwh = 5.12; // Dyness DL5.0F usable capacity
+    const packKwh = 5.12;
 
-    // Frame latest 24 hours by default
     const n24_2 = Math.round((24 * 3600) / resSec);
     const defaultZoom2 = Math.max(1, nBars / n24_2);
     const rect2 = canvas.getBoundingClientRect();
@@ -1329,7 +1157,7 @@
       const anchorIdx = win0.startIdx + frac * win0.visibleN;
       const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
       let nz = state.zoom * factor;
-      nz = Math.max(0.4, Math.min(25, nz)); // Allow zooming out to 0.4x
+      nz = Math.max(0.4, Math.min(25, nz));
       state.zoom = nz;
       const visibleN = Math.max(2, n / nz);
       state.panX = _panXFromStartIdxSoc(n, nz, anchorIdx - frac * visibleN, cW);
@@ -1392,7 +1220,7 @@
         const info = pinchInfo(e);
         if (tDist0 <= 0) return;
         let nz = tZoom0 * (info.dist / tDist0);
-        nz = Math.max(0.4, Math.min(25, nz)); // Allow zooming out to 0.4x
+        nz = Math.max(0.4, Math.min(25, nz));
         state.zoom = nz;
         const n = state.bars.length;
         const visibleN = Math.max(2, n / nz);
@@ -1413,7 +1241,6 @@
 
     let lastTap = 0;
     canvas.addEventListener('touchend', function (e) {
-      // Avoid resetting if the user was pinching or panning
       if (e.touches.length !== 0) return;
       if (didPinchOrPan) {
         lastTap = 0;
@@ -1469,7 +1296,6 @@
     function mapX(i) { return PL + ((i - startIdx) / visibleN) * cW; }
     function mapY(v) { return PT + cH - ((v - minV) / range) * cH; }
 
-    // Ensures the 100% graph curve floats with a visible 6px distance below the 100% line
     function mapCurveY(v) {
       const y = mapY(v);
       const y100 = mapY(100);
@@ -1481,7 +1307,6 @@
       return y;
     }
 
-    // Grid lines (100% line rendered as clean dashed reference ceiling)
     ctx.fillStyle = '#71717a';
     ctx.font = '9px system-ui';
     ctx.textAlign = 'right';
@@ -1496,7 +1321,6 @@
       ctx.setLineDash([]);
     });
 
-    // ── Visible Window Time Range (Top right indicator) ──
     const firstVisTs = startMs + i0 * resSec * 1000;
     const lastVisTs  = startMs + Math.min(n - 1, i1) * resSec * 1000;
     const firstTimeStr = formatPktTime(firstVisTs, 'time');
@@ -1508,7 +1332,6 @@
     ctx.textAlign = 'right';
     ctx.fillText(`🕒 ${firstTimeStr} → ${lastTimeStr} (${visDurationHours}h)`, rect.width - PR - 2, 12);
 
-    // Zoom indicator relative to default 24h view
     const curDefZoom = canvas.__socState?.defaultZoom || canvas.__soc2State?.defaultZoom || 1;
     const relZoom = zoom / curDefZoom;
     if (Math.abs(relZoom - 1) > 0.08) {
@@ -1518,7 +1341,6 @@
       ctx.fillText(`${relZoom.toFixed(1)}×`, PL + 2, 12);
     }
 
-    // Gradient fill and main line
     const grad = ctx.createLinearGradient(0, PT, 0, PT + cH);
     grad.addColorStop(0, '#10b98155');
     grad.addColorStop(1, '#10b98100');
@@ -1556,7 +1378,6 @@
     ctx.lineJoin = 'round';
     ctx.stroke();
 
-    // Accent lines along session slopes
     sessions.forEach(seg => {
       if (seg.endIdx < i0 || seg.startIdx > i1) return;
       const isCharge = seg.type === 'charge';
@@ -1581,7 +1402,6 @@
         ctx.restore();
       });
 
-      // 1b. Bridge line below standby pause(s) with pause badge (14px drop)
       if (ranges.length > 1) {
         for (let r = 0; r < ranges.length - 1; r++) {
           const r1 = ranges[r];
@@ -1595,7 +1415,6 @@
           const dropY = 14;
 
           ctx.save();
-          // Vertical drop tick from end of slope 1
           ctx.beginPath();
           ctx.moveTo(x1, y1);
           ctx.lineTo(x1, y1 + dropY);
@@ -1603,7 +1422,6 @@
           ctx.lineWidth = 2;
           ctx.stroke();
 
-          // Dashed glowing bridge line beneath the green segment
           ctx.beginPath();
           for (let k = Math.max(r1.endIdx, i0); k <= Math.min(r2.startIdx, i1); k++) {
             if (bars[k] == null) continue;
@@ -1618,7 +1436,6 @@
           ctx.shadowBlur = 6;
           ctx.stroke();
 
-          // Vertical rise tick to start of slope 2
           ctx.beginPath();
           ctx.setLineDash([]);
           ctx.moveTo(x2, y2 + dropY);
@@ -1626,9 +1443,7 @@
           ctx.strokeStyle = clr;
           ctx.lineWidth = 2;
           ctx.stroke();
-          ctx.restore();
 
-          // Pause badge below the dashed bridge line
           const pausePts = r2.startIdx - r1.endIdx;
           const pauseMins = Math.round((pausePts * resSec) / 60);
           if (pauseMins >= 10 && (x2 - x1) > 40) {
@@ -1659,7 +1474,6 @@
           }
         }
 
-        // 1c. Bottom baseline span bracket marking the full discharge window
         const xStart = mapX(seg.startIdx);
         const xEnd = mapX(seg.endIdx);
         const spanY = PT + cH - 3;
@@ -1678,9 +1492,8 @@
       }
     });
 
-    ctx.restore(); // Release clip so pills are NEVER cut off!
+    ctx.restore();
 
-    // ── Session Pills (With full kWh and Average Wattage) ──
     const isNarrow = cW < 320;
     const renderedPills = [];
 
@@ -1716,7 +1529,6 @@
         pauseStr = ph > 0 ? (pm > 0 ? ` · ${ph}h ${pm}m pause` : ` · ${ph}h pause`) : ` · ${pm}m pause`;
       }
 
-      // Full info matching graphs/day/battery:
       let text = '';
       if (isNarrow) {
         text = `${isCharge ? '▲' : '▼'} ${sign}${Math.abs(seg.delta).toFixed(1)}% · ${durStr} (${kwhEst.toFixed(1)}k · Ø ${avgStr})`;
@@ -1732,8 +1544,6 @@
       let bx = midX - pw / 2;
       bx = Math.max(PL + 2, Math.min(rect.width - PR - pw - 2, bx));
 
-      // Intelligent vertical placement:
-      // If SOC is near the bottom (<= 32%), draw ABOVE to prevent going below chart!
       let by;
       if (isCharge) {
         by = (midY > PT + ph + 10) ? (midY - ph - 8) : (midY + 8);
@@ -1756,7 +1566,6 @@
       ctx.fill();
       ctx.stroke();
 
-      // Connector pin
       ctx.beginPath();
       ctx.moveTo(midX, by > midY ? by : by + ph);
       ctx.lineTo(midX, midY);
@@ -1771,18 +1580,14 @@
       ctx.restore();
     });
 
-    // ── X-axis labels with 1st and last visible time highlighted ──
-    ctx.fillStyle = '#71717a';
-    ctx.textAlign = 'center';
-    ctx.font = '8.5px system-ui';
-    const maxLabels = Math.max(3, Math.floor(cW / 60));
-    const step = Math.max(1, Math.ceil(visibleN / maxLabels));
-    const firstTick = Math.ceil(startIdx / step) * step;
-
     const labelY = PT + cH + 15;
     ctx.fillStyle = '#a1a1aa';
     ctx.font = '9.5px system-ui, -apple-system, sans-serif';
     ctx.textBaseline = 'middle';
+
+    const maxLabels = Math.max(3, Math.floor(cW / 60));
+    const step = Math.max(1, Math.ceil(visibleN / maxLabels));
+    const firstTick = Math.ceil(startIdx / step) * step;
 
     for (let i = firstTick; i < startIdx + visibleN; i += step) {
       if (i < 0 || i >= n) continue;
@@ -1800,7 +1605,6 @@
       }
     }
 
-    // Explicit 1st and Last time labels on axis edges
     ctx.fillStyle = '#38bdf8';
     ctx.font = 'bold 9.5px system-ui, -apple-system, sans-serif';
     ctx.textBaseline = 'middle';
@@ -1809,8 +1613,6 @@
     ctx.textAlign = 'right';
     ctx.fillText(lastTimeStr, PL + cW, labelY);
   }
-
-  // ── Public entry points ──────────────────────────────────────────────
 
   async function renderFlowExtras(boxKey, containerEl) {
     const entry = EXTRAS_REGISTRY[boxKey];
@@ -1834,5 +1636,4 @@
   window.renderBattery2SocChart = buildBattery2SocChart;
   window.FLOW_EXTRAS_REGISTRY = EXTRAS_REGISTRY;
   window.BATTERY2_FEED_IDS = BAT2_IDS;
-
 })();

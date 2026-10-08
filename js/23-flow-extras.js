@@ -196,7 +196,7 @@
       <div style="background:var(--bg-card, #141416); border:1px solid var(--border, #27272a); border-left:3px solid ${titleColor}; border-radius:10px; padding:10px 12px; margin-bottom:10px; width:100%; box-sizing:border-box;">
         <div style="margin-bottom:6px;">
           <!-- Line 1: Title -->
-          <div style="font-size:13px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; color:${titleColor}; margin-bottom:3px;">
+          <div style="font-size:11.5px; font-weight:800; text-transform:uppercase; letter-spacing:0; line-height:1.2; color:${titleColor}; margin-bottom:3px;">
             ${title} (${startLabel} → ${endLabel})
           </div>
 

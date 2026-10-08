@@ -312,7 +312,7 @@
       }
       #flow-detail-modal .fd-chart-wrap {
         position: relative; background: var(--bg-panel); border: 1px solid var(--border);
-        border-radius: 10px; padding: 10px; height: 240px;
+        border-radius: 10px; padding: 8px 8px 14px 8px; height: 250px;
         display: flex; align-items: center; justify-content: center;
       }
       #flow-detail-modal canvas.fd-chart {
@@ -1197,7 +1197,7 @@
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.scale(dpr, dpr);
     ctx.clearRect(0, 0, rect.width, rect.height);
-    const PL = 42, PR = 12, PT = 14, PB = 26;
+    const PL = 38, PR = 10, PT = 14, PB = 32;
     const cW = rect.width - PL - PR;
     const cH = rect.height - PT - PB;
     if (cW <= 0 || cH <= 0) return;
@@ -1216,7 +1216,7 @@
     }
     if (!isFinite(minV) || !isFinite(maxV)) { minV = 0; maxV = 1; }
     if (minV === maxV) { minV -= 1; maxV += 1; }
-    const pad = (maxV - minV) * 0.1;
+    const pad = (maxV - minV) * 0.05;
     minV -= pad; maxV += pad;
     const range = maxV - minV || 1;
     function mapX(i) { return PL + ((i - startIdx) / visibleN) * cW; }
@@ -1253,16 +1253,17 @@
     ctx.strokeStyle = color; ctx.lineWidth = 2;
     ctx.lineJoin = 'round'; ctx.lineCap = 'round';
     ctx.stroke();
-    ctx.fillStyle = '#71717a'; ctx.textAlign = 'center';
-    ctx.textBaseline = 'alphabetic'; ctx.font = '9px system-ui';
-    const maxLabels = Math.max(4, Math.floor(cW / 55));
+    ctx.fillStyle = '#a1a1aa'; ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle'; ctx.font = '10px system-ui, -apple-system, sans-serif';
+    const maxLabels = Math.max(4, Math.floor(cW / 50));
     const step = Math.max(1, Math.ceil(visibleN / maxLabels));
     const firstTick = Math.ceil(startIdx / step) * step;
+    const labelY = PT + cH + 15;
     for (let i = firstTick; i < startIdx + visibleN; i += step) {
       if (i < 0 || i >= n) continue;
       const x = mapX(i);
       if (x < PL - 10 || x > PL + cW + 10) continue;
-      ctx.fillText(labels[i] || '', x, rect.height - 8);
+      ctx.fillText(labels[i] || '', x, labelY);
     }
     if (zoom > 1.01) {
       ctx.fillStyle = 'rgba(255,255,255,0.75)';

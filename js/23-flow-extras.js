@@ -1443,7 +1443,7 @@
     ctx.scale(dpr, dpr);
     ctx.clearRect(0, 0, rect.width, rect.height);
 
-    const PL = 34, PR = 10, PT = 32, PB = 34;
+    const PL = 34, PR = 10, PT = 22, PB = 36;
     const cW = rect.width - PL - PR;
     const cH = rect.height - PT - PB;
     if (cW <= 0 || cH <= 0) return;
@@ -1458,9 +1458,13 @@
     for (let i = i0; i <= i1; i++) if (bars[i] != null) visible.push(bars[i]);
     let minV = visible.length ? Math.min(...visible) : 0;
     let maxV = visible.length ? Math.max(...visible) : 100;
-    minV = Math.max(0, minV - 5);
-    maxV = Math.max(118, maxV + 15);
-    const range = Math.max(1, maxV - minV);
+    if (maxV >= 96) {
+      maxV = 103;
+    } else {
+      maxV = Math.min(103, maxV + 5);
+    }
+    minV = Math.max(0, minV - 4);
+    const range = Math.max(10, maxV - minV);
 
     function mapX(i) { return PL + ((i - startIdx) / visibleN) * cW; }
     function mapY(v) { return PT + cH - ((v - minV) / range) * cH; }
@@ -1470,9 +1474,9 @@
       const y = mapY(v);
       const y100 = mapY(100);
       const distFrom100 = y - y100;
-      if (distFrom100 < 30) {
-        const blend = Math.max(0, 1 - distFrom100 / 30);
-        return y + (6 * blend);
+      if (distFrom100 < 15 && y100 >= PT) {
+        const blend = Math.max(0, 1 - distFrom100 / 15);
+        return y + (3 * blend);
       }
       return y;
     }
@@ -1502,7 +1506,7 @@
     ctx.fillStyle = '#a1a1aa';
     ctx.font = 'bold 9.5px system-ui, -apple-system, sans-serif';
     ctx.textAlign = 'right';
-    ctx.fillText(`🕒 ${firstTimeStr} → ${lastTimeStr} (${visDurationHours}h)`, rect.width - PR - 2, PT - 10);
+    ctx.fillText(`🕒 ${firstTimeStr} → ${lastTimeStr} (${visDurationHours}h)`, rect.width - PR - 2, 12);
 
     // Zoom indicator relative to default 24h view
     const curDefZoom = canvas.__socState?.defaultZoom || canvas.__soc2State?.defaultZoom || 1;
@@ -1511,7 +1515,7 @@
       ctx.fillStyle = 'rgba(255,255,255,0.85)';
       ctx.font = 'bold 10px system-ui';
       ctx.textAlign = 'left';
-      ctx.fillText(`${relZoom.toFixed(1)}×`, PL + 4, PT - 10);
+      ctx.fillText(`${relZoom.toFixed(1)}×`, PL + 2, 12);
     }
 
     // Gradient fill and main line
@@ -1737,7 +1741,7 @@
         by = (midVal > 32 && midY < PT + cH - ph - 10) ? (midY + 8) : (midY - ph - 8);
       }
 
-      by = Math.max(PT + 2, Math.min(PT + cH - ph - 2, by));
+      by = Math.max(PT + 2, Math.min(PT + cH - ph - 5, by));
       renderedPills.push({ x: bx, y: by, w: pw, h: ph });
 
       ctx.save();
@@ -1775,27 +1779,35 @@
     const step = Math.max(1, Math.ceil(visibleN / maxLabels));
     const firstTick = Math.ceil(startIdx / step) * step;
 
+    const labelY = PT + cH + 15;
+    ctx.fillStyle = '#a1a1aa';
+    ctx.font = '9.5px system-ui, -apple-system, sans-serif';
+    ctx.textBaseline = 'middle';
+
     for (let i = firstTick; i < startIdx + visibleN; i += step) {
       if (i < 0 || i >= n) continue;
       const tsMs = startMs + i * resSec * 1000;
       const d = new Date(tsMs);
       const isPkt = (new Date().getTimezoneOffset() === -300);
       const h = isPkt ? d.getHours() : new Date(tsMs + 18000000).getUTCHours();
+      const m = isPkt ? d.getMinutes() : new Date(tsMs + 18000000).getUTCMinutes();
       const hh = h % 12 || 12;
-      const label = hh + (h >= 12 ? 'pm' : 'am');
+      const ampm = (h >= 12 ? 'pm' : 'am');
+      const timeStr = (zoom > 3 && m !== 0) ? `${hh}:${String(m).padStart(2,'0')}${ampm}` : `${hh}${ampm}`;
       const x = mapX(i);
-      if (x > PL + 25 && x < PL + cW - 25) {
-        ctx.fillText(label, x, PT + cH + 16);
+      if (x > PL + 30 && x < PL + cW - 30) {
+        ctx.fillText(timeStr, x, labelY);
       }
     }
 
     // Explicit 1st and Last time labels on axis edges
     ctx.fillStyle = '#38bdf8';
-    ctx.font = 'bold 8.5px system-ui';
+    ctx.font = 'bold 9.5px system-ui, -apple-system, sans-serif';
+    ctx.textBaseline = 'middle';
     ctx.textAlign = 'left';
-    ctx.fillText(firstTimeStr, PL, PT + cH + 16);
+    ctx.fillText(firstTimeStr, PL, labelY);
     ctx.textAlign = 'right';
-    ctx.fillText(lastTimeStr, PL + cW, PT + cH + 16);
+    ctx.fillText(lastTimeStr, PL + cW, labelY);
   }
 
   // ── Public entry points ──────────────────────────────────────────────

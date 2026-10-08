@@ -183,24 +183,43 @@
       ? ` (<span style="color:#c084fc;">${avgNightKwh.toFixed(1)} kWh/d</span>)`
       : '';
 
+    const estHtml = estKwh != null
+      ? `<div style="font-size:12.5px; font-weight:700; color:var(--text-muted, #71717a); margin-top:3px;">
+           <span>Est: <b style="color:#facc15;">~${estKwh.toFixed(0)} kWh</b><span style="font-size:11.5px; color:${titleColor};">${pkrText}</span></span>
+         </div>`
+      : '';
+
+    const todayNightText = (todayNightUnits != null && !hideNight) ? ` <span style="color:#c084fc;">(${todayNightUnits.toFixed(1)}k)</span>` : '';
+    const todayText = `[Today: ${todayUnits != null ? (isPct ? Math.round(todayUnits) + '%' : todayUnits.toFixed(1) + ' kWh') : '--'}${todayNightText}]`;
+
     return `
       <div style="background:var(--bg-card, #141416); border:1px solid var(--border, #27272a); border-left:3px solid ${titleColor}; border-radius:10px; padding:10px 12px; margin-bottom:10px; width:100%; box-sizing:border-box;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; flex-wrap:wrap; gap:5px;">
-          <span style="font-size:13px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; color:${titleColor};">
+        <div style="margin-bottom:6px;">
+          <!-- Line 1: Title -->
+          <div style="font-size:13px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; color:${titleColor}; margin-bottom:3px;">
             ${title} (${startLabel} → ${endLabel})
-          </span>
+          </div>
+
+          <!-- Line 2: Total & Avg -->
           <div style="font-size:12.5px; font-weight:700; color:var(--text-muted, #71717a); display:flex; align-items:center; flex-wrap:wrap; gap:5px;">
             <span>${isPct ? 'Cycle Avg' : 'Total'}: <b style="color:${titleColor};">${totalKwh.toFixed(1)} ${unitLabel}</b>${nightStats}</span>
             <span>&bull;</span>
             <span>${isPct ? 'Min' : 'Avg'}: <b style="color:var(--text-main, #f4f4f5);">${avgKwh.toFixed(1)}</b> ${isPct ? '%' : 'kWh/d'}${avgNightStats}</span>
-            ${estKwh != null ? `<span>&bull;</span><span>Est: <b style="color:#facc15;">~${estKwh.toFixed(0)} kWh</b><span style="font-size:11.5px; color:${titleColor};">${pkrText}</span></span>` : ''}
-            <span id="${hoverId}" style="margin-left:4px; color:#facc15; font-weight:800;">[Today: ${todayUnits != null ? (isPct ? Math.round(todayUnits) + '%' : todayUnits.toFixed(1) + ' kWh') : '--'}${todayNightUnits != null && !hideNight ? ` <span style="color:#c084fc;">(${todayNightUnits.toFixed(1)}k)</span>` : ''}]</span>
           </div>
+
+          <!-- Line 3: Estimate -->
+          ${estHtml}
+
+          <!-- Line 4: Today (ALWAYS VISIBLE) -->
+          <div style="font-size:12.5px; font-weight:800; color:#facc15; margin-top:3px; line-height:1.2;">${todayText}</div>
+
+          <!-- Line 5: Hover detail line (shows below Today when cell is hovered) -->
+          <div id="${hoverId}" style="font-size:12px; font-weight:800; color:#facc15; margin-top:2px; min-height:16px; line-height:1.2;"></div>
         </div>
 
         ${extraHeaderRow || ''}
 
-        <div class="fd-grid-16-container">
+        <div class="fd-grid-16-container" onmouseleave="const el=document.getElementById('${hoverId}'); if(el) el.textContent='';">
           ${dayList.map(d => {
             const isToday = d.isToday;
             const isFuture = d.isFuture;
@@ -1270,7 +1289,7 @@
     ctx.scale(dpr, dpr);
     ctx.clearRect(0, 0, rect.width, rect.height);
 
-    const PL = 34, PR = 10, PT = 22, PB = 36;
+    const PL = 36, PR = 12, PT = 24, PB = 34;
     const cW = rect.width - PL - PR;
     const cH = rect.height - PT - PB;
     if (cW <= 0 || cH <= 0) return;
@@ -1345,6 +1364,7 @@
     grad.addColorStop(0, '#10b98155');
     grad.addColorStop(1, '#10b98100');
 
+    // ── 1. MAIN PLOT CLIPPING (for curve, fill, lines and span bracket) ──
     ctx.save();
     ctx.beginPath();
     ctx.rect(PL, PT, cW, cH);
@@ -1443,6 +1463,7 @@
           ctx.strokeStyle = clr;
           ctx.lineWidth = 2;
           ctx.stroke();
+          ctx.restore(); // <-- Properly balanced bridge line
 
           const pausePts = r2.startIdx - r1.endIdx;
           const pauseMins = Math.round((pausePts * resSec) / 60);
@@ -1492,8 +1513,9 @@
       }
     });
 
-    ctx.restore();
+    ctx.restore(); // <-- RESTORE CLIP SO PILLS AND TIME LABELS CAN DRAW CLEANLY
 
+    // ── 2. SESSION PILLS RENDERING ──
     const isNarrow = cW < 320;
     const renderedPills = [];
 
@@ -1580,12 +1602,24 @@
       ctx.restore();
     });
 
-    const labelY = PT + cH + 15;
+    // ── 3. BOTTOM X-AXIS TIME LABELS (OUTSIDE CLIP, PROPERLY POSITIONED) ──
+    const labelY = PT + cH + 17;
+
+    // Edge time indicators (1st and Last visible time)
+    ctx.fillStyle = '#38bdf8';
+    ctx.font = 'bold 9.5px system-ui, -apple-system, sans-serif';
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'left';
+    ctx.fillText(firstTimeStr, PL, labelY);
+    ctx.textAlign = 'right';
+    ctx.fillText(lastTimeStr, PL + cW, labelY);
+
+    // Intermediate hourly / periodic time ticks
     ctx.fillStyle = '#a1a1aa';
     ctx.font = '9.5px system-ui, -apple-system, sans-serif';
-    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'center';
 
-    const maxLabels = Math.max(3, Math.floor(cW / 60));
+    const maxLabels = Math.max(3, Math.floor(cW / 55));
     const step = Math.max(1, Math.ceil(visibleN / maxLabels));
     const firstTick = Math.ceil(startIdx / step) * step;
 
@@ -1600,18 +1634,11 @@
       const ampm = (h >= 12 ? 'pm' : 'am');
       const timeStr = (zoom > 3 && m !== 0) ? `${hh}:${String(m).padStart(2,'0')}${ampm}` : `${hh}${ampm}`;
       const x = mapX(i);
-      if (x > PL + 30 && x < PL + cW - 30) {
+      // Avoid overlapping with edge labels
+      if (x > PL + 40 && x < PL + cW - 40) {
         ctx.fillText(timeStr, x, labelY);
       }
     }
-
-    ctx.fillStyle = '#38bdf8';
-    ctx.font = 'bold 9.5px system-ui, -apple-system, sans-serif';
-    ctx.textBaseline = 'middle';
-    ctx.textAlign = 'left';
-    ctx.fillText(firstTimeStr, PL, labelY);
-    ctx.textAlign = 'right';
-    ctx.fillText(lastTimeStr, PL + cW, labelY);
   }
 
   async function renderFlowExtras(boxKey, containerEl) {

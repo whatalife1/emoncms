@@ -1876,6 +1876,7 @@
     if (!container) return;
     const cfg = BOX_ANALYTICS_CONFIG[boxKey] || BOX_ANALYTICS_CONFIG.grid;
     const titleColor = cfg.color || '#ef4444';
+    const isBattery = !!cfg.isBattery;
 
     container.innerHTML = `
       <div id="fd-ba-analytics-root" style="display:flex; flex-direction:column; gap:8px; width:100%; box-sizing:border-box;">
@@ -1913,10 +1914,12 @@
           Loading telemetry...
         </div>
 
-        <div id="fd-ba-graph-wrap" style="position:relative; background:var(--bg-panel); border:1px solid var(--border); border-radius:10px; padding:8px 8px 14px 8px; height:240px; display:flex; align-items:center; justify-content:center;">
-          <canvas id="fd-ba-canvas" style="width:100%; height:100%; display:block; cursor:crosshair;"></canvas>
-          <div id="fd-ba-loading" style="position:absolute; font-size:12px; color:var(--text-muted); font-weight:600; background:var(--bg-panel); padding:4px 10px; border-radius:6px;">Loading ${cfg.title} data…</div>
+        <div id="fd-ba-graph-wrap" style="position:relative; background:var(--bg-panel); border:1px solid var(--border); border-radius:10px; padding:8px 8px 14px 8px; height:250px; display:flex; align-items:center; justify-content:center; overflow:hidden;">
+          <canvas id="fd-ba-canvas" style="width:100%; height:100%; display:block; cursor:grab; touch-action:none;"></canvas>
+          <div id="fd-ba-loading" style="position:absolute; font-size:12px; color:var(--text-muted); font-weight:600; background:var(--bg-panel); padding:4px 10px; border-radius:6px; pointer-events:none; z-index:10; display:none;">Loading ${cfg.title} data…</div>
         </div>
+
+        <div id="fd-ba-battery-toggles" style="${isBattery ? 'display:flex;' : 'display:none;'} gap:6px; align-items:center; justify-content:center; flex-wrap:wrap; margin-top:2px;"></div>
 
         <div id="fd-ba-report-wrap" style="display:none; background:var(--bg-panel); border:1px solid var(--border); border-radius:10px; padding:12px; overflow-x:auto;">
           <div id="fd-ba-report-content"></div>
@@ -1933,6 +1936,13 @@
       monthOffset: 0,
       yearOffset: 0,
       fridgeFilter: 'both',
+      showSessions: window.graphBatteryShowSessions !== false,
+      includeVoltage: window.graphBatteryIncludeVoltage === true,
+      includePower: window.graphBatteryIncludePower === true,
+      isSmooth: window.graphBatterySmoothGaps !== false,
+      zoom: 1,
+      panX: 0,
+      scrubIdx: null,
       cachedData: null,
       cachedRawText: ''
     };
@@ -1951,6 +1961,7 @@
     const navSubEl = document.getElementById('fd-ba-nav-sub');
     const datePicker = document.getElementById('fd-ba-date-picker');
     const statsStrip = document.getElementById('fd-ba-stats-strip');
+    const batTogglesWrap = document.getElementById('fd-ba-battery-toggles');
     const saveTxtBtn = document.getElementById('fd-ba-btn-txt');
     const savePngBtn = document.getElementById('fd-ba-btn-png');
 
@@ -1964,6 +1975,9 @@
         viewReportBtn.style.borderColor = 'var(--border)';
         viewReportBtn.style.color = 'var(--text-muted)';
         graphWrap.style.display = 'flex';
+        if (batTogglesWrap && isBattery && (state.tab === 'today' || state.tab === 'day')) {
+          batTogglesWrap.style.display = 'flex';
+        }
         reportWrap.style.display = 'none';
         redrawGraph();
       } else {
@@ -1974,6 +1988,7 @@
         viewGraphBtn.style.borderColor = 'var(--border)';
         viewGraphBtn.style.color = 'var(--text-muted)';
         graphWrap.style.display = 'none';
+        if (batTogglesWrap) batTogglesWrap.style.display = 'none';
         reportWrap.style.display = 'block';
       }
     }
@@ -1993,6 +2008,9 @@
         state.dayOffset = 0;
         state.monthOffset = 0;
         state.yearOffset = 0;
+        state.zoom = 1;
+        state.panX = 0;
+        state.scrubIdx = null;
         datePicker.style.display = (state.tab === 'day') ? 'inline-block' : 'none';
         loadBoxPeriodData();
       };
@@ -2003,6 +2021,7 @@
       else if (state.tab === 'day') state.dayOffset--;
       else if (state.tab === 'month') state.monthOffset--;
       else if (state.tab === 'year') state.yearOffset--;
+      state.zoom = 1; state.panX = 0; state.scrubIdx = null;
       loadBoxPeriodData();
     };
 
@@ -2010,6 +2029,7 @@
       if (state.tab === 'day' && state.dayOffset < 0) state.dayOffset++;
       else if (state.tab === 'month' && state.monthOffset < 0) state.monthOffset++;
       else if (state.tab === 'year' && state.yearOffset < 0) state.yearOffset++;
+      state.zoom = 1; state.panX = 0; state.scrubIdx = null;
       loadBoxPeriodData();
     };
 
@@ -2020,6 +2040,7 @@
       const nowPkt = (typeof getKarachiDate === 'function') ? getKarachiDate(Date.now()) : { year: y, month: m, day: d };
       const todayUtc = Date.UTC(nowPkt.year, nowPkt.month - 1, nowPkt.day);
       state.dayOffset = Math.round((targetUtc - todayUtc) / 86400000);
+      state.zoom = 1; state.panX = 0; state.scrubIdx = null;
       loadBoxPeriodData();
     };
 
@@ -2032,19 +2053,87 @@
       datePicker.style.display = (state.tab === 'day') ? 'inline-block' : 'none';
     }
 
+    function renderBatteryTogglesBar() {
+      if (!batTogglesWrap) return;
+      if (!isBattery || (state.tab !== 'today' && state.tab !== 'day')) {
+        batTogglesWrap.style.display = 'none';
+        return;
+      }
+      batTogglesWrap.style.display = 'flex';
+
+      const sessOn = state.showSessions !== false;
+      const voltOn = state.includeVoltage === true;
+      const pwrOn  = state.includePower === true;
+      const smoothOn = state.isSmooth !== false;
+
+      const sessColor = '#10b981', voltColor = '#35c0b7', pwrColor = '#facc15', smoothColor = '#38bdf8';
+
+      batTogglesWrap.innerHTML = `
+        <button id="fd-bt-btn-sessions" class="fd-btn" style="padding:4px 10px; border-radius:20px; font-size:11px; font-weight:800; cursor:pointer; border:1.5px solid ${sessColor}; background:${sessOn ? 'rgba(16,185,129,0.2)' : 'transparent'}; color:${sessOn ? sessColor : 'var(--text-muted)'};">
+          ${sessOn ? '🔋 Sessions (ΔSOC): ON' : '🔋 + Sessions (ΔSOC)'}
+        </button>
+        <button id="fd-bt-btn-voltage" class="fd-btn" style="padding:4px 10px; border-radius:20px; font-size:11px; font-weight:800; cursor:pointer; border:1.5px solid ${voltColor}; background:${voltOn ? 'rgba(53,192,183,0.2)' : 'transparent'}; color:${voltOn ? voltColor : 'var(--text-muted)'};">
+          ${voltOn ? '⚡ Voltage: Added' : '⚡ + Voltage (V)'}
+        </button>
+        <button id="fd-bt-btn-power" class="fd-btn" style="padding:4px 10px; border-radius:20px; font-size:11px; font-weight:800; cursor:pointer; border:1.5px solid ${pwrColor}; background:${pwrOn ? 'rgba(250,204,21,0.2)' : 'transparent'}; color:${pwrOn ? pwrColor : 'var(--text-muted)'};">
+          ${pwrOn ? '⚡ Power: Added' : '⚡ + Power (W)'}
+        </button>
+        <button id="fd-bt-btn-smooth" class="fd-btn" style="padding:4px 10px; border-radius:20px; font-size:11px; font-weight:800; cursor:pointer; border:1.5px solid ${smoothOn ? smoothColor : 'var(--border)'}; background:${smoothOn ? 'rgba(56,189,248,0.2)' : 'transparent'}; color:${smoothOn ? smoothColor : 'var(--text-muted)'};">
+          ${smoothOn ? '✨ Smooth: ON' : '📊 Real Graph'}
+        </button>
+      `;
+
+      const btnSess = document.getElementById('fd-bt-btn-sessions');
+      const btnVolt = document.getElementById('fd-bt-btn-voltage');
+      const btnPwr  = document.getElementById('fd-bt-btn-power');
+      const btnSmooth = document.getElementById('fd-bt-btn-smooth');
+
+      if (btnSess) btnSess.onclick = () => {
+        state.showSessions = !state.showSessions;
+        window.graphBatteryShowSessions = state.showSessions;
+        try { localStorage.setItem('graphBatteryShowSessions', state.showSessions ? 'true' : 'false'); } catch (e) {}
+        renderBatteryTogglesBar();
+        computeAndRenderBoxAnalytics();
+      };
+      if (btnVolt) btnVolt.onclick = () => {
+        state.includeVoltage = !state.includeVoltage;
+        window.graphBatteryIncludeVoltage = state.includeVoltage;
+        try { localStorage.setItem('graphBatteryIncludeVoltage', state.includeVoltage ? 'true' : 'false'); } catch (e) {}
+        renderBatteryTogglesBar();
+        computeAndRenderBoxAnalytics();
+      };
+      if (btnPwr) btnPwr.onclick = () => {
+        state.includePower = !state.includePower;
+        window.graphBatteryIncludePower = state.includePower;
+        try { localStorage.setItem('graphBatteryIncludePower', state.includePower ? 'true' : 'false'); } catch (e) {}
+        renderBatteryTogglesBar();
+        computeAndRenderBoxAnalytics();
+      };
+      if (btnSmooth) btnSmooth.onclick = () => {
+        state.isSmooth = !state.isSmooth;
+        window.graphBatterySmoothGaps = state.isSmooth;
+        try { localStorage.setItem('graphBatterySmoothGaps', state.isSmooth ? 'true' : 'false'); } catch (e) {}
+        renderBatteryTogglesBar();
+        loadBoxPeriodData();
+      };
+    }
+
     async function loadBoxPeriodData() {
-      loadingEl.style.display = 'block';
-      loadingEl.textContent = `Loading ${cfg.title} data…`;
+      if (loadingEl) {
+        loadingEl.style.display = 'block';
+        loadingEl.textContent = `Loading ${cfg.title} data…`;
+      }
       const pktNow = (typeof getPktNow === 'function') ? getPktNow() : new Date();
       const nowMs = Date.now();
       const rate = pkrRate();
+      const cycleStartHour = (typeof window.graphDayStartHour !== 'undefined') ? window.graphDayStartHour : 7;
 
       let startMs, endMs, periodLabel, periodSub;
       let isDayMode = false;
 
       if (state.tab === 'today') {
-        startMs = (typeof getPktTodayStart === 'function') ? getPktTodayStart(7) : (nowMs - 86400000);
-        endMs = nowMs;
+        startMs = (typeof getPktTodayStart === 'function') ? getPktTodayStart(cycleStartHour) : (nowMs - 86400000);
+        endMs = startMs + 24 * 3600 * 1000 - 1;
         periodLabel = 'Today';
         periodSub = formatPktTime(startMs, 'date');
         isDayMode = true;
@@ -2052,7 +2141,7 @@
         const base = new Date(pktNow.getTime());
         base.setDate(base.getDate() + state.dayOffset);
         const y = base.getFullYear(), m = base.getMonth() + 1, d = base.getDate();
-        startMs = (typeof getPktDayStart === 'function') ? getPktDayStart(y, m, d) + 7 * 3600 * 1000 : (nowMs - 86400000);
+        startMs = (typeof getPktDayStart === 'function') ? getPktDayStart(y, m, d) + cycleStartHour * 3600 * 1000 : (nowMs - 86400000);
         endMs = startMs + 24 * 3600 * 1000 - 1;
         periodLabel = state.dayOffset === 0 ? 'Today' : (state.dayOffset === -1 ? 'Yesterday' : `${d} ${MONTH_SHORT[m - 1] || ''}`);
         periodSub = `${d} ${MONTH_NAMES[m - 1] || ''} ${y}`;
@@ -2083,6 +2172,88 @@
       navNextBtn.style.opacity = canGoNext ? '1' : '0.35';
 
       try {
+        if (isBattery && isDayMode) {
+          const resSec = 120;
+          const totalPoints = Math.ceil((24 * 3600) / resSec);
+          const navObj = {
+            startMs,
+            endMs,
+            resSeconds: resSec,
+            nBars: totalPoints,
+            isDayTab: true
+          };
+
+          let socPts = [], voltPts = [], pwrBars = new Array(totalPoints).fill(0);
+
+          if (boxKey === 'battery2') {
+            const fetchTasks = [
+              _gFetch(BAT2_IDS.soc, startMs, endMs, resSec),
+              _gFetch(BAT2_IDS.volt, startMs, endMs, resSec),
+              _gFetch(BAT2_IDS.power, startMs, endMs, resSec)
+            ];
+            const [rawSoc, rawVolt, rawPwr] = await Promise.all(fetchTasks);
+            socPts = rawSoc || [];
+            voltPts = rawVolt || [];
+            const pBars = (typeof _pointsToBars === 'function') ? _pointsToBars(rawPwr, navObj, 'bat2power') : [];
+            for (let i = 0; i < totalPoints; i++) pwrBars[i] = Math.round(pBars[i] || 0);
+          } else {
+            const fetchTasks = [
+              _gFetch('546019', startMs, endMs, resSec),
+              _gFetch('546013', startMs, endMs, resSec),
+              _gFetch('546022', startMs, endMs, resSec),
+              _gFetch('546025', startMs, endMs, resSec)
+            ];
+            const [rawSoc, rawVolt, rawChg, rawDis] = await Promise.all(fetchTasks);
+            socPts = rawSoc || [];
+            voltPts = rawVolt || [];
+            const vBars = (typeof _pointsToBars === 'function') ? _pointsToBars(rawVolt, navObj, 'batv') : [];
+            const cBars = (typeof _pointsToBars === 'function') ? _pointsToBars(rawChg, navObj, 'batchg') : [];
+            const dBars = (typeof _pointsToBars === 'function') ? _pointsToBars(rawDis, navObj, 'batdis') : [];
+            for (let i = 0; i < totalPoints; i++) {
+              const v = vBars[i] || 52.0;
+              pwrBars[i] = Math.round(v * ((cBars[i] || 0) - (dBars[i] || 0)));
+            }
+          }
+
+          let lastIdx = totalPoints;
+          if (state.tab === 'today' || (state.tab === 'day' && state.dayOffset === 0)) {
+            lastIdx = Math.floor((nowMs - 60000 - startMs) / (resSec * 1000)) + 1;
+            lastIdx = Math.max(0, Math.min(lastIdx, totalPoints));
+          }
+
+          const rawSocBars = (typeof _pointsToBars === 'function') ? _pointsToBars(socPts, navObj, 'battery') : [];
+          const voltBars = (typeof _pointsToBars === 'function') ? _pointsToBars(voltPts, navObj, 'batv') : [];
+
+          const socBars = (typeof window.smoothBatterySocBars === 'function')
+            ? window.smoothBatterySocBars(rawSocBars, totalPoints, state.isSmooth !== false)
+            : rawSocBars;
+
+          const packKwh = (boxKey === 'battery' && typeof solarCfg !== 'undefined' && solarCfg?.batteryKwh > 0)
+            ? solarCfg.batteryKwh
+            : 5.12;
+
+          let sessions = [];
+          if (typeof window.detectBatterySessions === 'function') {
+            try {
+              sessions = window.detectBatterySessions(socBars, resSec, lastIdx, 10, 2.0) || [];
+            } catch (e) {
+              console.warn('detectBatterySessions error:', e);
+            }
+          }
+
+          state.cachedData = {
+            startMs, endMs, periodLabel, periodSub, isDayMode: true,
+            resSec, totalPoints, lastIdx, packKwh,
+            socBars, voltBars, pwrBars, sessions,
+            ptsData: socPts, rate
+          };
+
+          renderBatteryTogglesBar();
+          computeAndRenderBoxAnalytics();
+          return;
+        }
+
+        // Standard non-battery feeds loading
         let ptsData = [], ptsAux = [], ptsF1 = [], ptsF2 = [], outageSummary = null;
 
         if (isDayMode) {
@@ -2132,21 +2303,141 @@
           dailyMap: {}
         };
 
+        if (batTogglesWrap) batTogglesWrap.style.display = 'none';
         computeAndRenderBoxAnalytics();
       } catch (err) {
         console.warn(`Analytics load error for ${cfg.title}:`, err);
-        loadingEl.textContent = 'Failed to load analytics.';
+        if (loadingEl) {
+          loadingEl.textContent = 'Failed to load analytics.';
+          setTimeout(() => { if (loadingEl) loadingEl.style.display = 'none'; }, 2000);
+        }
+      } finally {
+        if (loadingEl && state.cachedData) loadingEl.style.display = 'none';
       }
     }
 
     function computeAndRenderBoxAnalytics() {
       if (!state.cachedData) return;
-      const { startMs, endMs, periodLabel, isDayMode, ptsData, ptsAux, ptsF1, ptsF2, outageSummary, rate } = state.cachedData;
+      const { startMs, endMs, periodLabel, isDayMode, rate } = state.cachedData;
 
+      if (isBattery && isDayMode) {
+        const { socBars, voltBars, pwrBars, sessions, lastIdx, packKwh } = state.cachedData;
+        const validBars = socBars.slice(0, lastIdx).filter(v => v != null && v > 10);
+        const latestV = validBars.length ? validBars[validBars.length - 1] : 0;
+        const peakV = validBars.length ? Math.max(...validBars) : 0;
+        const avgV = validBars.length ? (validBars.reduce((a, b) => a + b, 0) / validBars.length) : 0;
+
+        let dSum = 0, dCount = 0, nSum = 0, nCount = 0;
+        for (let i = 0; i < lastIdx; i++) {
+          const val = socBars[i];
+          if (val == null || val <= 10) continue;
+          const ts = startMs + i * 120 * 1000;
+          const pkt = (typeof getKarachiDate === 'function') ? getKarachiDate(ts) : { hour: 0 };
+          if (pkt.hour >= 7 && pkt.hour < 16) { dSum += val; dCount++; }
+          else { nSum += val; nCount++; }
+        }
+        const dayAvg = dCount > 0 ? (dSum / dCount) : 0;
+        const nightAvg = nCount > 0 ? (nSum / nCount) : 0;
+
+        let totalChgKwh = 0, totalDisKwh = 0;
+        const chips = (sessions || []).map(s => {
+          const isChg = s.type === 'charge';
+          const startTs = startMs + s.startIdx * 120 * 1000;
+          const endTs = startMs + s.endIdx * 120 * 1000;
+          const startStr = formatPktTime(startTs, 'time').replace(':00', '');
+          const endStr = s.inProgress ? 'Now' : formatPktTime(endTs, 'time').replace(':00', '');
+          const durH = Math.floor(s.durMin / 60);
+          const durM = Math.round(s.durMin % 60);
+          const durStr = durH > 0 ? (durM > 0 ? `${durH}h ${durM}m` : `${durH}h`) : `${durM}m`;
+          const kwh = (Math.abs(s.delta) / 100) * packKwh;
+          const avgW = s.durMin > 0 ? Math.round((kwh * 1000) / (s.durMin / 60)) : 0;
+          const avgStr = avgW >= 1000 ? (avgW / 1000).toFixed(1) + 'kW' : avgW + 'W';
+
+          if (isChg) totalChgKwh += kwh;
+          else totalDisKwh += kwh;
+
+          const bg = isChg ? 'rgba(16,185,129,0.16)' : 'rgba(249,115,22,0.16)';
+          const bdr = isChg ? 'rgba(16,185,129,0.45)' : 'rgba(249,115,22,0.45)';
+          const textClr = isChg ? '#4ade80' : '#fb923c';
+
+          let pauseStr = '';
+          if (s.pauseMin > 0) {
+            const ph = Math.floor(s.pauseMin / 60);
+            const pm = s.pauseMin % 60;
+            const pText = ph > 0 ? (pm > 0 ? `${ph}h ${pm}m` : `${ph}h`) : `${pm}m`;
+            pauseStr = ` (pause ${pText})`;
+          }
+
+          return `<span style="display:inline-flex; align-items:center; gap:4px; white-space:nowrap; flex-shrink:0; background:${bg}; border:1px solid ${bdr}; border-radius:6px; padding:3px 8px; font-size:11.5px; color:${textClr}; font-weight:700;">
+            ${isChg ? '▲ +' : '▼ '}${Math.abs(s.delta).toFixed(1)}% (${kwh.toFixed(1)} kWh - Ø ${avgStr}) in ${durStr}${pauseStr}
+            <span style="color:var(--text-muted); font-size:10px; font-weight:600; margin-left:2px;">[${startStr}–${endStr}]</span>
+          </span>`;
+        });
+
+        const sessionsCardHtml = (sessions && sessions.length > 0)
+          ? `<div style="background:var(--bg-panel); border:1px solid var(--border); border-radius:8px; padding:6px 10px; margin-top:5px;">
+               <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px; font-weight:800; margin-bottom:4px;">
+                 <span style="color:#10b981;">⚡ Activity Sessions (10m+):</span>
+                 <span style="color:var(--text-muted); font-size:10.5px;">Chg: <b style="color:#4ade80;">+${totalChgKwh.toFixed(1)} kWh</b> &bull; Disch: <b style="color:#fb923c;">-${totalDisKwh.toFixed(1)} kWh</b></span>
+               </div>
+               <div style="display:flex; flex-wrap:nowrap; overflow-x:auto; gap:6px; padding:2px 0 4px; -webkit-overflow-scrolling:touch; scrollbar-width:thin;">
+                 ${chips.join('')}
+               </div>
+             </div>`
+          : '';
+
+        let auxStatsHtml = '';
+        if (state.includeVoltage && voltBars.length) {
+          const valVolt = voltBars.slice(0, lastIdx).filter(v => v != null && v > 40);
+          if (valVolt.length) {
+            const curV = valVolt[valVolt.length - 1];
+            const maxV = Math.max(...valVolt);
+            const avgV = valVolt.reduce((a, b) => a + b, 0) / valVolt.length;
+            auxStatsHtml += `<div style="font-size:11px; margin-top:3px; color:#35c0b7; font-weight:700;">⚡ Voltage: <b style="color:var(--text-main); font-size:12px;">${curV.toFixed(1)} V</b> <span style="color:var(--text-muted);">(Peak: ${maxV.toFixed(1)}V &bull; Avg: ${avgV.toFixed(1)}V)</span></div>`;
+          }
+        }
+        if (state.includePower && pwrBars.length) {
+          const valPwr = pwrBars.slice(0, lastIdx).filter(v => v != null);
+          if (valPwr.length) {
+            const curP = valPwr[valPwr.length - 1];
+            const maxP = Math.max(...valPwr);
+            const avgP = Math.round(valPwr.reduce((a, b) => a + b, 0) / valPwr.length);
+            auxStatsHtml += `<div style="font-size:11px; margin-top:2px; color:#facc15; font-weight:700;">⚡ Net Power: <b style="color:var(--text-main); font-size:12px;">${curP} W</b> <span style="color:var(--text-muted);">(Peak: ${maxP}W &bull; Avg: ${avgP}W)</span></div>`;
+          }
+        }
+
+        statsStrip.innerHTML = `
+          <div style="margin-bottom:2px;">
+            <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+              <span style="color:${titleColor}; font-size:13px; font-weight:800;">🔋 ${cfg.title} SOC:</span>
+              <span style="color:var(--text-main); font-size:15px; font-weight:900;">${latestV.toFixed(1)} %</span>
+              <span style="color:var(--text-muted); font-size:11px; font-weight:600;">(Peak: <b style="color:${titleColor};">${peakV.toFixed(1)} %</b> · Avg: <b style="color:${titleColor};">${avgV.toFixed(1)} %</b>)</span>
+            </div>
+            <div style="display:flex; gap:10px; margin-top:2px; flex-wrap:wrap;">
+              <span style="color:var(--accent-solar); font-size:11.5px; font-weight:800;">Day: (Avg: ${dayAvg.toFixed(1)} %)</span>
+              <span style="color:#c084fc; font-size:11.5px; font-weight:800;">Night: (Avg: ${nightAvg.toFixed(1)} %)</span>
+            </div>
+            ${sessionsCardHtml}
+            ${auxStatsHtml}
+          </div>
+        `;
+
+        buildReportContent({
+          periodLabel, totalKwh: totalDisKwh, dayKwh: 0, nightKwh: 0, rate,
+          outageMinutes: 0, outageCount: 0, isDayMode: true, dailyMap: {}, ptsData: []
+        });
+
+        redrawGraph();
+        if (loadingEl) loadingEl.style.display = 'none';
+        return;
+      }
+
+      // Standard Non-Battery Feeds Analysis
+      const { ptsData, ptsAux, ptsF1, ptsF2, outageSummary } = state.cachedData;
       let peakVal = 0, avgVal = 0, dayKwh = 0, dayAvgW = 0, nightKwh = 0, nightAvgW = 0, totalKwh = 0;
       let f1Peak = 0, f1Avg = 0, f1DayKwh = 0, f1NightKwh = 0, f1TotalKwh = 0;
       let f2Peak = 0, f2Avg = 0, f2DayKwh = 0, f2NightKwh = 0, f2TotalKwh = 0;
-      let outageMinutes = 0, outageCount = 0, outageEvents = [];
+      let outageMinutes = 0, outageCount = 0;
       const dailyMap = {};
 
       const isPc = !!cfg.isPc;
@@ -2227,13 +2518,9 @@
             } else {
               if (inOutage) {
                 inOutage = false;
-                outageEvents.push({ start: oStart, end: ts, durMin: Math.max(1, Math.round((ts - oStart) / 60000)) });
               }
             }
           });
-          if (inOutage && oStart) {
-            outageEvents.push({ start: oStart, end: endMs, durMin: Math.max(1, Math.round((endMs - oStart) / 60000)), ongoing: true });
-          }
         }
       } else {
         const mapF1 = new Map(ptsF1);
@@ -2267,10 +2554,8 @@
           totalKwh += v / 1000;
 
           if (cfg.isFridges) {
-            const v1 = mapF1.get(ts) || 0;
-            const v2 = mapF2.get(ts) || 0;
-            dailyMap[dKey].f1Wh += v1;
-            dailyMap[dKey].f2Wh += v2;
+            dailyMap[dKey].f1Wh += (mapF1.get(ts) || 0);
+            dailyMap[dKey].f2Wh += (mapF2.get(ts) || 0);
           }
 
           if (p.hour >= dayStart && p.hour < dayEnd) {
@@ -2342,7 +2627,7 @@
       });
 
       redrawGraph();
-      loadingEl.style.display = 'none';
+      if (loadingEl) loadingEl.style.display = 'none';
     }
 
     function buildReportContent(data) {
@@ -2355,7 +2640,11 @@
       if (cfg.isPower) txt += `Tariff Rate: PKR ${rate.toFixed(0)} / kWh\n`;
       txt += `================================================================================\n\n`;
 
-      if (cfg.isFridges) {
+      if (isBattery && isDayMode) {
+        txt += `BATTERY SUMMARY:\n`;
+        txt += `  • Discharged: ${totalKwh.toFixed(2)} kWh\n`;
+        txt += `  • Savings: PKR ${Math.round(totalKwh * rate).toLocaleString()}\n\n`;
+      } else if (cfg.isFridges) {
         txt += `SUMMARY (FRIDGES):\n`;
         txt += `  • Fridge 1 Total: ${data.f1TotalKwh.toFixed(2)} kWh (Day: ${data.f1DayKwh.toFixed(2)}k, Night: ${data.f1NightKwh.toFixed(2)}k)\n`;
         txt += `  • Fridge 2 Total: ${data.f2TotalKwh.toFixed(2)} kWh (Day: ${data.f2DayKwh.toFixed(2)}k, Night: ${data.f2NightKwh.toFixed(2)}k)\n`;
@@ -2376,10 +2665,6 @@
       let tableHtml = '';
       if (isDayMode) {
         if (cfg.isFridges) {
-          txt += `HOURLY LOG (FRIDGES):\n`;
-          txt += `Hour (PKT) | F1 (W) | F2 (W) | Total (W) | Energy (Wh) | Cost (PKR)\n`;
-          txt += `--------------------------------------------------------------------\n`;
-
           tableHtml += `
             <table style="width:100%; border-collapse:collapse; font-size:11px; font-family:monospace; min-width:380px;">
               <thead>
@@ -2417,7 +2702,6 @@
             const hh = h % 12 || 12;
             const hStr = `${String(hh).padStart(2, '0')}:00 ${ampm}`;
 
-            txt += `${hStr.padEnd(10)} | ${String(w1).padStart(6)} | ${String(w2).padStart(6)} | ${String(totW).padStart(9)} | ${String(wh).padStart(11)} | PKR ${cost.toFixed(1).padStart(6)}\n`;
             tableHtml += `
               <tr style="border-bottom:1px solid rgba(255,255,255,0.05); text-align:right;">
                 <td style="padding:5px 6px; text-align:left; color:var(--text-muted);">${hStr}</td>
@@ -2430,11 +2714,7 @@
             `;
           }
           tableHtml += `</tbody></table>`;
-        } else {
-          txt += `HOURLY LOG:\n`;
-          txt += `Hour (PKT) | Value (${cfg.unit}) | Energy | Cost (PKR)\n`;
-          txt += `------------------------------------------------\n`;
-
+        } else if (!isBattery) {
           tableHtml += `
             <table style="width:100%; border-collapse:collapse; font-size:11px; font-family:monospace; min-width:320px;">
               <thead>
@@ -2465,96 +2745,12 @@
             const hh = h % 12 || 12;
             const hStr = `${String(hh).padStart(2, '0')}:00 ${ampm}`;
 
-            txt += `${hStr.padEnd(10)} | ${String(avgV).padStart(10)} | ${String(wh).padStart(6)} Wh | PKR ${cost.toFixed(1).padStart(6)}\n`;
             tableHtml += `
               <tr style="border-bottom:1px solid rgba(255,255,255,0.05); text-align:right;">
                 <td style="padding:5px 6px; text-align:left; color:var(--text-muted);">${hStr}</td>
                 <td style="padding:5px 6px; font-weight:800; color:${titleColor};">${avgV} ${cfg.unit}</td>
                 <td style="padding:5px 6px;">${wh} Wh</td>
                 <td style="padding:5px 6px; color:#4ade80; font-weight:700;">PKR ${cost.toFixed(1)}</td>
-              </tr>
-            `;
-          });
-          tableHtml += `</tbody></table>`;
-        }
-      } else {
-        if (cfg.isFridges) {
-          txt += `PERIOD BREAKDOWN (FRIDGES):\n`;
-          txt += `Date | F1 (kWh) | F2 (kWh) | Total (kWh) | Day | Night | Cost (PKR)\n`;
-          txt += `---------------------------------------------------------------------------\n`;
-
-          tableHtml += `
-            <table style="width:100%; border-collapse:collapse; font-size:11px; font-family:monospace; min-width:440px;">
-              <thead>
-                <tr style="background:var(--bg-card); border-bottom:2px solid var(--border); text-align:right;">
-                  <th style="padding:6px; text-align:left;">Date</th>
-                  <th style="padding:6px; color:#c084fc;">F1</th>
-                  <th style="padding:6px; color:#22d3ee;">F2</th>
-                  <th style="padding:6px; color:var(--text-main);">Total</th>
-                  <th style="padding:6px; color:var(--accent-solar);">Day</th>
-                  <th style="padding:6px; color:#c084fc;">Night</th>
-                  <th style="padding:6px; color:#4ade80;">Cost</th>
-                </tr>
-              </thead>
-              <tbody>
-          `;
-
-          Object.entries(dailyMap || {}).forEach(([k, d]) => {
-            const tKwh = d.totalWh / 1000;
-            const f1Kwh = d.f1Wh / 1000;
-            const f2Kwh = d.f2Wh / 1000;
-            const dKwh = d.dayWh / 1000;
-            const nKwh = d.nightWh / 1000;
-            const cost = tKwh * rate;
-
-            txt += `${d.dLabel.padEnd(8)} | ${f1Kwh.toFixed(2).padStart(8)} | ${f2Kwh.toFixed(2).padStart(8)} | ${tKwh.toFixed(2).padStart(11)} | ${dKwh.toFixed(2).padStart(5)} | ${nKwh.toFixed(2).padStart(5)} | PKR ${Math.round(cost).toLocaleString()}\n`;
-            tableHtml += `
-              <tr style="border-bottom:1px solid rgba(255,255,255,0.05); text-align:right;">
-                <td style="padding:5px 6px; text-align:left; font-weight:700; color:var(--text-main);">${d.dLabel}</td>
-                <td style="padding:5px 6px; font-weight:800; color:#c084fc;">${f1Kwh.toFixed(2)}k</td>
-                <td style="padding:5px 6px; font-weight:800; color:#22d3ee;">${f2Kwh.toFixed(2)}k</td>
-                <td style="padding:5px 6px; font-weight:800; color:var(--text-main);">${tKwh.toFixed(2)}k</td>
-                <td style="padding:5px 6px; color:var(--accent-solar);">${dKwh.toFixed(2)}k</td>
-                <td style="padding:5px 6px; color:#c084fc;">${nKwh.toFixed(2)}k</td>
-                <td style="padding:5px 6px; color:#4ade80; font-weight:700;">PKR ${Math.round(cost).toLocaleString()}</td>
-              </tr>
-            `;
-          });
-          tableHtml += `</tbody></table>`;
-        } else {
-          txt += `PERIOD BREAKDOWN:\n`;
-          txt += `Date/Period | Total (kWh) | Day (kWh) | Night (kWh) | Night % | Cost (PKR)\n`;
-          txt += `---------------------------------------------------------------------------\n`;
-
-          tableHtml += `
-            <table style="width:100%; border-collapse:collapse; font-size:11px; font-family:monospace; min-width:420px;">
-              <thead>
-                <tr style="background:var(--bg-card); border-bottom:2px solid var(--border); text-align:right;">
-                  <th style="padding:6px; text-align:left;">Date</th>
-                  <th style="padding:6px; color:${titleColor};">Total</th>
-                  <th style="padding:6px; color:var(--accent-solar);">Day</th>
-                  <th style="padding:6px; color:#c084fc;">Night</th>
-                  <th style="padding:6px; color:#4ade80;">Cost</th>
-                </tr>
-              </thead>
-              <tbody>
-          `;
-
-          Object.entries(dailyMap || {}).forEach(([k, d]) => {
-            const tKwh = d.totalWh / 1000;
-            const dKwh = d.dayWh / 1000;
-            const nKwh = d.nightWh / 1000;
-            const cost = tKwh * rate;
-            const np = tKwh > 0 ? ((nKwh / tKwh) * 100).toFixed(0) : '0';
-
-            txt += `${d.dLabel.padEnd(11)} | ${tKwh.toFixed(2).padStart(11)} | ${dKwh.toFixed(2).padStart(9)} | ${nKwh.toFixed(2).padStart(11)} | ${np.padStart(6)}% | PKR ${Math.round(cost).toLocaleString()}\n`;
-            tableHtml += `
-              <tr style="border-bottom:1px solid rgba(255,255,255,0.05); text-align:right;">
-                <td style="padding:5px 6px; text-align:left; font-weight:700; color:var(--text-main);">${d.dLabel}</td>
-                <td style="padding:5px 6px; font-weight:800; color:${titleColor};">${tKwh.toFixed(1)}k</td>
-                <td style="padding:5px 6px; color:var(--accent-solar);">${dKwh.toFixed(1)}k</td>
-                <td style="padding:5px 6px; color:#c084fc; font-weight:700;">${nKwh.toFixed(1)}k <span style="font-size:9.5px; opacity:0.8;">(${np}%)</span></td>
-                <td style="padding:5px 6px; color:#4ade80; font-weight:700;">PKR ${Math.round(cost).toLocaleString()}</td>
               </tr>
             `;
           });
@@ -2572,8 +2768,8 @@
           </div>
           <div style="display:flex; justify-content:space-between; font-size:11px; color:var(--text-muted); margin-top:4px; flex-wrap:wrap; gap:4px;">
             <span>Total: <b style="color:var(--text-main);">${totalKwh.toFixed(1)} kWh</b></span>
-            <span>Day: <b style="color:var(--accent-solar);">${dayKwh.toFixed(1)} kWh</b></span>
-            <span>Night: <b style="color:#c084fc;">${nightKwh.toFixed(1)} kWh (${nightPct}%)</b></span>
+            ${dayKwh > 0 ? `<span>Day: <b style="color:var(--accent-solar);">${dayKwh.toFixed(1)} kWh</b></span>` : ''}
+            ${nightKwh > 0 ? `<span>Night: <b style="color:#c084fc;">${nightKwh.toFixed(1)} kWh (${nightPct}%)</b></span>` : ''}
             ${boxKey === 'grid' ? `<span>Outages: <b style="color:#ef4444;">${fmtDuration(outageMinutes)} (${outageCount}x)</b></span>` : ''}
           </div>
         </div>
@@ -2583,8 +2779,7 @@
 
     function redrawGraph() {
       if (state.view !== 'graph' || !state.cachedData) return;
-      const { isDayMode, ptsData, ptsAux, ptsF1, ptsF2 } = state.cachedData;
-      const dailyMap = state.cachedData.dailyMap || {};
+      const { isDayMode } = state.cachedData;
 
       const dpr = window.devicePixelRatio || 1;
       const rect = canvas.getBoundingClientRect();
@@ -2595,21 +2790,349 @@
       ctx.scale(dpr, dpr);
       ctx.clearRect(0, 0, rect.width, rect.height);
 
-      const PL = 38, PR = 12, PT = 24, PB = 30;
+      const PL = 36, PR = 14, PT = 22, PB = 30;
       const cW = rect.width - PL - PR;
       const cH = rect.height - PT - PB;
       if (cW <= 0 || cH <= 0) return;
+
+      // ── Dedicated Battery Day View Canvas Renderer ──
+      if (isBattery && isDayMode) {
+        const { socBars, voltBars, pwrBars, sessions, lastIdx, packKwh } = state.cachedData;
+        const n = socBars.length;
+        if (n < 2) return;
+
+        const maxPan = (cW / 2) * (state.zoom - 1);
+        state.panX = Math.max(-maxPan, Math.min(maxPan, state.panX));
+        const centerX = PL + cW / 2;
+        const mapX = (idx) => centerX + (PL + (idx / (n - 1)) * cW - centerX) * state.zoom + state.panX;
+
+        const minV = 0, maxV = 110, range = 110;
+        const mapY = (v) => PT + cH - ((v - minV) / range) * cH;
+
+        // Grid lines
+        ctx.fillStyle = '#71717a';
+        ctx.font = '9px system-ui';
+        ctx.textAlign = 'right';
+        const ticks = [0, 22, 44, 66, 88, 110];
+        ticks.forEach(v => {
+          const y = mapY(v);
+          ctx.fillText(Math.round(v) + '%', PL - 5, y + 3);
+          ctx.strokeStyle = v === 100 ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.05)';
+          ctx.beginPath();
+          if (v === 100) ctx.setLineDash([4, 4]); else ctx.setLineDash([]);
+          ctx.moveTo(PL, y); ctx.lineTo(PL + cW, y); ctx.stroke();
+          ctx.setLineDash([]);
+        });
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(PL, PT, cW, cH);
+        ctx.clip();
+
+        // Background gradient
+        const grad = ctx.createLinearGradient(0, PT, 0, PT + cH);
+        grad.addColorStop(0, titleColor + '44');
+        grad.addColorStop(1, titleColor + '00');
+
+        ctx.beginPath();
+        let started = false, firstX = null, lastX = null;
+        for (let i = 0; i < lastIdx; i++) {
+          if (socBars[i] == null) continue;
+          const x = mapX(i), y = mapY(socBars[i]);
+          if (!started) { firstX = x; ctx.moveTo(x, PT + cH); ctx.lineTo(x, y); started = true; }
+          else ctx.lineTo(x, y);
+          lastX = x;
+        }
+        if (started && lastX != null) {
+          ctx.lineTo(lastX, PT + cH);
+          ctx.closePath();
+          ctx.fillStyle = grad;
+          ctx.fill();
+        }
+
+        // Base green line
+        ctx.beginPath();
+        started = false;
+        for (let i = 0; i < lastIdx; i++) {
+          if (socBars[i] == null) { started = false; continue; }
+          const x = mapX(i), y = mapY(socBars[i]);
+          if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y);
+        }
+        ctx.strokeStyle = titleColor;
+        ctx.lineWidth = 2.2;
+        ctx.lineJoin = 'round';
+        ctx.stroke();
+
+        // Glowing slope segments and pause bridges
+        if (state.showSessions !== false && sessions && sessions.length) {
+          sessions.forEach(seg => {
+            const isCharge = seg.type === 'charge';
+            const clr = isCharge ? '#4ade80' : '#fb923c';
+
+            const ranges = (seg.ranges && seg.ranges.length) ? seg.ranges : [{ startIdx: seg.startIdx, endIdx: seg.endIdx }];
+            ranges.forEach(rng => {
+              ctx.save();
+              ctx.beginPath();
+              let fst = true;
+              for (let k = rng.startIdx; k <= Math.min(rng.endIdx, lastIdx - 1); k++) {
+                if (socBars[k] == null) continue;
+                const px = mapX(k), py = mapY(socBars[k]);
+                if (fst) { ctx.moveTo(px, py); fst = false; } else ctx.lineTo(px, py);
+              }
+              ctx.strokeStyle = clr;
+              ctx.lineWidth = 3.5;
+              ctx.shadowColor = clr;
+              ctx.shadowBlur = 8;
+              ctx.stroke();
+              ctx.restore();
+            });
+
+            // Bridge line for pauses
+            if (ranges.length > 1) {
+              for (let r = 0; r < ranges.length - 1; r++) {
+                const r1 = ranges[r];
+                const r2 = ranges[r + 1];
+                if (r1.endIdx >= lastIdx) continue;
+                const v1 = socBars[r1.endIdx];
+                const v2 = socBars[Math.min(r2.startIdx, lastIdx - 1)];
+                if (v1 == null || v2 == null) continue;
+                const x1 = mapX(r1.endIdx), y1 = mapY(v1);
+                const x2 = mapX(r2.startIdx), y2 = mapY(v2);
+                const dropY = 14;
+
+                ctx.save();
+                ctx.beginPath();
+                ctx.moveTo(x1, y1); ctx.lineTo(x1, y1 + dropY);
+                ctx.strokeStyle = clr; ctx.lineWidth = 2; ctx.stroke();
+
+                ctx.beginPath();
+                for (let k = r1.endIdx; k <= Math.min(r2.startIdx, lastIdx - 1); k++) {
+                  if (socBars[k] == null) continue;
+                  const px = mapX(k), py = mapY(socBars[k]) + dropY;
+                  if (k === r1.endIdx) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+                }
+                ctx.setLineDash([5, 4]); ctx.strokeStyle = clr; ctx.lineWidth = 2.5; ctx.stroke();
+
+                ctx.beginPath(); ctx.setLineDash([]);
+                ctx.moveTo(x2, y2 + dropY); ctx.lineTo(x2, y2);
+                ctx.strokeStyle = clr; ctx.lineWidth = 2; ctx.stroke();
+                ctx.restore();
+              }
+            }
+          });
+        }
+
+        // Secondary Overlays: Voltage (cyan) and Power (yellow)
+        if (state.includeVoltage && voltBars.length) {
+          const valV = voltBars.slice(0, lastIdx).filter(v => v != null && v > 40);
+          const vMin = valV.length ? Math.floor(Math.min(...valV) - 1) : 46;
+          const vMax = valV.length ? Math.ceil(Math.max(...valV) + 1) : 56;
+          const vRange = Math.max(1, vMax - vMin);
+          const mapVy = (v) => PT + cH - ((v - vMin) / vRange) * cH;
+
+          ctx.beginPath();
+          started = false;
+          for (let i = 0; i < lastIdx; i++) {
+            if (voltBars[i] == null) { started = false; continue; }
+            const x = mapX(i), y = mapVy(voltBars[i]);
+            if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y);
+          }
+          ctx.strokeStyle = '#35c0b7'; ctx.lineWidth = 1.8; ctx.stroke();
+        }
+
+        if (state.includePower && pwrBars.length) {
+          const valP = pwrBars.slice(0, lastIdx).filter(v => v != null && Math.abs(v) > 0);
+          const maxP = valP.length ? Math.max(...valP.map(Math.abs)) * 1.15 : 1000;
+          const mapPy = (p) => PT + cH / 2 - (p / maxP) * (cH / 2);
+
+          ctx.beginPath();
+          started = false;
+          for (let i = 0; i < lastIdx; i++) {
+            if (pwrBars[i] == null) { started = false; continue; }
+            const x = mapX(i), y = mapPy(pwrBars[i]);
+            if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y);
+          }
+          ctx.strokeStyle = '#facc15'; ctx.lineWidth = 1.6; ctx.setLineDash([4, 4]); ctx.stroke();
+          ctx.setLineDash([]);
+        }
+
+        ctx.restore();
+
+        // On-Chart Callout Pills
+        if (state.showSessions !== false && sessions && sessions.length) {
+          const isNarrow = cW < 420;
+
+          sessions.forEach(seg => {
+            const isCharge = seg.type === 'charge';
+            const clr = isCharge ? '#4ade80' : '#fb923c';
+            const bgClr = isCharge ? 'rgba(6, 78, 59, 0.94)' : 'rgba(124, 45, 18, 0.94)';
+            const borderClr = isCharge ? '#10b981' : '#f97316';
+
+            let targetRange = { startIdx: seg.startIdx, endIdx: seg.endIdx };
+            if (seg.ranges && seg.ranges.length > 1) {
+              targetRange = seg.ranges.reduce((best, r) => (r.endIdx - r.startIdx > best.endIdx - best.startIdx ? r : best), seg.ranges[0]);
+            }
+            const midIdx = Math.round((targetRange.startIdx + targetRange.endIdx) / 2);
+            if (midIdx >= lastIdx) return;
+            const midVal = socBars[midIdx];
+            if (midVal == null) return;
+            const midX = mapX(midIdx), midY = mapY(midVal);
+            if (midX < PL - 40 || midX > rect.width) return;
+
+            const durH = Math.floor(seg.durMin / 60);
+            const durM = Math.round(seg.durMin % 60);
+            const durStr = durH > 0 ? (durM > 0 ? `${durH}h ${durM}m` : `${durH}h`) : `${durM}m`;
+            const kwhEst = (Math.abs(seg.delta) / 100) * packKwh;
+            const sign = isCharge ? '+' : '';
+            const avgW = seg.durMin > 0 ? Math.round((kwhEst * 1000) / (seg.durMin / 60)) : 0;
+            const avgStr = avgW >= 1000 ? (avgW / 1000).toFixed(1) + 'kW' : avgW + 'W';
+
+            let pauseStr = '';
+            if (seg.pauseMin > 0) {
+              const ph = Math.floor(seg.pauseMin / 60);
+              const pm = seg.pauseMin % 60;
+              const pText = ph > 0 ? (pm > 0 ? `${ph}h ${pm}m` : `${ph}h`) : `${pm}m`;
+              pauseStr = ` · ${pText} pause`;
+            }
+
+            const text = isNarrow
+              ? `${isCharge ? '▲' : '▼'} ${sign}${Math.round(seg.delta)}% · ${durStr} (${kwhEst.toFixed(1)}k · Ø ${avgStr})`
+              : `${isCharge ? '▲' : '▼'} ${sign}${seg.delta.toFixed(1)}% · ${durStr}${pauseStr} (${kwhEst.toFixed(1)}kWh · Ø ${avgStr})`;
+
+            ctx.font = `bold ${isNarrow ? '9.5px' : '11px'} system-ui, -apple-system, sans-serif`;
+            const tw = ctx.measureText(text).width;
+            const pw = tw + (isNarrow ? 12 : 18);
+            const ph = isNarrow ? 19 : 22;
+
+            let bx = midX - pw / 2;
+            bx = Math.max(PL + 4, Math.min(rect.width - PR - pw - 4, bx));
+            let by = isCharge ? (midY - ph - 10) : (midY + 10);
+            by = Math.max(PT + 2, Math.min(PT + cH - ph - 2, by));
+
+            ctx.save();
+            ctx.fillStyle = bgClr;
+            ctx.strokeStyle = borderClr;
+            ctx.lineWidth = 1.4;
+            ctx.shadowColor = 'rgba(0,0,0,0.85)';
+            ctx.shadowBlur = 6;
+
+            ctx.beginPath();
+            if (typeof ctx.roundRect === 'function') ctx.roundRect(bx, by, pw, ph, 5);
+            else ctx.rect(bx, by, pw, ph);
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(midX, by > midY ? by : by + ph);
+            ctx.lineTo(midX, midY);
+            ctx.strokeStyle = borderClr;
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+            ctx.fillStyle = '#ffffff';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(text, bx + pw / 2, by + ph / 2 + 0.5);
+            ctx.restore();
+          });
+        }
+
+        // X-axis time ticks
+        ctx.fillStyle = '#a1a1aa';
+        ctx.font = '9px system-ui';
+        ctx.textAlign = 'center';
+        const labelIntervals = Math.max(4, Math.floor(cW / 45));
+        const step = Math.max(1, Math.ceil(n / (labelIntervals * state.zoom)));
+        for (let i = 0; i < n; i += step) {
+          const lx = mapX(i);
+          if (lx > PL - 10 && lx < rect.width - PR) {
+            const ts = state.cachedData.startMs + i * 120 * 1000;
+            const pkt = (typeof getKarachiDate === 'function') ? getKarachiDate(ts) : { hour: 0 };
+            const ampm = pkt.hour >= 12 ? 'pm' : 'am';
+            const hh = pkt.hour % 12 || 12;
+            ctx.fillText(`${hh}${ampm}`, lx, PT + cH + 15);
+          }
+        }
+
+        // Scrub cursor line & tooltip box (matching Image 2)
+        if (state.scrubIdx != null && state.scrubIdx >= 0 && state.scrubIdx < lastIdx) {
+          const sx = mapX(state.scrubIdx);
+          const val = socBars[state.scrubIdx];
+          const sy = val != null ? mapY(val) : PT + cH / 2;
+
+          ctx.save();
+          ctx.beginPath();
+          ctx.setLineDash([3, 3]);
+          ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+          ctx.lineWidth = 1;
+          ctx.moveTo(sx, PT);
+          ctx.lineTo(sx, PT + cH);
+          ctx.stroke();
+
+          if (val != null) {
+            ctx.beginPath();
+            ctx.setLineDash([]);
+            ctx.arc(sx, sy, 4.5, 0, Math.PI * 2);
+            ctx.fillStyle = titleColor;
+            ctx.fill();
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+          }
+
+          const ts = state.cachedData.startMs + state.scrubIdx * 120 * 1000;
+          const timeStr = formatPktTime(ts, 'time');
+          const valStr = val != null ? `${val.toFixed(1)} %` : '--';
+
+          const line1 = timeStr;
+          const line2 = `● Value: ${valStr}`;
+
+          ctx.font = 'bold 10px system-ui, -apple-system, sans-serif';
+          const tw1 = ctx.measureText(line1).width;
+          const tw2 = ctx.measureText(line2).width;
+          const boxW = Math.max(tw1, tw2) + 16;
+          const boxH = 34;
+
+          let boxX = sx - boxW / 2;
+          boxX = Math.max(PL + 4, Math.min(rect.width - PR - boxW - 4, boxX));
+          let boxY = sy - boxH - 10;
+          if (boxY < PT + 4) boxY = sy + 10;
+
+          ctx.fillStyle = 'rgba(20, 20, 22, 0.94)';
+          ctx.strokeStyle = 'var(--border, #3f3f46)';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          if (typeof ctx.roundRect === 'function') {
+            ctx.roundRect(boxX, boxY, boxW, boxH, 6);
+          } else {
+            ctx.rect(boxX, boxY, boxW, boxH);
+          }
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.fillStyle = 'var(--text-main, #f4f4f5)';
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'top';
+          ctx.fillText(line1, boxX + 8, boxY + 5);
+
+          ctx.fillStyle = '#4ade80';
+          ctx.fillText(line2, boxX + 8, boxY + 18);
+
+          ctx.restore();
+        }
+        return;
+      }
+
+      // Standard non-battery daily / period drawing
+      const { ptsData, ptsAux, ptsF1, ptsF2 } = state.cachedData;
+      const dailyMap = state.cachedData.dailyMap || {};
 
       if (isDayMode) {
         if (cfg.isFridges) {
           const p1 = ptsF1 || [];
           const p2 = ptsF2 || [];
           const n = Math.max(p1.length, p2.length);
-          if (n < 2) {
-            ctx.fillStyle = '#71717a'; ctx.textAlign = 'center'; ctx.font = '11px system-ui';
-            ctx.fillText('No fridge telemetry points recorded for today', rect.width / 2, rect.height / 2);
-            return;
-          }
+          if (n < 2) return;
 
           const allVals = [];
           if (state.fridgeFilter !== 'f2') allVals.push(...p1.map(p => p[1] || 0));
@@ -2631,7 +3154,7 @@
           ctx.save();
           ctx.beginPath(); ctx.rect(PL, PT, cW, cH); ctx.clip();
 
-          // Fridge 1 (Purple)
+          // Fridge 1
           if (state.fridgeFilter === 'both' || state.fridgeFilter === 'f1') {
             const grad1 = ctx.createLinearGradient(0, PT, 0, PT + cH);
             grad1.addColorStop(0, 'rgba(192, 132, 252, 0.28)');
@@ -2655,7 +3178,7 @@
             ctx.stroke();
           }
 
-          // Fridge 2 (Cyan)
+          // Fridge 2
           if (state.fridgeFilter === 'both' || state.fridgeFilter === 'f2') {
             const grad2 = ctx.createLinearGradient(0, PT, 0, PT + cH);
             grad2.addColorStop(0, 'rgba(34, 211, 238, 0.24)');
@@ -2683,10 +3206,8 @@
 
           ctx.font = 'bold 9.5px system-ui';
           ctx.textAlign = 'right';
-          ctx.fillStyle = '#c084fc';
-          ctx.fillText('● Fridge 1', rect.width - PR - 75, 12);
-          ctx.fillStyle = '#22d3ee';
-          ctx.fillText('● Fridge 2', rect.width - PR, 12);
+          ctx.fillStyle = '#c084fc'; ctx.fillText('● Fridge 1', rect.width - PR - 75, 12);
+          ctx.fillStyle = '#22d3ee'; ctx.fillText('● Fridge 2', rect.width - PR, 12);
 
           ctx.fillStyle = '#a1a1aa'; ctx.font = '9.5px system-ui'; ctx.textAlign = 'center';
           const step = Math.max(1, Math.floor(n / 6));
@@ -2701,11 +3222,7 @@
           }
         } else {
           const n = ptsData.length;
-          if (n < 2) {
-            ctx.fillStyle = '#71717a'; ctx.textAlign = 'center'; ctx.font = '11px system-ui';
-            ctx.fillText(`No telemetry points recorded for ${cfg.title} today`, rect.width / 2, rect.height / 2);
-            return;
-          }
+          if (n < 2) return;
 
           const maxW = Math.max(cfg.unit === 'W' ? 500 : 10, Math.max(...ptsData.map(p => p[1] || 0)) * 1.15);
           const mapX = (idx) => PL + (idx / (n - 1)) * cW;
@@ -2770,11 +3287,7 @@
       } else {
         const entries = Object.entries(dailyMap || {});
         const count = entries.length;
-        if (count === 0) {
-          ctx.fillStyle = '#71717a'; ctx.textAlign = 'center'; ctx.font = '11px system-ui';
-          ctx.fillText('No units recorded for this period', rect.width / 2, rect.height / 2);
-          return;
-        }
+        if (count === 0) return;
 
         const maxKwh = Math.max(2, Math.max(...entries.map(([, d]) => d.totalWh / 1000)) * 1.15);
         const barWidth = Math.max(2, Math.min(22, (cW / count) * 0.7));
@@ -2826,10 +3339,8 @@
         if (cfg.isFridges) {
           ctx.font = 'bold 9.5px system-ui';
           ctx.textAlign = 'right';
-          ctx.fillStyle = '#c084fc';
-          ctx.fillText('■ F1', rect.width - PR - 45, 12);
-          ctx.fillStyle = '#22d3ee';
-          ctx.fillText('■ F2', rect.width - PR, 12);
+          ctx.fillStyle = '#c084fc'; ctx.fillText('■ F1', rect.width - PR - 45, 12);
+          ctx.fillStyle = '#22d3ee'; ctx.fillText('■ F2', rect.width - PR, 12);
         }
 
         ctx.fillStyle = '#a1a1aa'; ctx.font = '9px system-ui'; ctx.textAlign = 'center';
@@ -2843,7 +3354,153 @@
       }
     }
 
-    // ── Export Handlers ──
+    // ── Mouse & Touch Direct Left-Click Pan / Drag / Pinch-Zoom / Scrubbing ──
+    if (!canvas.__attachedPopupEvents) {
+      canvas.__attachedPopupEvents = true;
+
+      const handleHover = (clientX) => {
+        if (!state.cachedData || !state.cachedData.isDayMode) return;
+        const rect = canvas.getBoundingClientRect();
+        const PL = 36, PR = 14, cW = rect.width - PL - PR;
+        if (cW <= 0) return;
+        const mouseX = clientX - rect.left;
+        const n = state.cachedData.totalPoints || state.cachedData.ptsData?.length || 720;
+        const centerX = PL + cW / 2;
+        const relIdx = Math.round(((mouseX - state.panX - centerX) / state.zoom + centerX - PL) / (cW / (n - 1)));
+
+        if (relIdx >= 0 && relIdx < (state.cachedData.lastIdx || n)) {
+          state.scrubIdx = relIdx;
+          redrawGraph();
+        }
+      };
+
+      let isMouseDown = false;
+      let dragStartX = 0;
+      let dragStartPanX = 0;
+
+      canvas.addEventListener('mousedown', (e) => {
+        if (e.button !== 0) return; // Left click only
+        isMouseDown = true;
+        dragStartX = e.clientX;
+        dragStartPanX = state.panX;
+        canvas.style.cursor = 'grabbing';
+        handleHover(e.clientX);
+        e.preventDefault();
+      });
+
+      window.addEventListener('mousemove', (e) => {
+        if (isMouseDown) {
+          const dx = e.clientX - dragStartX;
+          const rect = canvas.getBoundingClientRect();
+          const PL = 36, PR = 14, cW = rect.width - PL - PR;
+          const maxPan = (cW / 2) * (state.zoom - 1);
+
+          state.panX = Math.max(-maxPan, Math.min(maxPan, dragStartPanX + dx));
+          handleHover(e.clientX);
+          redrawGraph();
+        } else if (e.target === canvas) {
+          handleHover(e.clientX);
+        }
+      });
+
+      window.addEventListener('mouseup', () => {
+        if (isMouseDown) {
+          isMouseDown = false;
+          canvas.style.cursor = 'grab';
+        }
+      });
+
+      let isTouching = false;
+      let touchStartX = 0;
+      let touchStartPanX = 0;
+      let pinchDist0 = 0;
+      let pinchZoom0 = 1;
+
+      canvas.addEventListener('touchstart', (e) => {
+        if (e.touches.length === 1) {
+          isTouching = true;
+          touchStartX = e.touches[0].clientX;
+          touchStartPanX = state.panX;
+          handleHover(e.touches[0].clientX);
+        } else if (e.touches.length === 2) {
+          isTouching = true;
+          const dx = e.touches[0].clientX - e.touches[1].clientX;
+          const dy = e.touches[0].clientY - e.touches[1].clientY;
+          pinchDist0 = Math.hypot(dx, dy);
+          pinchZoom0 = state.zoom;
+          e.preventDefault();
+        }
+      }, { passive: false });
+
+      canvas.addEventListener('touchmove', (e) => {
+        if (!isTouching) return;
+        if (e.touches.length === 1) {
+          const dx = e.touches[0].clientX - touchStartX;
+          const rect = canvas.getBoundingClientRect();
+          const PL = 36, PR = 14, cW = rect.width - PL - PR;
+          const maxPan = (cW / 2) * (state.zoom - 1);
+          state.panX = Math.max(-maxPan, Math.min(maxPan, touchStartPanX + dx));
+          handleHover(e.touches[0].clientX);
+          redrawGraph();
+          if (e.cancelable) e.preventDefault();
+        } else if (e.touches.length === 2 && pinchDist0 > 0) {
+          const dx = e.touches[0].clientX - e.touches[1].clientX;
+          const dy = e.touches[0].clientY - e.touches[1].clientY;
+          const dist = Math.hypot(dx, dy);
+          const oldZoom = state.zoom;
+          state.zoom = Math.max(1, Math.min(25, pinchZoom0 * (dist / pinchDist0)));
+          state.panX *= (state.zoom / oldZoom);
+          redrawGraph();
+          if (e.cancelable) e.preventDefault();
+        }
+      }, { passive: false });
+
+      canvas.addEventListener('touchend', (e) => {
+        if (e.touches.length === 0) {
+          isTouching = false;
+          pinchDist0 = 0;
+          state.scrubIdx = null;
+          redrawGraph();
+        } else if (e.touches.length === 1) {
+          touchStartX = e.touches[0].clientX;
+          touchStartPanX = state.panX;
+        }
+      });
+
+      canvas.addEventListener('wheel', (e) => {
+        if (!state.cachedData || !state.cachedData.isDayMode) return;
+        e.preventDefault();
+        const factor = e.deltaY < 0 ? 1.15 : 0.85;
+        const oldZoom = state.zoom;
+        const newZoom = Math.max(1, Math.min(25, state.zoom * factor));
+        if (newZoom !== oldZoom) {
+          state.panX *= (newZoom / oldZoom);
+          state.zoom = newZoom;
+          const rect = canvas.getBoundingClientRect();
+          const PL = 36, PR = 14, cW = rect.width - PL - PR;
+          const maxPan = (cW / 2) * (state.zoom - 1);
+          state.panX = Math.max(-maxPan, Math.min(maxPan, state.panX));
+          redrawGraph();
+        }
+      }, { passive: false });
+
+      canvas.addEventListener('dblclick', (e) => {
+        e.preventDefault();
+        state.zoom = 1;
+        state.panX = 0;
+        state.scrubIdx = null;
+        redrawGraph();
+      });
+
+      canvas.addEventListener('mouseleave', () => {
+        if (!isMouseDown) {
+          state.scrubIdx = null;
+          redrawGraph();
+        }
+      });
+    }
+
+    // Export Handlers
     saveTxtBtn.onclick = () => {
       if (!state.cachedRawText) { alert('No report data ready to export.'); return; }
       const cleanLbl = (state.cachedData?.periodLabel || 'Report').replace(/[^a-zA-Z0-9_-]/g, '_');
@@ -2905,7 +3562,7 @@
     loadBoxPeriodData();
   }
 
-  function renderGridDetailSection(container) {
+    function renderGridDetailSection(container) {
     return renderBoxDetailAnalyticsSection(container, 'grid');
   }
 

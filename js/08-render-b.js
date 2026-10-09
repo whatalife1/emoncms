@@ -184,6 +184,12 @@ function renderBattery2Card(byName) {
   const statusColor = isCharging ? '#4ade80' : (isDischarging ? '#f59e0b' : 'var(--text-muted)');
   const socColor = (soc != null && soc <= 20) ? '#ef4444' : (soc != null && soc <= 50) ? '#facc15' : '#4ade80';
 
+  const prioVal = byName.get('Inverter Priority')?.value ?? byName.get('547151')?.value ?? window.lastInverterPriority;
+  const prioMode = (typeof getInverterPriorityMode === 'function')
+    ? getInverterPriorityMode(prioVal)
+    : (Math.round(Number(prioVal)) === 1 ? 'SUB' : (Math.round(Number(prioVal)) === 2 ? 'SBU' : null));
+  const prioBadge = prioMode ? `<span class="prio-badge prio-${prioMode.toLowerCase()}" style="display:inline-block;padding:1px 5px;border-radius:4px;font-size:10px;font-weight:800;letter-spacing:0.04em;background:${prioMode==='SUB'?'rgba(245,158,11,0.2)':'rgba(16,185,129,0.2)'};color:${prioMode==='SUB'?'#f59e0b':'#10b981'};border:1px solid ${prioMode==='SUB'?'rgba(245,158,11,0.45)':'rgba(16,185,129,0.45)'};margin-left:5px;vertical-align:middle;">${prioMode}</span>` : '';
+
   const validCells = cells.filter(c => c.v != null && c.v > 0);
   let cellGridHtml = '';
   let spreadHtml = '';
@@ -213,12 +219,19 @@ function renderBattery2Card(byName) {
 
   const fmtLimits = (v, u) => (v != null ? v.toFixed(1) + u : '--');
 
-  return `<div class="card card-battery2"><div class="hero-header">
-    <div style="flex:1"><span class="card-name">🔋 Battery 2 SOC</span><span class="hero-val" style="color:${socColor}">${soc != null ? Math.round(soc) : '--'}%</span></div>
+  const prioVal = byName.get('Inverter Priority')?.value ?? byName.get('547151')?.value ?? window.lastInverterPriority;
+  const prioMode = (typeof getInverterPriorityMode === 'function')
+    ? getInverterPriorityMode(prioVal)
+    : (window.lastInverterPriority || 'SBU');
+  const prioBadge = `<span class="prio-badge prio-${prioMode.toLowerCase()}" style="display:inline-block;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:900;letter-spacing:0.04em;background:${prioMode==='SUB'?'rgba(245,158,11,0.22)':'rgba(16,185,129,0.22)'};color:${prioMode==='SUB'?'#f59e0b':'#10b981'};border:1.5px solid ${prioMode==='SUB'?'#f59e0b':'#10b981'};box-shadow:0 0 8px ${prioMode==='SUB'?'rgba(245,158,11,0.3)':'rgba(16,185,129,0.3)'};">${prioMode}</span>`;
+
+  return `<div class="card card-battery2"><div class="hero-header" style="display:flex; align-items:center; justify-content:space-between;">
+    <div style="flex:1.1;"><span class="card-name">🔋 Battery SOC</span><span class="hero-val" style="color:${socColor}">${soc != null ? Math.round(soc) : '--'}%</span></div>
+    <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:0 6px; flex-shrink:0;"><span style="font-size:9.5px; font-weight:800; text-transform:uppercase; color:var(--text-muted); letter-spacing:0.04em; margin-bottom:2px;">MODE</span>${prioBadge}</div>
     <div style="flex:1;text-align:center"><span class="card-name">Voltage</span><span class="hero-val" style="color:var(--accent-kwh)">${volt != null ? volt.toFixed(2) : '--'}V</span></div>
     <div style="flex:1;text-align:right"><span class="card-name">Power</span><span class="hero-val" style="color:${watt > 0 ? '#4ade80' : (watt < 0 ? '#f59e0b' : 'var(--text-muted)')}">${watt != null ? (watt > 0 ? '+' : '') + Math.round(watt) : '--'}W</span></div>
   </div><div class="linked-values linked-values-pair">
-    <div class="linked-value"><span>Status</span><span class="linked-reading" style="color:${statusColor}">${statusText}${amps != null ? ' (' + Math.abs(amps).toFixed(1) + 'A)' : ''}</span></div>
+    <div class="linked-value"><span>Status</span><span class="linked-reading" style="color:${statusColor}">${statusText}${amps != null ? ' (' + Math.abs(amps).toFixed(1) + 'A)' : ''}${prioBadge}</span></div>
     <div class="linked-value"><span>SOH / Cycles</span><span class="linked-reading">${soh != null ? Math.round(soh) + '%' : '--'} &bull; ${cyc != null ? Math.round(cyc) : '--'}</span></div>
   </div><div class="linked-values linked-values-pair" style="border-top:1px dashed var(--border); padding-top:4px; margin-top:4px;">
     <div class="linked-value"><span>Mosfet / BMS Temp</span><span class="linked-reading">${fmtLimits(mosT, '°C')} &bull; ${fmtLimits(bmsT, '°C')}</span></div>
@@ -239,7 +252,7 @@ function renderResults(results) {
   updateOfflineWarningBanner(byName);
 
   const html = results.map(f => {
-    if (f.name === 'Solar Amps') return '';
+    if (f.name === 'Solar Amps' || f.name === 'Inverter Priority') return '';
 
     if (used.has(f.name)) return '';
     const gn = LINKED_GROUPS.find(g => g.includes(f.name));
@@ -294,7 +307,16 @@ function renderResults(results) {
       const l = byName.get('Tot Load')?.value || 0;
       const acV = byName.get('AC Volts')?.value || 0;
       const gridOff = acV < 10;
-      const useGrid = (typeof BATTERY_EST_USE_GRID !== 'undefined') ? BATTERY_EST_USE_GRID : true;
+      const prioVal = byName.get('Inverter Priority')?.value ?? byName.get('547151')?.value ?? window.lastInverterPriority;
+      const prioMode = (typeof getInverterPriorityMode === 'function')
+        ? getInverterPriorityMode(prioVal)
+        : (Math.round(Number(prioVal)) === 1 ? 'SUB' : (Math.round(Number(prioVal)) === 2 ? 'SBU' : null));
+      const prioBadge = prioMode ? `<span class="prio-badge prio-${prioMode.toLowerCase()}" style="display:inline-block;padding:1px 5px;border-radius:4px;font-size:10px;font-weight:800;letter-spacing:0.04em;background:${prioMode==='SUB'?'rgba(245,158,11,0.2)':'rgba(16,185,129,0.2)'};color:${prioMode==='SUB'?'#f59e0b':'#10b981'};border:1px solid ${prioMode==='SUB'?'rgba(245,158,11,0.45)':'rgba(16,185,129,0.45)'};margin-left:5px;vertical-align:middle;">${prioMode}</span>` : '';
+
+      let useGrid = (typeof BATTERY_EST_USE_GRID !== 'undefined') ? BATTERY_EST_USE_GRID : true;
+      if (prioMode === 'SUB') useGrid = true;
+      else if (prioMode === 'SBU') useGrid = false;
+
       const effGrid = (useGrid && b > 25 && !gridOff) ? b : 0;
       const netSurplus = (s + effGrid) - l;
       let estBatW = 0;
@@ -363,7 +385,7 @@ function renderResults(results) {
         <div style="flex:1;text-align:center"><span class="card-name">Voltage</span><span class="hero-val" style="color:var(--accent-kwh)">${batV.toFixed(1)}V</span></div>
         <div style="flex:1;text-align:right"><span class="card-name">Net Power</span><span class="hero-val" style="color:${netW > 0 ? '#4ade80' : (netW < 0 ? '#f59e0b' : 'var(--text-muted)')}">${netW > 0 ? '+' + netW : netW}W</span></div>
       </div><div class="linked-values linked-values-pair">
-        <div class="linked-value"><span>Status</span><span class="linked-reading" style="color:var(--accent-kwh)">${stText}</span></div>
+        <div class="linked-value"><span>Status</span><span class="linked-reading" style="color:var(--accent-kwh)">${stText}${prioBadge}</span></div>
         <div class="linked-value"><span>Activity</span><span class="linked-reading">${currentText}</span></div>
       </div><div class="linked-values linked-values-pair" style="border-top:1px dashed var(--border); padding-top:4px; margin-top:4px;">
         <div class="linked-value"><span>Chrg Energy</span><span class="linked-reading" style="color:#10b981">T: ${fmtE(batStats.batChgT)} &bull; M: ${fmtE(batStats.batChgM)}</span></div>

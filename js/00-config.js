@@ -56,7 +56,77 @@ let autoRefreshSec = 30;
 
 // Set to true to include Grid in estimated battery watts calculation.
 // Set to false to calculate estimate purely from Solar and Load (ignoring Grid).
+// Set to true to include Grid in estimated battery watts calculation.
+// Set to false to calculate estimate purely from Solar and Load (ignoring Grid).
+// Dynamically adjusted: SUB (1) includes grid watts; SBU (2) ignores grid watts.
 const BATTERY_EST_USE_GRID = true;
+
+window.lastInverterPriority = localStorage.getItem('inverter_priority_mode') || 'SBU';
+window.lastInverterPriorityFetchTime = parseInt(localStorage.getItem('inverter_priority_last_fetch') || '0', 10);
+const INVERTER_PRIORITY_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes
+
+function getInverterPriorityMode(val) {
+  if (val == 1 || val == '1' || val === 'SUB') return 'SUB';
+  if (val == 2 || val == '2' || val === 'SBU') return 'SBU';
+  if (window.lastInverterPriority === 'SUB' || window.lastInverterPriority === 'SBU') {
+    return window.lastInverterPriority;
+  }
+  try {
+    const saved = localStorage.getItem('inverter_priority_mode');
+    if (saved === 'SUB' || saved === 'SBU') {
+      window.lastInverterPriority = saved;
+      return saved;
+    }
+  } catch(e) {}
+  return 'SBU';
+}
+window.getInverterPriorityMode = getInverterPriorityMode;
+
+async function fetchInverterPriorityDirect(force = false) {
+  const now = Date.now();
+  // Rate-limit to once every 30 minutes unless forced (e.g. manual refresh button)
+  if (!force && (now - window.lastInverterPriorityFetchTime) < INVERTER_PRIORITY_INTERVAL_MS) {
+    return getInverterPriorityMode(window.lastInverterPriority);
+  }
+
+  const directUrl = 'https://emoncms.org/feed/value.json?id=547151&apikey=1ae1382cfb5d8d80b9245aea18c89dcd';
+  try {
+    const res = await fetch(directUrl);
+    if (res.ok) {
+      const txt = await res.text();
+      const num = parseFloat(txt.replace(/['"]/g, ''));
+      if (!isNaN(num) && (num === 1 || num === 2)) {
+        const prevMode = getInverterPriorityMode(window.lastInverterPriority);
+        const newMode = (num === 1 ? 'SUB' : 'SBU');
+        window.lastInverterPriority = newMode;
+        window.lastInverterPriorityFetchTime = now;
+        localStorage.setItem('inverter_priority_mode', newMode);
+        localStorage.setItem('inverter_priority_last_fetch', now.toString());
+
+        // Update immediately if changed on the server
+        if (prevMode !== newMode && window.lastResultsMap && typeof renderResults === 'function') {
+          renderResults(Array.from(window.lastResultsMap.values()));
+        }
+        return newMode;
+      }
+    }
+  } catch (e) {}
+
+  window.lastInverterPriorityFetchTime = now;
+  localStorage.setItem('inverter_priority_last_fetch', now.toString());
+  return getInverterPriorityMode(window.lastInverterPriority);
+}
+window.fetchInverterPriorityDirect = fetchInverterPriorityDirect;
+
+window.lastInverterPriority = null;
+function getInverterPriorityMode(val) {
+  if (val == null || val === '') return null;
+  const num = Math.round(parseFloat(val));
+  if (num === 1) return 'SUB';
+  if (num === 2) return 'SBU';
+  return null;
+}
+window.getInverterPriorityMode = getInverterPriorityMode;
 
 // ── Battery Cutoff Settings ──────────────────────────────────────────
 // Change this value anytime; flow diagram and cards will update dynamically:
@@ -175,6 +245,7 @@ const FEEDS_BASE = [
   { id: "546393", name: "Bat2 Cell 14",        unit: "V",   type: "env"   },
   { id: "546394", name: "Bat2 Cell 15",        unit: "V",   type: "env"   },
   { id: "546395", name: "Bat2 Cell 16",        unit: "V",   type: "env"   },
+  { id: "547151", name: "Inverter Priority",   unit: "",    type: "env"   },
 ];
 
 // Convenience list of the 16 Battery 2 cell feed names, in cell order (1-16).

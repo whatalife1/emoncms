@@ -2,6 +2,9 @@
 (function () {
   'use strict';
 
+  const MONTH_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
   const BAT2_IDS = {
     power:      '546365',
     volt:       '546369',
@@ -17,19 +20,120 @@
     disLimA:    '546379'
   };
 
-  const EXTRAS_REGISTRY = {
-    solar:   { build: buildSolarExtras   },
-    grid:    { build: buildGridExtras    },
-    battery: { build: buildBatteryExtras },
-    fridge:  { build: buildFridgeExtras  },
-    k15:     { build: buildAcExtras.bind(null, 'k15') },
-    k1:      { build: buildAcExtras.bind(null, 'k1') },
-    haier:   { build: buildAcExtras.bind(null, 'haier') },
-    water:   { build: buildWaterTankExtras },
-    motor:   { build: buildMotorExtras   },
-    wm:      { build: buildWmExtras      },
-    pc:      { build: buildPcExtras      },
-    battery2:{ build: buildBattery2Extras }
+  const BOX_ANALYTICS_CONFIG = {
+    grid: {
+      title: 'Grid (Breaker)',
+      feedId: '499374',
+      voltFeedId: '499383',
+      color: '#ef4444',
+      unit: 'W',
+      isPower: true
+    },
+    solar: {
+      title: 'Solar Generation',
+      feedId: '499380',
+      voltFeedId: '499381',
+      color: '#f59e0b',
+      unit: 'W',
+      isPower: true,
+      isSolar: true,
+      hideNight: true
+    },
+    battery: {
+      title: 'Battery',
+      feedId: '546019',
+      disFeedId: '546025',
+      voltFeedId: '546013',
+      color: '#10b981',
+      unit: '%',
+      isBattery: true
+    },
+    battery2: {
+      title: 'Battery 2 (Dyness)',
+      feedId: '546371',
+      disFeedId: '546365',
+      voltFeedId: '546369',
+      color: '#a78bfa',
+      unit: '%',
+      isBattery: true
+    },
+    k15: {
+      title: 'Kenwood 1.5T',
+      feedId: '499362',
+      color: '#38bdf8',
+      unit: 'W',
+      isPower: true
+    },
+    k1: {
+      title: 'Kenwood 1T',
+      feedId: '499364',
+      color: '#7dd3fc',
+      unit: 'W',
+      isPower: true
+    },
+    haier: {
+      title: 'Haier 1T',
+      feedId: '499367',
+      color: '#a5f3fc',
+      unit: 'W',
+      isPower: true
+    },
+    fridge: {
+      title: 'Fridges',
+      feedId: '499373',       // Fridge 1
+      secondFeedId: '541348', // Fridge 2
+      color: '#c084fc',       // Fridge 1 color (Purple)
+      color2: '#22d3ee',      // Fridge 2 color (Cyan)
+      unit: 'W',
+      isPower: true,
+      isFridges: true
+    },
+    pc: {
+      title: 'PC Workstation',
+      feedId: '499422',
+      color: '#4ade80',
+      unit: 'W',
+      isPower: true,
+      isPc: true
+    },
+    motor: {
+      title: 'Water Motor',
+      feedId: '542850',
+      color: '#fbbf24',
+      unit: 'W',
+      isPower: true
+    },
+    wm: {
+      title: 'Washing Machine',
+      feedId: '544694',
+      color: '#e879f9',
+      unit: 'W',
+      isPower: true
+    },
+    water: {
+      title: 'Water Tank Level',
+      feedId: '499431',
+      color: '#0ea5e9',
+      unit: '%',
+      isEnv: true,
+      hideNight: true
+    },
+    temp: {
+      title: 'Temperature 1',
+      feedId: '499428',
+      humFeedId: '499429',
+      color: '#22c55e',
+      unit: '°C',
+      isEnv: true
+    },
+    temp2: {
+      title: 'Temperature 2',
+      feedId: '512473',
+      humFeedId: '512474',
+      color: '#34d399',
+      unit: '°C',
+      isEnv: true
+    }
   };
 
   function pkrRate() {
@@ -145,7 +249,6 @@
     </div>`;
   }
 
-  // ── Calculate Live High-Res Today Day/Night Telemetry ──
   async function fetchTodayFeedDayNightStats(feedId, isPc = false) {
     if (!feedId || typeof _gFetch !== 'function') return null;
     const startMs = (typeof getPktTodayStart === 'function') ? getPktTodayStart(7) : (Date.now() - 24 * 3600 * 1000);
@@ -228,7 +331,6 @@
     `;
   }
 
-  // ── Shared 16×2 (Responsive 8×4 on Mobile) Card Grid ──
   function render16x2CardGrid(cfg) {
     const {
       title, titleColor, dayList, totalKwh, totalNightKwh, avgKwh, avgNightKwh,
@@ -262,31 +364,24 @@
     return `
       <div style="background:var(--bg-card, #141416); border:1px solid var(--border, #27272a); border-left:3px solid ${titleColor}; border-radius:10px; padding:10px 12px; margin-bottom:10px; width:100%; box-sizing:border-box;">
         <div style="margin-bottom:6px;">
-          <!-- Title -->
           <div style="font-size:11.5px; font-weight:800; text-transform:uppercase; letter-spacing:0; line-height:1.2; color:${titleColor}; margin-bottom:4px;">
             ${title} (${startLabel} → ${endLabel})
           </div>
 
-          <!-- Total -->
           <div style="font-size:12px; font-weight:700; color:var(--text-muted, #71717a); line-height:1.3;">
             Total: <b style="color:${titleColor}; font-weight:800;">${totalKwh.toFixed(1)} ${unitLabel}</b>${nightStats}
           </div>
 
-          <!-- Avg -->
           <div style="font-size:12px; font-weight:700; color:var(--text-muted, #71717a); line-height:1.3;">
             Avg: <b style="color:var(--text-main, #f4f4f5); font-weight:800;">${avgKwh.toFixed(1)}</b> ${isPct ? '%' : 'kWh/d'}${avgNightStats}
           </div>
 
-          <!-- Est -->
           ${estHtml}
 
-          <!-- Today -->
           <div style="font-size:12px; font-weight:800; color:#facc15; margin-top:2px; line-height:1.3;">${todayText}</div>
 
-          <!-- Live Day/Night Stats -->
           ${todayStatsHtml || ''}
 
-          <!-- Hover detail line -->
           <div id="${hoverId}" style="font-size:11.5px; font-weight:800; color:#facc15; margin-top:2px; min-height:16px; line-height:1.2;"></div>
         </div>
 
@@ -327,7 +422,6 @@
     `;
   }
 
-  // ── Generic 30-Day Grid with Live High-Res Today Day/Night Stats ──
   async function buildGenericApplianceDailyGrid(opts) {
     const {
       title, titleColor, feedId, secondFeedId, liveTodayName, secondLiveName,
@@ -355,7 +449,6 @@
         fetchPromises.push((typeof fetchWithCache === 'function') ? fetchWithCache(secondFeedId, range.startMs, nowMs) : {});
       }
 
-      // Fetch Today's high-res day/night telemetry in parallel
       const todayStatsPromise = (!isPct && feedId) ? fetchTodayFeedDayNightStats(feedId, isPc) : Promise.resolve(null);
 
       const [raw1, raw2, todayStats] = await Promise.all([
@@ -504,7 +597,81 @@
     return '';
   }
 
-  // ── 16-Cell Voltage Diagnostics & Spread (from Graphs) ──
+  async function buildSolarExtras() {
+    let extraRowsHtml = '';
+    try {
+      const pts = await fetch24h('solar');
+      let peakW = 0, peakTs = null;
+      if (Array.isArray(pts) && pts.length) {
+        for (let i = 0; i < pts.length; i++) {
+          const p = pts[i];
+          if (!Array.isArray(p)) continue;
+          const ts = p[0], v = p[1];
+          if (v != null && v > peakW) { peakW = v; peakTs = ts < 2e9 ? ts * 1000 : ts; }
+        }
+      }
+      const peakTimeStr = peakTs && typeof formatPktTime === 'function' ? formatPktTime(peakTs, 'time') : '';
+      const solarTodayWh = (getFeedVal('Solar Today') || (window.monthlyUnits && window.monthlyUnits.solar_t) || 0) * 1000;
+      const gridTodayWh = (getFeedVal('Breaker Today') || (window.monthlyUnits && window.monthlyUnits.gridT) || 0) * 1000;
+      const totalTodayWh = solarTodayWh + gridTodayWh;
+      const selfConsumptionPct = totalTodayWh > 0 ? (solarTodayWh / totalTodayWh * 100) : 0;
+      const co2Kg = (solarTodayWh / 1000) * 0.4;
+
+      extraRowsHtml += row('Peak today', `${Math.round(peakW)} W`, { color: '#facc15', sub: peakTimeStr ? `at ${peakTimeStr}` : '' });
+      extraRowsHtml += row('Self-consumption', `${selfConsumptionPct.toFixed(0)}%`, { color: '#4ade80', sub: 'of today’s total energy use' });
+      extraRowsHtml += row('Est. CO₂ saved today', `${co2Kg.toFixed(1)} kg`, { color: '#38bdf8', sub: 'rough estimate, 0.4 kg/kWh grid factor' });
+    } catch (e) {}
+
+    let gridHtml = '';
+    try {
+      gridHtml = await buildGenericApplianceDailyGrid({
+        title: '☀️ DAILY SOLAR GENERATION',
+        titleColor: '#f59e0b',
+        feedId: (typeof FEEDS_BASE !== 'undefined' && FEEDS_BASE.find(f => f.name === 'Solar'))?.id || '499380',
+        liveTodayName: 'Solar Today',
+        hoverId: 'fd-solar-cell-hover',
+        valColor: '#f59e0b',
+        hideNight: true
+      });
+    } catch (e) {}
+
+    return extraRowsHtml + gridHtml;
+  }
+
+  async function buildGridExtras() {
+    const gridHtml = await buildGenericApplianceDailyGrid({
+      title: '⚡ DAILY GRID UNITS',
+      titleColor: '#ef4444',
+      feedId: (typeof FEEDS_BASE !== 'undefined' && FEEDS_BASE.find(f => f.name === 'Breaker'))?.id || '499374',
+      liveTodayName: 'Breaker Today',
+      hoverId: 'fd-grid-cell-hover',
+      valColor: '#f87171'
+    });
+
+    let outageHtml = '';
+    try {
+      const pts = await fetch24h('acvolts', 300);
+      if (Array.isArray(pts) && pts.length) {
+        const sessions = detectSessions(pts.map(([t, v]) => [t, v != null && v < 50 ? 1 : 0]), 0.5, 1);
+        const totalOutageMin = totalRuntimeMin(sessions);
+        const count = sessions.length;
+        outageHtml += row('Outages (24h)', count > 0 ? `${fmtDuration(totalOutageMin)} (${count}x)` : 'None', {
+          color: count > 0 ? '#ef4444' : '#4ade80'
+        });
+        if (sessions.length) {
+          const last = sessions[sessions.length - 1];
+          outageHtml += row('Last outage', `${formatPktTime(last.start, 'time')} → ${formatPktTime(last.end, 'time')}`, {
+            sub: fmtDuration(last.durMin)
+          });
+        }
+      }
+      const gridTodayKwh = getFeedVal('Breaker Today') || 0;
+      outageHtml += row('Cost today', fmtPkr(gridTodayKwh * pkrRate()), { color: '#f87171', sub: `${gridTodayKwh.toFixed(1)} kWh imported` });
+    } catch (e) {}
+
+    return gridHtml + outageHtml;
+  }
+
   async function buildBatteryCellDiagnosticsHtml() {
     const cellNames = window.BATTERY2_CELL_NAMES || [];
     const byName = window.lastResultsMap || new Map();
@@ -574,7 +741,6 @@
     `;
   }
 
-  // ── Battery Cycles & 8,000-Cycle Lifespan Forecast Card (Matching Screenshot) ──
   async function buildBatteryCyclesForecastHtml() {
     const packKwh = (typeof solarCfg !== 'undefined' && solarCfg?.batteryKwh > 0) ? solarCfg.batteryKwh : 5.12;
     const TARGET_CYCLES = 8000;
@@ -636,7 +802,7 @@
       return closest;
     }
 
-    const todayStartMs = (typeof getPktTodayStart === 'function') ? getPktTodayStart() : (nowMs - 86400000);
+    const todayStartMs = (typeof getPktTodayStart === 'function') ? getPktTodayStart(7) : (nowMs - 86400000);
     const pktDate = (typeof getKarachiDate === 'function') ? getKarachiDate(nowMs) : { year: new Date().getFullYear(), month: new Date().getMonth() + 1, day: new Date().getDate() };
 
     let monthStartMs = nowMs - (30 * 86400000);
@@ -675,7 +841,6 @@
 
     return `
       <div style="background:var(--bg-card, #141416); border:1px solid var(--border, #27272a); border-left:3px solid #10b981; border-radius:10px; padding:10px 14px; margin-bottom:10px; font-family:system-ui, -apple-system, sans-serif; box-sizing:border-box; width:100%;">
-        <!-- Top Row: Title + Rating + SOH + BMS Count -->
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px; margin-bottom:8px;">
           <div style="display:flex; align-items:center; gap:6px;">
             <span style="font-size:13px; font-weight:800; color:#10b981;">🔄 Battery Cycles &amp; Lifespan Forecast</span>
@@ -686,7 +851,6 @@
           </div>
         </div>
 
-        <!-- Progress Bar Row -->
         <div style="margin-bottom:10px;">
           <div style="display:flex; justify-content:space-between; font-size:11px; color:var(--text-muted); font-weight:700; margin-bottom:3px; flex-wrap:wrap; gap:4px;">
             <span>Used: <b style="color:#10b981;">${currentCycles} cycles</b> (${usedKwh.toFixed(1)} kWh &bull; <b style="color:#f59e0b;">PKR ${Math.round(usedBatCost).toLocaleString()}</b> wear &bull; ${pctUsed.toFixed(2)}%)</span>
@@ -697,7 +861,6 @@
           </div>
         </div>
 
-        <!-- 5 Metric Columns Grid -->
         <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:10px; font-size:11px;">
           <div>
             <div style="color:var(--text-muted); font-weight:700; font-size:10px; text-transform:uppercase; letter-spacing:0.04em;">TODAY</div>
@@ -731,7 +894,6 @@
           </div>
         </div>
 
-        <!-- Bottom strip -->
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-top:10px; padding-top:8px; border-top:1px dashed var(--border); font-size:11px;">
           <span style="color:var(--text-muted); font-weight:600;">Gains: Today <b style="color:#4ade80;">+${todayGainVal.toFixed(1)}</b> &bull; Month <b style="color:#4ade80;">+${thisMonthGainVal.toFixed(1)}</b> &bull; Exp. Month <b style="color:#38bdf8;">~${expMonthCyclesVal.toFixed(1)}</b> &bull; All (${historyDays}d) <b style="color:#4ade80;">+${allGainVal.toFixed(1)}</b></span>
           <span style="color:var(--text-muted); font-size:10px;">Cost/cyc: <b style="color:#facc15;">PKR ${batCostPerCycle.toFixed(2)}</b> (~${batCostPerKwh.toFixed(2)}/u) &bull; Value: <b style="color:#4ade80;">${pkrFormatted}</b> (${totalLifetimeKwh.toLocaleString()} kWh @ ${rate} PKR/u) &bull; ${historySamplesCount} samples</span>
@@ -743,84 +905,6 @@
   window.buildBatteryCyclesForecastHtml = buildBatteryCyclesForecastHtml;
   window.buildBatteryCellDiagnosticsHtml = buildBatteryCellDiagnosticsHtml;
 
-  // ── Solar Popup ──
-  async function buildSolarExtras() {
-    let extraRowsHtml = '';
-    try {
-      const pts = await fetch24h('solar');
-      let peakW = 0, peakTs = null;
-      if (Array.isArray(pts) && pts.length) {
-        for (let i = 0; i < pts.length; i++) {
-          const p = pts[i];
-          if (!Array.isArray(p)) continue;
-          const ts = p[0], v = p[1];
-          if (v != null && v > peakW) { peakW = v; peakTs = ts < 2e9 ? ts * 1000 : ts; }
-        }
-      }
-      const peakTimeStr = peakTs && typeof formatPktTime === 'function' ? formatPktTime(peakTs, 'time') : '';
-      const solarTodayWh = (getFeedVal('Solar Today') || (window.monthlyUnits && window.monthlyUnits.solar_t) || 0) * 1000;
-      const gridTodayWh = (getFeedVal('Breaker Today') || (window.monthlyUnits && window.monthlyUnits.gridT) || 0) * 1000;
-      const totalTodayWh = solarTodayWh + gridTodayWh;
-      const selfConsumptionPct = totalTodayWh > 0 ? (solarTodayWh / totalTodayWh * 100) : 0;
-      const co2Kg = (solarTodayWh / 1000) * 0.4;
-
-      extraRowsHtml += row('Peak today', `${Math.round(peakW)} W`, { color: '#facc15', sub: peakTimeStr ? `at ${peakTimeStr}` : '' });
-      extraRowsHtml += row('Self-consumption', `${selfConsumptionPct.toFixed(0)}%`, { color: '#4ade80', sub: 'of today’s total energy use' });
-      extraRowsHtml += row('Est. CO₂ saved today', `${co2Kg.toFixed(1)} kg`, { color: '#38bdf8', sub: 'rough estimate, 0.4 kg/kWh grid factor' });
-    } catch (e) {}
-
-    let gridHtml = '';
-    try {
-      gridHtml = await buildGenericApplianceDailyGrid({
-        title: '☀️ DAILY SOLAR GENERATION',
-        titleColor: '#f59e0b',
-        feedId: (typeof FEEDS_BASE !== 'undefined' && FEEDS_BASE.find(f => f.name === 'Solar'))?.id || '499380',
-        liveTodayName: 'Solar Today',
-        hoverId: 'fd-solar-cell-hover',
-        valColor: '#f59e0b',
-        hideNight: true
-      });
-    } catch (e) {}
-
-    return extraRowsHtml + gridHtml;
-  }
-
-  // ── Grid Popup ──
-  async function buildGridExtras() {
-    const gridHtml = await buildGenericApplianceDailyGrid({
-      title: '⚡ DAILY GRID UNITS',
-      titleColor: '#ef4444',
-      feedId: (typeof FEEDS_BASE !== 'undefined' && FEEDS_BASE.find(f => f.name === 'Breaker'))?.id || '499374',
-      liveTodayName: 'Breaker Today',
-      hoverId: 'fd-grid-cell-hover',
-      valColor: '#f87171'
-    });
-
-    let outageHtml = '';
-    try {
-      const pts = await fetch24h('acvolts', 300);
-      if (Array.isArray(pts) && pts.length) {
-        const sessions = detectSessions(pts.map(([t, v]) => [t, v != null && v < 50 ? 1 : 0]), 0.5, 1);
-        const totalOutageMin = totalRuntimeMin(sessions);
-        const count = sessions.length;
-        outageHtml += row('Outages (24h)', count > 0 ? `${fmtDuration(totalOutageMin)} (${count}x)` : 'None', {
-          color: count > 0 ? '#ef4444' : '#4ade80'
-        });
-        if (sessions.length) {
-          const last = sessions[sessions.length - 1];
-          outageHtml += row('Last outage', `${formatPktTime(last.start, 'time')} → ${formatPktTime(last.end, 'time')}`, {
-            sub: fmtDuration(last.durMin)
-          });
-        }
-      }
-      const gridTodayKwh = getFeedVal('Breaker Today') || 0;
-      outageHtml += row('Cost today', fmtPkr(gridTodayKwh * pkrRate()), { color: '#f87171', sub: `${gridTodayKwh.toFixed(1)} kWh imported` });
-    } catch (e) {}
-
-    return gridHtml + outageHtml;
-  }
-
-  // ── Battery Popups (Battery & Battery 2) ──
   async function buildBatteryExtras() {
     let cellHtml = '';
     let cyclesForecastHtml = '';
@@ -999,7 +1083,6 @@
     return buildBatteryExtras();
   }
 
-  // ── Fridges Popup ──
   async function buildFridgeExtras() {
     const [grid1Html, grid2Html] = await Promise.all([
       buildGenericApplianceDailyGrid({
@@ -1039,7 +1122,6 @@
     return grid1Html + grid2Html + dutyHtml;
   }
 
-  // ── AC Popups ──
   async function buildAcExtras(feedKey) {
     const acConfigs = {
       k15:   { title: '❄️ KENWOOD 1.5T DAILY UNITS', color: '#38bdf8', feedId: '499362', live: 'Kenwood 1.5Ton Today' },
@@ -1076,7 +1158,6 @@
     return gridHtml + extraRowsHtml;
   }
 
-  // ── Water Tank Popup ──
   async function buildWaterTankExtras() {
     const gridHtml = await buildGenericApplianceDailyGrid({
       title: '💧 WATER TANK DAILY LEVEL (%)',
@@ -1106,7 +1187,6 @@
     return gridHtml + extraRowsHtml;
   }
 
-  // ── Water Motor Popup ──
   async function buildMotorExtras() {
     const gridHtml = await buildGenericApplianceDailyGrid({
       title: '🚿 WATER MOTOR DAILY UNITS',
@@ -1132,7 +1212,6 @@
     return gridHtml + extraRowsHtml;
   }
 
-  // ── Washing Machine Popup ──
   async function buildWmExtras() {
     const gridHtml = await buildGenericApplianceDailyGrid({
       title: '👕 WASHING MACHINE DAILY UNITS',
@@ -1165,7 +1244,6 @@
     return gridHtml + extraRowsHtml;
   }
 
-  // ── PC Workstation Popup ──
   async function buildPcExtras() {
     const gridHtml = await buildGenericApplianceDailyGrid({
       title: '💻 PC WORKSTATION DAILY UNITS',
@@ -1192,7 +1270,7 @@
     return gridHtml + extraRowsHtml;
   }
 
-  // ── Annotated 24h SOC Chart ──
+  // ── SOC 24h Visualizer Helpers ──
   function _computeSocWindow(n, zoom, panX, cW) {
     if (n <= 0) return { startIdx: 0, visibleN: 0 };
     const visibleN = Math.max(2, n / zoom);
@@ -1202,219 +1280,13 @@
     if (startIdx > maxStart) startIdx = maxStart;
     return { startIdx, visibleN };
   }
+
   function _panXFromStartIdxSoc(n, zoom, startIdx, cW) {
     const visibleN = Math.max(2, n / zoom);
     const maxStart = Math.max(0, n - visibleN);
     if (startIdx < 0) startIdx = 0;
     if (startIdx > maxStart) startIdx = maxStart;
     return ((n - visibleN) / 2 - startIdx) * cW / visibleN;
-  }
-
-  async function buildBatterySocChart(canvas, loadingEl, resetBtn, smoothBtn) {
-    if (!canvas) return;
-    if (typeof GRAPH_FEEDS === 'undefined' || typeof _gFetch !== 'function') return;
-    const feed = GRAPH_FEEDS.find(f => f.key === 'battery');
-    if (!feed || !feed.id) return;
-
-    const now = Date.now();
-    const startFetchMs = now - 48 * 3600 * 1000;
-    
-    let pts = [];
-    for (const res of [120, 300, 600]) {
-      try {
-        const raw = await _gFetch(feed.id, startFetchMs, now, res);
-        if (raw && raw.length) { pts = raw; break; }
-      } catch (e) {}
-    }
-
-    if (!pts.length) {
-      if (loadingEl) loadingEl.textContent = 'No battery data available.';
-      return;
-    }
-
-    const startMs = pts[0][0] < 2e9 ? pts[0][0] * 1000 : pts[0][0];
-    const endMs = Date.now();
-    const resSec = 120;
-    const nBars = Math.max(2, Math.ceil((endMs - startMs) / (resSec * 1000)));
-    const rawBars = new Array(nBars).fill(null);
-    pts.forEach(([ts, v]) => {
-      const tsMs = ts < 2e9 ? ts * 1000 : ts;
-      const idx = Math.floor((tsMs - startMs) / (resSec * 1000));
-      if (idx >= 0 && idx < nBars && v != null) rawBars[idx] = v;
-    });
-
-    const isSmooth = window.graphBatterySmoothGaps !== false;
-    let bars = typeof window.smoothBatterySocBars === 'function'
-      ? window.smoothBatterySocBars(rawBars, nBars, isSmooth)
-      : rawBars;
-
-    const lastIdx = nBars;
-    let sessions = [];
-    if (typeof window.detectBatterySessions === 'function') {
-      try { sessions = window.detectBatterySessions(bars, resSec, lastIdx, 10, 2.0) || []; }
-      catch (e) { console.warn('detectBatterySessions failed', e); }
-    }
-
-    const packKwh = (typeof solarCfg !== 'undefined' && solarCfg && solarCfg.batteryKwh > 0) ? solarCfg.batteryKwh : 5.12;
-    const n24 = Math.round((24 * 3600) / resSec);
-    const defaultZoom = Math.max(1, nBars / n24);
-    const rect = canvas.getBoundingClientRect();
-    const PL = 34, PR = 10;
-    const cW = Math.max(100, (rect.width || 600) - PL - PR);
-    const defaultPanX = _panXFromStartIdxSoc(nBars, defaultZoom, nBars - n24, cW);
-
-    const state = {
-      zoom: defaultZoom,
-      panX: defaultPanX,
-      defaultZoom: defaultZoom,
-      defaultPanX: defaultPanX,
-      bars, rawBars, sessions, resSec, startMs, packKwh
-    };
-    canvas.__socState = state;
-
-    function redraw() {
-      _drawAnnotatedSocChart(canvas, state.bars, state.sessions, state.resSec, state.startMs, state.packKwh, state.zoom, state.panX);
-      if (resetBtn) {
-        const isChanged = Math.abs(state.zoom - state.defaultZoom) > 0.08 ||
-                          Math.abs(state.panX - state.defaultPanX) > 10;
-        if (isChanged) resetBtn.classList.add('visible');
-        else resetBtn.classList.remove('visible');
-      }
-    }
-    state.redraw = redraw;
-    state.reset = function () {
-      const r = canvas.getBoundingClientRect();
-      const curCw = Math.max(100, (r.width || 600) - PL - PR);
-      state.zoom = state.defaultZoom;
-      state.panX = _panXFromStartIdxSoc(state.bars.length, state.defaultZoom, state.bars.length - n24, curCw);
-      redraw();
-    };
-
-    redraw();
-    if (loadingEl) loadingEl.style.display = 'none';
-
-    _attachSocChartZoom(canvas, state);
-
-    if (resetBtn) {
-      resetBtn.onclick = function (e) { e.stopPropagation(); state.reset(); };
-    }
-
-    if (smoothBtn) {
-      smoothBtn.onclick = function (e) {
-        e.stopPropagation();
-        window.graphBatterySmoothGaps = !window.graphBatterySmoothGaps;
-        try { localStorage.setItem('graphBatterySmoothGaps', window.graphBatterySmoothGaps ? 'true' : 'false'); } catch (err) {}
-        const on = window.graphBatterySmoothGaps !== false;
-        smoothBtn.innerHTML = on ? '✨ Smooth: ON' : '📊 Real Graph';
-        smoothBtn.style.background = on ? 'rgba(56,189,248,0.2)' : 'var(--bg-card)';
-        smoothBtn.style.borderColor = on ? '#38bdf8' : 'var(--border)';
-        smoothBtn.style.color = on ? '#38bdf8' : 'var(--text-muted)';
-
-        const newBars = typeof window.smoothBatterySocBars === 'function'
-          ? window.smoothBatterySocBars(state.rawBars, nBars, on)
-          : state.rawBars;
-        state.bars = newBars;
-        if (typeof window.detectBatterySessions === 'function') {
-          try { state.sessions = window.detectBatterySessions(newBars, resSec, nBars, 10, 2.0) || []; } catch(err){}
-        }
-        redraw();
-      };
-    }
-
-    if (canvas.__socResizeHandler) window.removeEventListener('resize', canvas.__socResizeHandler);
-    canvas.__socResizeHandler = redraw;
-    window.addEventListener('resize', redraw);
-  }
-
-  async function buildBattery2SocChart(canvas, loadingEl, resetBtn) {
-    if (!canvas) return;
-    if (typeof _gFetch !== 'function') return;
-
-    const now = Date.now();
-    const startFetchMs = now - 48 * 3600 * 1000;
-
-    let pts = [];
-    for (const res of [120, 300, 600]) {
-      try {
-        const raw = await _gFetch(BAT2_IDS.soc, startFetchMs, now, res);
-        if (raw && raw.length) { pts = raw; break; }
-      } catch (e) {}
-    }
-
-    if (!pts.length) {
-      if (loadingEl) loadingEl.textContent = 'No Battery 2 SOC data available.';
-      return;
-    }
-
-    const startMs = pts[0][0] < 2e9 ? pts[0][0] * 1000 : pts[0][0];
-    const endMs = Date.now();
-    const resSec = 120;
-    const nBars = Math.max(2, Math.ceil((endMs - startMs) / (resSec * 1000)));
-    const rawBars = new Array(nBars).fill(null);
-    pts.forEach(([ts, v]) => {
-      const tsMs = ts < 2e9 ? ts * 1000 : ts;
-      const idx = Math.floor((tsMs - startMs) / (resSec * 1000));
-      if (idx >= 0 && idx < nBars && v != null) rawBars[idx] = v;
-    });
-
-    let bars = typeof window.smoothBatterySocBars === 'function'
-      ? window.smoothBatterySocBars(rawBars, nBars, true)
-      : rawBars;
-
-    const lastIdx = nBars;
-    let sessions = [];
-    if (typeof window.detectBatterySessions === 'function') {
-      try { sessions = window.detectBatterySessions(bars, resSec, lastIdx, 10, 2.0) || []; }
-      catch (e) { console.warn('detectBatterySessions (bat2) failed', e); }
-    }
-
-    const packKwh = 5.12;
-    const n24_2 = Math.round((24 * 3600) / resSec);
-    const defaultZoom2 = Math.max(1, nBars / n24_2);
-    const rect2 = canvas.getBoundingClientRect();
-    const PL2 = 34, PR2 = 10;
-    const cW2 = Math.max(100, (rect2.width || 600) - PL2 - PR2);
-    const defaultPanX2 = _panXFromStartIdxSoc(nBars, defaultZoom2, nBars - n24_2, cW2);
-
-    const state = {
-      zoom: defaultZoom2,
-      panX: defaultPanX2,
-      defaultZoom: defaultZoom2,
-      defaultPanX: defaultPanX2,
-      bars, rawBars, sessions, resSec, startMs, packKwh
-    };
-    canvas.__soc2State = state;
-
-    function redraw() {
-      _drawAnnotatedSocChart(canvas, state.bars, state.sessions, state.resSec, state.startMs, state.packKwh, state.zoom, state.panX);
-      if (resetBtn) {
-        const isChanged = Math.abs(state.zoom - state.defaultZoom) > 0.08 ||
-                          Math.abs(state.panX - state.defaultPanX) > 10;
-        if (isChanged) resetBtn.classList.add('visible');
-        else resetBtn.classList.remove('visible');
-      }
-    }
-    state.redraw = redraw;
-    state.reset = function () {
-      const r = canvas.getBoundingClientRect();
-      const curCw = Math.max(100, (r.width || 600) - PL2 - PR2);
-      state.zoom = state.defaultZoom;
-      state.panX = _panXFromStartIdxSoc(state.bars.length, state.defaultZoom, state.bars.length - n24_2, curCw);
-      redraw();
-    };
-
-    redraw();
-    if (loadingEl) loadingEl.style.display = 'none';
-
-    _attachSocChartZoom(canvas, state);
-
-    if (resetBtn) {
-      resetBtn.onclick = function (e) { e.stopPropagation(); state.reset(); };
-    }
-
-    if (canvas.__soc2ResizeHandler) window.removeEventListener('resize', canvas.__soc2ResizeHandler);
-    canvas.__soc2ResizeHandler = redraw;
-    window.addEventListener('resize', redraw);
   }
 
   function _attachSocChartZoom(canvas, state) {
@@ -1686,7 +1558,6 @@
 
     ctx.restore();
 
-    // Session Pills
     const isNarrow = cW < 320;
     const renderedPills = [];
 
@@ -1758,7 +1629,6 @@
       ctx.restore();
     });
 
-    // Time ticks
     const labelY = PT + cH + 17;
     ctx.fillStyle = '#38bdf8';
     ctx.font = 'bold 9.5px system-ui, -apple-system, sans-serif';
@@ -1793,6 +1663,1267 @@
     }
   }
 
+  // ── Dedicated Battery SOC Chart Functions (Restored) ──
+  async function buildBatterySocChart(canvas, loadingEl, resetBtn, smoothBtn) {
+    if (!canvas) return;
+    if (typeof GRAPH_FEEDS === 'undefined' || typeof _gFetch !== 'function') return;
+    const feed = GRAPH_FEEDS.find(f => f.key === 'battery');
+    if (!feed || !feed.id) return;
+
+    const now = Date.now();
+    const startFetchMs = now - 48 * 3600 * 1000;
+    
+    let pts = [];
+    for (const res of [120, 300, 600]) {
+      try {
+        const raw = await _gFetch(feed.id, startFetchMs, now, res);
+        if (raw && raw.length) { pts = raw; break; }
+      } catch (e) {}
+    }
+
+    if (!pts.length) {
+      if (loadingEl) loadingEl.textContent = 'No battery data available.';
+      return;
+    }
+
+    const startMs = pts[0][0] < 2e9 ? pts[0][0] * 1000 : pts[0][0];
+    const endMs = Date.now();
+    const resSec = 120;
+    const nBars = Math.max(2, Math.ceil((endMs - startMs) / (resSec * 1000)));
+    const rawBars = new Array(nBars).fill(null);
+    pts.forEach(([ts, v]) => {
+      const tsMs = ts < 2e9 ? ts * 1000 : ts;
+      const idx = Math.floor((tsMs - startMs) / (resSec * 1000));
+      if (idx >= 0 && idx < nBars && v != null) rawBars[idx] = v;
+    });
+
+    const isSmooth = window.graphBatterySmoothGaps !== false;
+    let bars = typeof window.smoothBatterySocBars === 'function'
+      ? window.smoothBatterySocBars(rawBars, nBars, isSmooth)
+      : rawBars;
+
+    const lastIdx = nBars;
+    let sessions = [];
+    if (typeof window.detectBatterySessions === 'function') {
+      try { sessions = window.detectBatterySessions(bars, resSec, lastIdx, 10, 2.0) || []; }
+      catch (e) { console.warn('detectBatterySessions failed', e); }
+    }
+
+    const packKwh = (typeof solarCfg !== 'undefined' && solarCfg && solarCfg.batteryKwh > 0) ? solarCfg.batteryKwh : 5.12;
+    const n24 = Math.round((24 * 3600) / resSec);
+    const defaultZoom = Math.max(1, nBars / n24);
+    const rect = canvas.getBoundingClientRect();
+    const PL = 34, PR = 10;
+    const cW = Math.max(100, (rect.width || 600) - PL - PR);
+    const defaultPanX = _panXFromStartIdxSoc(nBars, defaultZoom, nBars - n24, cW);
+
+    const state = {
+      zoom: defaultZoom,
+      panX: defaultPanX,
+      defaultZoom: defaultZoom,
+      defaultPanX: defaultPanX,
+      bars, rawBars, sessions, resSec, startMs, packKwh
+    };
+    canvas.__socState = state;
+
+    function redraw() {
+      _drawAnnotatedSocChart(canvas, state.bars, state.sessions, state.resSec, state.startMs, state.packKwh, state.zoom, state.panX);
+      if (resetBtn) {
+        const isChanged = Math.abs(state.zoom - state.defaultZoom) > 0.08 ||
+                          Math.abs(state.panX - state.defaultPanX) > 10;
+        if (isChanged) resetBtn.classList.add('visible');
+        else resetBtn.classList.remove('visible');
+      }
+    }
+    state.redraw = redraw;
+    state.reset = function () {
+      const r = canvas.getBoundingClientRect();
+      const curCw = Math.max(100, (r.width || 600) - PL - PR);
+      state.zoom = state.defaultZoom;
+      state.panX = _panXFromStartIdxSoc(state.bars.length, state.defaultZoom, state.bars.length - n24, curCw);
+      redraw();
+    };
+
+    redraw();
+    if (loadingEl) loadingEl.style.display = 'none';
+
+    _attachSocChartZoom(canvas, state);
+
+    if (resetBtn) {
+      resetBtn.onclick = function (e) { e.stopPropagation(); state.reset(); };
+    }
+
+    if (smoothBtn) {
+      smoothBtn.onclick = function (e) {
+        e.stopPropagation();
+        window.graphBatterySmoothGaps = !window.graphBatterySmoothGaps;
+        try { localStorage.setItem('graphBatterySmoothGaps', window.graphBatterySmoothGaps ? 'true' : 'false'); } catch (err) {}
+        const on = window.graphBatterySmoothGaps !== false;
+        smoothBtn.innerHTML = on ? '✨ Smooth: ON' : '📊 Real Graph';
+        smoothBtn.style.background = on ? 'rgba(56,189,248,0.2)' : 'var(--bg-card)';
+        smoothBtn.style.borderColor = on ? '#38bdf8' : 'var(--border)';
+        smoothBtn.style.color = on ? '#38bdf8' : 'var(--text-muted)';
+
+        const newBars = typeof window.smoothBatterySocBars === 'function'
+          ? window.smoothBatterySocBars(state.rawBars, nBars, on)
+          : state.rawBars;
+        state.bars = newBars;
+        if (typeof window.detectBatterySessions === 'function') {
+          try { state.sessions = window.detectBatterySessions(newBars, resSec, nBars, 10, 2.0) || []; } catch(err){}
+        }
+        redraw();
+      };
+    }
+
+    if (canvas.__socResizeHandler) window.removeEventListener('resize', canvas.__socResizeHandler);
+    canvas.__socResizeHandler = redraw;
+    window.addEventListener('resize', redraw);
+  }
+
+  async function buildBattery2SocChart(canvas, loadingEl, resetBtn) {
+    if (!canvas) return;
+    if (typeof _gFetch !== 'function') return;
+
+    const now = Date.now();
+    const startFetchMs = now - 48 * 3600 * 1000;
+
+    let pts = [];
+    for (const res of [120, 300, 600]) {
+      try {
+        const raw = await _gFetch(BAT2_IDS.soc, startFetchMs, now, res);
+        if (raw && raw.length) { pts = raw; break; }
+      } catch (e) {}
+    }
+
+    if (!pts.length) {
+      if (loadingEl) loadingEl.textContent = 'No Battery 2 SOC data available.';
+      return;
+    }
+
+    const startMs = pts[0][0] < 2e9 ? pts[0][0] * 1000 : pts[0][0];
+    const endMs = Date.now();
+    const resSec = 120;
+    const nBars = Math.max(2, Math.ceil((endMs - startMs) / (resSec * 1000)));
+    const rawBars = new Array(nBars).fill(null);
+    pts.forEach(([ts, v]) => {
+      const tsMs = ts < 2e9 ? ts * 1000 : ts;
+      const idx = Math.floor((tsMs - startMs) / (resSec * 1000));
+      if (idx >= 0 && idx < nBars && v != null) rawBars[idx] = v;
+    });
+
+    let bars = typeof window.smoothBatterySocBars === 'function'
+      ? window.smoothBatterySocBars(rawBars, nBars, true)
+      : rawBars;
+
+    const lastIdx = nBars;
+    let sessions = [];
+    if (typeof window.detectBatterySessions === 'function') {
+      try { sessions = window.detectBatterySessions(bars, resSec, lastIdx, 10, 2.0) || []; }
+      catch (e) { console.warn('detectBatterySessions (bat2) failed', e); }
+    }
+
+    const packKwh = 5.12;
+    const n24_2 = Math.round((24 * 3600) / resSec);
+    const defaultZoom2 = Math.max(1, nBars / n24_2);
+    const rect2 = canvas.getBoundingClientRect();
+    const PL2 = 34, PR2 = 10;
+    const cW2 = Math.max(100, (rect2.width || 600) - PL2 - PR2);
+    const defaultPanX2 = _panXFromStartIdxSoc(nBars, defaultZoom2, nBars - n24_2, cW2);
+
+    const state = {
+      zoom: defaultZoom2,
+      panX: defaultPanX2,
+      defaultZoom: defaultZoom2,
+      defaultPanX: defaultPanX2,
+      bars, rawBars, sessions, resSec, startMs, packKwh
+    };
+    canvas.__soc2State = state;
+
+    function redraw() {
+      _drawAnnotatedSocChart(canvas, state.bars, state.sessions, state.resSec, state.startMs, state.packKwh, state.zoom, state.panX);
+      if (resetBtn) {
+        const isChanged = Math.abs(state.zoom - state.defaultZoom) > 0.08 ||
+                          Math.abs(state.panX - state.defaultPanX) > 10;
+        if (isChanged) resetBtn.classList.add('visible');
+        else resetBtn.classList.remove('visible');
+      }
+    }
+    state.redraw = redraw;
+    state.reset = function () {
+      const r = canvas.getBoundingClientRect();
+      const curCw = Math.max(100, (r.width || 600) - PL2 - PR2);
+      state.zoom = state.defaultZoom;
+      state.panX = _panXFromStartIdxSoc(state.bars.length, state.defaultZoom, state.bars.length - n24_2, curCw);
+      redraw();
+    };
+
+    redraw();
+    if (loadingEl) loadingEl.style.display = 'none';
+
+    _attachSocChartZoom(canvas, state);
+
+    if (resetBtn) {
+      resetBtn.onclick = function (e) { e.stopPropagation(); state.reset(); };
+    }
+
+    if (canvas.__soc2ResizeHandler) window.removeEventListener('resize', canvas.__soc2ResizeHandler);
+    canvas.__soc2ResizeHandler = redraw;
+    window.addEventListener('resize', redraw);
+  }
+
+  // ── Universal Analytics & Report Engine for ALL Popups ──
+  async function renderBoxDetailAnalyticsSection(container, boxKey) {
+    if (!container) return;
+    const cfg = BOX_ANALYTICS_CONFIG[boxKey] || BOX_ANALYTICS_CONFIG.grid;
+    const titleColor = cfg.color || '#ef4444';
+
+    container.innerHTML = `
+      <div id="fd-ba-analytics-root" style="display:flex; flex-direction:column; gap:8px; width:100%; box-sizing:border-box;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px; background:var(--bg-panel); border:1px solid var(--border); border-radius:10px; padding:6px 10px;">
+          <div style="display:flex; gap:4px;">
+            <button id="fd-ba-view-graph" class="fd-btn" style="background:var(--bg-card); border-color:${titleColor}; color:${titleColor}; font-size:11px; padding:4px 10px;">📈 Graph</button>
+            <button id="fd-ba-view-report" class="fd-btn" style="background:transparent; border-color:var(--border); color:var(--text-muted); font-size:11px; padding:4px 10px;">📄 Report</button>
+          </div>
+          <div style="display:flex; gap:6px; align-items:center;">
+            <button id="fd-ba-btn-txt" class="fd-btn" style="background:#3b82f6; border-color:#3b82f6; color:#fff; font-size:11px; padding:4px 9px;">Save TXT</button>
+            <button id="fd-ba-btn-png" class="fd-btn" style="background:#10b981; border-color:#10b981; color:#fff; font-size:11px; padding:4px 9px;">Save PNG</button>
+          </div>
+        </div>
+
+        <div style="display:flex; gap:3px; background:var(--bg-panel); border:1px solid var(--border); border-radius:10px; padding:3px;">
+          <button class="fd-ba-time-tab fd-btn" data-tab="today" style="flex:1; text-align:center; padding:5px 0; font-size:11px; border:none; background:var(--bg-card); color:var(--text-main);">Today</button>
+          <button class="fd-ba-time-tab fd-btn" data-tab="day" style="flex:1; text-align:center; padding:5px 0; font-size:11px; border:none; background:transparent; color:var(--text-muted);">Day</button>
+          <button class="fd-ba-time-tab fd-btn" data-tab="month" style="flex:1; text-align:center; padding:5px 0; font-size:11px; border:none; background:transparent; color:var(--text-muted);">Month</button>
+          <button class="fd-ba-time-tab fd-btn" data-tab="year" style="flex:1; text-align:center; padding:5px 0; font-size:11px; border:none; background:transparent; color:var(--text-muted);">Year</button>
+        </div>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; background:var(--bg-panel); border:1px solid var(--border); border-radius:10px; padding:6px 12px;">
+          <button id="fd-ba-nav-prev" class="graph-nav-btn" style="padding:4px 12px; font-size:16px;">‹</button>
+          <div style="flex:1; text-align:center; padding:0 8px;">
+            <div id="fd-ba-nav-label" style="font-size:13px; font-weight:800; color:var(--text-main);">Today</div>
+            <div id="fd-ba-nav-sub" style="font-size:10px; color:var(--text-muted); margin-top:1px;">--</div>
+          </div>
+          <div style="display:flex; align-items:center; gap:4px;">
+            <input type="date" id="fd-ba-date-picker" style="display:none; background:var(--input-bg); border:1px solid var(--border); border-radius:6px; color:var(--text-main); font-size:11px; padding:3px 6px; width:auto; max-width:120px;">
+            <button id="fd-ba-nav-next" class="graph-nav-btn" style="padding:4px 12px; font-size:16px;">›</button>
+          </div>
+        </div>
+
+        <div id="fd-ba-stats-strip" style="background:var(--bg-card); border:1px solid var(--border); border-left:3px solid ${titleColor}; border-radius:8px; padding:6px 10px; font-size:11.5px;">
+          Loading telemetry...
+        </div>
+
+        <div id="fd-ba-graph-wrap" style="position:relative; background:var(--bg-panel); border:1px solid var(--border); border-radius:10px; padding:8px 8px 14px 8px; height:240px; display:flex; align-items:center; justify-content:center;">
+          <canvas id="fd-ba-canvas" style="width:100%; height:100%; display:block; cursor:crosshair;"></canvas>
+          <div id="fd-ba-loading" style="position:absolute; font-size:12px; color:var(--text-muted); font-weight:600; background:var(--bg-panel); padding:4px 10px; border-radius:6px;">Loading ${cfg.title} data…</div>
+        </div>
+
+        <div id="fd-ba-report-wrap" style="display:none; background:var(--bg-panel); border:1px solid var(--border); border-radius:10px; padding:12px; overflow-x:auto;">
+          <div id="fd-ba-report-content"></div>
+        </div>
+      </div>
+    `;
+
+    const state = {
+      boxKey,
+      cfg,
+      view: 'graph',
+      tab: 'today',
+      dayOffset: 0,
+      monthOffset: 0,
+      yearOffset: 0,
+      fridgeFilter: 'both',
+      cachedData: null,
+      cachedRawText: ''
+    };
+
+    const root = document.getElementById('fd-ba-analytics-root');
+    const viewGraphBtn = document.getElementById('fd-ba-view-graph');
+    const viewReportBtn = document.getElementById('fd-ba-view-report');
+    const graphWrap = document.getElementById('fd-ba-graph-wrap');
+    const reportWrap = document.getElementById('fd-ba-report-wrap');
+    const reportContent = document.getElementById('fd-ba-report-content');
+    const canvas = document.getElementById('fd-ba-canvas');
+    const loadingEl = document.getElementById('fd-ba-loading');
+    const navPrevBtn = document.getElementById('fd-ba-nav-prev');
+    const navNextBtn = document.getElementById('fd-ba-nav-next');
+    const navLabelEl = document.getElementById('fd-ba-nav-label');
+    const navSubEl = document.getElementById('fd-ba-nav-sub');
+    const datePicker = document.getElementById('fd-ba-date-picker');
+    const statsStrip = document.getElementById('fd-ba-stats-strip');
+    const saveTxtBtn = document.getElementById('fd-ba-btn-txt');
+    const savePngBtn = document.getElementById('fd-ba-btn-png');
+
+    function updateViewMode(newView) {
+      state.view = newView;
+      if (newView === 'graph') {
+        viewGraphBtn.style.background = 'var(--bg-card)';
+        viewGraphBtn.style.borderColor = titleColor;
+        viewGraphBtn.style.color = titleColor;
+        viewReportBtn.style.background = 'transparent';
+        viewReportBtn.style.borderColor = 'var(--border)';
+        viewReportBtn.style.color = 'var(--text-muted)';
+        graphWrap.style.display = 'flex';
+        reportWrap.style.display = 'none';
+        redrawGraph();
+      } else {
+        viewReportBtn.style.background = 'var(--bg-card)';
+        viewReportBtn.style.borderColor = '#10b981';
+        viewReportBtn.style.color = '#10b981';
+        viewGraphBtn.style.background = 'transparent';
+        viewGraphBtn.style.borderColor = 'var(--border)';
+        viewGraphBtn.style.color = 'var(--text-muted)';
+        graphWrap.style.display = 'none';
+        reportWrap.style.display = 'block';
+      }
+    }
+
+    viewGraphBtn.onclick = () => updateViewMode('graph');
+    viewReportBtn.onclick = () => updateViewMode('report');
+
+    root.querySelectorAll('.fd-ba-time-tab').forEach(btn => {
+      btn.onclick = () => {
+        root.querySelectorAll('.fd-ba-time-tab').forEach(b => {
+          b.style.background = 'transparent';
+          b.style.color = 'var(--text-muted)';
+        });
+        btn.style.background = 'var(--bg-card)';
+        btn.style.color = 'var(--text-main)';
+        state.tab = btn.dataset.tab;
+        state.dayOffset = 0;
+        state.monthOffset = 0;
+        state.yearOffset = 0;
+        datePicker.style.display = (state.tab === 'day') ? 'inline-block' : 'none';
+        loadBoxPeriodData();
+      };
+    });
+
+    navPrevBtn.onclick = () => {
+      if (state.tab === 'today') { state.tab = 'day'; state.dayOffset = -1; syncTabButtons(); }
+      else if (state.tab === 'day') state.dayOffset--;
+      else if (state.tab === 'month') state.monthOffset--;
+      else if (state.tab === 'year') state.yearOffset--;
+      loadBoxPeriodData();
+    };
+
+    navNextBtn.onclick = () => {
+      if (state.tab === 'day' && state.dayOffset < 0) state.dayOffset++;
+      else if (state.tab === 'month' && state.monthOffset < 0) state.monthOffset++;
+      else if (state.tab === 'year' && state.yearOffset < 0) state.yearOffset++;
+      loadBoxPeriodData();
+    };
+
+    datePicker.onchange = (e) => {
+      if (!e.target.value) return;
+      const [y, m, d] = e.target.value.split('-').map(Number);
+      const targetUtc = Date.UTC(y, m - 1, d);
+      const nowPkt = (typeof getKarachiDate === 'function') ? getKarachiDate(Date.now()) : { year: y, month: m, day: d };
+      const todayUtc = Date.UTC(nowPkt.year, nowPkt.month - 1, nowPkt.day);
+      state.dayOffset = Math.round((targetUtc - todayUtc) / 86400000);
+      loadBoxPeriodData();
+    };
+
+    function syncTabButtons() {
+      root.querySelectorAll('.fd-ba-time-tab').forEach(b => {
+        const active = b.dataset.tab === state.tab;
+        b.style.background = active ? 'var(--bg-card)' : 'transparent';
+        b.style.color = active ? 'var(--text-main)' : 'var(--text-muted)';
+      });
+      datePicker.style.display = (state.tab === 'day') ? 'inline-block' : 'none';
+    }
+
+    async function loadBoxPeriodData() {
+      loadingEl.style.display = 'block';
+      loadingEl.textContent = `Loading ${cfg.title} data…`;
+      const pktNow = (typeof getPktNow === 'function') ? getPktNow() : new Date();
+      const nowMs = Date.now();
+      const rate = pkrRate();
+
+      let startMs, endMs, periodLabel, periodSub;
+      let isDayMode = false;
+
+      if (state.tab === 'today') {
+        startMs = (typeof getPktTodayStart === 'function') ? getPktTodayStart(7) : (nowMs - 86400000);
+        endMs = nowMs;
+        periodLabel = 'Today';
+        periodSub = formatPktTime(startMs, 'date');
+        isDayMode = true;
+      } else if (state.tab === 'day') {
+        const base = new Date(pktNow.getTime());
+        base.setDate(base.getDate() + state.dayOffset);
+        const y = base.getFullYear(), m = base.getMonth() + 1, d = base.getDate();
+        startMs = (typeof getPktDayStart === 'function') ? getPktDayStart(y, m, d) + 7 * 3600 * 1000 : (nowMs - 86400000);
+        endMs = startMs + 24 * 3600 * 1000 - 1;
+        periodLabel = state.dayOffset === 0 ? 'Today' : (state.dayOffset === -1 ? 'Yesterday' : `${d} ${MONTH_SHORT[m - 1] || ''}`);
+        periodSub = `${d} ${MONTH_NAMES[m - 1] || ''} ${y}`;
+        datePicker.value = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        isDayMode = true;
+      } else if (state.tab === 'month') {
+        const y = pktNow.getFullYear(), m = pktNow.getMonth() + 1 + state.monthOffset;
+        const r = (typeof getPktBillingRange === 'function') ? getPktBillingRange(y, m) : { startMs: nowMs - 30 * 86400000, endMs: nowMs };
+        startMs = r.startMs;
+        endMs = r.endMs;
+        const d1 = new Date(startMs + 18000000), d2 = new Date(endMs + 18000000);
+        periodLabel = `${d1.getUTCDate()}/${d1.getUTCMonth() + 1} → ${d2.getUTCDate()}/${d2.getUTCMonth() + 1}/${d2.getUTCFullYear()}`;
+        periodSub = 'Billing Cycle (25th → 26th)';
+      } else {
+        const y = pktNow.getFullYear() + state.yearOffset;
+        startMs = Date.UTC(y, 0, 1) - 18000000;
+        endMs = Date.UTC(y, 11, 31, 23, 59, 59) - 18000000;
+        periodLabel = `${y}`;
+        periodSub = 'Calendar Year';
+      }
+
+      navLabelEl.textContent = periodLabel;
+      navSubEl.textContent = periodSub;
+
+      const canGoNext = (state.tab === 'day' && state.dayOffset < 0) ||
+                        (state.tab === 'month' && state.monthOffset < 0) ||
+                        (state.tab === 'year' && state.yearOffset < 0);
+      navNextBtn.style.opacity = canGoNext ? '1' : '0.35';
+
+      try {
+        let ptsData = [], ptsAux = [], ptsF1 = [], ptsF2 = [], outageSummary = null;
+
+        if (isDayMode) {
+          const fetchTasks = [(typeof _gFetch === 'function') ? _gFetch(cfg.feedId, startMs, endMs, 120) : []];
+          if (cfg.secondFeedId) fetchTasks.push(_gFetch(cfg.secondFeedId, startMs, endMs, 120));
+          else if (cfg.voltFeedId) fetchTasks.push(_gFetch(cfg.voltFeedId, startMs, endMs, 120));
+          else if (cfg.humFeedId) fetchTasks.push(_gFetch(cfg.humFeedId, startMs, endMs, 120));
+          else if (cfg.disFeedId) fetchTasks.push(_gFetch(cfg.disFeedId, startMs, endMs, 120));
+
+          const res = await Promise.all(fetchTasks);
+          ptsData = res[0] || [];
+          ptsAux = res[1] || [];
+
+          if (cfg.isFridges) {
+            ptsF1 = ptsData;
+            ptsF2 = ptsAux;
+            const map2 = new Map(ptsF2);
+            ptsData = ptsF1.map(([t, v]) => [t, (v || 0) + (map2.get(t) || 0)]);
+          }
+        } else {
+          const fetchTasks = [(typeof fetchWithCache === 'function') ? fetchWithCache(cfg.feedId, startMs, endMs) : {}];
+          if (cfg.secondFeedId) fetchTasks.push(fetchWithCache(cfg.secondFeedId, startMs, endMs));
+          if (boxKey === 'grid' && typeof fetchAcBreakdown === 'function') fetchTasks.push(fetchAcBreakdown(startMs, endMs));
+
+          const res = await Promise.all(fetchTasks);
+          const raw1 = res[0] || {};
+          const raw2 = cfg.secondFeedId ? (res[1] || {}) : {};
+          if (boxKey === 'grid') outageSummary = res[res.length - 1];
+
+          const combinedMap = {};
+          Object.entries(raw1).forEach(([t, v]) => { combinedMap[t] = parseFloat(v) || 0; });
+          Object.entries(raw2).forEach(([t, v]) => { combinedMap[t] = (combinedMap[t] || 0) + (parseFloat(v) || 0); });
+
+          ptsData = Object.entries(combinedMap).map(([t, v]) => [parseInt(t, 10), v]);
+          ptsF1 = Object.entries(raw1).map(([t, v]) => [parseInt(t, 10), parseFloat(v) || 0]);
+          ptsF2 = Object.entries(raw2).map(([t, v]) => [parseInt(t, 10), parseFloat(v) || 0]);
+        }
+
+        ptsData.sort((a, b) => a[0] - b[0]);
+        ptsAux.sort((a, b) => a[0] - b[0]);
+        ptsF1.sort((a, b) => a[0] - b[0]);
+        ptsF2.sort((a, b) => a[0] - b[0]);
+
+        state.cachedData = {
+          startMs, endMs, periodLabel, periodSub, isDayMode,
+          ptsData, ptsAux, ptsF1, ptsF2, outageSummary, rate,
+          dailyMap: {}
+        };
+
+        computeAndRenderBoxAnalytics();
+      } catch (err) {
+        console.warn(`Analytics load error for ${cfg.title}:`, err);
+        loadingEl.textContent = 'Failed to load analytics.';
+      }
+    }
+
+    function computeAndRenderBoxAnalytics() {
+      if (!state.cachedData) return;
+      const { startMs, endMs, periodLabel, isDayMode, ptsData, ptsAux, ptsF1, ptsF2, outageSummary, rate } = state.cachedData;
+
+      let peakVal = 0, avgVal = 0, dayKwh = 0, dayAvgW = 0, nightKwh = 0, nightAvgW = 0, totalKwh = 0;
+      let f1Peak = 0, f1Avg = 0, f1DayKwh = 0, f1NightKwh = 0, f1TotalKwh = 0;
+      let f2Peak = 0, f2Avg = 0, f2DayKwh = 0, f2NightKwh = 0, f2TotalKwh = 0;
+      let outageMinutes = 0, outageCount = 0, outageEvents = [];
+      const dailyMap = {};
+
+      const isPc = !!cfg.isPc;
+      const dayStart = isPc ? 6 : 7;
+      const dayEnd = 16;
+      const stepHours = 120 / 3600;
+
+      if (isDayMode) {
+        let allSum = 0, allActiveCount = 0;
+        let daySum = 0, dayActiveCount = 0;
+        let nightSum = 0, nightActiveCount = 0;
+
+        ptsData.forEach(p => {
+          if (!p || p[1] == null) return;
+          const v = Math.max(0, p[1]);
+          const ts = p[0] < 2e9 ? p[0] * 1000 : p[0];
+          if (v > peakVal) peakVal = v;
+          allSum += v;
+          if (v > 10) allActiveCount++;
+
+          const pkt = (typeof getKarachiDate === 'function') ? getKarachiDate(ts) : { hour: new Date(ts + 18000000).getUTCHours() };
+          const h = pkt.hour;
+          if (h >= dayStart && h < dayEnd) {
+            daySum += v;
+            if (v > 10) dayActiveCount++;
+          } else {
+            nightSum += v;
+            if (v > 10) nightActiveCount++;
+          }
+        });
+
+        avgVal = allActiveCount > 0 ? Math.round(allSum / allActiveCount) : 0;
+        dayAvgW = dayActiveCount > 0 ? Math.round(daySum / dayActiveCount) : 0;
+        nightAvgW = nightActiveCount > 0 ? Math.round(nightSum / nightActiveCount) : 0;
+        dayKwh = (daySum * stepHours) / 1000;
+        nightKwh = (nightSum * stepHours) / 1000;
+        totalKwh = dayKwh + nightKwh;
+
+        if (cfg.isFridges) {
+          let s1 = 0, c1 = 0, ds1 = 0, ns1 = 0;
+          ptsF1.forEach(p => {
+            const v = Math.max(0, p[1] || 0);
+            const ts = p[0] < 2e9 ? p[0] * 1000 : p[0];
+            if (v > f1Peak) f1Peak = v;
+            s1 += v; if (v > 5) c1++;
+            const h = (typeof getKarachiDate === 'function') ? getKarachiDate(ts).hour : 0;
+            if (h >= dayStart && h < dayEnd) ds1 += v; else ns1 += v;
+          });
+          f1Avg = c1 > 0 ? Math.round(s1 / c1) : 0;
+          f1DayKwh = (ds1 * stepHours) / 1000;
+          f1NightKwh = (ns1 * stepHours) / 1000;
+          f1TotalKwh = f1DayKwh + f1NightKwh;
+
+          let s2 = 0, c2 = 0, ds2 = 0, ns2 = 0;
+          ptsF2.forEach(p => {
+            const v = Math.max(0, p[1] || 0);
+            const ts = p[0] < 2e9 ? p[0] * 1000 : p[0];
+            if (v > f2Peak) f2Peak = v;
+            s2 += v; if (v > 5) c2++;
+            const h = (typeof getKarachiDate === 'function') ? getKarachiDate(ts).hour : 0;
+            if (h >= dayStart && h < dayEnd) ds2 += v; else ns2 += v;
+          });
+          f2Avg = c2 > 0 ? Math.round(s2 / c2) : 0;
+          f2DayKwh = (ds2 * stepHours) / 1000;
+          f2NightKwh = (ns2 * stepHours) / 1000;
+          f2TotalKwh = f2DayKwh + f2NightKwh;
+        }
+
+        if (boxKey === 'grid' && ptsAux.length) {
+          let inOutage = false, oStart = null;
+          ptsAux.forEach(p => {
+            if (!p) return;
+            const ts = p[0] < 2e9 ? p[0] * 1000 : p[0];
+            const v = p[1] != null ? p[1] : 0;
+            if (v < 50) {
+              outageMinutes += 2;
+              if (!inOutage) { inOutage = true; outageCount++; oStart = ts; }
+            } else {
+              if (inOutage) {
+                inOutage = false;
+                outageEvents.push({ start: oStart, end: ts, durMin: Math.max(1, Math.round((ts - oStart) / 60000)) });
+              }
+            }
+          });
+          if (inOutage && oStart) {
+            outageEvents.push({ start: oStart, end: endMs, durMin: Math.max(1, Math.round((endMs - oStart) / 60000)), ongoing: true });
+          }
+        }
+      } else {
+        const mapF1 = new Map(ptsF1);
+        const mapF2 = new Map(ptsF2);
+
+        ptsData.forEach(([ts, v]) => {
+          if (v == null || v < 0) return;
+          const tsMs = ts < 2e9 ? ts * 1000 : ts;
+          const p = (typeof getKarachiDate === 'function') ? getKarachiDate(tsMs) : {
+            year: new Date(tsMs + 18000000).getUTCFullYear(),
+            month: new Date(tsMs + 18000000).getUTCMonth() + 1,
+            day: new Date(tsMs + 18000000).getUTCDate(),
+            hour: new Date(tsMs + 18000000).getUTCHours()
+          };
+
+          let cYr = p.year, cMo = p.month, cDy = p.day;
+          if (p.hour < 7) {
+            const prevD = new Date(Date.UTC(cYr, cMo - 1, cDy - 1));
+            cYr = prevD.getUTCFullYear(); cMo = prevD.getUTCMonth() + 1; cDy = prevD.getUTCDate();
+          }
+
+          const dKey = state.tab === 'year'
+            ? `${cYr}-${String(cMo).padStart(2,'0')}`
+            : `${cYr}-${String(cMo).padStart(2,'0')}-${String(cDy).padStart(2,'0')}`;
+
+          if (!dailyMap[dKey]) dailyMap[dKey] = {
+            totalWh: 0, dayWh: 0, nightWh: 0, f1Wh: 0, f2Wh: 0,
+            dLabel: state.tab === 'year' ? MONTH_SHORT[cMo-1] : `${cDy}/${cMo}`
+          };
+          dailyMap[dKey].totalWh += v;
+          totalKwh += v / 1000;
+
+          if (cfg.isFridges) {
+            const v1 = mapF1.get(ts) || 0;
+            const v2 = mapF2.get(ts) || 0;
+            dailyMap[dKey].f1Wh += v1;
+            dailyMap[dKey].f2Wh += v2;
+          }
+
+          if (p.hour >= dayStart && p.hour < dayEnd) {
+            dailyMap[dKey].dayWh += v;
+            dayKwh += v / 1000;
+          } else {
+            dailyMap[dKey].nightWh += v;
+            nightKwh += v / 1000;
+          }
+        });
+
+        if (outageSummary) {
+          outageMinutes = outageSummary.totalMinutes || 0;
+          outageCount = outageSummary.outageCount || 0;
+        }
+      }
+
+      state.cachedData.dailyMap = dailyMap;
+
+      let statLine1 = '';
+      let statLine2 = '';
+
+      if (cfg.isFridges) {
+        statLine1 = `
+          <span>
+            <span style="color:#c084fc; font-weight:800;">🧊 F1: Peak ${f1Peak}W &bull; Avg ${f1Avg}W</span> &nbsp;|&nbsp;
+            <span style="color:#22d3ee; font-weight:800;">🧊 F2: Peak ${f2Peak}W &bull; Avg ${f2Avg}W</span>
+          </span>
+          <span style="color:#4ade80; font-weight:800;">Combined: ${fmtEnergy(totalKwh)} (${fmtPkr(totalKwh * rate)})</span>
+        `;
+        statLine2 = `
+          <span style="color:var(--accent-solar); font-weight:800;">☀️ Day: F1 ${fmtEnergy(f1DayKwh)} + F2 ${fmtEnergy(f2DayKwh)} = ${fmtEnergy(dayKwh)}</span>
+          <span style="color:#c084fc; font-weight:800;">🌙 Night: F1 ${fmtEnergy(f1NightKwh)} + F2 ${fmtEnergy(f2NightKwh)} = ${fmtEnergy(nightKwh)}</span>
+        `;
+      } else if (cfg.isPower) {
+        const peakColor = peakVal > 1500 ? '#ef4444' : titleColor;
+        const outStr = outageCount > 0 ? `<span style="color:#ef4444; font-weight:800;">⚡ Outages: ${fmtDuration(outageMinutes)} (${outageCount}x)</span>` : '';
+        const dayAvgStr = isDayMode ? `(Avg: ${dayAvgW} W)` : '';
+        const nightAvgStr = isDayMode ? `(Avg: ${nightAvgW} W)` : '';
+        const costStr = `<span style="color:#4ade80; font-weight:800;">Cost: ${fmtPkr(totalKwh * rate)}</span>`;
+
+        statLine1 = `<span>(Peak: <b style="color:${peakColor};">${isDayMode ? peakVal.toLocaleString() + ' W' : totalKwh.toFixed(1) + ' kWh'}</b> &bull; Avg: <b style="color:${titleColor};">${isDayMode ? avgVal + ' W' : (totalKwh / Math.max(1, Object.keys(dailyMap).length)).toFixed(1) + ' kWh/d'}</b>)</span> ${outStr}`;
+        statLine2 = `
+          <span style="color:var(--accent-solar); font-weight:800;">Day: ${fmtEnergy(dayKwh)} ${dayAvgStr}</span>
+          ${!cfg.hideNight ? `<span style="color:#c084fc; font-weight:800;">Night: ${fmtEnergy(nightKwh)} ${nightAvgStr}</span>` : ''}
+          ${costStr}
+        `;
+      } else {
+        const mainDisp = isDayMode ? (ptsData.length ? ptsData[ptsData.length-1][1].toFixed(1) : '--') : (totalKwh / Math.max(1, Object.keys(dailyMap).length)).toFixed(1);
+        statLine1 = `<span>Latest: <b style="color:${titleColor};">${mainDisp} ${cfg.unit}</b> &bull; Peak: <b style="color:${titleColor};">${peakVal.toFixed(1)} ${cfg.unit}</b></span>`;
+        statLine2 = `<span style="color:var(--text-muted);">Period: ${periodLabel}</span>`;
+      }
+
+      statsStrip.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:4px; margin-bottom:3px;">
+          ${statLine1}
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px;">
+          ${statLine2}
+        </div>
+      `;
+
+      buildReportContent({
+        periodLabel, totalKwh, dayKwh, nightKwh, rate,
+        outageMinutes, outageCount, isDayMode, dailyMap, ptsData,
+        f1Peak, f1Avg, f1DayKwh, f1NightKwh, f1TotalKwh,
+        f2Peak, f2Avg, f2DayKwh, f2NightKwh, f2TotalKwh,
+        ptsF1, ptsF2
+      });
+
+      redrawGraph();
+      loadingEl.style.display = 'none';
+    }
+
+    function buildReportContent(data) {
+      const { periodLabel, totalKwh, dayKwh, nightKwh, rate, outageMinutes, outageCount, isDayMode, dailyMap, ptsData, ptsF1, ptsF2 } = data;
+      const nightPct = totalKwh > 0 ? ((nightKwh / totalKwh) * 100).toFixed(1) : '0.0';
+
+      let txt = `================================================================================\n`;
+      txt += `📄 ${cfg.title.toUpperCase()} REPORT: ${periodLabel}\n`;
+      txt += `Generated: ${new Date().toLocaleString()} (PKT UTC+5)\n`;
+      if (cfg.isPower) txt += `Tariff Rate: PKR ${rate.toFixed(0)} / kWh\n`;
+      txt += `================================================================================\n\n`;
+
+      if (cfg.isFridges) {
+        txt += `SUMMARY (FRIDGES):\n`;
+        txt += `  • Fridge 1 Total: ${data.f1TotalKwh.toFixed(2)} kWh (Day: ${data.f1DayKwh.toFixed(2)}k, Night: ${data.f1NightKwh.toFixed(2)}k)\n`;
+        txt += `  • Fridge 2 Total: ${data.f2TotalKwh.toFixed(2)} kWh (Day: ${data.f2DayKwh.toFixed(2)}k, Night: ${data.f2NightKwh.toFixed(2)}k)\n`;
+        txt += `  • Combined Energy: ${totalKwh.toFixed(2)} kWh  (PKR ${Math.round(totalKwh * rate).toLocaleString()})\n\n`;
+      } else if (cfg.isPower) {
+        txt += `SUMMARY:\n`;
+        txt += `  • Total Energy  : ${totalKwh.toFixed(2)} kWh  (PKR ${Math.round(totalKwh * rate).toLocaleString()})\n`;
+        txt += `  • Day (Daytime) : ${dayKwh.toFixed(2)} kWh  (PKR ${Math.round(dayKwh * rate).toLocaleString()})\n`;
+        if (!cfg.hideNight) {
+          txt += `  • Night (Overnight): ${nightKwh.toFixed(2)} kWh (${nightPct}%)  (PKR ${Math.round(nightKwh * rate).toLocaleString()})\n`;
+        }
+        if (boxKey === 'grid') {
+          txt += `  • Outages/Breaks : ${fmtDuration(outageMinutes)} across ${outageCount} incident(s)\n`;
+        }
+        txt += `\n`;
+      }
+
+      let tableHtml = '';
+      if (isDayMode) {
+        if (cfg.isFridges) {
+          txt += `HOURLY LOG (FRIDGES):\n`;
+          txt += `Hour (PKT) | F1 (W) | F2 (W) | Total (W) | Energy (Wh) | Cost (PKR)\n`;
+          txt += `--------------------------------------------------------------------\n`;
+
+          tableHtml += `
+            <table style="width:100%; border-collapse:collapse; font-size:11px; font-family:monospace; min-width:380px;">
+              <thead>
+                <tr style="background:var(--bg-card); border-bottom:2px solid var(--border); text-align:right;">
+                  <th style="padding:6px; text-align:left;">Hour</th>
+                  <th style="padding:6px; color:#c084fc;">F1 (W)</th>
+                  <th style="padding:6px; color:#22d3ee;">F2 (W)</th>
+                  <th style="padding:6px; color:var(--text-main);">Total (W)</th>
+                  <th style="padding:6px; color:var(--accent-solar);">Energy</th>
+                  <th style="padding:6px; color:#4ade80;">Cost</th>
+                </tr>
+              </thead>
+              <tbody>
+          `;
+
+          const b1 = Array.from({ length: 24 }, () => ({ sum: 0, cnt: 0 }));
+          const b2 = Array.from({ length: 24 }, () => ({ sum: 0, cnt: 0 }));
+          (ptsF1 || []).forEach(([ts, v]) => {
+            const h = (typeof getKarachiDate === 'function') ? getKarachiDate(ts < 2e9 ? ts * 1000 : ts).hour : 0;
+            b1[h].sum += (v || 0); b1[h].cnt++;
+          });
+          (ptsF2 || []).forEach(([ts, v]) => {
+            const h = (typeof getKarachiDate === 'function') ? getKarachiDate(ts < 2e9 ? ts * 1000 : ts).hour : 0;
+            b2[h].sum += (v || 0); b2[h].cnt++;
+          });
+
+          for (let h = 0; h < 24; h++) {
+            if (b1[h].cnt === 0 && b2[h].cnt === 0) continue;
+            const w1 = b1[h].cnt > 0 ? Math.round(b1[h].sum / b1[h].cnt) : 0;
+            const w2 = b2[h].cnt > 0 ? Math.round(b2[h].sum / b2[h].cnt) : 0;
+            const totW = w1 + w2;
+            const wh = totW;
+            const cost = (wh / 1000) * rate;
+            const ampm = h >= 12 ? 'PM' : 'AM';
+            const hh = h % 12 || 12;
+            const hStr = `${String(hh).padStart(2, '0')}:00 ${ampm}`;
+
+            txt += `${hStr.padEnd(10)} | ${String(w1).padStart(6)} | ${String(w2).padStart(6)} | ${String(totW).padStart(9)} | ${String(wh).padStart(11)} | PKR ${cost.toFixed(1).padStart(6)}\n`;
+            tableHtml += `
+              <tr style="border-bottom:1px solid rgba(255,255,255,0.05); text-align:right;">
+                <td style="padding:5px 6px; text-align:left; color:var(--text-muted);">${hStr}</td>
+                <td style="padding:5px 6px; font-weight:800; color:#c084fc;">${w1} W</td>
+                <td style="padding:5px 6px; font-weight:800; color:#22d3ee;">${w2} W</td>
+                <td style="padding:5px 6px; font-weight:800; color:var(--text-main);">${totW} W</td>
+                <td style="padding:5px 6px; color:var(--accent-solar);">${wh} Wh</td>
+                <td style="padding:5px 6px; color:#4ade80; font-weight:700;">PKR ${cost.toFixed(1)}</td>
+              </tr>
+            `;
+          }
+          tableHtml += `</tbody></table>`;
+        } else {
+          txt += `HOURLY LOG:\n`;
+          txt += `Hour (PKT) | Value (${cfg.unit}) | Energy | Cost (PKR)\n`;
+          txt += `------------------------------------------------\n`;
+
+          tableHtml += `
+            <table style="width:100%; border-collapse:collapse; font-size:11px; font-family:monospace; min-width:320px;">
+              <thead>
+                <tr style="background:var(--bg-card); border-bottom:2px solid var(--border); text-align:right;">
+                  <th style="padding:6px; text-align:left;">Hour</th>
+                  <th style="padding:6px; color:${titleColor};">${cfg.unit === 'W' ? 'Power (W)' : cfg.unit}</th>
+                  <th style="padding:6px; color:var(--text-main);">Energy</th>
+                  <th style="padding:6px; color:#4ade80;">Cost</th>
+                </tr>
+              </thead>
+              <tbody>
+          `;
+
+          const hrBuckets = Array.from({ length: 24 }, () => ({ sumW: 0, cnt: 0 }));
+          ptsData.forEach(([ts, v]) => {
+            if (v == null) return;
+            const pkt = (typeof getKarachiDate === 'function') ? getKarachiDate(ts < 2e9 ? ts * 1000 : ts) : { hour: 0 };
+            hrBuckets[pkt.hour].sumW += v;
+            hrBuckets[pkt.hour].cnt++;
+          });
+
+          hrBuckets.forEach((b, h) => {
+            if (b.cnt === 0) return;
+            const avgV = Math.round(b.sumW / b.cnt);
+            const wh = avgV;
+            const cost = (wh / 1000) * rate;
+            const ampm = h >= 12 ? 'PM' : 'AM';
+            const hh = h % 12 || 12;
+            const hStr = `${String(hh).padStart(2, '0')}:00 ${ampm}`;
+
+            txt += `${hStr.padEnd(10)} | ${String(avgV).padStart(10)} | ${String(wh).padStart(6)} Wh | PKR ${cost.toFixed(1).padStart(6)}\n`;
+            tableHtml += `
+              <tr style="border-bottom:1px solid rgba(255,255,255,0.05); text-align:right;">
+                <td style="padding:5px 6px; text-align:left; color:var(--text-muted);">${hStr}</td>
+                <td style="padding:5px 6px; font-weight:800; color:${titleColor};">${avgV} ${cfg.unit}</td>
+                <td style="padding:5px 6px;">${wh} Wh</td>
+                <td style="padding:5px 6px; color:#4ade80; font-weight:700;">PKR ${cost.toFixed(1)}</td>
+              </tr>
+            `;
+          });
+          tableHtml += `</tbody></table>`;
+        }
+      } else {
+        if (cfg.isFridges) {
+          txt += `PERIOD BREAKDOWN (FRIDGES):\n`;
+          txt += `Date | F1 (kWh) | F2 (kWh) | Total (kWh) | Day | Night | Cost (PKR)\n`;
+          txt += `---------------------------------------------------------------------------\n`;
+
+          tableHtml += `
+            <table style="width:100%; border-collapse:collapse; font-size:11px; font-family:monospace; min-width:440px;">
+              <thead>
+                <tr style="background:var(--bg-card); border-bottom:2px solid var(--border); text-align:right;">
+                  <th style="padding:6px; text-align:left;">Date</th>
+                  <th style="padding:6px; color:#c084fc;">F1</th>
+                  <th style="padding:6px; color:#22d3ee;">F2</th>
+                  <th style="padding:6px; color:var(--text-main);">Total</th>
+                  <th style="padding:6px; color:var(--accent-solar);">Day</th>
+                  <th style="padding:6px; color:#c084fc;">Night</th>
+                  <th style="padding:6px; color:#4ade80;">Cost</th>
+                </tr>
+              </thead>
+              <tbody>
+          `;
+
+          Object.entries(dailyMap || {}).forEach(([k, d]) => {
+            const tKwh = d.totalWh / 1000;
+            const f1Kwh = d.f1Wh / 1000;
+            const f2Kwh = d.f2Wh / 1000;
+            const dKwh = d.dayWh / 1000;
+            const nKwh = d.nightWh / 1000;
+            const cost = tKwh * rate;
+
+            txt += `${d.dLabel.padEnd(8)} | ${f1Kwh.toFixed(2).padStart(8)} | ${f2Kwh.toFixed(2).padStart(8)} | ${tKwh.toFixed(2).padStart(11)} | ${dKwh.toFixed(2).padStart(5)} | ${nKwh.toFixed(2).padStart(5)} | PKR ${Math.round(cost).toLocaleString()}\n`;
+            tableHtml += `
+              <tr style="border-bottom:1px solid rgba(255,255,255,0.05); text-align:right;">
+                <td style="padding:5px 6px; text-align:left; font-weight:700; color:var(--text-main);">${d.dLabel}</td>
+                <td style="padding:5px 6px; font-weight:800; color:#c084fc;">${f1Kwh.toFixed(2)}k</td>
+                <td style="padding:5px 6px; font-weight:800; color:#22d3ee;">${f2Kwh.toFixed(2)}k</td>
+                <td style="padding:5px 6px; font-weight:800; color:var(--text-main);">${tKwh.toFixed(2)}k</td>
+                <td style="padding:5px 6px; color:var(--accent-solar);">${dKwh.toFixed(2)}k</td>
+                <td style="padding:5px 6px; color:#c084fc;">${nKwh.toFixed(2)}k</td>
+                <td style="padding:5px 6px; color:#4ade80; font-weight:700;">PKR ${Math.round(cost).toLocaleString()}</td>
+              </tr>
+            `;
+          });
+          tableHtml += `</tbody></table>`;
+        } else {
+          txt += `PERIOD BREAKDOWN:\n`;
+          txt += `Date/Period | Total (kWh) | Day (kWh) | Night (kWh) | Night % | Cost (PKR)\n`;
+          txt += `---------------------------------------------------------------------------\n`;
+
+          tableHtml += `
+            <table style="width:100%; border-collapse:collapse; font-size:11px; font-family:monospace; min-width:420px;">
+              <thead>
+                <tr style="background:var(--bg-card); border-bottom:2px solid var(--border); text-align:right;">
+                  <th style="padding:6px; text-align:left;">Date</th>
+                  <th style="padding:6px; color:${titleColor};">Total</th>
+                  <th style="padding:6px; color:var(--accent-solar);">Day</th>
+                  <th style="padding:6px; color:#c084fc;">Night</th>
+                  <th style="padding:6px; color:#4ade80;">Cost</th>
+                </tr>
+              </thead>
+              <tbody>
+          `;
+
+          Object.entries(dailyMap || {}).forEach(([k, d]) => {
+            const tKwh = d.totalWh / 1000;
+            const dKwh = d.dayWh / 1000;
+            const nKwh = d.nightWh / 1000;
+            const cost = tKwh * rate;
+            const np = tKwh > 0 ? ((nKwh / tKwh) * 100).toFixed(0) : '0';
+
+            txt += `${d.dLabel.padEnd(11)} | ${tKwh.toFixed(2).padStart(11)} | ${dKwh.toFixed(2).padStart(9)} | ${nKwh.toFixed(2).padStart(11)} | ${np.padStart(6)}% | PKR ${Math.round(cost).toLocaleString()}\n`;
+            tableHtml += `
+              <tr style="border-bottom:1px solid rgba(255,255,255,0.05); text-align:right;">
+                <td style="padding:5px 6px; text-align:left; font-weight:700; color:var(--text-main);">${d.dLabel}</td>
+                <td style="padding:5px 6px; font-weight:800; color:${titleColor};">${tKwh.toFixed(1)}k</td>
+                <td style="padding:5px 6px; color:var(--accent-solar);">${dKwh.toFixed(1)}k</td>
+                <td style="padding:5px 6px; color:#c084fc; font-weight:700;">${nKwh.toFixed(1)}k <span style="font-size:9.5px; opacity:0.8;">(${np}%)</span></td>
+                <td style="padding:5px 6px; color:#4ade80; font-weight:700;">PKR ${Math.round(cost).toLocaleString()}</td>
+              </tr>
+            `;
+          });
+          tableHtml += `</tbody></table>`;
+        }
+      }
+
+      state.cachedRawText = txt;
+
+      reportContent.innerHTML = `
+        <div style="background:var(--bg-card); border:1px solid var(--border); border-left:3px solid ${titleColor}; border-radius:8px; padding:10px 12px; margin-bottom:10px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:4px;">
+            <span style="font-size:13px; font-weight:800; color:${titleColor};">📊 ${cfg.title} &bull; ${periodLabel}</span>
+            <span style="font-size:12px; font-weight:800; color:#4ade80;">PKR ${Math.round(totalKwh * rate).toLocaleString()} (@ ${rate} PKR/u)</span>
+          </div>
+          <div style="display:flex; justify-content:space-between; font-size:11px; color:var(--text-muted); margin-top:4px; flex-wrap:wrap; gap:4px;">
+            <span>Total: <b style="color:var(--text-main);">${totalKwh.toFixed(1)} kWh</b></span>
+            <span>Day: <b style="color:var(--accent-solar);">${dayKwh.toFixed(1)} kWh</b></span>
+            <span>Night: <b style="color:#c084fc;">${nightKwh.toFixed(1)} kWh (${nightPct}%)</b></span>
+            ${boxKey === 'grid' ? `<span>Outages: <b style="color:#ef4444;">${fmtDuration(outageMinutes)} (${outageCount}x)</b></span>` : ''}
+          </div>
+        </div>
+        ${tableHtml}
+      `;
+    }
+
+    function redrawGraph() {
+      if (state.view !== 'graph' || !state.cachedData) return;
+      const { isDayMode, ptsData, ptsAux, ptsF1, ptsF2 } = state.cachedData;
+      const dailyMap = state.cachedData.dailyMap || {};
+
+      const dpr = window.devicePixelRatio || 1;
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = Math.max(1, Math.round(rect.width * dpr));
+      canvas.height = Math.max(1, Math.round(rect.height * dpr));
+      const ctx = canvas.getContext('2d');
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.scale(dpr, dpr);
+      ctx.clearRect(0, 0, rect.width, rect.height);
+
+      const PL = 38, PR = 12, PT = 24, PB = 30;
+      const cW = rect.width - PL - PR;
+      const cH = rect.height - PT - PB;
+      if (cW <= 0 || cH <= 0) return;
+
+      if (isDayMode) {
+        if (cfg.isFridges) {
+          const p1 = ptsF1 || [];
+          const p2 = ptsF2 || [];
+          const n = Math.max(p1.length, p2.length);
+          if (n < 2) {
+            ctx.fillStyle = '#71717a'; ctx.textAlign = 'center'; ctx.font = '11px system-ui';
+            ctx.fillText('No fridge telemetry points recorded for today', rect.width / 2, rect.height / 2);
+            return;
+          }
+
+          const allVals = [];
+          if (state.fridgeFilter !== 'f2') allVals.push(...p1.map(p => p[1] || 0));
+          if (state.fridgeFilter !== 'f1') allVals.push(...p2.map(p => p[1] || 0));
+          const maxW = Math.max(200, Math.max(...allVals) * 1.2);
+
+          const mapX = (idx) => PL + (idx / (n - 1)) * cW;
+          const mapY = (val) => PT + cH - (Math.max(0, val) / maxW) * cH;
+
+          ctx.fillStyle = '#71717a'; ctx.font = '9px system-ui'; ctx.textAlign = 'right';
+          for (let g = 0; g <= 4; g++) {
+            const val = (g / 4) * maxW;
+            const y = PT + cH - (g / 4) * cH;
+            ctx.fillText(Math.round(val) + 'W', PL - 5, y + 3);
+            ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+            ctx.beginPath(); ctx.moveTo(PL, y); ctx.lineTo(PL + cW, y); ctx.stroke();
+          }
+
+          ctx.save();
+          ctx.beginPath(); ctx.rect(PL, PT, cW, cH); ctx.clip();
+
+          // Fridge 1 (Purple)
+          if (state.fridgeFilter === 'both' || state.fridgeFilter === 'f1') {
+            const grad1 = ctx.createLinearGradient(0, PT, 0, PT + cH);
+            grad1.addColorStop(0, 'rgba(192, 132, 252, 0.28)');
+            grad1.addColorStop(1, 'rgba(192, 132, 252, 0.0)');
+
+            ctx.beginPath();
+            ctx.moveTo(mapX(0), PT + cH);
+            p1.forEach((p, idx) => ctx.lineTo(mapX(idx), mapY(p[1] || 0)));
+            ctx.lineTo(mapX(p1.length - 1), PT + cH);
+            ctx.closePath();
+            ctx.fillStyle = grad1;
+            ctx.fill();
+
+            ctx.beginPath();
+            p1.forEach((p, idx) => {
+              if (idx === 0) ctx.moveTo(mapX(0), mapY(p[1] || 0));
+              else ctx.lineTo(mapX(idx), mapY(p[1] || 0));
+            });
+            ctx.strokeStyle = '#c084fc';
+            ctx.lineWidth = 2.2;
+            ctx.stroke();
+          }
+
+          // Fridge 2 (Cyan)
+          if (state.fridgeFilter === 'both' || state.fridgeFilter === 'f2') {
+            const grad2 = ctx.createLinearGradient(0, PT, 0, PT + cH);
+            grad2.addColorStop(0, 'rgba(34, 211, 238, 0.24)');
+            grad2.addColorStop(1, 'rgba(34, 211, 238, 0.0)');
+
+            ctx.beginPath();
+            ctx.moveTo(mapX(0), PT + cH);
+            p2.forEach((p, idx) => ctx.lineTo(mapX(idx), mapY(p[1] || 0)));
+            ctx.lineTo(mapX(p2.length - 1), PT + cH);
+            ctx.closePath();
+            ctx.fillStyle = grad2;
+            ctx.fill();
+
+            ctx.beginPath();
+            p2.forEach((p, idx) => {
+              if (idx === 0) ctx.moveTo(mapX(0), mapY(p[1] || 0));
+              else ctx.lineTo(mapX(idx), mapY(p[1] || 0));
+            });
+            ctx.strokeStyle = '#22d3ee';
+            ctx.lineWidth = 2.2;
+            ctx.stroke();
+          }
+
+          ctx.restore();
+
+          ctx.font = 'bold 9.5px system-ui';
+          ctx.textAlign = 'right';
+          ctx.fillStyle = '#c084fc';
+          ctx.fillText('● Fridge 1', rect.width - PR - 75, 12);
+          ctx.fillStyle = '#22d3ee';
+          ctx.fillText('● Fridge 2', rect.width - PR, 12);
+
+          ctx.fillStyle = '#a1a1aa'; ctx.font = '9.5px system-ui'; ctx.textAlign = 'center';
+          const step = Math.max(1, Math.floor(n / 6));
+          for (let i = 0; i < n; i += step) {
+            const p = p1[i] || p2[i];
+            if (!p) continue;
+            const ts = p[0] < 2e9 ? p[0] * 1000 : p[0];
+            const pkt = (typeof getKarachiDate === 'function') ? getKarachiDate(ts) : { hour: 0 };
+            const ampm = pkt.hour >= 12 ? 'pm' : 'am';
+            const hh = pkt.hour % 12 || 12;
+            ctx.fillText(`${hh}${ampm}`, mapX(i), PT + cH + 16);
+          }
+        } else {
+          const n = ptsData.length;
+          if (n < 2) {
+            ctx.fillStyle = '#71717a'; ctx.textAlign = 'center'; ctx.font = '11px system-ui';
+            ctx.fillText(`No telemetry points recorded for ${cfg.title} today`, rect.width / 2, rect.height / 2);
+            return;
+          }
+
+          const maxW = Math.max(cfg.unit === 'W' ? 500 : 10, Math.max(...ptsData.map(p => p[1] || 0)) * 1.15);
+          const mapX = (idx) => PL + (idx / (n - 1)) * cW;
+          const mapY = (val) => PT + cH - (Math.max(0, val) / maxW) * cH;
+
+          ctx.fillStyle = '#71717a'; ctx.font = '9px system-ui'; ctx.textAlign = 'right';
+          for (let g = 0; g <= 4; g++) {
+            const val = (g / 4) * maxW;
+            const y = PT + cH - (g / 4) * cH;
+            ctx.fillText(Math.round(val) + cfg.unit, PL - 5, y + 3);
+            ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+            ctx.beginPath(); ctx.moveTo(PL, y); ctx.lineTo(PL + cW, y); ctx.stroke();
+          }
+
+          ctx.save();
+          ctx.beginPath(); ctx.rect(PL, PT, cW, cH); ctx.clip();
+
+          if (boxKey === 'grid' && ptsAux.length > 1) {
+            ctx.fillStyle = 'rgba(239, 68, 68, 0.22)';
+            for (let i = 0; i < ptsAux.length; i++) {
+              if (ptsAux[i][1] != null && ptsAux[i][1] < 50) {
+                const x1 = PL + (i / (ptsAux.length - 1)) * cW;
+                const wBand = Math.max(2, cW / ptsAux.length);
+                ctx.fillRect(x1, PT, wBand, cH);
+              }
+            }
+          }
+
+          const grad = ctx.createLinearGradient(0, PT, 0, PT + cH);
+          grad.addColorStop(0, titleColor + '55');
+          grad.addColorStop(1, titleColor + '00');
+
+          ctx.beginPath();
+          ctx.moveTo(mapX(0), PT + cH);
+          ptsData.forEach((p, idx) => ctx.lineTo(mapX(idx), mapY(p[1] || 0)));
+          ctx.lineTo(mapX(n - 1), PT + cH);
+          ctx.closePath();
+          ctx.fillStyle = grad;
+          ctx.fill();
+
+          ctx.beginPath();
+          ptsData.forEach((p, idx) => {
+            if (idx === 0) ctx.moveTo(mapX(0), mapY(p[1] || 0));
+            else ctx.lineTo(mapX(idx), mapY(p[1] || 0));
+          });
+          ctx.strokeStyle = titleColor;
+          ctx.lineWidth = 2;
+          ctx.stroke();
+
+          ctx.restore();
+
+          ctx.fillStyle = '#a1a1aa'; ctx.font = '9.5px system-ui'; ctx.textAlign = 'center';
+          const step = Math.max(1, Math.floor(n / 6));
+          for (let i = 0; i < n; i += step) {
+            const ts = ptsData[i][0] < 2e9 ? ptsData[i][0] * 1000 : ptsData[i][0];
+            const pkt = (typeof getKarachiDate === 'function') ? getKarachiDate(ts) : { hour: 0 };
+            const ampm = pkt.hour >= 12 ? 'pm' : 'am';
+            const hh = pkt.hour % 12 || 12;
+            ctx.fillText(`${hh}${ampm}`, mapX(i), PT + cH + 16);
+          }
+        }
+      } else {
+        const entries = Object.entries(dailyMap || {});
+        const count = entries.length;
+        if (count === 0) {
+          ctx.fillStyle = '#71717a'; ctx.textAlign = 'center'; ctx.font = '11px system-ui';
+          ctx.fillText('No units recorded for this period', rect.width / 2, rect.height / 2);
+          return;
+        }
+
+        const maxKwh = Math.max(2, Math.max(...entries.map(([, d]) => d.totalWh / 1000)) * 1.15);
+        const barWidth = Math.max(2, Math.min(22, (cW / count) * 0.7));
+
+        ctx.fillStyle = '#71717a'; ctx.font = '9px system-ui'; ctx.textAlign = 'right';
+        for (let g = 0; g <= 4; g++) {
+          const val = (g / 4) * maxKwh;
+          const y = PT + cH - (g / 4) * cH;
+          ctx.fillText(val.toFixed(1) + 'k', PL - 5, y + 3);
+          ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+          ctx.beginPath(); ctx.moveTo(PL, y); ctx.lineTo(PL + cW, y); ctx.stroke();
+        }
+
+        ctx.save();
+        ctx.beginPath(); ctx.rect(PL, PT, cW, cH); ctx.clip();
+
+        entries.forEach(([, d], idx) => {
+          const cx = PL + ((idx + 0.5) / count) * cW;
+
+          if (cfg.isFridges) {
+            const f1K = d.f1Wh / 1000;
+            const f2K = d.f2Wh / 1000;
+            const totalY = PT + cH - ((f1K + f2K) / maxKwh) * cH;
+            const f1SplitY = PT + cH - (f1K / maxKwh) * cH;
+
+            ctx.fillStyle = '#c084fc';
+            ctx.fillRect(cx - barWidth / 2, f1SplitY, barWidth, (PT + cH) - f1SplitY);
+
+            ctx.fillStyle = '#22d3ee';
+            ctx.fillRect(cx - barWidth / 2, totalY, barWidth, f1SplitY - totalY);
+          } else {
+            const dKwh = d.dayWh / 1000;
+            const nKwh = d.nightWh / 1000;
+            const totalY = PT + cH - ((dKwh + nKwh) / maxKwh) * cH;
+            const daySplitY = PT + cH - (dKwh / maxKwh) * cH;
+
+            ctx.fillStyle = titleColor;
+            ctx.fillRect(cx - barWidth / 2, daySplitY, barWidth, (PT + cH) - daySplitY);
+
+            if (!cfg.hideNight) {
+              ctx.fillStyle = '#c084fc';
+              ctx.fillRect(cx - barWidth / 2, totalY, barWidth, daySplitY - totalY);
+            }
+          }
+        });
+
+        ctx.restore();
+
+        if (cfg.isFridges) {
+          ctx.font = 'bold 9.5px system-ui';
+          ctx.textAlign = 'right';
+          ctx.fillStyle = '#c084fc';
+          ctx.fillText('■ F1', rect.width - PR - 45, 12);
+          ctx.fillStyle = '#22d3ee';
+          ctx.fillText('■ F2', rect.width - PR, 12);
+        }
+
+        ctx.fillStyle = '#a1a1aa'; ctx.font = '9px system-ui'; ctx.textAlign = 'center';
+        const labelStep = Math.max(1, Math.ceil(count / 10));
+        entries.forEach(([, d], idx) => {
+          if (idx % labelStep === 0) {
+            const cx = PL + ((idx + 0.5) / count) * cW;
+            ctx.fillText(d.dLabel, cx, PT + cH + 15);
+          }
+        });
+      }
+    }
+
+    // ── Export Handlers ──
+    saveTxtBtn.onclick = () => {
+      if (!state.cachedRawText) { alert('No report data ready to export.'); return; }
+      const cleanLbl = (state.cachedData?.periodLabel || 'Report').replace(/[^a-zA-Z0-9_-]/g, '_');
+      const filename = `${cfg.title.replace(/[^a-zA-Z0-9_-]/g, '_')}_Report_${cleanLbl}.txt`;
+      const blob = new Blob([state.cachedRawText], { type: 'text/plain;charset=utf-8' });
+      const a = document.createElement('a');
+      a.download = filename;
+      a.href = URL.createObjectURL(blob);
+      a.click();
+      URL.revokeObjectURL(a.href);
+    };
+
+    savePngBtn.onclick = () => {
+      const targetEl = (state.view === 'report') ? reportWrap : graphWrap;
+      if (!targetEl) return;
+      if (typeof html2canvas === 'undefined') { alert('html2canvas library not loaded.'); return; }
+
+      const origBtn = savePngBtn.textContent;
+      savePngBtn.disabled = true;
+      savePngBtn.textContent = 'Saving…';
+
+      const clone = targetEl.cloneNode(true);
+      clone.style.position = 'fixed';
+      clone.style.top = '0';
+      clone.style.left = '0';
+      clone.style.zIndex = '-9999';
+      clone.style.width = '640px';
+      clone.style.background = '#141416';
+      clone.style.color = '#f4f4f5';
+      clone.style.padding = '14px';
+      clone.style.borderRadius = '12px';
+      document.body.appendChild(clone);
+
+      html2canvas(clone, {
+        backgroundColor: '#141416',
+        scale: 2.5,
+        useCORS: true,
+        allowTaint: true,
+        logging: false
+      }).then(c => {
+        const cleanLbl = (state.cachedData?.periodLabel || 'Report').replace(/[^a-zA-Z0-9_-]/g, '_');
+        const a = document.createElement('a');
+        a.download = `${cfg.title.replace(/[^a-zA-Z0-9_-]/g, '_')}_${state.view === 'report' ? 'Report' : 'Graph'}_${cleanLbl}.png`;
+        a.href = c.toDataURL('image/png');
+        a.click();
+        document.body.removeChild(clone);
+        savePngBtn.disabled = false;
+        savePngBtn.textContent = origBtn;
+      }).catch(err => {
+        console.error('PNG export failed', err);
+        if (clone.parentNode) document.body.removeChild(clone);
+        savePngBtn.disabled = false;
+        savePngBtn.textContent = origBtn;
+        alert('Failed to capture PNG: ' + err.message);
+      });
+    };
+
+    syncTabButtons();
+    loadBoxPeriodData();
+  }
+
+  function renderGridDetailSection(container) {
+    return renderBoxDetailAnalyticsSection(container, 'grid');
+  }
+
+  const EXTRAS_REGISTRY = {
+    solar:   { build: () => buildSolarExtras() },
+    grid:    { build: () => buildGridExtras() },
+    battery: { build: () => buildBatteryExtras() },
+    fridge:  { build: () => buildFridgeExtras() },
+    k15:     { build: () => buildAcExtras('k15') },
+    k1:      { build: () => buildAcExtras('k1') },
+    haier:   { build: () => buildAcExtras('haier') },
+    water:   { build: () => buildWaterTankExtras() },
+    motor:   { build: () => buildMotorExtras() },
+    wm:      { build: () => buildWmExtras() },
+    pc:      { build: () => buildPcExtras() },
+    battery2:{ build: () => buildBattery2Extras() }
+  };
+
   async function renderFlowExtras(boxKey, containerEl) {
     const entry = EXTRAS_REGISTRY[boxKey];
     if (!entry || !containerEl) {
@@ -1811,8 +2942,12 @@
   }
 
   window.renderFlowExtras = renderFlowExtras;
+  window.buildBatterySocChart = buildBatterySocChart;
+  window.buildBattery2SocChart = buildBattery2SocChart;
   window.renderBatterySocChart = buildBatterySocChart;
   window.renderBattery2SocChart = buildBattery2SocChart;
+  window.renderGridDetailSection = renderGridDetailSection;
+  window.renderBoxDetailAnalyticsSection = renderBoxDetailAnalyticsSection;
   window.FLOW_EXTRAS_REGISTRY = EXTRAS_REGISTRY;
   window.BATTERY2_FEED_IDS = BAT2_IDS;
 })();

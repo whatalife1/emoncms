@@ -636,11 +636,18 @@
     const socColor = (!isNaN(socNum) && socNum <= 20) ? '#ef4444' : ((!isNaN(socNum) && socNum <= 50) ? '#facc15' : '#25f447');
     const isCharging = action.includes('Charging');
 
+    const byName = window.lastResultsMap || new Map();
+    const prioVal = (typeof byName.get === 'function' ? byName.get('Inverter Priority')?.value ?? byName.get('547151')?.value : null) ?? window.lastInverterPriority;
+    const prioMode = (typeof getInverterPriorityMode === 'function')
+      ? getInverterPriorityMode(prioVal)
+      : (Math.round(Number(prioVal)) === 1 ? 'SUB' : (Math.round(Number(prioVal)) === 2 ? 'SBU' : null));
+    const prioBadge = prioMode ? '<span class="prio-badge prio-' + prioMode.toLowerCase() + '" style="display:inline-block;padding:1px 5px;border-radius:4px;font-size:10px;font-weight:800;letter-spacing:0.04em;background:' + (prioMode==='SUB'?'rgba(245,158,11,0.2)':'rgba(16,185,129,0.2)') + ';color:' + (prioMode==='SUB'?'#f59e0b':'#10b981') + ';border:1px solid ' + (prioMode==='SUB'?'rgba(245,158,11,0.45)':'rgba(16,185,129,0.45)') + ';margin-left:4px;vertical-align:middle;">' + prioMode + '</span>' : '';
+
     let html = '<div class="fd-battery-grid">';
 
     // ── Box 1: Charge Info (Left) ──
     html += '<div class="fd-bat-card">';
-    html += '<div class="fd-bat-header" style="color:#10b981;">⚡ CHARGE</div>';
+    html += '<div class="fd-bat-header" style="color:#10b981;">⚡ CHARGE' + (prioBadge ? ' ' + prioBadge : '') + '</div>';
     html += '<div class="fd-bat-val" style="' + _batStyle(5, 13, 'color:#4ade80;') + '">' + (watts.startsWith('+') ? watts : (isCharging ? watts : '--')) + '</div>';
     html += '<div class="fd-bat-sub" style="' + _batStyle(4, 10.5, 'color:' + (isCharging ? '#25f447' : '#a1a1aa') + ';') + '">' + action + '</div>';
     if (rate) html += '<div class="fd-bat-sub" style="' + _batStyle(6, 10.5, 'color:#4ade80;') + '">' + rate + '</div>';
@@ -657,7 +664,7 @@
     // ── Box 2: Hero SOC (Center) ──
     // idx 0 = Battery Title, idx 1 = SOC %, idx 2 = Voltage, idx 3 = Time
     html += '<div class="fd-bat-card fd-bat-hero">';
-    html += '<div class="fd-bat-header" style="' + _batStyle(0, 11, 'color:#10b981;') + '">Battery</div>';
+    html += '<div class="fd-bat-header" style="' + _batStyle(0, 11, 'color:#10b981;') + '">Battery' + (prioBadge ? ' ' + prioBadge : '') + '</div>';
     html += '<div class="fd-bat-soc" style="' + _batStyle(1, 38, 'color:' + socColor + ';') + '">' + soc + '</div>';
     html += '<div class="fd-bat-volt" style="' + _batStyle(2, 17, 'color:#35c0b7;') + '">' + volt + '</div>';
     html += '<div class="fd-bat-time" style="' + _batStyle(3, 11, 'color:#a1a1aa;') + '">' + time + '</div>';
@@ -1417,7 +1424,13 @@
     const chartsEl = modal.querySelector('.fd-charts');
     panel.style.setProperty('--fd-color', cfg.color);
     if (boxKey === 'battery' || boxKey === 'battery2') {
-      titleEl.textContent = '🔋 Dyness 5.12kWh Battery';
+      const byNameMap = window.lastResultsMap || new Map();
+      const prioVal = (typeof byNameMap.get === 'function' ? byNameMap.get('Inverter Priority')?.value ?? byNameMap.get('547151')?.value : null) ?? window.lastInverterPriority;
+      const prioMode = (typeof getInverterPriorityMode === 'function')
+        ? getInverterPriorityMode(prioVal)
+        : (Math.round(Number(prioVal)) === 1 ? 'SUB' : (Math.round(Number(prioVal)) === 2 ? 'SBU' : null));
+      const prioBadge = prioMode ? ' <span class="prio-badge prio-' + prioMode.toLowerCase() + '" style="display:inline-block;padding:1px 6px;border-radius:4px;font-size:11px;font-weight:800;letter-spacing:0.04em;background:' + (prioMode==='SUB'?'rgba(245,158,11,0.2)':'rgba(16,185,129,0.2)') + ';color:' + (prioMode==='SUB'?'#f59e0b':'#10b981') + ';border:1px solid ' + (prioMode==='SUB'?'rgba(245,158,11,0.45)':'rgba(16,185,129,0.45)') + ';vertical-align:middle;">' + prioMode + '</span>' : '';
+      titleEl.innerHTML = '🔋 Dyness 5.12kWh Battery' + prioBadge;
     } else {
       titleEl.textContent = cfg.title;
     }

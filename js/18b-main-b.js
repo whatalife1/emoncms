@@ -95,6 +95,7 @@ function wireButtons() {
   });
 
   _btn('btn-refresh', () => {
+    if (typeof fetchInverterPriorityDirect === 'function') fetchInverterPriorityDirect(true);
     if (typeof poll === 'function') poll();
   });
   

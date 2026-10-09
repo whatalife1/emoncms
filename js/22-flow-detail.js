@@ -761,11 +761,11 @@
       html += '<div class="fd-bat2-cellgrid">';
       cells.forEach(function (c) {
         if (c.v == null) {
-          html += '<div class="fd-bat2-cell"><span class="cnum">C\' + c.idx + \'</span><span class="cv">--</span></div>';
+          html += '<div class="fd-bat2-cell"><span class="cnum">C' + c.idx + '</span><span class="cv">--</span></div>';
           return;
         }
         const cls = c.idx === maxIdx ? 'cmax' : (c.idx === minIdx ? 'cmin' : '');
-        html += '<div class="fd-bat2-cell ' + cls + '"><span class="cnum">C\' + c.idx + \'</span><span class="cv">' + c.v.toFixed(3) + '</span></div>';
+        html += '<div class="fd-bat2-cell ' + cls + '"><span class="cnum">C' + c.idx + '</span><span class="cv">' + c.v.toFixed(3) + '</span></div>';
       });
       html += '</div></div>';
     } else {
@@ -986,21 +986,6 @@
     // All other boxes share the compact KPI-grid layout.
     _renderKpiGrid(container, lines, boxKey, cfg);
     return;
-
-    // eslint-disable-next-line no-unreachable
-    const MODAL_DY_SCALE = 0.35;
-    let minDy = 0;
-    lines.forEach(function (_, i) {
-      const ov = _textOv(boxKey, i);
-      if (typeof ov.dy === 'number' && ov.dy < minDy) minDy = ov.dy;
-    });
-    const extraTop = Math.max(0, -minDy * MODAL_DY_SCALE);
-    container.style.paddingTop = (22 + extraTop + 24) + 'px';
-    container.__fdDyScale = MODAL_DY_SCALE;
-
-    container.innerHTML = lines.map(function (l, i) {
-      return _lineHtml(l, i, cfg.color, boxKey);
-    }).join('');
   }
 
 

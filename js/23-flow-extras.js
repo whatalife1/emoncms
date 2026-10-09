@@ -2309,7 +2309,7 @@
         console.warn(`Analytics load error for ${cfg.title}:`, err);
         if (loadingEl) {
           loadingEl.textContent = 'Failed to load analytics.';
-          setTimeout(() => { if (loadingEl) loadingEl.style.display = 'none'; }, 2000);
+          setTimeout(() => { if (loadingEl) loadingEl.style.display = 'none'; }, 1500);
         }
       } finally {
         if (loadingEl && state.cachedData) loadingEl.style.display = 'none';
@@ -2397,11 +2397,11 @@
           }
         }
         if (state.includePower && pwrBars.length) {
-          const valPwr = pwrBars.slice(0, lastIdx).filter(v => v != null);
-          if (valPwr.length) {
-            const curP = valPwr[valPwr.length - 1];
-            const maxP = Math.max(...valPwr);
-            const avgP = Math.round(valPwr.reduce((a, b) => a + b, 0) / valPwr.length);
+          const valP = pwrBars.slice(0, lastIdx).filter(v => v != null);
+          if (valP.length) {
+            const curP = valP[valP.length - 1];
+            const maxP = Math.max(...valP);
+            const avgP = Math.round(valP.reduce((a, b) => a + b, 0) / valP.length);
             auxStatsHtml += `<div style="font-size:11px; margin-top:2px; color:#facc15; font-weight:700;">⚡ Net Power: <b style="color:var(--text-main); font-size:12px;">${curP} W</b> <span style="color:var(--text-muted);">(Peak: ${maxP}W &bull; Avg: ${avgP}W)</span></div>`;
           }
         }
@@ -2795,17 +2795,18 @@
       const cH = rect.height - PT - PB;
       if (cW <= 0 || cH <= 0) return;
 
-      // ── Dedicated Battery Day View Canvas Renderer ──
+      const maxPan = (cW / 2) * (state.zoom - 1);
+      state.panX = Math.max(-maxPan, Math.min(maxPan, state.panX));
+      const centerX = PL + cW / 2;
+      const mapXCoord = (rawX) => centerX + (rawX - centerX) * state.zoom + state.panX;
+
+      // ── 1. Dedicated Battery Day View Canvas Renderer ──
       if (isBattery && isDayMode) {
         const { socBars, voltBars, pwrBars, sessions, lastIdx, packKwh } = state.cachedData;
         const n = socBars.length;
         if (n < 2) return;
 
-        const maxPan = (cW / 2) * (state.zoom - 1);
-        state.panX = Math.max(-maxPan, Math.min(maxPan, state.panX));
-        const centerX = PL + cW / 2;
-        const mapX = (idx) => centerX + (PL + (idx / (n - 1)) * cW - centerX) * state.zoom + state.panX;
-
+        const mapX = (idx) => mapXCoord(PL + (idx / (n - 1)) * cW);
         const minV = 0, maxV = 110, range = 110;
         const mapY = (v) => PT + cH - ((v - minV) / range) * cH;
 
@@ -2860,7 +2861,6 @@
         }
         ctx.strokeStyle = titleColor;
         ctx.lineWidth = 2.2;
-        ctx.lineJoin = 'round';
         ctx.stroke();
 
         // Glowing slope segments and pause bridges
@@ -2922,7 +2922,7 @@
           });
         }
 
-        // Secondary Overlays: Voltage (cyan) and Power (yellow)
+        // Overlays: Voltage (cyan) and Power (yellow)
         if (state.includeVoltage && voltBars.length) {
           const valV = voltBars.slice(0, lastIdx).filter(v => v != null && v > 40);
           const vMin = valV.length ? Math.floor(Math.min(...valV) - 1) : 46;
@@ -3022,6 +3022,7 @@
             ctx.fill();
             ctx.stroke();
 
+            // Pin tick
             ctx.beginPath();
             ctx.moveTo(midX, by > midY ? by : by + ph);
             ctx.lineTo(midX, midY);
@@ -3054,7 +3055,7 @@
           }
         }
 
-        // Scrub cursor line & tooltip box (matching Image 2)
+        // Scrub cursor line & tooltip box
         if (state.scrubIdx != null && state.scrubIdx >= 0 && state.scrubIdx < lastIdx) {
           const sx = mapX(state.scrubIdx);
           const val = socBars[state.scrubIdx];
@@ -3102,11 +3103,8 @@
           ctx.strokeStyle = 'var(--border, #3f3f46)';
           ctx.lineWidth = 1;
           ctx.beginPath();
-          if (typeof ctx.roundRect === 'function') {
-            ctx.roundRect(boxX, boxY, boxW, boxH, 6);
-          } else {
-            ctx.rect(boxX, boxY, boxW, boxH);
-          }
+          if (typeof ctx.roundRect === 'function') ctx.roundRect(boxX, boxY, boxW, boxH, 6);
+          else ctx.rect(boxX, boxY, boxW, boxH);
           ctx.fill();
           ctx.stroke();
 
@@ -3117,13 +3115,12 @@
 
           ctx.fillStyle = '#4ade80';
           ctx.fillText(line2, boxX + 8, boxY + 18);
-
           ctx.restore();
         }
         return;
       }
 
-      // Standard non-battery daily / period drawing
+      // ── 2. Standard Non-Battery Feeds with Universal Pan, Zoom & Scrubbing ──
       const { ptsData, ptsAux, ptsF1, ptsF2 } = state.cachedData;
       const dailyMap = state.cachedData.dailyMap || {};
 
@@ -3139,7 +3136,7 @@
           if (state.fridgeFilter !== 'f1') allVals.push(...p2.map(p => p[1] || 0));
           const maxW = Math.max(200, Math.max(...allVals) * 1.2);
 
-          const mapX = (idx) => PL + (idx / (n - 1)) * cW;
+          const mapX = (idx) => mapXCoord(PL + (idx / (n - 1)) * cW);
           const mapY = (val) => PT + cH - (Math.max(0, val) / maxW) * cH;
 
           ctx.fillStyle = '#71717a'; ctx.font = '9px system-ui'; ctx.textAlign = 'right';
@@ -3209,23 +3206,78 @@
           ctx.fillStyle = '#c084fc'; ctx.fillText('● Fridge 1', rect.width - PR - 75, 12);
           ctx.fillStyle = '#22d3ee'; ctx.fillText('● Fridge 2', rect.width - PR, 12);
 
+          // Scaled time ticks
           ctx.fillStyle = '#a1a1aa'; ctx.font = '9.5px system-ui'; ctx.textAlign = 'center';
-          const step = Math.max(1, Math.floor(n / 6));
+          const labelIntervals = Math.max(4, Math.floor(cW / 45));
+          const step = Math.max(1, Math.ceil(n / (labelIntervals * state.zoom)));
           for (let i = 0; i < n; i += step) {
             const p = p1[i] || p2[i];
             if (!p) continue;
-            const ts = p[0] < 2e9 ? p[0] * 1000 : p[0];
-            const pkt = (typeof getKarachiDate === 'function') ? getKarachiDate(ts) : { hour: 0 };
-            const ampm = pkt.hour >= 12 ? 'pm' : 'am';
-            const hh = pkt.hour % 12 || 12;
-            ctx.fillText(`${hh}${ampm}`, mapX(i), PT + cH + 16);
+            const lx = mapX(i);
+            if (lx > PL - 10 && lx < rect.width - PR) {
+              const ts = p[0] < 2e9 ? p[0] * 1000 : p[0];
+              const pkt = (typeof getKarachiDate === 'function') ? getKarachiDate(ts) : { hour: 0 };
+              const ampm = pkt.hour >= 12 ? 'pm' : 'am';
+              const hh = pkt.hour % 12 || 12;
+              ctx.fillText(`${hh}${ampm}`, lx, PT + cH + 16);
+            }
+          }
+
+          // Fridges hover scrubber
+          if (state.scrubIdx != null && state.scrubIdx >= 0 && state.scrubIdx < n) {
+            const sx = mapX(state.scrubIdx);
+            const v1 = p1[state.scrubIdx] ? p1[state.scrubIdx][1] || 0 : 0;
+            const v2 = p2[state.scrubIdx] ? p2[state.scrubIdx][1] || 0 : 0;
+            const topY = Math.min(mapY(v1), mapY(v2));
+
+            ctx.save();
+            ctx.beginPath();
+            ctx.setLineDash([3, 3]);
+            ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+            ctx.lineWidth = 1;
+            ctx.moveTo(sx, PT); ctx.lineTo(sx, PT + cH); ctx.stroke();
+
+            const ts = (p1[state.scrubIdx] || p2[state.scrubIdx])[0];
+            const tsMs = ts < 2e9 ? ts * 1000 : ts;
+            const timeStr = formatPktTime(tsMs, 'time');
+
+            const line1 = timeStr;
+            const line2 = `F1: ${Math.round(v1)}W · F2: ${Math.round(v2)}W`;
+
+            ctx.font = 'bold 10px system-ui, -apple-system, sans-serif';
+            const boxW = Math.max(ctx.measureText(line1).width, ctx.measureText(line2).width) + 16;
+            const boxH = 34;
+
+            let boxX = sx - boxW / 2;
+            boxX = Math.max(PL + 4, Math.min(rect.width - PR - boxW - 4, boxX));
+            let boxY = topY - boxH - 10;
+            if (boxY < PT + 4) boxY = topY + 10;
+
+            ctx.fillStyle = 'rgba(20, 20, 22, 0.94)';
+            ctx.strokeStyle = 'var(--border, #3f3f46)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            if (typeof ctx.roundRect === 'function') ctx.roundRect(boxX, boxY, boxW, boxH, 6);
+            else ctx.rect(boxX, boxY, boxW, boxH);
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.fillStyle = 'var(--text-main, #f4f4f5)';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'top';
+            ctx.fillText(line1, boxX + 8, boxY + 5);
+
+            ctx.fillStyle = '#c084fc';
+            ctx.fillText(line2, boxX + 8, boxY + 18);
+            ctx.restore();
           }
         } else {
+          // Standard Single-Line Feeds (Solar, Grid, ACs, PC, Motor, WM, Tank, Temp)
           const n = ptsData.length;
           if (n < 2) return;
 
           const maxW = Math.max(cfg.unit === 'W' ? 500 : 10, Math.max(...ptsData.map(p => p[1] || 0)) * 1.15);
-          const mapX = (idx) => PL + (idx / (n - 1)) * cW;
+          const mapX = (idx) => mapXCoord(PL + (idx / (n - 1)) * cW);
           const mapY = (val) => PT + cH - (Math.max(0, val) / maxW) * cH;
 
           ctx.fillStyle = '#71717a'; ctx.font = '9px system-ui'; ctx.textAlign = 'right';
@@ -3244,8 +3296,8 @@
             ctx.fillStyle = 'rgba(239, 68, 68, 0.22)';
             for (let i = 0; i < ptsAux.length; i++) {
               if (ptsAux[i][1] != null && ptsAux[i][1] < 50) {
-                const x1 = PL + (i / (ptsAux.length - 1)) * cW;
-                const wBand = Math.max(2, cW / ptsAux.length);
+                const x1 = mapXCoord(PL + (i / (ptsAux.length - 1)) * cW);
+                const wBand = Math.max(2, (cW / ptsAux.length) * state.zoom);
                 ctx.fillRect(x1, PT, wBand, cH);
               }
             }
@@ -3274,23 +3326,84 @@
 
           ctx.restore();
 
+          // Time ticks with zoom
           ctx.fillStyle = '#a1a1aa'; ctx.font = '9.5px system-ui'; ctx.textAlign = 'center';
-          const step = Math.max(1, Math.floor(n / 6));
+          const labelIntervals = Math.max(4, Math.floor(cW / 45));
+          const step = Math.max(1, Math.ceil(n / (labelIntervals * state.zoom)));
           for (let i = 0; i < n; i += step) {
-            const ts = ptsData[i][0] < 2e9 ? ptsData[i][0] * 1000 : ptsData[i][0];
-            const pkt = (typeof getKarachiDate === 'function') ? getKarachiDate(ts) : { hour: 0 };
-            const ampm = pkt.hour >= 12 ? 'pm' : 'am';
-            const hh = pkt.hour % 12 || 12;
-            ctx.fillText(`${hh}${ampm}`, mapX(i), PT + cH + 16);
+            const lx = mapX(i);
+            if (lx > PL - 10 && lx < rect.width - PR) {
+              const ts = ptsData[i][0] < 2e9 ? ptsData[i][0] * 1000 : ptsData[i][0];
+              const pkt = (typeof getKarachiDate === 'function') ? getKarachiDate(ts) : { hour: 0 };
+              const ampm = pkt.hour >= 12 ? 'pm' : 'am';
+              const hh = pkt.hour % 12 || 12;
+              ctx.fillText(`${hh}${ampm}`, lx, PT + cH + 16);
+            }
+          }
+
+          // Single feed hover scrubber
+          if (state.scrubIdx != null && state.scrubIdx >= 0 && state.scrubIdx < n) {
+            const sx = mapX(state.scrubIdx);
+            const val = ptsData[state.scrubIdx][1] || 0;
+            const sy = mapY(val);
+
+            ctx.save();
+            ctx.beginPath();
+            ctx.setLineDash([3, 3]);
+            ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+            ctx.lineWidth = 1;
+            ctx.moveTo(sx, PT); ctx.lineTo(sx, PT + cH); ctx.stroke();
+
+            ctx.beginPath();
+            ctx.setLineDash([]);
+            ctx.arc(sx, sy, 4.5, 0, Math.PI * 2);
+            ctx.fillStyle = titleColor; ctx.fill();
+            ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+
+            const ts = ptsData[state.scrubIdx][0];
+            const tsMs = ts < 2e9 ? ts * 1000 : ts;
+            const timeStr = formatPktTime(tsMs, 'time');
+            const valStr = cfg.unit === 'W' ? `${Math.round(val).toLocaleString()} W` : `${val.toFixed(1)} ${cfg.unit}`;
+
+            const line1 = timeStr;
+            const line2 = `● Value: ${valStr}`;
+
+            ctx.font = 'bold 10px system-ui, -apple-system, sans-serif';
+            const boxW = Math.max(ctx.measureText(line1).width, ctx.measureText(line2).width) + 16;
+            const boxH = 34;
+
+            let boxX = sx - boxW / 2;
+            boxX = Math.max(PL + 4, Math.min(rect.width - PR - boxW - 4, boxX));
+            let boxY = sy - boxH - 10;
+            if (boxY < PT + 4) boxY = sy + 10;
+
+            ctx.fillStyle = 'rgba(20, 20, 22, 0.94)';
+            ctx.strokeStyle = 'var(--border, #3f3f46)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            if (typeof ctx.roundRect === 'function') ctx.roundRect(boxX, boxY, boxW, boxH, 6);
+            else ctx.rect(boxX, boxY, boxW, boxH);
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.fillStyle = 'var(--text-main, #f4f4f5)';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'top';
+            ctx.fillText(line1, boxX + 8, boxY + 5);
+
+            ctx.fillStyle = titleColor;
+            ctx.fillText(line2, boxX + 8, boxY + 18);
+            ctx.restore();
           }
         }
       } else {
+        // ── 3. Month & Year Bar Charts with Zoom, Pan & Scrubbing ──
         const entries = Object.entries(dailyMap || {});
         const count = entries.length;
         if (count === 0) return;
 
         const maxKwh = Math.max(2, Math.max(...entries.map(([, d]) => d.totalWh / 1000)) * 1.15);
-        const barWidth = Math.max(2, Math.min(22, (cW / count) * 0.7));
+        const barWidth = Math.max(2, Math.min(24 * state.zoom, (cW / count) * 0.7 * state.zoom));
 
         ctx.fillStyle = '#71717a'; ctx.font = '9px system-ui'; ctx.textAlign = 'right';
         for (let g = 0; g <= 4; g++) {
@@ -3305,7 +3418,8 @@
         ctx.beginPath(); ctx.rect(PL, PT, cW, cH); ctx.clip();
 
         entries.forEach(([, d], idx) => {
-          const cx = PL + ((idx + 0.5) / count) * cW;
+          const rawCenterX = PL + ((idx + 0.5) / count) * cW;
+          const cx = mapXCoord(rawCenterX);
 
           if (cfg.isFridges) {
             const f1K = d.f1Wh / 1000;
@@ -3332,6 +3446,15 @@
               ctx.fillRect(cx - barWidth / 2, totalY, barWidth, daySplitY - totalY);
             }
           }
+
+          // Highlight hovered bar
+          if (state.scrubIdx === idx) {
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 1.5;
+            const tK = d.totalWh / 1000;
+            const barTopY = PT + cH - (tK / maxKwh) * cH;
+            ctx.strokeRect(cx - barWidth / 2 - 1, barTopY - 1, barWidth + 2, (PT + cH) - barTopY + 1);
+          }
         });
 
         ctx.restore();
@@ -3344,13 +3467,57 @@
         }
 
         ctx.fillStyle = '#a1a1aa'; ctx.font = '9px system-ui'; ctx.textAlign = 'center';
-        const labelStep = Math.max(1, Math.ceil(count / 10));
+        const labelStep = Math.max(1, Math.ceil(count / (10 * state.zoom)));
         entries.forEach(([, d], idx) => {
           if (idx % labelStep === 0) {
-            const cx = PL + ((idx + 0.5) / count) * cW;
-            ctx.fillText(d.dLabel, cx, PT + cH + 15);
+            const rawCenterX = PL + ((idx + 0.5) / count) * cW;
+            const cx = mapXCoord(rawCenterX);
+            if (cx > PL - 10 && cx < rect.width - PR) {
+              ctx.fillText(d.dLabel, cx, PT + cH + 15);
+            }
           }
         });
+
+        // Hover Tooltip for Month/Year bars
+        if (state.scrubIdx != null && state.scrubIdx >= 0 && state.scrubIdx < count) {
+          const entry = entries[state.scrubIdx];
+          const d = entry[1];
+          const rawCenterX = PL + ((state.scrubIdx + 0.5) / count) * cW;
+          const sx = mapXCoord(rawCenterX);
+          const tK = d.totalWh / 1000;
+          const sy = PT + cH - (tK / maxKwh) * cH;
+
+          const line1 = d.dLabel;
+          const line2 = cfg.isFridges
+            ? `F1: ${(d.f1Wh/1000).toFixed(1)}k · F2: ${(d.f2Wh/1000).toFixed(1)}k (${tK.toFixed(1)}k)`
+            : `Total: ${tK.toFixed(1)} kWh (PKR ${Math.round(tK * rate).toLocaleString()})`;
+
+          ctx.font = 'bold 10px system-ui, -apple-system, sans-serif';
+          const boxW = Math.max(ctx.measureText(line1).width, ctx.measureText(line2).width) + 16;
+          const boxH = 34;
+
+          let boxX = sx - boxW / 2;
+          boxX = Math.max(PL + 4, Math.min(rect.width - PR - boxW - 4, boxX));
+          let boxY = sy - boxH - 10;
+          if (boxY < PT + 4) boxY = sy + 10;
+
+          ctx.fillStyle = 'rgba(20, 20, 22, 0.94)';
+          ctx.strokeStyle = 'var(--border, #3f3f46)';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          if (typeof ctx.roundRect === 'function') ctx.roundRect(boxX, boxY, boxW, boxH, 6);
+          else ctx.rect(boxX, boxY, boxW, boxH);
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.fillStyle = 'var(--text-main, #f4f4f5)';
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'top';
+          ctx.fillText(line1, boxX + 8, boxY + 5);
+
+          ctx.fillStyle = titleColor;
+          ctx.fillText(line2, boxX + 8, boxY + 18);
+        }
       }
     }
 
@@ -3359,18 +3526,41 @@
       canvas.__attachedPopupEvents = true;
 
       const handleHover = (clientX) => {
-        if (!state.cachedData || !state.cachedData.isDayMode) return;
+        if (!state.cachedData) return;
         const rect = canvas.getBoundingClientRect();
         const PL = 36, PR = 14, cW = rect.width - PL - PR;
         if (cW <= 0) return;
         const mouseX = clientX - rect.left;
-        const n = state.cachedData.totalPoints || state.cachedData.ptsData?.length || 720;
         const centerX = PL + cW / 2;
-        const relIdx = Math.round(((mouseX - state.panX - centerX) / state.zoom + centerX - PL) / (cW / (n - 1)));
 
-        if (relIdx >= 0 && relIdx < (state.cachedData.lastIdx || n)) {
-          state.scrubIdx = relIdx;
-          redrawGraph();
+        if (state.cachedData.isDayMode) {
+          let n = 720;
+          if (isBattery) {
+            n = state.cachedData.totalPoints || 720;
+          } else if (cfg.isFridges) {
+            n = Math.max(state.cachedData.ptsF1?.length || 0, state.cachedData.ptsF2?.length || 0);
+          } else {
+            n = state.cachedData.ptsData?.length || 0;
+          }
+
+          if (n > 1) {
+            const relIdx = Math.round(((mouseX - state.panX - centerX) / state.zoom + centerX - PL) / (cW / (n - 1)));
+            const maxIdx = isBattery ? (state.cachedData.lastIdx || n) : n;
+            if (relIdx >= 0 && relIdx < maxIdx) {
+              state.scrubIdx = relIdx;
+              redrawGraph();
+            }
+          }
+        } else {
+          const entries = Object.entries(state.cachedData.dailyMap || {});
+          const count = entries.length;
+          if (count > 0) {
+            const relIdx = Math.floor(((mouseX - state.panX - centerX) / state.zoom + centerX - PL) / (cW / count));
+            if (relIdx >= 0 && relIdx < count) {
+              state.scrubIdx = relIdx;
+              redrawGraph();
+            }
+          }
         }
       };
 
@@ -3468,7 +3658,7 @@
       });
 
       canvas.addEventListener('wheel', (e) => {
-        if (!state.cachedData || !state.cachedData.isDayMode) return;
+        if (!state.cachedData) return;
         e.preventDefault();
         const factor = e.deltaY < 0 ? 1.15 : 0.85;
         const oldZoom = state.zoom;

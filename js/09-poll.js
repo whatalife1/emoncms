@@ -339,6 +339,9 @@ async function poll() {
   let fetchStart = Date.now();
 
   try {
+    if (typeof fetchInverterPriorityDirect === 'function') {
+      try { await fetchInverterPriorityDirect(); } catch(e) {}
+    }
     const now = Date.now();
     if (!window.monthlyUnits || (now - (window._lastMonthlyFetchTime || 0) > 10 * 60 * 1000)) {
        window._lastMonthlyFetchTime = now;
@@ -482,7 +485,9 @@ async function poll() {
         const isAccumulator = f.name.toLowerCase().includes('today') || f.name.toLowerCase().includes('total');
         
         if (!isAccumulator) {
-          if (STALE_EXEMPT.has(f.name)) {
+          if (f.name === 'Inverter Priority' || f.id === '547151') {
+            // NEVER zero out inverter priority mode setting
+          } else if (STALE_EXEMPT.has(f.name)) {
             const TEN_MINS_MS = 10 * 60 * 1000;
             if (age > TEN_MINS_MS) {
               if (window.addDebugLog) window.addDebugLog(`<b style="color:#ef4444">Sensor Timeout:</b> ${f.name} (no update in ${Math.round(age/60000)}m) set to 0`);
@@ -522,6 +527,15 @@ async function poll() {
     const bm = new Map(results.map(r => [r.name, r]));
     window.lastResultsMap = bm;
     window.lastSolarActual = bm.get('Solar')?.value || 0;
+    const prioFeed = bm.get('Inverter Priority') || bm.get('547151');
+    if (prioFeed && prioFeed.value != null && (prioFeed.value == 1 || prioFeed.value == 2)) {
+      window.lastInverterPriority = prioFeed.value;
+      localStorage.setItem('inverter_priority_mode', prioFeed.value == 1 ? 'SUB' : 'SBU');
+    }
+    const prioItem = bm.get('Inverter Priority') || bm.get('547151');
+    if (prioItem && prioItem.value != null) {
+      window.lastInverterPriority = prioItem.value;
+    }
 
     // Detect offline/0W appliances BEFORE rendering
     if (typeof checkApplianceOffline === 'function') await checkApplianceOffline(nowSec, bm);

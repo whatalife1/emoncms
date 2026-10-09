@@ -1438,6 +1438,14 @@
     })();
     chartsEl.innerHTML = '';
 
+    // Universal Analytics & Report Engine for ALL popups!
+    if (typeof window.renderBoxDetailAnalyticsSection === 'function') {
+      chartsEl.innerHTML = '';
+      chartsEl.style.display = '';
+      window.renderBoxDetailAnalyticsSection(chartsEl, boxKey);
+      return;
+    }
+
     // FLOW_EXTRAS_PATCH_V2: Battery gets a dedicated session-annotated SOC
     // chart instead of the generic 24h line chart used by other boxes.
     if (boxKey === 'battery' && typeof window.renderBatterySocChart === 'function') {

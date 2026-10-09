@@ -336,7 +336,16 @@ function renderFlowDiagram(byName) {
     const netA = (chgA > 0.1 ? chgA : 0) - (disA > 0.1 ? disA : 0);
     const batW = Math.round(batV * netA);
 
-    const useGrid = (typeof BATTERY_EST_USE_GRID !== 'undefined') ? BATTERY_EST_USE_GRID : true;
+    const prioVal = byName.get('Inverter Priority')?.value ?? byName.get('547151')?.value ?? window.lastInverterPriority;
+    if (prioVal != null) window.lastInverterPriority = prioVal;
+    const prioMode = (typeof getInverterPriorityMode === 'function')
+      ? getInverterPriorityMode(prioVal)
+      : (Math.round(Number(prioVal)) === 1 ? 'SUB' : (Math.round(Number(prioVal)) === 2 ? 'SBU' : null));
+
+    let useGrid = (typeof BATTERY_EST_USE_GRID !== 'undefined') ? BATTERY_EST_USE_GRID : true;
+    if (prioMode === 'SUB') useGrid = true;
+    else if (prioMode === 'SBU') useGrid = false;
+
     const effGrid = (useGrid && b > 25 && !gridOff) ? b : 0;
     const netSurplus = (s + effGrid) - l;
     let estBatW = 0;
@@ -406,7 +415,7 @@ function renderFlowDiagram(byName) {
     let actionLine = 'Standby';
     let actionColor = '#38bdf8';
 
-    if (isCharging) {
+        if (isCharging) {
       actionLine = `Charging: ${chgA.toFixed(1)}A`;
       actionColor = '#25f447';
     } else if (isDischarging) {
@@ -680,6 +689,12 @@ function renderFlowBattery2Html(byName) {
   const statusColor = isCharging ? '#4ade80' : (isDischarging ? '#f59e0b' : 'var(--text-muted)');
   const socColor = (soc != null && soc <= 20) ? '#ef4444' : (soc != null && soc <= 50) ? '#facc15' : '#4ade80';
 
+  const prioVal = byName.get('Inverter Priority')?.value ?? byName.get('547151')?.value ?? window.lastInverterPriority;
+  const prioMode = (typeof getInverterPriorityMode === 'function')
+    ? getInverterPriorityMode(prioVal)
+    : (Math.round(Number(prioVal)) === 1 ? 'SUB' : (Math.round(Number(prioVal)) === 2 ? 'SBU' : null));
+  const prioBadge = prioMode ? `<span class="prio-badge prio-${prioMode.toLowerCase()}" style="display:inline-block;padding:1px 5px;border-radius:4px;font-size:10px;font-weight:800;letter-spacing:0.04em;background:${prioMode==='SUB'?'rgba(245,158,11,0.2)':'rgba(16,185,129,0.2)'};color:${prioMode==='SUB'?'#f59e0b':'#10b981'};border:1px solid ${prioMode==='SUB'?'rgba(245,158,11,0.45)':'rgba(16,185,129,0.45)'};margin-left:5px;vertical-align:middle;">${prioMode}</span>` : '';
+
   const batStats = window.monthlyUnits || {};
   const fmtE = (wh) => (wh >= 500 ? (wh / 1000).toFixed(1) + ' kWh' : Math.round(wh || 0) + ' Wh');
   const fmtL = (val, u) => (val != null && val > 0 ? Number(val).toFixed(1) + u : '--');
@@ -723,13 +738,26 @@ function renderFlowBattery2Html(byName) {
 
   b2Wrap.innerHTML = `
     <div class="card card-battery2" style="border-left: 3px solid #10b981; cursor:pointer;" onclick="if (typeof openFlowDetail === 'function') openFlowDetail('battery2');">
-      <div class="hero-header">
-        <div style="flex:1"><span class="card-name">🔋 Battery</span><div class="hero-val" style="color:${socColor}; font-size:16px; margin-left:0; margin-top:2px;">SOC ${soc != null ? Math.round(soc) : '--'}%</div></div>
-        <div style="flex:1;text-align:center"><span class="card-name">Voltage</span><span class="hero-val" style="color:var(--accent-kwh)">${volt != null ? Number(volt).toFixed(1) : '--'}V</span></div>
-        <div style="flex:1;text-align:right"><span class="card-name">Power</span><span class="hero-val" style="color:${pwrColor}">${pwrSign}W</span></div>
+      <div class="hero-header" style="display:flex; align-items:center; justify-content:space-between;">
+        <div style="flex:1.1;">
+          <span class="card-name">🔋 Battery</span>
+          <div class="hero-val" style="color:${socColor}; font-size:16px; margin-left:0; margin-top:2px;">SOC ${soc != null ? Math.round(soc) : '--'}%</div>
+        </div>
+        <div id="fd-hero-mode-col" style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:0 6px; flex-shrink:0;">
+          <span style="font-size:9.5px; font-weight:800; text-transform:uppercase; color:var(--text-muted); letter-spacing:0.04em; margin-bottom:2px;">MODE</span>
+          ${prioBadge}
+        </div>
+        <div style="flex:1; text-align:center;">
+          <span class="card-name">Voltage</span>
+          <span class="hero-val" style="color:var(--accent-kwh)">${volt != null ? Number(volt).toFixed(1) : '--'}V</span>
+        </div>
+        <div style="flex:1; text-align:right;">
+          <span class="card-name">Power</span>
+          <span class="hero-val" style="color:${pwrColor}">${pwrSign}W</span>
+        </div>
       </div>
       <div class="linked-values linked-values-pair">
-        <div class="linked-value"><span>Status</span><span class="linked-reading" style="color:${statusColor}">${statusText}${amps != null ? ' (' + Math.abs(amps).toFixed(1) + 'A)' : ''}</span></div>
+        <div class="linked-value"><span>Status</span><span class="linked-reading" style="color:${statusColor}">${statusText}${amps != null ? ' (' + Math.abs(amps).toFixed(1) + 'A)' : ''}${prioBadge}</span></div>
         <div class="linked-value"><span>SOH / Cycles</span><span class="linked-reading" style="color:var(--accent-kwh)">${soh != null ? Math.round(soh) + '%' : '--'} &bull; ${cyc != null ? Math.round(cyc) : '--'}</span></div>
       </div>
       <div class="linked-values linked-values-pair" style="border-top:1px dashed var(--border); padding-top:4px; margin-top:4px;">

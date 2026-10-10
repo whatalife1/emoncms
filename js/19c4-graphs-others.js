@@ -481,17 +481,22 @@ async function _handleBatteryCyclesMode(nav, stat, canvas, forceRefresh = false)
 
   const totalLifetimeKwh = Math.round(TARGET_CYCLES * packKwh); // 40,960 kWh
   const totalLifetimePkr = Math.round(totalLifetimeKwh * pkrRate); // 2,457,600 PKR
-  const pkrFormatted = totalLifetimePkr >= 1000000
-    ? `PKR ${(totalLifetimePkr / 1000000).toFixed(2)}M`
-    : `PKR ${totalLifetimePkr.toLocaleString()}`;
+  const _fmtPkrShort = (v) => {
+    if (v >= 10000000) return 'PKR ' + (v / 10000000).toFixed(2) + ' Cr';
+    if (v >= 1000000) {
+      const lakh = Math.round(v / 100000);
+      return 'PKR ' + (v / 1000000).toFixed(2) + 'M (' + lakh + ' Lakh)';
+    }
+    if (v >= 100000) return 'PKR ' + Math.round(v / 100000) + ' Lakh';
+    return 'PKR ' + Math.round(v).toLocaleString();
+  };
+  const pkrFormatted = _fmtPkrShort(totalLifetimePkr);
 
   // Capital wear cost per unit & per full cycle
   const batCostPerKwh = BATTERY_PRICE_PKR / totalLifetimeKwh; // ~5.5547 PKR/unit
   const batCostPerCycle = BATTERY_PRICE_PKR / TARGET_CYCLES;   // ~28.4375 PKR/cycle
   const netLifetimeSavingsPkr = totalLifetimePkr - BATTERY_PRICE_PKR; // ~2,230,100 PKR
-  const netFormatted = netLifetimeSavingsPkr >= 1000000
-    ? `PKR ${(netLifetimeSavingsPkr / 1000000).toFixed(2)}M`
-    : `PKR ${netLifetimeSavingsPkr.toLocaleString()}`;
+  const netFormatted = _fmtPkrShort(netLifetimeSavingsPkr);
 
   const nowMs = Date.now();
   const ninetyDaysMs = nowMs - (90 * 86400 * 1000);
@@ -607,7 +612,13 @@ async function _handleBatteryCyclesMode(nav, stat, canvas, forceRefresh = false)
   }
 
   const cycTodayStart = getCycleAt(todayStartMs);
-  const todayGainVal = cycTodayStart != null ? Math.max(0, currentCycles - cycTodayStart) : (cumCycleBars[lastIdx - 1] || 0.4);
+  const bmsTodayGain = cycTodayStart != null ? Math.max(0, currentCycles - cycTodayStart) : 0;
+  const todayEnergyKwh = (window.monthlyUnits && window.monthlyUnits.batDisT)
+    ? window.monthlyUnits.batDisT / 1000 : 0;
+  const energyTodayGain = todayEnergyKwh / packKwh;
+  const cumTodayGain = (graphTab === 'day' && lastIdx > 0)
+    ? (cumCycleBars[lastIdx - 1] || 0) : 0;
+  const todayGainVal = Math.max(bmsTodayGain, energyTodayGain, cumTodayGain);
 
   const cycMonthStart = getCycleAt(monthStartMs);
   const thisMonthGainVal = cycMonthStart != null ? Math.max(0, currentCycles - cycMonthStart) : 2.0;
@@ -635,7 +646,7 @@ async function _handleBatteryCyclesMode(nav, stat, canvas, forceRefresh = false)
   const yearsRemaining = daysRemaining / 365.25;
 
   const targetDate = new Date(nowMs + daysRemaining * 86400000);
-  const targetMonthYear = targetDate.toLocaleDateString('en-PK', { month: 'long', year: 'numeric' });
+  const targetYearOnly = String(targetDate.getFullYear());
 
   // Expected This Month calculation
   const totalDaysInMonth = (graphTab === 'month' && nav.nBars) ? nav.nBars : 30;
@@ -753,7 +764,7 @@ async function _handleBatteryCyclesMode(nav, stat, canvas, forceRefresh = false)
 
         <div>
           <div style="color:var(--text-muted); font-weight:700; font-size:10px; text-transform:uppercase; letter-spacing:0.04em;">EXPECTED 8,000 EOL</div>
-          <div style="font-size:17px; font-weight:900; color:#a78bfa; margin-top:2px; font-variant-numeric:tabular-nums;">${targetMonthYear}</div>
+          <div style="font-size:17px; font-weight:900; color:#a78bfa; margin-top:2px; font-variant-numeric:tabular-nums;">${targetYearOnly}</div>
           <div style="font-size:10px; color:var(--text-muted); margin-top:1px;" title="${totalLifetimeKwh.toLocaleString()} kWh lifetime throughput = PKR ${totalLifetimePkr.toLocaleString()} at ${pkrRate} PKR/unit">${totalLifetimeKwh.toLocaleString()} kWh &bull; <b style="color:#4ade80;">${pkrFormatted}</b> (@ ${pkrRate} PKR/u)</div>
           <div style="font-size:9.5px; color:var(--text-muted); margin-top:1px;" title="Battery cost PKR ${BATTERY_PRICE_PKR.toLocaleString()} over ${totalLifetimeKwh.toLocaleString()} kWh = ${batCostPerKwh.toFixed(2)} PKR/unit wear cost. Net lifetime savings = PKR ${netLifetimeSavingsPkr.toLocaleString()}">Pack: PKR ${(BATTERY_PRICE_PKR/1000).toFixed(1)}k (<b style="color:#38bdf8;">~${batCostPerKwh.toFixed(2)}</b>/u wear &bull; Net: <b style="color:#4ade80;">${netFormatted}</b>)</div>
         </div>

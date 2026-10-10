@@ -90,15 +90,20 @@ async function buildBatteryCyclesForecastHtml() {
   const DAY = 86400000;
   const totalLifetimeKwh = Math.round(TARGET_CYCLES * packKwh);
   const totalLifetimePkr = Math.round(totalLifetimeKwh * rate);
-  const pkrFormatted = totalLifetimePkr >= 1000000
-    ? `PKR ${(totalLifetimePkr / 1000000).toFixed(2)}M`
-    : `PKR ${totalLifetimePkr.toLocaleString()}`;
+  const _fmtPkrShort = (v) => {
+    if (v >= 10000000) return 'PKR ' + (v / 10000000).toFixed(2) + ' Cr';
+    if (v >= 1000000) {
+      const lakh = Math.round(v / 100000);
+      return 'PKR ' + (v / 1000000).toFixed(2) + 'M (' + lakh + ' Lakh)';
+    }
+    if (v >= 100000) return 'PKR ' + Math.round(v / 100000) + ' Lakh';
+    return 'PKR ' + Math.round(v).toLocaleString();
+  };
+  const pkrFormatted = _fmtPkrShort(totalLifetimePkr);
   const batCostPerKwh = BATTERY_PRICE_PKR / totalLifetimeKwh;
   const batCostPerCycle = BATTERY_PRICE_PKR / TARGET_CYCLES;
   const netLifetimeSavingsPkr = totalLifetimePkr - BATTERY_PRICE_PKR;
-  const netFormatted = netLifetimeSavingsPkr >= 1000000
-    ? `PKR ${(netLifetimeSavingsPkr / 1000000).toFixed(2)}M`
-    : `PKR ${netLifetimeSavingsPkr.toLocaleString()}`;
+  const netFormatted = _fmtPkrShort(netLifetimeSavingsPkr);
 
   const nowMs = Date.now();
   const ninetyDaysMs = nowMs - (90 * DAY);
@@ -107,14 +112,20 @@ async function buildBatteryCyclesForecastHtml() {
   let sohVal = getFeedVal('Bat2 SOH') || getFeedVal('Bat SOH') || 100;
   let histCyclePts = [];
   let histSohPts = [];
+  let histDisPts = [];
+  let histVoltPts = [];
   if (typeof _gFetch === 'function') {
     try {
       const fetched = await Promise.all([
         _gFetch('546375', ninetyDaysMs, nowMs, 3600),
-        _gFetch('546372', ninetyDaysMs, nowMs, 3600)
+        _gFetch('546372', ninetyDaysMs, nowMs, 3600),
+        _gFetch('546025', ninetyDaysMs, nowMs, 3600),
+        _gFetch('546013', ninetyDaysMs, nowMs, 3600)
       ]);
       histCyclePts = fetched[0] || [];
       histSohPts = fetched[1] || [];
+      histDisPts = fetched[2] || [];
+      histVoltPts = fetched[3] || [];
     } catch (e) {}
   }
   const toMs = (ts) => (ts < 2e9 ? ts * 1000 : ts);
@@ -143,6 +154,52 @@ async function buildBatteryCyclesForecastHtml() {
     }
     return closest;
   }
+
+  // ── Energy-based daily discharge cycles ─────────────────────────────
+  // BMS cycle counter (546375) is a step function that only increments
+  // after a full cycle equivalent; derive per-day cycles from raw
+  // discharge energy (V * A from 546013/546025) so TODAY / YESTERDAY /
+  // sparkline reflect actual usage even when the BMS count is flat.
+  const _dailyDisWh = {};
+  {
+    const _vMap = new Map();
+    (histVoltPts || []).forEach(function (p) {
+      if (p && p[0] != null && p[1] > 35) _vMap.set(p[0], p[1]);
+    });
+    (histDisPts || []).forEach(function (p) {
+      if (!p || p[0] == null || p[1] == null) return;
+      const tsMs = p[0] < 2e9 ? p[0] * 1000 : p[0];
+      const v = _vMap.get(p[0]) || 52.0;
+      const wh = Math.max(0, p[1]) * v; // 1-hour interval
+      const pk = getKarachiDate(tsMs);
+      let cYr = pk.year, cMo = pk.month, cDy = pk.day;
+      if (pk.hour < 7) {
+        const prev = new Date(Date.UTC(cYr, cMo - 1, cDy - 1));
+        cYr = prev.getUTCFullYear();
+        cMo = prev.getUTCMonth() + 1;
+        cDy = prev.getUTCDate();
+      }
+      const key = cYr + '-' + String(cMo).padStart(2, '0') + '-' +
+                  String(cDy).padStart(2, '0');
+      _dailyDisWh[key] = (_dailyDisWh[key] || 0) + wh;
+    });
+  }
+  function _dayKeyForMs(targetMs) {
+    const pk = getKarachiDate(targetMs);
+    let cYr = pk.year, cMo = pk.month, cDy = pk.day;
+    if (pk.hour < 7) {
+      const prev = new Date(Date.UTC(cYr, cMo - 1, cDy - 1));
+      cYr = prev.getUTCFullYear();
+      cMo = prev.getUTCMonth() + 1;
+      cDy = prev.getUTCDate();
+    }
+    return cYr + '-' + String(cMo).padStart(2, '0') + '-' +
+           String(cDy).padStart(2, '0');
+  }
+  function _cyclesForMs(targetMs) {
+    const k = _dayKeyForMs(targetMs);
+    return ((_dailyDisWh[k] || 0) / 1000) / packKwh;
+  }
   const dayStartOf = (ms) => {
     if (typeof getKarachiDate !== 'function' || typeof getPktDayStart !== 'function') return ms - (ms % DAY);
     const k = getKarachiDate(ms);
@@ -157,11 +214,29 @@ async function buildBatteryCyclesForecastHtml() {
     monthStartMs = r.startMs;
   }
   const cycTodayStart = getCycleAt(todayStartMs);
-  const todayGainVal = cycTodayStart != null ? Math.max(0, currentCycles - cycTodayStart) : 1.0;
+  const bmsTodayGain = cycTodayStart != null ? Math.max(0, currentCycles - cycTodayStart) : 0;
+  const energyTodayGain = _cyclesForMs(nowMs);
+  const todayGainVal = Math.max(bmsTodayGain, energyTodayGain);
+
   const cycMonthStart = getCycleAt(monthStartMs);
-  const thisMonthGainVal = cycMonthStart != null ? Math.max(0, currentCycles - cycMonthStart) : 2.0;
+  const bmsMonthGain = cycMonthStart != null ? Math.max(0, currentCycles - cycMonthStart) : 0;
+  let energyMonthGain = 0;
+  const _monthKey = (function () {
+    const pk = getKarachiDate(monthStartMs);
+    return pk.year + '-' + String(pk.month).padStart(2, '0');
+  })();
+  Object.keys(_dailyDisWh).forEach(function (k) {
+    if (k.indexOf(_monthKey) === 0) energyMonthGain += ((_dailyDisWh[k] || 0) / 1000) / packKwh;
+  });
+  const thisMonthGainVal = Math.max(bmsMonthGain, energyMonthGain, 0);
+
   const cycYestStart = getCycleAt(todayStartMs - DAY);
-  const yestGainVal = (cycTodayStart != null && cycYestStart != null) ? Math.max(0, cycTodayStart - cycYestStart) : null;
+  const bmsYestGain = (cycTodayStart != null && cycYestStart != null)
+    ? Math.max(0, cycTodayStart - cycYestStart) : null;
+  const energyYestGain = _cyclesForMs(nowMs - DAY);
+  const yestGainVal = (bmsYestGain != null)
+    ? Math.max(bmsYestGain, energyYestGain)
+    : (energyYestGain > 0 ? energyYestGain : null);
 
   let historyDays = 13;
   let historySamplesCount = validHist.length || 285;
@@ -184,12 +259,20 @@ async function buildBatteryCyclesForecastHtml() {
   const daysRemaining = remainingCycles / dailyCycleRate;
   const yearsRemaining = daysRemaining / 365.25;
   const targetDate = new Date(nowMs + daysRemaining * DAY);
-  const targetMonthYear = targetDate.toLocaleDateString('en-PK', { month: 'long', year: 'numeric' });
+  const targetYearOnly = String(targetDate.getFullYear());
   const expMonthCyclesVal = dailyCycleRate * 30;
 
   // ── Best day over full history ──
   let bestDayGain = 0, bestDayLabel = '';
-  if (validHist.length > 1 && typeof getKarachiDate === 'function') {
+  Object.keys(_dailyDisWh).forEach(function (k) {
+    const g = ((_dailyDisWh[k] || 0) / 1000) / packKwh;
+    if (g > bestDayGain) {
+      bestDayGain = g;
+      const parts = k.split('-');
+      bestDayLabel = parts[2] + '/' + parts[1];
+    }
+  });
+  if (bestDayGain === 0 && validHist.length > 1 && typeof getKarachiDate === 'function') {
     const firstDay = dayStartOf(toMs(validHist[0][0]));
     for (let t = firstDay; t <= nowMs; t += DAY) {
       const s = getCycleAt(t);
@@ -210,9 +293,11 @@ async function buildBatteryCyclesForecastHtml() {
     const dS = todayStartMs - i * DAY;
     const sVal = getCycleAt(dS);
     const eVal = (i === 0) ? currentCycles : getCycleAt(dS + DAY);
-    const gain = (sVal != null && eVal != null) ? Math.max(0, eVal - sVal) : null;
+    const bmsGain = (sVal != null && eVal != null) ? Math.max(0, eVal - sVal) : 0;
+    const energyGain = _cyclesForMs(dS + DAY / 2);
+    const gain = Math.max(bmsGain, energyGain);
     const k = (typeof getKarachiDate === 'function') ? getKarachiDate(dS) : null;
-    spark.push({ day: k ? k.day : '', label: k ? `${k.day}/${k.month}` : '', gain, isToday: i === 0 });
+    spark.push({ day: k ? k.day : '', label: k ? `${k.day}/${k.month}` : '', gain: gain > 0 ? gain : null, isToday: i === 0 });
   }
   const sparkMax = Math.max(0.25, ...spark.map(s => (s.gain == null ? 0 : s.gain)));
   const sparkBarsHtml = spark.map(s => {
@@ -365,7 +450,7 @@ async function buildBatteryCyclesForecastHtml() {
     ${kpi('This Month', `+${thisMonthGainVal.toFixed(1)} cyc`, `PKR ${Math.round(savedMonthPkr).toLocaleString()} saved &bull; exp ~${expMonthCyclesVal.toFixed(1)}`, '#10b981')}
     ${kpi('Burn Rate', `~${dailyCycleRate.toFixed(2)}/day`, `7d: ${rate7 != null ? rate7.toFixed(2) : '—'} &bull; 30d: ${rate30 != null ? rate30.toFixed(2) : '—'} &bull; ~${Math.round(annualCycles)}/yr`, '#facc15')}
     ${kpi('Lifespan Left', `~${yearsRemaining.toFixed(1)} yrs`, `${Math.round(daysRemaining).toLocaleString()} days remaining`, '#38bdf8')}
-    ${kpi('EOL @ 8,000', targetMonthYear, `${totalLifetimeKwh.toLocaleString()} kWh &bull; <b style="color:#4ade80;">${pkrFormatted}</b> @ ${rate}/u`, '#a78bfa')}
+    ${kpi('EOL @ 8,000', targetYearOnly, `${totalLifetimeKwh.toLocaleString()} kWh &bull; <b style="color:#4ade80;">${pkrFormatted}</b> @ ${rate}/u`, '#a78bfa')}
     ${kpi('Best Day', bestDayGain > 0 ? `+${bestDayGain.toFixed(1)} cyc` : '—', bestDayLabel ? `${bestDayLabel} &bull; ${(bestDayGain * packKwh).toFixed(1)} kWh` : 'no history', '#4ade80')}
     ${kpi('SOH-80% EOL', sohEolVal, sohEolSub, sohEolColor)}
   </div>

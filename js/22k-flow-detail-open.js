@@ -50,8 +50,24 @@
       chartsEl.style.display = '';
       window.renderBoxDetailAnalyticsSection(chartsEl, boxKey);
 
-      // ── GRID POPUP: Append Full System Energy Usage Report (All Feeds) at the end ──
+      // ── GRID POPUP: Automatically render Full System Energy Usage Report at the end ──
       if (boxKey === 'grid' && typeof renderGridFullSystemReportSection === 'function') {
+        // Add quick-jump button in top toolbar if available
+        const topToolbar = chartsEl.querySelector('#fd-ba-view-report')?.parentElement;
+        if (topToolbar && !document.getElementById('fd-ba-view-all-report')) {
+          const jumpBtn = document.createElement('button');
+          jumpBtn.id = 'fd-ba-view-all-report';
+          jumpBtn.className = 'fd-btn';
+          jumpBtn.style.cssText = 'background:transparent; border-color:#10b981; color:#10b981; font-size:11px; padding:4px 9px; font-weight:800; cursor:pointer;';
+          jumpBtn.innerHTML = '📊 All Feeds';
+          jumpBtn.title = 'Scroll down to Full Energy Usage Report';
+          jumpBtn.onclick = () => {
+            const targetEl = document.getElementById('fd-grid-full-system-report-container');
+            if (targetEl) targetEl.scrollIntoView({ behavior: 'smooth' });
+          };
+          topToolbar.appendChild(jumpBtn);
+        }
+
         const fullReportContainer = document.createElement('div');
         fullReportContainer.id = 'fd-grid-full-system-report-container';
         fullReportContainer.style.cssText = 'margin-top: 16px; border-top: 2px dashed var(--border); padding-top: 14px; width: 100%; box-sizing: border-box;';
@@ -162,19 +178,34 @@
     let repCycleHour = (window.graphDayStartHour !== undefined ? window.graphDayStartHour : 7);
     let cachedReportText = '';
 
+    // Function to launch the detailed billing usage report slide-panel
+    function openDetailedBillingReportPanel() {
+      const panel = document.getElementById('usage-report-panel');
+      if (panel) panel.classList.add('open');
+      const now = new Date();
+      const monthInput = document.getElementById('report-month-m');
+      const yearInput = document.getElementById('report-month-y');
+      if (monthInput) monthInput.value = now.getMonth() + 1;
+      if (yearInput) yearInput.value = now.getFullYear();
+      if (typeof calculateDetailedReport === 'function') {
+        setTimeout(calculateDetailedReport, 80);
+      }
+    }
+
     container.innerHTML = `
       <div id="grid-full-rep-root" style="display:flex; flex-direction:column; gap:8px; width:100%; box-sizing:border-box;">
         
         <!-- Header Bar -->
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px; background:var(--bg-panel); border:1px solid var(--border); border-left:3px solid #10b981; border-radius:10px; padding:8px 12px;">
-          <div style="display:flex; align-items:center; gap:6px;">
+          <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
             <span style="font-weight:800; font-size:13px; color:#10b981;">📄 Energy Usage Report (All Feeds)</span>
             <span style="font-size:10px; font-weight:700; color:var(--text-muted); background:var(--bg-card); padding:2px 6px; border-radius:4px; border:1px solid var(--border);">Graphs / Report Engine</span>
           </div>
-          <div style="display:flex; gap:6px; align-items:center;">
-            <button id="grid-full-rep-clear-cache" class="fd-btn" style="background:#f59e0b; border-color:#f59e0b; color:#fff; font-size:10px; padding:3px 8px; font-weight:800;" title="Clear cache & refresh">↻ Clear Cache</button>
-            <button id="grid-full-rep-txt" class="fd-btn" style="background:#3b82f6; border-color:#3b82f6; color:#fff; font-size:10px; padding:3px 8px; font-weight:800;">Save TXT</button>
-            <button id="grid-full-rep-png" class="fd-btn" style="background:#10b981; border-color:#10b981; color:#fff; font-size:10px; padding:3px 8px; font-weight:800;">Save PNG</button>
+          <div style="display:flex; gap:5px; align-items:center; flex-wrap:wrap;">
+            <button id="grid-full-rep-open-detailed" class="fd-btn" style="background:var(--bg-card); border-color:#38bdf8; color:#38bdf8; font-size:10.5px; padding:3px 8px; font-weight:800;" title="Open detailed monthly billing panel">📊 View Detailed Report</button>
+            <button id="grid-full-rep-clear-cache" class="fd-btn" style="background:#f59e0b; border-color:#f59e0b; color:#fff; font-size:10px; padding:3px 7px; font-weight:800;" title="Clear cache & refresh">↻ Clear Cache</button>
+            <button id="grid-full-rep-txt" class="fd-btn" style="background:#3b82f6; border-color:#3b82f6; color:#fff; font-size:10px; padding:3px 7px; font-weight:800;">Save TXT</button>
+            <button id="grid-full-rep-png" class="fd-btn" style="background:#10b981; border-color:#10b981; color:#fff; font-size:10px; padding:3px 7px; font-weight:800;">Save PNG</button>
           </div>
         </div>
 
@@ -201,25 +232,37 @@
           </div>
         </div>
 
-        <!-- Report Output Container -->
+        <!-- Report Output Container (Auto-loads on open) -->
         <div id="grid-full-rep-out" style="background:var(--bg-panel); border:1px solid var(--border); border-radius:10px; padding:10px; overflow-x:auto;">
           <div id="grid-full-rep-loading" style="text-align:center; color:var(--text-muted); font-size:12px; padding:20px 0;">Loading full system energy report…</div>
+        </div>
+
+        <!-- Bottom Detailed Billing Report Button -->
+        <div style="margin-top:4px; padding-top:6px;">
+          <button id="grid-full-rep-open-detailed-bottom" class="btn-export" style="margin:0; width:100%; padding:10px; font-size:13px;">
+            <span>📊</span> View Detailed Report (Billing Panel)
+          </button>
         </div>
 
       </div>
     `;
 
-    const elOut      = document.getElementById('grid-full-rep-out');
-    const elLabel    = document.getElementById('grid-full-rep-label');
-    const elSub      = document.getElementById('grid-full-rep-sub');
-    const elPrev     = document.getElementById('grid-full-rep-prev');
-    const elNext     = document.getElementById('grid-full-rep-next');
-    const elCycle    = document.getElementById('grid-full-rep-cycle-toggle');
-    const elPicker   = document.getElementById('grid-full-rep-date-picker');
-    const elTodayBtn = document.getElementById('grid-full-rep-today-btn');
-    const elTxtBtn   = document.getElementById('grid-full-rep-txt');
-    const elPngBtn   = document.getElementById('grid-full-rep-png');
-    const elClearBtn = document.getElementById('grid-full-rep-clear-cache');
+    const elOut       = document.getElementById('grid-full-rep-out');
+    const elLabel     = document.getElementById('grid-full-rep-label');
+    const elSub       = document.getElementById('grid-full-rep-sub');
+    const elPrev      = document.getElementById('grid-full-rep-prev');
+    const elNext      = document.getElementById('grid-full-rep-next');
+    const elCycle     = document.getElementById('grid-full-rep-cycle-toggle');
+    const elPicker    = document.getElementById('grid-full-rep-date-picker');
+    const elTodayBtn  = document.getElementById('grid-full-rep-today-btn');
+    const elTxtBtn    = document.getElementById('grid-full-rep-txt');
+    const elPngBtn    = document.getElementById('grid-full-rep-png');
+    const elClearBtn  = document.getElementById('grid-full-rep-clear-cache');
+    const elOpenDet   = document.getElementById('grid-full-rep-open-detailed');
+    const elOpenDetB  = document.getElementById('grid-full-rep-open-detailed-bottom');
+
+    if (elOpenDet)  elOpenDet.onclick  = openDetailedBillingReportPanel;
+    if (elOpenDetB) elOpenDetB.onclick = openDetailedBillingReportPanel;
 
     function computeLocalNavInfo() {
       const now = (typeof getPktNow === 'function') ? getPktNow() : new Date();
@@ -480,7 +523,7 @@
       });
     };
 
-    // First load
+    // Auto-generate on open by default!
     loadReport();
   }
 

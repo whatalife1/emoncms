@@ -1,12 +1,16 @@
 // js/19b3-graphs-ui-report.js
 // ─── Graph report generation & download ─────────────────────────────────────
-window.generateGraphReport = async function(forceRefresh = false) {
-	const nav = _gNavInfo();
-	const isDay = graphTab === 'day';
-	const isMonth = graphTab === 'month';
-	const isYear = graphTab === 'year';
-	const isAll = graphTab === 'total';
-	const isCycle = (window.graphDayStartHour !== 0);
+window.generateGraphReport = async function(forceRefresh = false, customNav = null, customTab = null, customCycle = null) {
+	const nav = customNav || (typeof _gNavInfo === 'function' ? _gNavInfo() : { startMs: Date.now() - 86400000, endMs: Date.now(), label: 'Today' });
+	const currentTab = customTab || (typeof graphTab !== 'undefined' ? graphTab : 'day');
+	const isDay = currentTab === 'day';
+	const isMonth = currentTab === 'month';
+	const isYear = currentTab === 'year';
+	const isAll = currentTab === 'total';
+	const isCycle = (customCycle !== null && customCycle !== undefined)
+		? customCycle
+		: ((window.graphDayStartHour !== undefined ? window.graphDayStartHour : 7) !== 0);
+
 		let startMs, endMs, label;
 	if (isAll) {
 		startMs = new Date(2020, 0, 1).getTime();

@@ -219,12 +219,6 @@ function renderBattery2Card(byName) {
 
   const fmtLimits = (v, u) => (v != null ? v.toFixed(1) + u : '--');
 
-  const prioVal = byName.get('Inverter Priority')?.value ?? byName.get('547151')?.value ?? window.lastInverterPriority;
-  const prioMode = (typeof getInverterPriorityMode === 'function')
-    ? getInverterPriorityMode(prioVal)
-    : (window.lastInverterPriority || 'SBU');
-  const prioBadge = `<span class="prio-badge prio-${prioMode.toLowerCase()}" style="display:inline-block;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:900;letter-spacing:0.04em;background:${prioMode==='SUB'?'rgba(245,158,11,0.22)':'rgba(16,185,129,0.22)'};color:${prioMode==='SUB'?'#f59e0b':'#10b981'};border:1.5px solid ${prioMode==='SUB'?'#f59e0b':'#10b981'};box-shadow:0 0 8px ${prioMode==='SUB'?'rgba(245,158,11,0.3)':'rgba(16,185,129,0.3)'};">${prioMode}</span>`;
-
   return `<div class="card card-battery2"><div class="hero-header" style="display:flex; align-items:center; justify-content:space-between;">
     <div style="flex:1.1;"><span class="card-name">🔋 Battery SOC</span><span class="hero-val" style="color:${socColor}">${soc != null ? Math.round(soc) : '--'}%</span></div>
     <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; padding:0 6px; flex-shrink:0;"><span style="font-size:9.5px; font-weight:800; text-transform:uppercase; color:var(--text-muted); letter-spacing:0.04em; margin-bottom:2px;">MODE</span>${prioBadge}</div>
@@ -352,6 +346,12 @@ function renderResults(results) {
       }
 
       const fmtL = (val, u) => (val != null ? val.toFixed(1) + u : '--');
+
+      const prioVal = byName.get('Inverter Priority')?.value ?? byName.get('547151')?.value ?? window.lastInverterPriority;
+      const prioMode = (typeof getInverterPriorityMode === 'function')
+        ? getInverterPriorityMode(prioVal)
+        : (Math.round(Number(prioVal)) === 1 ? 'SUB' : (Math.round(Number(prioVal)) === 2 ? 'SBU' : null));
+      const prioBadge = prioMode ? `<span class="prio-badge prio-${prioMode.toLowerCase()}" style="display:inline-block;padding:1px 5px;border-radius:4px;font-size:10px;font-weight:800;letter-spacing:0.04em;background:${prioMode==='SUB'?'rgba(245,158,11,0.2)':'rgba(16,185,129,0.2)'};color:${prioMode==='SUB'?'#f59e0b':'#10b981'};border:1px solid ${prioMode==='SUB'?'rgba(245,158,11,0.45)':'rgba(16,185,129,0.45)'};margin-left:5px;vertical-align:middle;">${prioMode}</span>` : '';
 
       return `<div class="card" style="border-left: 3px solid #10b981;">
         <div class="hero-header">

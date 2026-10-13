@@ -248,6 +248,15 @@ function renderResults(results) {
   const html = results.map(f => {
     if (f.name === 'Solar Amps' || f.name === 'Inverter Priority') return '';
 
+    // ── Smart sensor aux feeds: absorbed by their parent cards ──
+    const SMART_AUX = {
+      'Fridge2 Fridge Temp':1,'Fridge2 Freezer Temp':1,'Fridge2 Env Temp':1,
+      'Fridge2 Target Temp':1,'Fridge2 Eco Mode':1,
+      'Haier Power':1,'Haier Target Temp':1,'Haier Current Temp':1,
+      'Haier Mode':1,'Haier Fan Speed':1
+    };
+    if (SMART_AUX[f.name]) { used.add(f.name); return ''; }
+
     if (used.has(f.name)) return '';
     const gn = LINKED_GROUPS.find(g => g.includes(f.name));
     if (gn) gn.forEach(n => used.add(n)); else used.add(f.name);

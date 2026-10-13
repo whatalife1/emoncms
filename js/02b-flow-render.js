@@ -430,6 +430,28 @@ function renderFlowDiagram(byName) {
     
     svg += `<text x="${cx(oA)}" y="${oA.y+oA.ly3}" ${tpProps} font-size="${oA.fs3}" fill="${oA.c3}">T: ${t.toFixed(k === 'wm' ? 2 : 1)} kWh</text>`;
     svg += `<text x="${cx(oA)}" y="${oA.y+oA.ly4}" ${tpProps} font-size="${oA.fs4}" fill="${oA.c4}">M: ${mon.toFixed(1)} kWh</text>`;
+
+    // ── Haier 1Ton smart sensors ──
+    if (k === 'haier') {
+      const hTarget  = getV('Haier Target Temp');
+      const hCurrent = getV('Haier Current Temp');
+      const hPower   = getV('Haier Power');
+      const hMode    = getV('Haier Mode');
+      const hFan     = getV('Haier Fan Speed');
+      if (oA.ly6) {
+        const setStr = hTarget  != null ? `${Math.round(hTarget)}°C`  : '--';
+        const nowStr = hCurrent != null ? `${Math.round(hCurrent)}°C` : '--';
+        svg += `<text x="${cx(oA)}" y="${oA.y+oA.ly6}" ${tpProps} font-size="${oA.fs6 || 16}" fill="#a5f3fc" data-maxw="${oA.w-8}">❄ Set ${setStr} → ${nowStr}</text>`;
+      }
+      if (oA.ly7) {
+        const powerOn  = (hPower == 1);
+        const powerStr = powerOn ? 'ON' : 'OFF';
+        const powerClr = powerOn ? '#4ade80' : '#a1a1aa';
+        const modeStr  = hMode != null ? `${Math.round(hMode)}` : '--';
+        const fanStr   = hFan  != null ? `${Math.round(hFan)}`  : '--';
+        svg += `<text x="${cx(oA)}" y="${oA.y+oA.ly7}" ${tpProps} font-size="${oA.fs7 || 14}" fill="${powerClr}" data-maxw="${oA.w-8}">${powerStr} · Mode ${modeStr} · Fan ${fanStr}</text>`;
+      }
+    }
   };
   drawApp('haier', 'Haier 1Ton'); drawApp('k15', 'Kenwood 1.5Ton'); drawApp('k1', 'Kenwood 1Ton'); drawApp('pc', 'PC'); drawApp('motor', 'Water Motor');
   drawApp('wm', 'Washing Machine');
@@ -485,6 +507,29 @@ function renderFlowDiagram(byName) {
   const f2_t = (mU.f2_t != null) ? mU.f2_t : f2T;
   const f2_m = (mU.f2 != null && mU.f2 > 0) ? mU.f2 : ((mU.f2_y || 0) + f2_t);
   svg += `<text x="${cx(o)}" y="${o.y+o.ly6}" ${tpProps} font-size="${o.fs6}" fill="${o.c6}">T: ${f2_t.toFixed(2)} kWh M: ${f2_m.toFixed(1)} kWh</text>`;
+
+  // ── Fridge 2 smart sensors ──
+  if (o.ly9) {
+    const f2FridgeT  = getV('Fridge2 Fridge Temp');
+    const f2FreezerT = getV('Fridge2 Freezer Temp');
+    const frStr = f2FridgeT  != null ? `${Math.round(f2FridgeT)}°C`  : '--';
+    const fzStr = f2FreezerT != null ? `${Math.round(f2FreezerT)}°C` : '--';
+    svg += `<text x="${cx(o)}" y="${o.y+o.ly9}" ${tpProps} font-size="${o.fs9 || 22}" fill="#38bdf8" data-maxw="${o.w-8}">🧊 ${frStr} / ❄ ${fzStr}</text>`;
+  }
+  if (o.ly10) {
+    const f2EnvT   = getV('Fridge2 Env Temp');
+    const f2Target = getV('Fridge2 Target Temp');
+    const envStr = f2EnvT   != null ? `${Math.round(f2EnvT)}°C`  : '--';
+    const tgtStr = f2Target != null ? `L${Math.round(f2Target)}` : '--';
+    svg += `<text x="${cx(o)}" y="${o.y+o.ly10}" ${tpProps} font-size="${o.fs10 || 16}" fill="#a1a1aa" data-maxw="${o.w-8}">🌡 Env ${envStr} · Target ${tgtStr}</text>`;
+  }
+  if (o.ly11) {
+    const f2Eco  = getV('Fridge2 Eco Mode');
+    const ecoOn  = (f2Eco == 1);
+    const ecoStr = ecoOn ? '💚 Eco Mode ON' : '⚙ Eco Mode OFF';
+    const ecoClr = ecoOn ? '#4ade80' : '#a1a1aa';
+    svg += `<text x="${cx(o)}" y="${o.y+o.ly11}" ${tpProps} font-size="${o.fs11 || 15}" fill="${ecoClr}" data-maxw="${o.w-8}">${ecoStr}</text>`;
+  }
 
   // 5. TEMP
   const oT = L.temp;

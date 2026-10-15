@@ -84,6 +84,20 @@
         unit: 'W',
         isPower: true
       },
+      fridge1: {
+        title: 'Fridge 1',
+        feedId: '499373',
+        color: '#38bdf8',
+        unit: 'W',
+        isPower: true
+      },
+      fridge2: {
+        title: 'Fridge 2',
+        feedId: '541348',
+        color: '#c084fc',
+        unit: 'W',
+        isPower: true
+      },
       fridge: {
         title: 'Fridges',
         feedId: '499373',       // Fridge 1

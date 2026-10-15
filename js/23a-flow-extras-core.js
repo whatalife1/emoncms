@@ -96,7 +96,8 @@
         feedId: '541348',
         color: '#c084fc',
         unit: 'W',
-        isPower: true
+        isPower: true,
+        smartFridge2: true
       },
       fridge: {
         title: 'Fridges',

@@ -103,6 +103,7 @@ async function _loadAndDraw(forceRefresh = false) {
     const unit = isTemp ? '°C' : ((graphFeedKey === 'water' || graphFeedKey === 'battery') ? '%' : ((graphFeedKey === 'acvolts' || graphFeedKey === 'batv') ? 'V' : 'W'));
     let pts1 = [], pts2 = [], bars1 = [], bars2 = [], multiData = null;
     let monthAcBreakdown = null;
+    let smartHaier = null, smartFridge2 = null;
 
     // ── Special Case: W/M tab with Water Motor and/or Water Tank overlay ──
     if (graphFeedKey === 'wm' && (window.graphWmIncludeMotor || window.graphWmIncludeWater)) {
@@ -576,6 +577,46 @@ async function _loadAndDraw(forceRefresh = false) {
         );
         pts1  = _mergePointsSum(componentPts);
         bars1 = _pointsToBars(pts1, nav, graphFeedKey);
+      } else if (graphFeedKey === 'haier') {
+        const [pMain, pPower, pTarget, pCurrent, pMode, pFan] = await Promise.all([
+          _gFetch(fA.id, nav.startMs, nav.endMs, nav.interval),
+          _gFetch('547315', nav.startMs, nav.endMs, nav.interval),
+          _gFetch('547316', nav.startMs, nav.endMs, nav.interval),
+          _gFetch('547317', nav.startMs, nav.endMs, nav.interval),
+          _gFetch('547318', nav.startMs, nav.endMs, nav.interval),
+          _gFetch('547319', nav.startMs, nav.endMs, nav.interval)
+        ]);
+        pts1 = pMain;
+        bars1 = _pointsToBars(pts1, nav, graphFeedKey);
+        if (typeof _mapSmartFeedToBars === 'function') {
+          smartHaier = {
+            power:   _mapSmartFeedToBars(pPower, nav, 'Haier Power'),
+            target:  _mapSmartFeedToBars(pTarget, nav, 'Haier Target Temp'),
+            current: _mapSmartFeedToBars(pCurrent, nav, 'Haier Current Temp'),
+            mode:    _mapSmartFeedToBars(pMode, nav, 'Haier Mode'),
+            fan:     _mapSmartFeedToBars(pFan, nav, 'Haier Fan Speed')
+          };
+        }
+      } else if (graphFeedKey === 'fridge2') {
+        const [pMain, pFrT, pFzT, pEnv, pTgt, pEco] = await Promise.all([
+          _gFetch(fA.id, nav.startMs, nav.endMs, nav.interval),
+          _gFetch('547304', nav.startMs, nav.endMs, nav.interval),
+          _gFetch('547305', nav.startMs, nav.endMs, nav.interval),
+          _gFetch('547306', nav.startMs, nav.endMs, nav.interval),
+          _gFetch('547307', nav.startMs, nav.endMs, nav.interval),
+          _gFetch('547308', nav.startMs, nav.endMs, nav.interval)
+        ]);
+        pts1 = pMain;
+        bars1 = _pointsToBars(pts1, nav, graphFeedKey);
+        if (typeof _mapSmartFeedToBars === 'function') {
+          smartFridge2 = {
+            fridge:  _mapSmartFeedToBars(pFrT, nav, 'Fridge2 Fridge Temp'),
+            freezer: _mapSmartFeedToBars(pFzT, nav, 'Fridge2 Freezer Temp'),
+            env:     _mapSmartFeedToBars(pEnv, nav, 'Fridge2 Env Temp'),
+            target:  _mapSmartFeedToBars(pTgt, nav, 'Fridge2 Target Temp'),
+            eco:     _mapSmartFeedToBars(pEco, nav, 'Fridge2 Eco Mode')
+          };
+        }
       } else {
         pts1 = await _gFetch(fA.id, nav.startMs, nav.endMs, nav.interval);
         bars1 = _pointsToBars(pts1, nav, graphFeedKey);
@@ -673,12 +714,13 @@ async function _loadAndDraw(forceRefresh = false) {
       color1, color2, unit, isCombined, nav, lastIdx, multiData, minV, maxV, range: maxV-minV,
       barsTemp, tempMinV: 0, tempMaxV: combinedMaxBT * 1.1, tempRange: combinedMaxBT * 1.1,
       tempUnit: tUnit, tempColor: tColor, overlayLabel: tLabel, isDualY: barsTemp.length > 0,
-      barsTemp2, tempColor2: tColor2, overlayLabel2: tLabel2
+      barsTemp2, tempColor2: tColor2, overlayLabel2: tLabel2,
+      smartHaier, smartFridge2
     };
     _drawChart(canvas, bars1, bars2, nav.labels, color1, color2, unit, isCombined, nav, lastIdx, multiData, minV, maxV, maxV-minV, barsTemp, graphDataCache.tempMinV, graphDataCache.tempMaxV, graphDataCache.tempRange, graphDataCache.tempUnit, graphDataCache.tempColor, graphDataCache.overlayLabel);
 
     // ─── Render Stats ───
-    _renderFeedStats(stat, { bars1, bars2, pts1, pts2, nav, lastIdx, multiData, isGridAll, isCombined, fA, color1, color2, unit, isTemp, graphFeedKey, monthAcBreakdown });
+    _renderFeedStats(stat, { bars1, bars2, pts1, pts2, nav, lastIdx, multiData, isGridAll, isCombined, fA, color1, color2, unit, isTemp, graphFeedKey, monthAcBreakdown, smartHaier, smartFridge2 });
 
   } catch (e) {
     stat.textContent = 'Error: ' + e.message;

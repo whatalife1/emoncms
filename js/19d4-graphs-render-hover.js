@@ -6,7 +6,8 @@ function _handleGraphHover(e, pin) {
   const canvas = document.getElementById('graph-canvas');
   if (!canvas) return;
   const { bars1, bars2, labels, timeLabels, fullLabels, color1, color2, unit, isCombined, lastIdx, multiData, minV, maxV, range,
-    barsTemp, tempMinV, tempMaxV, tempRange, tempUnit, tempColor, overlayLabel, isDualY, nav } = graphDataCache;
+    barsTemp, tempMinV, tempMaxV, tempRange, tempUnit, tempColor, overlayLabel, isDualY, nav,
+    smartHaier, smartFridge2 } = graphDataCache;
   const rect = canvas.getBoundingClientRect();
   const clientX = e.clientX || (e.touches?.[0]?.clientX ?? 0);
   const clientY = e.clientY || (e.touches?.[0]?.clientY ?? 0);
@@ -344,6 +345,53 @@ function _handleGraphHover(e, pin) {
     const tVal3 = graphDataCache.barsTemp3[idx] ?? 0;
     const tVal3Str = formatOverlayVal(tVal3, graphDataCache.overlayLabel3);
     html += `<div style="color:${graphDataCache.tempColor3};margin-top:2px;"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${graphDataCache.tempColor3};margin-right:5px;"></span><b>${graphDataCache.overlayLabel3}:</b> ${tVal3Str}</div>`;
+  }
+
+  if (smartHaier) {
+    const pwrVal = smartHaier.power ? smartHaier.power[idx] : null;
+    const tgtVal = smartHaier.target ? smartHaier.target[idx] : null;
+    const curVal = smartHaier.current ? smartHaier.current[idx] : null;
+    const modVal = smartHaier.mode ? smartHaier.mode[idx] : null;
+    const fanVal = smartHaier.fan ? smartHaier.fan[idx] : null;
+
+    const setStr = tgtVal != null ? `${Math.round(tgtVal)}°C` : '--';
+    const nowStr = curVal != null ? `${Math.round(curVal)}°C` : '--';
+    const isPwrOn = (pwrVal == 1);
+    const pwrStr = isPwrOn ? 'ON' : 'OFF';
+    const pwrClr = isPwrOn ? '#4ade80' : '#a1a1aa';
+    const modeStr = modVal != null ? `${Math.round(modVal)}` : '--';
+    const fanStr = fanVal != null ? `${Math.round(fanVal)}` : '--';
+
+    html += `
+      <div style="margin-top:6px; padding-top:6px; border-top:1px dashed var(--border); font-size:11.5px; line-height:1.45;">
+        <div style="color:#a5f3fc; font-weight:700;">❄ Set ${setStr} → ${nowStr}</div>
+        <div style="color:#a1a1aa; font-weight:600; margin-top:2px;"><span style="color:${pwrClr}; font-weight:800;">${pwrStr}</span> · Mode ${modeStr} · Fan ${fanStr}</div>
+      </div>
+    `;
+  }
+
+  if (smartFridge2) {
+    const frVal = smartFridge2.fridge ? smartFridge2.fridge[idx] : null;
+    const fzVal = smartFridge2.freezer ? smartFridge2.freezer[idx] : null;
+    const envVal = smartFridge2.env ? smartFridge2.env[idx] : null;
+    const tgtVal = smartFridge2.target ? smartFridge2.target[idx] : null;
+    const ecoVal = smartFridge2.eco ? smartFridge2.eco[idx] : null;
+
+    const frStr = frVal != null ? `${Math.round(frVal)}°C` : '--';
+    const fzStr = fzVal != null ? `${Math.round(fzVal)}°C` : '--';
+    const envStr = envVal != null ? `${Math.round(envVal)}°C` : '--';
+    const tgtStr = tgtVal != null ? `L${Math.round(tgtVal)}` : '--';
+    const isEcoOn = (ecoVal == 1);
+    const ecoStr = isEcoOn ? '💚 Eco Mode ON' : '⚙ Eco Mode OFF';
+    const ecoClr = isEcoOn ? '#4ade80' : '#a1a1aa';
+
+    html += `
+      <div style="margin-top:6px; padding-top:6px; border-top:1px dashed var(--border); font-size:11.5px; line-height:1.45;">
+        <div style="color:#38bdf8; font-weight:700;">🧊 ${frStr} / ❄ ${fzStr}</div>
+        <div style="color:#a1a1aa; font-weight:600; margin-top:2px;">🌡 Env ${envStr} · Target ${tgtStr}</div>
+        <div style="color:${ecoClr}; font-weight:700; margin-top:2px;">${ecoStr}</div>
+      </div>
+    `;
   }
 
   tooltip.innerHTML = html;

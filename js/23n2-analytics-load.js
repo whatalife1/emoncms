@@ -176,6 +176,7 @@
 
       // ── Standard non-battery feeds ──
       let ptsData = [], ptsAux = [], ptsF1 = [], ptsF2 = [], outageSummary = null;
+      let smartFridge2 = null;
 
       if (isDayMode) {
         const tasks = [ _gFetch(cfg.feedId, startMs, endMs, 120) ];
@@ -184,9 +185,38 @@
         else if (cfg.humFeedId)    tasks.push(_gFetch(cfg.humFeedId,    startMs, endMs, 120));
         else if (cfg.disFeedId)    tasks.push(_gFetch(cfg.disFeedId,    startMs, endMs, 120));
 
+        if (boxKey === 'fridge2' || cfg.smartFridge2) {
+          tasks.push(
+            _gFetch('547304', startMs, endMs, 120), // Fridge Temp
+            _gFetch('547305', startMs, endMs, 120), // Freezer Temp
+            _gFetch('547306', startMs, endMs, 120), // Env Temp
+            _gFetch('547307', startMs, endMs, 120), // Target Temp
+            _gFetch('547308', startMs, endMs, 120)  // Eco Mode
+          );
+        }
+
         const res = await Promise.all(tasks);
         ptsData = res[0] || [];
         ptsAux  = res[1] || [];
+
+        const navObj = {
+          startMs: startMs,
+          endMs: endMs,
+          resSeconds: 120,
+          nBars: ptsData.length || 720,
+          isDayTab: true
+        };
+        const mapFn = (typeof _mapSmartFeedToBars === 'function') ? _mapSmartFeedToBars : window._mapSmartFeedToBars;
+
+        if ((boxKey === 'fridge2' || cfg.smartFridge2) && typeof mapFn === 'function') {
+          smartFridge2 = {
+            fridge:  mapFn(res[1] || [], navObj, 'Fridge2 Fridge Temp'),
+            freezer: mapFn(res[2] || [], navObj, 'Fridge2 Freezer Temp'),
+            env:     mapFn(res[3] || [], navObj, 'Fridge2 Env Temp'),
+            target:  mapFn(res[4] || [], navObj, 'Fridge2 Target Temp'),
+            eco:     mapFn(res[5] || [], navObj, 'Fridge2 Eco Mode')
+          };
+        }
 
         if (cfg.isFridges) {
           ptsF1 = ptsData;
@@ -235,6 +265,7 @@
       state.cachedData = {
         startMs, endMs, periodLabel, periodSub, isDayMode,
         ptsData, ptsAux, ptsF1, ptsF2, outageSummary, rate,
+        smartFridge2,
         dailyMap: {}
       };
 

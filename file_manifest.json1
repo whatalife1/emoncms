@@ -1,0 +1,530 @@
+{
+  "index.html": {
+    "size": 17619,
+    "mtime": 1792027574.478395,
+    "mtime_str": "2026-10-15T06:26:14.478394",
+    "hash": "c51a06e35ceeb17fe06b79d0eb6acb0734b9d9052c820e074031672aed1e2f4b"
+  },
+  "css/00-variables.css": {
+    "size": 2891,
+    "mtime": 1791338368.8686595,
+    "mtime_str": "2026-10-07T06:59:28.868659",
+    "hash": "8201de225284ccea9ce23763ca4ccc4436fc472deedadc45dc8f469034e85388"
+  },
+  "css/01-layout.css": {
+    "size": 2140,
+    "mtime": 1790221154.6582541,
+    "mtime_str": "2026-09-24T08:39:14.658254",
+    "hash": "ec000e096138e248ce7fd75d72b9b83df5c6b40f113811227029fcdf2bed4e3d"
+  },
+  "css/02-cards.css": {
+    "size": 9787,
+    "mtime": 1791342557.518075,
+    "mtime_str": "2026-10-07T08:09:17.518075",
+    "hash": "258e186d9656f9f073e9b477561bc0576e2f7d7cc349aaba3a9d89a5ad1b1cc1"
+  },
+  "css/03-panels.css": {
+    "size": 9456,
+    "mtime": 1783586950.8515377,
+    "mtime_str": "2026-07-09T13:49:10.851538",
+    "hash": "f5d9349ecc63f1f459041b51f01db360de6fa32fa856bf0a30ed614ff83bd3f1"
+  },
+  "css/04-solar.css": {
+    "size": 11974,
+    "mtime": 1783586950.852948,
+    "mtime_str": "2026-07-09T13:49:10.852948",
+    "hash": "c06106a9d2d81aa5e14aefe6d6dbf7e9d155e245e263490d940db5f77caa1838"
+  },
+  "css/05-reports.css": {
+    "size": 6098,
+    "mtime": 1783586950.852948,
+    "mtime_str": "2026-07-09T13:49:10.852948",
+    "hash": "cf15f214c559a673c97db85bd7ecce053660f4988b02ff02c9515ab129afc4d7"
+  },
+  "css/06-graphs.css": {
+    "size": 10466,
+    "mtime": 1786586445.2433589,
+    "mtime_str": "2026-08-13T07:00:45.243359",
+    "hash": "dc4395cc7bb8e70af1591876821a671b4022fe37a4c2b5b63400fe1d9c9cdb2b"
+  },
+  "css/07-simulator.css": {
+    "size": 1720,
+    "mtime": 1785667491.8567712,
+    "mtime_str": "2026-08-02T15:44:51.856771",
+    "hash": "a7b94314830000261bea6c7ebbe15a03c2532abccf2a8aba94ef116cdecab4eb"
+  },
+  "js/00-config.js": {
+    "size": 20531,
+    "mtime": 1791890176.6331458,
+    "mtime_str": "2026-10-13T16:16:16.633146",
+    "hash": "9eb3b53f3c51e3a36c4142074140368426629a55bf6b05242dbb95708f475312"
+  },
+  "js/01-sparkline.js": {
+    "size": 1583,
+    "mtime": 1781316495.7632852,
+    "mtime_str": "2026-06-13T07:08:15.763285",
+    "hash": "84795c16b111a03ec523c6e8f2143213c1f0a34ce9d4e7e9cd65ae36436644ce"
+  },
+  "js/02a-flow-config.js": {
+    "size": 7741,
+    "mtime": 1791890329.3578672,
+    "mtime_str": "2026-10-13T16:18:49.357867",
+    "hash": "c6ef4074adb6681404b57ef3c79e8c89a323b1eb4003390102506ab7f38a3b17"
+  },
+  "js/02b-flow-render.js": {
+    "size": 32788,
+    "mtime": 1791890176.6410425,
+    "mtime_str": "2026-10-13T16:16:16.641042",
+    "hash": "241d5a1be643c5a984ffe05259552200a0971c298476ba8e340b0a24c6c0f436"
+  },
+  "js/02c-flow-battery2-html.js": {
+    "size": 8893,
+    "mtime": 1791595503.4623523,
+    "mtime_str": "2026-10-10T06:25:03.462352",
+    "hash": "29bd54477f98ed142ff6e67ecc4759791881f407716e8849a1ac66ba8fffdc4c"
+  },
+  "js/03-visuals.js": {
+    "size": 15645,
+    "mtime": 1790854597.145325,
+    "mtime_str": "2026-10-01T16:36:37.145325",
+    "hash": "1f6cdc40dc6f355f8c63cb3df41e9fb48b2e192338fa4fa4c3ec6a2531a17228"
+  },
+  "js/04-ui.js": {
+    "size": 1543,
+    "mtime": 1781316495.7667696,
+    "mtime_str": "2026-06-13T07:08:15.766770",
+    "hash": "fdbcf4a90132b61722362c6b670fea42d633654b6019ffdb27c87aa1ab7ca349"
+  },
+  "js/05-settings.js": {
+    "size": 5896,
+    "mtime": 1790594004.307194,
+    "mtime_str": "2026-09-28T16:13:24.307194",
+    "hash": "6a502ada8c9192c8729d1d1837d2fa17d91b74bd7787d4cbec6a07d9a957c645"
+  },
+  "js/06-alerts.js": {
+    "size": 5226,
+    "mtime": 1789959316.796793,
+    "mtime_str": "2026-09-21T07:55:16.796793",
+    "hash": "8adbdd5a3f35ec63de41ca8664238ba74d0942e263e9ef6a9a3c8547fc1a78bd"
+  },
+  "js/07-fetch.js": {
+    "size": 4980,
+    "mtime": 1790214312.4958158,
+    "mtime_str": "2026-09-24T06:45:12.495816",
+    "hash": "ae1fc15e72fde382f441bb27c87bffd14dbafa8d4b525cfa8bcb56847533e7d6"
+  },
+  "js/08-render-a.js": {
+    "size": 186,
+    "mtime": 1781316495.7682672,
+    "mtime_str": "2026-06-13T07:08:15.768267",
+    "hash": "95700881eb276105d7c4a66aa8ba7c089edb05e9bd223758823f556df4bc3396"
+  },
+  "js/08-render-b.js": {
+    "size": 29043,
+    "mtime": 1791610713.0912168,
+    "mtime_str": "2026-10-10T10:38:33.091217",
+    "hash": "ded527641c751c66da9a184dcadd69165f935c01054980a8c09e5c1528a24ae7"
+  },
+  "js/08b-render-b.js": {
+    "size": 30185,
+    "mtime": 1791890176.6446483,
+    "mtime_str": "2026-10-13T16:16:16.644648",
+    "hash": "fe443f865d0474300020c6d1c96c5d7d8af019fd538cbdb158e17110ea3f3120"
+  },
+  "js/09-poll.js": {
+    "size": 24222,
+    "mtime": 1791528351.6480587,
+    "mtime_str": "2026-10-09T11:45:51.648059",
+    "hash": "a5a53fc8666c3d07e6c6f8640e047cf678d48a8aed42d191d4565001a5bb0edf"
+  },
+  "js/10-solar-base-a.js": {
+    "size": 423,
+    "mtime": 1781579997.8853502,
+    "mtime_str": "2026-06-16T08:19:57.885350",
+    "hash": "d4438f6d008543d15d0a92c86d4cc4af57f079ee2aa1d97fa54ab470abb0576d"
+  },
+  "js/10b-solar-base-b.js": {
+    "size": 7244,
+    "mtime": 1783591632.4596987,
+    "mtime_str": "2026-07-09T15:07:12.459699",
+    "hash": "14c3dea72daf5c7f85892665098ad21c1cdd56ea028057cd4247613c183b9167"
+  },
+  "js/11-solar-calc.js": {
+    "size": 7023,
+    "mtime": 1785831893.0070217,
+    "mtime_str": "2026-08-04T13:24:53.007022",
+    "hash": "f9db9fff85a0b1011a4b3fdf83ff9c5affa4f36aecabfad7270a73200d9bc5f2"
+  },
+  "js/12-solar-render-a.js": {
+    "size": 6177,
+    "mtime": 1781316495.7717853,
+    "mtime_str": "2026-06-13T07:08:15.771785",
+    "hash": "e75c7853e6c9dd5aeeef3c929bcda357af43dd51d6285f34d3c56f14d31be837"
+  },
+  "js/13-solar-render-b.js": {
+    "size": 3909,
+    "mtime": 1785402256.2391577,
+    "mtime_str": "2026-07-30T14:04:16.239158",
+    "hash": "bdfd35911c6b016d7fa2c46d7439598258873b32baf0af446ed795c3318241b5"
+  },
+  "js/14-solar-today.js": {
+    "size": 9404,
+    "mtime": 1785411643.2977083,
+    "mtime_str": "2026-07-30T16:40:43.297708",
+    "hash": "16df5430b51251d7319b3d116035fe0b794acf9d9db78840fffdb7084336ef04"
+  },
+  "js/15-solar-others-a.js": {
+    "size": 5039,
+    "mtime": 1785411643.300311,
+    "mtime_str": "2026-07-30T16:40:43.300311",
+    "hash": "3346127f9b4b347c801581f1621de8cac733dd028296bf7600b1b8af335bd73f"
+  },
+  "js/15b-solar-others-b.js": {
+    "size": 5571,
+    "mtime": 1781316495.773787,
+    "mtime_str": "2026-06-13T07:08:15.773787",
+    "hash": "c709038fc50899716e4b611b4ef6ebb55b709819aa3cb00b81f89421a94d0bc8"
+  },
+  "js/16-reports-core.js": {
+    "size": 11840,
+    "mtime": 1790241375.8838089,
+    "mtime_str": "2026-09-24T14:16:15.883809",
+    "hash": "268f6829fc113e14669f19031c9c1609ddfaa1150603d577ef5fce3819858c36"
+  },
+  "js/17-reports-ui.js": {
+    "size": 24215,
+    "mtime": 1790934275.7695942,
+    "mtime_str": "2026-10-02T14:44:35.769594",
+    "hash": "b84359e9fe464bfd4d130dfd4fe5202f27479c51fdc70305636d69711e0ab524"
+  },
+  "js/18-main-a.js": {
+    "size": 2841,
+    "mtime": 1785843465.3064198,
+    "mtime_str": "2026-08-04T16:37:45.306420",
+    "hash": "87512232d6527a28844b48207fa71aac44ff6e3268e9366187492e9c6c9d9585"
+  },
+  "js/18b-main-b.js": {
+    "size": 12248,
+    "mtime": 1791528351.6525645,
+    "mtime_str": "2026-10-09T11:45:51.652565",
+    "hash": "aa3ad3ea1a8a5f215b375edf723b05128f04e1ba0b0eb5169d2826bed0456f0a"
+  },
+  "js/19a-graphs-core.js": {
+    "size": 11035,
+    "mtime": 1791077709.1295066,
+    "mtime_str": "2026-10-04T06:35:09.129507",
+    "hash": "e98f611393f63b63dcbcb5102a5b28bc2446cb84f73460dddb04b026b0aaf4db"
+  },
+  "js/19b1-graphs-ui-state.js": {
+    "size": 2042,
+    "mtime": 1790244928.3106375,
+    "mtime_str": "2026-09-24T15:15:28.310637",
+    "hash": "11c6097b32ad1665949485449915097bc828f06c408ed3e5f758153bcb9cd0af"
+  },
+  "js/19b2-graphs-ui-nav.js": {
+    "size": 8423,
+    "mtime": 1790244928.409403,
+    "mtime_str": "2026-09-24T15:15:28.409403",
+    "hash": "f88eae3b10b1df5bb2874d67c4664d7ed5e4a071fed4e62569df99f8d08030ab"
+  },
+  "js/19b3-graphs-ui-report.js": {
+    "size": 33761,
+    "mtime": 1791612302.1917858,
+    "mtime_str": "2026-10-10T11:05:02.191786",
+    "hash": "0fe3acc1c63b37209ca3753ab272d054f304ed1c42703cd6b739fafc5b37ae84"
+  },
+  "js/19b4-graphs-ui-refresh.js": {
+    "size": 2192,
+    "mtime": 1786527011.882557,
+    "mtime_str": "2026-08-12T14:30:11.882557",
+    "hash": "5a81ebdc499b02991a071f2fe74b2917daf5e1c11b8861adaee5838a82e447e3"
+  },
+  "js/19b5-graphs-ui-tabs.js": {
+    "size": 14762,
+    "mtime": 1791077709.1823008,
+    "mtime_str": "2026-10-04T06:35:09.182301",
+    "hash": "4012e4ff256216465472a9ac36be6c103893e99c0843b89046e33d30f0275f68"
+  },
+  "js/19b6-graphs-ui-panel.js": {
+    "size": 1214,
+    "mtime": 1786527011.884032,
+    "mtime_str": "2026-08-12T14:30:11.884032",
+    "hash": "3dc6c8f37db28b33965bc6689be8b82293977169e1bcdf98331742139e724ade"
+  },
+  "js/19c1-graphs-state.js": {
+    "size": 21437,
+    "mtime": 1791026426.531321,
+    "mtime_str": "2026-10-03T16:20:26.531321",
+    "hash": "4c57723f60bc47131b207a338c47018518bc42eedff3800184bc483bb9356ebc"
+  },
+  "js/19c2-graphs-data-utils.js": {
+    "size": 9263,
+    "mtime": 1792027574.478395,
+    "mtime_str": "2026-10-15T06:26:14.478394",
+    "hash": "f97c15e65513b2cbc1db9d7000220aed0dc3a9cb5d8f0eb85f504ff3a4b65d55"
+  },
+  "js/19c3-graphs-momentflow.js": {
+    "size": 6777,
+    "mtime": 1789821441.7865994,
+    "mtime_str": "2026-09-19T17:37:21.786599",
+    "hash": "2d2c8ebb33ba7b005ac4ab42172408186cfbca5955d678f2daabd6aac3ce9503"
+  },
+  "js/19c4-graphs-others.js": {
+    "size": 42104,
+    "mtime": 1791672708.1826966,
+    "mtime_str": "2026-10-11T03:51:48.182697",
+    "hash": "a5c6e3a36111fea798e6a40e5d432c3c95b69c1ed150132fcc35cd9f79151c6d"
+  },
+  "js/19c5-graphs-load-draw.js": {
+    "size": 39073,
+    "mtime": 1792027574.478395,
+    "mtime_str": "2026-10-15T06:26:14.478394",
+    "hash": "17c5db529c8ec752d2c3d198d9403f124cc4761e748e44fc141f31de782beec6"
+  },
+  "js/19c6-graphs-stats-render.js": {
+    "size": 26113,
+    "mtime": 1792027574.478395,
+    "mtime_str": "2026-10-15T06:26:14.478394",
+    "hash": "0aa6adc00427cde354ecdb374b57972cf3e933f43f0c9519255d5bd54129894f"
+  },
+  "js/19d1-graphs-render-flow.js": {
+    "size": 5274,
+    "mtime": 1789821441.805391,
+    "mtime_str": "2026-09-19T17:37:21.805391",
+    "hash": "8447464bc2e9bd9bcf3c73740a8247f98d0313689b2b741a110145309946e820"
+  },
+  "js/19d2-graphs-render-utils.js": {
+    "size": 1853,
+    "mtime": 1786527011.886442,
+    "mtime_str": "2026-08-12T14:30:11.886442",
+    "hash": "f9c89db714a374139fbd81e31e3105107c49af198d8be6ce546ccd2b1fa0fb89"
+  },
+  "js/19d3-graphs-render-zoom.js": {
+    "size": 3457,
+    "mtime": 1786527011.888441,
+    "mtime_str": "2026-08-12T14:30:11.888441",
+    "hash": "b44bf50ff9feb8d37891f2ac9d2c3e8a7d5aa32d2f192e401fc659f4b424004a"
+  },
+  "js/19d4-graphs-render-hover.js": {
+    "size": 25677,
+    "mtime": 1792027574.478395,
+    "mtime_str": "2026-10-15T06:26:14.478394",
+    "hash": "ed439c78465e4d3c1825468fdc38a9d39f365811f63c385c267410e73974d7e3"
+  },
+  "js/19d5-graphs-render-chart.js": {
+    "size": 16001,
+    "mtime": 1791077709.3812022,
+    "mtime_str": "2026-10-04T06:35:09.381202",
+    "hash": "91c556898df295809503f5814819071446207dd41ff26645263843c77fd78807"
+  },
+  "js/19d6-graphs-render-plot.js": {
+    "size": 1426,
+    "mtime": 1786527011.8898108,
+    "mtime_str": "2026-08-12T14:30:11.889811",
+    "hash": "b9c0e2dabc57a6362e3695dffc81918386101e0ae668662e5878b93c7dc08efe"
+  },
+  "js/20-appliance-check.js": {
+    "size": 9483,
+    "mtime": 1786512032.6254628,
+    "mtime_str": "2026-08-12T10:20:32.625463",
+    "hash": "bf5ac883dff4cb3aa3ff372339a58ce2db2a671d4ae6fd6dddb8d069c6de97c5"
+  },
+  "js/21-simulator-panel.js": {
+    "size": 9874,
+    "mtime": 1785670927.2144766,
+    "mtime_str": "2026-08-02T16:42:07.214477",
+    "hash": "9332195f77651a472e82ea7639ef52315091fe08b198cf99c953b98be06f9c89"
+  },
+  "js/22a-flow-detail-text.js": {
+    "size": 782,
+    "mtime": 1790391005.0611389,
+    "mtime_str": "2026-09-26T07:50:05.061139",
+    "hash": "9d96fdb0ad28e66b36b6be0688bdd668c5ac00baa87b162f81355394a662156d"
+  },
+  "js/22b-flow-detail-core.js": {
+    "size": 2918,
+    "mtime": 1791594849.7493796,
+    "mtime_str": "2026-10-10T06:14:09.749380",
+    "hash": "c6201318c61e063350792fb5537e5df0f3b48226bdfe0d5414bc3fcd1ec40965"
+  },
+  "js/22c-flow-detail-styles.js": {
+    "size": 14654,
+    "mtime": 1791594849.8621788,
+    "mtime_str": "2026-10-10T06:14:09.862179",
+    "hash": "018a7481feca5794c50bd0d7ce349630da58d859908dc8d8e0dc8f0a88c5ffe5"
+  },
+  "js/22d-flow-detail-modal.js": {
+    "size": 6914,
+    "mtime": 1791594849.9027283,
+    "mtime_str": "2026-10-10T06:14:09.902728",
+    "hash": "8e4102850dba01b274373ea77c9e82f99e8516d852fb9908ecc53ec0453f1e06"
+  },
+  "js/22e-flow-detail-svg.js": {
+    "size": 4471,
+    "mtime": 1791594849.930494,
+    "mtime_str": "2026-10-10T06:14:09.930494",
+    "hash": "d6b85d65f65a817b44400eb3ef742943cbc604998531fbc3662c7dd6cc3de77d"
+  },
+  "js/22f-flow-detail-battery.js": {
+    "size": 13098,
+    "mtime": 1791594850.022032,
+    "mtime_str": "2026-10-10T06:14:10.022032",
+    "hash": "9db4040aa6b8d105212f154d410c5233bdf25d972fd974268f9dc33ee99f8dee"
+  },
+  "js/22g-flow-detail-kpi.js": {
+    "size": 5929,
+    "mtime": 1791594850.055864,
+    "mtime_str": "2026-10-10T06:14:10.055864",
+    "hash": "5ddf6954620117d741055cd1810f586575589653d35195eee662bc0178506d10"
+  },
+  "js/22h-flow-detail-refresh.js": {
+    "size": 2567,
+    "mtime": 1791594850.0671768,
+    "mtime_str": "2026-10-10T06:14:10.067177",
+    "hash": "775a6d1532bafed3b0713a06e1ae80f79f88e448dd7770ffb773ea8644807eac"
+  },
+  "js/22i-flow-detail-night.js": {
+    "size": 6009,
+    "mtime": 1791594850.096349,
+    "mtime_str": "2026-10-10T06:14:10.096349",
+    "hash": "99cf152d10e9792144689d244e2178b3721e4b4229fbc3d46c97cfbdaf065291"
+  },
+  "js/22j-flow-detail-chart.js": {
+    "size": 14263,
+    "mtime": 1791594850.1626875,
+    "mtime_str": "2026-10-10T06:14:10.162688",
+    "hash": "cef4303d9592f9edcf4169ea2c47a37627db8c410c089c8b52762978fa2700f1"
+  },
+  "js/22k-flow-detail-open.js": {
+    "size": 27731,
+    "mtime": 1791620079.9040022,
+    "mtime_str": "2026-10-10T13:14:39.904002",
+    "hash": "fac7336d19b44672b6803cd9a8b9e5d5f296cf1a8960d251fdc28a3c6ad4b749"
+  },
+  "js/22l-flow-detail-init.js": {
+    "size": 3545,
+    "mtime": 1791594850.2186105,
+    "mtime_str": "2026-10-10T06:14:10.218611",
+    "hash": "2982c31d81f1c9ee59fec724cca3885157b9ee8047ca22352948e0b94c292b4c"
+  },
+  "js/23a-flow-extras-core.js": {
+    "size": 8353,
+    "mtime": 1791594242.4975655,
+    "mtime_str": "2026-10-10T06:04:02.497566",
+    "hash": "af58306c6398fa965d797b85875971add28586cc4ae4a04a84df3f17e153fe14"
+  },
+  "js/23b-flow-extras-today-stats.js": {
+    "size": 4160,
+    "mtime": 1791594242.5084956,
+    "mtime_str": "2026-10-10T06:04:02.508496",
+    "hash": "610b070f53ad1211d91c2cdaa52e3ab01f5016ef3c453765b2ece1118788cc64"
+  },
+  "js/23c-flow-extras-grid-16x2.js": {
+    "size": 6653,
+    "mtime": 1791594242.5174272,
+    "mtime_str": "2026-10-10T06:04:02.517427",
+    "hash": "38c2e6c2ab26fb4f1aefaa792e5db2d18cf35f41101ec989a4d3c25a7acf49d1"
+  },
+  "js/23d-flow-extras-generic-daily.js": {
+    "size": 8127,
+    "mtime": 1791594242.5305822,
+    "mtime_str": "2026-10-10T06:04:02.530582",
+    "hash": "22deeeca8cafcc42566e073846aac009f4ade1708a6c6aa8d8c623cfdd161122"
+  },
+  "js/23e-flow-extras-solar.js": {
+    "size": 2597,
+    "mtime": 1791594242.5384328,
+    "mtime_str": "2026-10-10T06:04:02.538433",
+    "hash": "b3bfd72b85cc3bb8a5f05d27ad075e19462136f9f0652eca39780a0625fe4f07"
+  },
+  "js/23f-flow-extras-grid.js": {
+    "size": 2133,
+    "mtime": 1791594242.547444,
+    "mtime_str": "2026-10-10T06:04:02.547444",
+    "hash": "343039701021c268a88e9ba8d6c6cd670cfc96bc202300b4d91ae433ad65bb18"
+  },
+  "js/23g-flow-extras-battery-diag.js": {
+    "size": 28496,
+    "mtime": 1791672708.119583,
+    "mtime_str": "2026-10-11T03:51:48.119583",
+    "hash": "3cbd270bea7df536e97ab9b441e953177af499e53c4f6f82f707bdc52c968f2c"
+  },
+  "js/23h-flow-extras-battery.js": {
+    "size": 8360,
+    "mtime": 1791594242.5898697,
+    "mtime_str": "2026-10-10T06:04:02.589870",
+    "hash": "f5b3d5611e94afca4143d50c44e88ebb75b2f965b9d79d1eec0c092104b5492a"
+  },
+  "js/23i-flow-extras-fridge-ac.js": {
+    "size": 7454,
+    "mtime": 1791890176.6467118,
+    "mtime_str": "2026-10-13T16:16:16.646712",
+    "hash": "b36def53d56a8fba138c6679075a91bedfdb718fedf7875e7b5e557e0aab2ac4"
+  },
+  "js/23j-flow-extras-water-motor.js": {
+    "size": 2653,
+    "mtime": 1791594242.6282163,
+    "mtime_str": "2026-10-10T06:04:02.628216",
+    "hash": "d85600d6cd50fa1866707646aab6d899d3a4f87b20c3bfb3fcfde600cd49b252"
+  },
+  "js/23k-flow-extras-wm-pc.js": {
+    "size": 2899,
+    "mtime": 1791594242.6454396,
+    "mtime_str": "2026-10-10T06:04:02.645440",
+    "hash": "714bf933edc5a8c62c06039ae06a8ff73dcc697334d523dadcfc76d3e89916d5"
+  },
+  "js/23l-flow-extras-soc-helpers.js": {
+    "size": 16791,
+    "mtime": 1791594242.6900432,
+    "mtime_str": "2026-10-10T06:04:02.690043",
+    "hash": "8d9a41754acd81da5408ce48da2c1ccb10cbb935043775f59a500ca5cec2d7db"
+  },
+  "js/23m-flow-extras-soc-charts.js": {
+    "size": 9306,
+    "mtime": 1791594242.7276528,
+    "mtime_str": "2026-10-10T06:04:02.727653",
+    "hash": "4ad0ec21a80db0e90c92620484caf35bed3d2f2e839d83251f4a6ff27953432b"
+  },
+  "js/23n1-analytics-core.js": {
+    "size": 10547,
+    "mtime": 1791594531.0018802,
+    "mtime_str": "2026-10-10T06:08:51.001880",
+    "hash": "2ebe869f7eef929803d342adbea0a378f60ca543b4517417e8bf74ae19771750"
+  },
+  "js/23n2-analytics-load.js": {
+    "size": 10548,
+    "mtime": 1791594531.0029402,
+    "mtime_str": "2026-10-10T06:08:51.002940",
+    "hash": "2a2452e16d2c6a74517da5d97e8829627207ecbd39df48df0c5ac9e3a7674525"
+  },
+  "js/23n3-analytics-compute.js": {
+    "size": 27267,
+    "mtime": 1791594531.0043917,
+    "mtime_str": "2026-10-10T06:08:51.004392",
+    "hash": "717c5b0064979c8b69ba196b01ab5f420019405cedced587d139d687b8f70a33"
+  },
+  "js/23n4-analytics-render.js": {
+    "size": 33878,
+    "mtime": 1791594531.0064607,
+    "mtime_str": "2026-10-10T06:08:51.006461",
+    "hash": "ca0a16221cc07f6b7376d746a5f31b769c01bcf53bae0f054557e14cbbc0b271"
+  },
+  "js/23n5-analytics-events.js": {
+    "size": 15077,
+    "mtime": 1791594531.1038866,
+    "mtime_str": "2026-10-10T06:08:51.103887",
+    "hash": "38d5654ab6efb776805a5f28783df99997325669b11e1c2379ab284a4587f314"
+  },
+  "js/23o-flow-extras-registry.js": {
+    "size": 2332,
+    "mtime": 1791594242.9167054,
+    "mtime_str": "2026-10-10T06:04:02.916705",
+    "hash": "e65ede151f7e4440f23e308231d82d6707c162a374161aa928c39b10f2a7d58e"
+  },
+  "js/html2canvas.min.js": {
+    "size": 262639,
+    "mtime": 1790214313.0597339,
+    "mtime_str": "2026-09-24T06:45:13.059734",
+    "hash": "83de413ad498bdedb4cbc6ede80f8d349b52ce728131db16e134dbe1ced95c97"
+  }
+}

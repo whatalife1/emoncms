@@ -205,3 +205,77 @@ function _calcStatsForRange(bars, startHour, endHour, nav, lastIdx) {
     total: totalKwh
   };
 }
+
+
+function _mapSmartFeedToBars(pts, nav, fallbackName) {
+  const n = (nav && nav.nBars) ? nav.nBars : (pts && pts.length ? pts.length : 720);
+  const bars = new Array(n).fill(null);
+  const byName = window.lastResultsMap || new Map();
+  const liveVal = (typeof byName.get === 'function' ? byName.get(fallbackName)?.value : null);
+
+  if (pts && pts.length > 0) {
+    if (nav && nav.isMonthBilling) {
+      const dailyLast = {};
+      pts.forEach(p => {
+        if (!p || p[1] == null) return;
+        const pktDate = getKarachiDate(p[0]);
+        const key = `${pktDate.year}-${String(pktDate.month).padStart(2,'0')}-${String(pktDate.day).padStart(2,'0')}`;
+        dailyLast[key] = p[1];
+      });
+      const start = new Date(nav.startMs);
+      for (let i = 0; i < n; i++) {
+        const d = new Date(start.getTime() + i * 86400000);
+        const pktDate = getKarachiDate(d.getTime());
+        const key = `${pktDate.year}-${String(pktDate.month).padStart(2,'0')}-${String(pktDate.day).padStart(2,'0')}`;
+        if (dailyLast[key] !== undefined) bars[i] = dailyLast[key];
+      }
+    } else if (nav && nav.isYearBilling) {
+      const mCount = {};
+      const mSum = {};
+      pts.forEach(p => {
+        if (!p || p[1] == null) return;
+        const pktDate = getKarachiDate(p[0]);
+        const m = pktDate.month - 1;
+        mSum[m] = (mSum[m] || 0) + p[1];
+        mCount[m] = (mCount[m] || 0) + 1;
+      });
+      for (let i = 0; i < 12; i++) {
+        if (mCount[i]) bars[i] = mSum[i] / mCount[i];
+      }
+    } else {
+      const resMs = (nav && nav.resSeconds ? nav.resSeconds : 120) * 1000;
+      pts.forEach(p => {
+        if (!p || p[1] == null) return;
+        const tsMs = p[0] < 2e9 ? p[0] * 1000 : p[0];
+        const idx = Math.floor((tsMs - (nav.startMs || 0)) / resMs);
+        if (idx >= 0 && idx < n) {
+          bars[idx] = p[1];
+        }
+      });
+    }
+  }
+
+  // Forward fill & backward fill so discrete states never leave empty gaps
+  let lastVal = liveVal;
+  for (let i = 0; i < n; i++) {
+    if (bars[i] !== null && bars[i] !== undefined) {
+      lastVal = bars[i];
+      break;
+    }
+  }
+  for (let i = 0; i < n; i++) {
+    if (bars[i] !== null && bars[i] !== undefined) {
+      lastVal = bars[i];
+    } else if (lastVal !== null && lastVal !== undefined) {
+      bars[i] = lastVal;
+    }
+  }
+  if (lastVal !== null && lastVal !== undefined) {
+    for (let i = 0; i < n; i++) {
+      if (bars[i] === null || bars[i] === undefined) bars[i] = lastVal;
+    }
+  }
+
+  return bars;
+}
+window._mapSmartFeedToBars = _mapSmartFeedToBars;

@@ -12,6 +12,79 @@
     totalRuntimeMin, energyKwhFromSessions, buildGenericApplianceDailyGrid
   } = FX;
 
+  
+  async function buildFridge1Extras() {
+    const grid1Html = await buildGenericApplianceDailyGrid({
+      title: '🧊 FRIDGE 1 DAILY UNITS',
+      titleColor: '#38bdf8',
+      feedId: '499373',
+      liveTodayName: 'Fridge Today',
+      hoverId: 'fd-fridge1-cell-hover',
+      valColor: '#38bdf8'
+    });
+    let dutyHtml = '';
+    try {
+      const pts1 = await fetch24h('fridge1', 300);
+      if (Array.isArray(pts1) && pts1.length) {
+        const sessions = detectSessions(pts1, 6, 1);
+        const runtimeMin = totalRuntimeMin(sessions);
+        const dutyPct = (runtimeMin / (24 * 60)) * 100;
+        const avgW = sessions.length ? sessions.reduce((a, s) => a + s.avgW, 0) / sessions.length : 0;
+        dutyHtml += row(`Fridge 1 duty cycle`, `${dutyPct.toFixed(0)}%`, {
+          color: dutyPct > 70 ? '#f59e0b' : '#4ade80',
+          sub: `${fmtDuration(runtimeMin)} running · avg ${Math.round(avgW)}W while on`
+        });
+      }
+    } catch(e) {}
+    return grid1Html + dutyHtml;
+  }
+
+  async function buildFridge2Extras() {
+    const grid2Html = await buildGenericApplianceDailyGrid({
+      title: '🧊 FRIDGE 2 DAILY UNITS',
+      titleColor: '#c084fc',
+      feedId: '541348',
+      liveTodayName: 'Fridge2 Today',
+      hoverId: 'fd-fridge2-cell-hover',
+      valColor: '#c084fc'
+    });
+    let dutyHtml = '';
+    try {
+      const pts2 = await fetch24h('fridge2', 300);
+      if (Array.isArray(pts2) && pts2.length) {
+        const sessions = detectSessions(pts2, 6, 1);
+        const runtimeMin = totalRuntimeMin(sessions);
+        const dutyPct = (runtimeMin / (24 * 60)) * 100;
+        const avgW = sessions.length ? sessions.reduce((a, s) => a + s.avgW, 0) / sessions.length : 0;
+        dutyHtml += row(`Fridge 2 duty cycle`, `${dutyPct.toFixed(0)}%`, {
+          color: dutyPct > 70 ? '#f59e0b' : '#4ade80',
+          sub: `${fmtDuration(runtimeMin)} running · avg ${Math.round(avgW)}W while on`
+        });
+      }
+    } catch(e) {}
+    let smartHtml = '';
+    try {
+      const f2FridgeT  = FX.getFeedVal('Fridge2 Fridge Temp');
+      const f2FreezerT = FX.getFeedVal('Fridge2 Freezer Temp');
+      const f2EnvT     = FX.getFeedVal('Fridge2 Env Temp');
+      const f2Target   = FX.getFeedVal('Fridge2 Target Temp');
+      const f2Eco      = FX.getFeedVal('Fridge2 Eco Mode');
+      const ecoOn      = (f2Eco == 1);
+      smartHtml = `
+        <div style="background:var(--bg-card); border:1px solid var(--border); border-left:3px solid #22d3ee; border-radius:10px; padding:10px 12px; margin-top:10px;">
+          <div style="font-size:11.5px; font-weight:800; color:#22d3ee; text-transform:uppercase; margin-bottom:6px;">🧊 Fridge 2 — Smart Sensors</div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; font-size:12px;">
+            <div><span style="color:var(--text-muted);">Fridge Temp:</span> <b style="color:#38bdf8;">${f2FridgeT  != null ? f2FridgeT  + '°C' : '--'}</b></div>
+            <div><span style="color:var(--text-muted);">Freezer Temp:</span> <b style="color:#38bdf8;">${f2FreezerT != null ? f2FreezerT + '°C' : '--'}</b></div>
+            <div><span style="color:var(--text-muted);">Env Temp:</span> <b style="color:#a1a1aa;">${f2EnvT != null ? f2EnvT + '°C' : '--'}</b></div>
+            <div><span style="color:var(--text-muted);">Target Level:</span> <b style="color:#a1a1aa;">${f2Target != null ? f2Target : '--'}</b></div>
+            <div style="grid-column:1/-1;"><span style="color:var(--text-muted);">Eco Mode:</span> <b style="color:${ecoOn ? '#4ade80' : '#a1a1aa'}">${ecoOn ? '💚 ON' : 'OFF'}</b></div>
+          </div>
+        </div>`;
+    } catch(e) {}
+    return grid2Html + dutyHtml + smartHtml;
+  }
+
   async function buildFridgeExtras() {
       const [grid1Html, grid2Html] = await Promise.all([
         buildGenericApplianceDailyGrid({
@@ -134,5 +207,7 @@
 
   // ── Attach shared symbols to FX ──
   FX.buildFridgeExtras = buildFridgeExtras;
+  FX.buildFridge1Extras = buildFridge1Extras;
+  FX.buildFridge2Extras = buildFridge2Extras;
   FX.buildAcExtras = buildAcExtras;
 })();

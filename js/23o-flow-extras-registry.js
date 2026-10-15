@@ -19,6 +19,8 @@
       grid:    { build: () => buildGridExtras() },
       battery: { build: () => buildBatteryExtras() },
       fridge:  { build: () => buildFridgeExtras() },
+      fridge1: { build: () => (typeof FX.buildFridge1Extras === 'function' ? FX.buildFridge1Extras() : FX.buildFridgeExtras()) },
+      fridge2: { build: () => (typeof FX.buildFridge2Extras === 'function' ? FX.buildFridge2Extras() : FX.buildFridgeExtras()) },
       k15:     { build: () => buildAcExtras('k15') },
       k1:      { build: () => buildAcExtras('k1') },
       haier:   { build: () => buildAcExtras('haier') },

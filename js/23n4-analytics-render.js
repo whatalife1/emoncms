@@ -583,6 +583,31 @@
         gctx.lineWidth = 2;
         gctx.stroke();
 
+        // Cumulative energy dashed line for power feeds
+        if (cfg.isPower && isDayMode && ptsData.length > 1) {
+          let cumWh = 0;
+          const cumArray = [];
+          ptsData.forEach(p => {
+            cumWh += (p[1] != null ? Math.max(0, p[1]) : 0) * (120 / 3600);
+            cumArray.push(cumWh / 1000);
+          });
+          const maxCum = Math.max(0.1, cumArray[cumArray.length - 1] * 1.15);
+          const mapCumY = (kwh) => PT + cH - (kwh / maxCum) * cH;
+
+          gctx.beginPath();
+          gctx.setLineDash([4, 4]);
+          gctx.strokeStyle = '#38bdf8';
+          gctx.lineWidth = 1.8;
+          cumArray.forEach((kwh, idx) => {
+            const x = mapX(idx);
+            const y = mapCumY(kwh);
+            if (idx === 0) gctx.moveTo(x, y);
+            else gctx.lineTo(x, y);
+          });
+          gctx.stroke();
+          gctx.setLineDash([]);
+        }
+
         gctx.restore();
 
         gctx.fillStyle = '#a1a1aa';
@@ -627,18 +652,64 @@
             ? Math.round(val).toLocaleString() + ' W'
             : val.toFixed(1) + ' ' + cfg.unit;
 
-          const line1 = timeStr;
-          const line2 = '● Value: ' + valStr;
+          const linesToDraw = [
+            { text: timeStr, color: 'var(--text-main, #f4f4f5)', font: 'bold 11px system-ui, -apple-system, sans-serif' },
+            { text: '● Value: ' + valStr, color: titleColor, font: 'bold 10px system-ui, -apple-system, sans-serif' }
+          ];
 
-          gctx.font = 'bold 10px system-ui, -apple-system, sans-serif';
-          const boxW = Math.max(gctx.measureText(line1).width,
-                                gctx.measureText(line2).width) + 16;
-          const boxH = 34;
+          // Cumulative line in tooltip
+          if (cfg.isPower && isDayMode) {
+            let cumulWh = 0;
+            for (let k = 0; k <= state.scrubIdx; k++) {
+              cumulWh += (ptsData[k] && ptsData[k][1] != null ? Math.max(0, ptsData[k][1]) : 0) * (120 / 3600);
+            }
+            const prefix = boxKey === 'fridge2' ? '● 🧊 Fridge 2 Cumul.: ' : `● ${cfg.title} Cumul.: `;
+            linesToDraw.push({
+              text: prefix + (cumulWh / 1000).toFixed(2) + ' kWh',
+              color: '#38bdf8',
+              font: 'bold 10px system-ui, -apple-system, sans-serif'
+            });
+          }
+
+          // Smart sensor telemetry for Fridge 2
+          if (boxKey === 'fridge2' && cache.smartFridge2) {
+            const sF2 = cache.smartFridge2;
+            const sIdx = Math.min(state.scrubIdx, (sF2.fridge ? sF2.fridge.length - 1 : state.scrubIdx));
+            const frVal  = (sF2.fridge  && sIdx >= 0 && sF2.fridge[sIdx]  != null) ? sF2.fridge[sIdx]  : FX.getFeedVal('Fridge2 Fridge Temp');
+            const fzVal  = (sF2.freezer && sIdx >= 0 && sF2.freezer[sIdx] != null) ? sF2.freezer[sIdx] : FX.getFeedVal('Fridge2 Freezer Temp');
+            const envVal = (sF2.env     && sIdx >= 0 && sF2.env[sIdx]     != null) ? sF2.env[sIdx]     : FX.getFeedVal('Fridge2 Env Temp');
+            const tgtVal = (sF2.target  && sIdx >= 0 && sF2.target[sIdx]  != null) ? sF2.target[sIdx]  : FX.getFeedVal('Fridge2 Target Temp');
+            const ecoVal = (sF2.eco     && sIdx >= 0 && sF2.eco[sIdx]     != null) ? sF2.eco[sIdx]     : FX.getFeedVal('Fridge2 Eco Mode');
+
+            const frStr  = frVal  != null ? `${Math.round(frVal)}°C`  : '--';
+            const fzStr  = fzVal  != null ? `${Math.round(fzVal)}°C`  : '--';
+            const envStr = envVal != null ? `${Math.round(envVal)}°C` : '--';
+            const tgtStr = tgtVal != null ? `L${Math.round(tgtVal)}` : '--';
+            const isEcoOn = (ecoVal == 1);
+            const ecoStr = isEcoOn ? '💚 Eco Mode ON' : '⚙ Eco Mode OFF';
+            const ecoClr = isEcoOn ? '#4ade80' : '#a1a1aa';
+
+            linesToDraw.push({ text: `🧊 ${frStr} / ❄ ${fzStr}`, color: '#38bdf8', font: 'bold 10.5px system-ui, -apple-system, sans-serif' });
+            linesToDraw.push({ text: `🌡 Env ${envStr} · Target ${tgtStr}`, color: '#a1a1aa', font: 'bold 10px system-ui, -apple-system, sans-serif' });
+            linesToDraw.push({ text: `${ecoStr}`, color: ecoClr, font: 'bold 10px system-ui, -apple-system, sans-serif' });
+          }
+
+          let maxTextW = 0;
+          linesToDraw.forEach(l => {
+            gctx.font = l.font || 'bold 10px system-ui, -apple-system, sans-serif';
+            const w = gctx.measureText(l.text).width;
+            if (w > maxTextW) maxTextW = w;
+          });
+
+          const boxW = maxTextW + 16;
+          const lineH = 14;
+          const boxH = linesToDraw.length * lineH + 10;
 
           let boxX = sx - boxW / 2;
           boxX = Math.max(PL + 4, Math.min(rect.width - PR - boxW - 4, boxX));
           let boxY = sy - boxH - 10;
           if (boxY < PT + 4) boxY = sy + 10;
+          if (boxY + boxH > rect.height - 4) boxY = rect.height - boxH - 4;
 
           gctx.fillStyle = 'rgba(20, 20, 22, 0.94)';
           gctx.strokeStyle = 'var(--border, #3f3f46)';
@@ -649,13 +720,13 @@
           gctx.fill();
           gctx.stroke();
 
-          gctx.fillStyle = 'var(--text-main, #f4f4f5)';
           gctx.textAlign = 'left';
           gctx.textBaseline = 'top';
-          gctx.fillText(line1, boxX + 8, boxY + 5);
-
-          gctx.fillStyle = titleColor;
-          gctx.fillText(line2, boxX + 8, boxY + 18);
+          linesToDraw.forEach((l, i) => {
+            gctx.font = l.font || 'bold 10px system-ui, -apple-system, sans-serif';
+            gctx.fillStyle = l.color || 'var(--text-main, #f4f4f5)';
+            gctx.fillText(l.text, boxX + 8, boxY + 5 + i * lineH);
+          });
           gctx.restore();
         }
       }

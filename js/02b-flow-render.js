@@ -290,7 +290,7 @@ function renderFlowDiagram(byName) {
     let actionLine = 'Standby';
     let actionColor = '#38bdf8';
 
-        if (isCharging) {
+    if (isCharging) {
       actionLine = `Charging: ${chgA.toFixed(1)}A`;
       actionColor = '#25f447';
     } else if (isDischarging) {
@@ -456,79 +456,108 @@ function renderFlowDiagram(byName) {
   drawApp('haier', 'Haier 1Ton'); drawApp('k15', 'Kenwood 1.5Ton'); drawApp('k1', 'Kenwood 1Ton'); drawApp('pc', 'PC'); drawApp('motor', 'Water Motor');
   drawApp('wm', 'Washing Machine');
   
-  const f1W = getV('Fridge'); const f2W = getV('Fridge2');
-  const f1T = getV('Fridge Today'); const f2T = getV('Fridge2 Today');
-  const fAct = (f1W + f2W) > 6;
-
+  // ── Fridge 1 ──
+  const f1W = getV('Fridge');
+  const f1T = getV('Fridge Today');
+  const f1Act = f1W > 6;
   const f1Status = getStatus('Fridge');
-  const f2Status = getStatus('Fridge2');
   const isFridge1Stale = f1Status && f1Status.type === 'stale';
-  const isFridge2Stale = f2Status && f2Status.type === 'stale';
   const isFridge1Zero = f1Status && f1Status.type === 'zeroW';
+
+  const oF1 = L.fridge1 || L.fridge;
+  if (oF1) {
+    let r1Class = f1Act ? 'pulse-animation' : '';
+    let r1Stroke = oF1.color;
+    let r1Fill = f1Act ? '#141416' : '#1a1a1c';
+
+    if (isFridge1Stale) {
+      r1Class = 'offline-anim';
+      r1Stroke = '#ef4444';
+      r1Fill = '#2a0a0a';
+    } else if (isFridge1Zero) {
+      r1Class = 'zeroW-anim';
+      r1Stroke = '#f59e0b';
+      r1Fill = '#1a1a1c';
+    }
+
+    svg += `<rect class="${r1Class}" style="--pulse-clr:${oF1.color}" x="${oF1.x}" y="${oF1.y}" width="${oF1.w}" height="${oF1.h}" rx="10" fill="${r1Fill}" stroke="${r1Stroke}" stroke-width="2"/>`;
+    const f1Time = byName.get('Fridge')?.time;
+    const f1TimeStr = f1Time ? new Date(f1Time * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--';
+
+    let badge1 = '';
+    if (isFridge1Stale) badge1 = ' <tspan fill="#ef4444" font-weight="900">⚠ OFF</tspan>';
+    else if (isFridge1Zero) badge1 = ' <tspan fill="#f59e0b" font-weight="900">⚠ Low (' + Math.round(f1W) + 'W)</tspan>';
+
+    svg += `<text x="${cx(oF1)}" y="${oF1.y+oF1.ly1}" ${tpProps} font-size="${oF1.fs}" fill="${f1W>6?oF1.c1:'#777'}" data-maxw="${oF1.w-12}">${oF1.label || 'Fridge 1'}${badge1}</text>`;
+    svg += `<text x="${cx(oF1)}" y="${oF1.y+oF1.ly2}" ${tpProps} font-size="${oF1.fs2}" fill="${f1W>6?oF1.c2:'#555'}">${pF(f1W)}</text>`;
+    if (oF1.ly5 || oF1.ly7) svg += `<text x="${cx(oF1)}" y="${oF1.y+(oF1.ly5 || oF1.ly7)}" ${tpProps} font-size="${oF1.fs5 || oF1.fs7 || 14}" fill="${oF1.c5 || oF1.c7 || '#a1a1aa'}">${f1TimeStr}</text>`;
+    const f1_t = (mU.f1_t != null) ? mU.f1_t : f1T;
+    const f1_m = (mU.f1 != null && mU.f1 > 0) ? mU.f1 : ((mU.f1_y || 0) + f1_t);
+    svg += `<text x="${cx(oF1)}" y="${oF1.y+oF1.ly3}" ${tpProps} font-size="${oF1.fs3}" fill="${oF1.c3}">T: ${f1_t.toFixed(2)} kWh M: ${f1_m.toFixed(1)} kWh</text>`;
+  }
+
+  // ── Fridge 2 ──
+  const f2W = getV('Fridge2');
+  const f2T = getV('Fridge2 Today');
+  const f2Act = f2W > 6;
+  const f2Status = getStatus('Fridge2');
+  const isFridge2Stale = f2Status && f2Status.type === 'stale';
   const isFridge2Zero = f2Status && f2Status.type === 'zeroW';
 
-  o = L.fridge;
-  let rectClass = '';
-  let rectStroke = o.color;
-  let rectFill = fAct ? '#141416' : '#1a1a1c';
+  const oF2 = L.fridge2;
+  if (oF2) {
+    let r2Class = f2Act ? 'pulse-animation' : '';
+    let r2Stroke = oF2.color;
+    let r2Fill = f2Act ? '#141416' : '#1a1a1c';
 
-  if (isFridge1Stale || isFridge2Stale) {
-    rectClass = 'offline-anim';
-    rectStroke = '#ef4444';
-    rectFill = '#2a0a0a';
-  } else if (isFridge1Zero || isFridge2Zero) {
-    rectClass = 'zeroW-anim';
-    rectStroke = '#f59e0b';
-    rectFill = '#1a1a1c';
-  }
+    if (isFridge2Stale) {
+      r2Class = 'offline-anim';
+      r2Stroke = '#ef4444';
+      r2Fill = '#2a0a0a';
+    } else if (isFridge2Zero) {
+      r2Class = 'zeroW-anim';
+      r2Stroke = '#f59e0b';
+      r2Fill = '#1a1a1c';
+    }
 
-  svg += `<rect class="${rectClass}" style="--pulse-clr:${o.color}" x="${o.x}" y="${o.y}" width="${o.w}" height="${o.h}" rx="10" fill="${rectFill}" stroke="${rectStroke}" stroke-width="2"/>`;
-  const f1Time = byName.get('Fridge')?.time;
-  const f1TimeStr = f1Time ? new Date(f1Time * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--';
-  const f2Time = byName.get('Fridge2')?.time;
-  const f2TimeStr = (f2Time && !isNaN(f2Time)) ? new Date(f2Time * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--';
+    svg += `<rect class="${r2Class}" style="--pulse-clr:${oF2.color}" x="${oF2.x}" y="${oF2.y}" width="${oF2.w}" height="${oF2.h}" rx="10" fill="${r2Fill}" stroke="${r2Stroke}" stroke-width="2"/>`;
+    const f2Time = byName.get('Fridge2')?.time;
+    const f2TimeStr = (f2Time && !isNaN(f2Time)) ? new Date(f2Time * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--';
 
-  let badge1 = '';
-  if (isFridge1Stale) badge1 = ' <tspan fill="#ef4444" font-weight="900">⚠ OFF</tspan>';
-  else if (isFridge1Zero) badge1 = ' <tspan fill="#f59e0b" font-weight="900">⚠ Low (' + Math.round(f1W) + 'W)</tspan>';
-  svg += `<text x="${cx(o)}" y="${o.y+o.ly1}" ${tpProps} font-size="${o.fs}" fill="${f1W>6?o.c1:'#777'}" data-maxw="${o.w-12}">Fridge 1${badge1}</text>`;
-  svg += `<text x="${cx(o)}" y="${o.y+o.ly2}" ${tpProps} font-size="${o.fs2}" fill="${f1W>6?o.c2:'#555'}">${pF(f1W)}</text>`;
-  if (o.ly7) svg += `<text x="${cx(o)}" y="${o.y+o.ly7}" ${tpProps} font-size="${o.fs7}" fill="${o.c7}">${f1TimeStr}</text>`;
-  const f1_t = (mU.f1_t != null) ? mU.f1_t : f1T;
-  const f1_m = (mU.f1 != null && mU.f1 > 0) ? mU.f1 : ((mU.f1_y || 0) + f1_t);
-  svg += `<text x="${cx(o)}" y="${o.y+o.ly3}" ${tpProps} font-size="${o.fs3}" fill="${o.c3}">T: ${f1_t.toFixed(2)} kWh M: ${f1_m.toFixed(1)} kWh</text>`;
+    let badge2 = '';
+    if (isFridge2Stale) badge2 = ' <tspan fill="#ef4444" font-weight="900">⚠ OFF</tspan>';
+    else if (isFridge2Zero) badge2 = ' <tspan fill="#f59e0b" font-weight="900">⚠ Low (' + Math.round(f2W) + 'W)</tspan>';
 
-  let badge2 = '';
-  if (isFridge2Stale) badge2 = ' <tspan fill="#ef4444" font-weight="900">⚠ OFF</tspan>';
-  else if (isFridge2Zero) badge2 = ' <tspan fill="#f59e0b" font-weight="900">⚠ Low (' + Math.round(f2W) + 'W)</tspan>';
-  svg += `<text x="${cx(o)}" y="${o.y+o.ly4}" ${tpProps} font-size="${o.fs4}" fill="${f2W>6?o.c4:'#777'}" data-maxw="${o.w-12}">Fridge 2${badge2}</text>`;
-  svg += `<text x="${cx(o)}" y="${o.y+o.ly5}" ${tpProps} font-size="${o.fs5}" fill="${f2W>6?o.c5:'#555'}">${pF(f2W)}</text>`;
-  if (o.ly8) svg += `<text x="${cx(o)}" y="${o.y+o.ly8}" ${tpProps} font-size="${o.fs8}" fill="${o.c8}">${f2TimeStr}</text>`;
-  const f2_t = (mU.f2_t != null) ? mU.f2_t : f2T;
-  const f2_m = (mU.f2 != null && mU.f2 > 0) ? mU.f2 : ((mU.f2_y || 0) + f2_t);
-  svg += `<text x="${cx(o)}" y="${o.y+o.ly6}" ${tpProps} font-size="${o.fs6}" fill="${o.c6}">T: ${f2_t.toFixed(2)} kWh M: ${f2_m.toFixed(1)} kWh</text>`;
+    svg += `<text x="${cx(oF2)}" y="${oF2.y+oF2.ly1}" ${tpProps} font-size="${oF2.fs}" fill="${f2W>6?oF2.c1:'#777'}" data-maxw="${oF2.w-12}">${oF2.label || 'Fridge 2'}${badge2}</text>`;
+    svg += `<text x="${cx(oF2)}" y="${oF2.y+oF2.ly2}" ${tpProps} font-size="${oF2.fs2}" fill="${f2W>6?oF2.c2:'#555'}">${pF(f2W)}</text>`;
 
-  // ── Fridge 2 smart sensors ──
-  if (o.ly9) {
-    const f2FridgeT  = getV('Fridge2 Fridge Temp');
-    const f2FreezerT = getV('Fridge2 Freezer Temp');
-    const frStr = f2FridgeT  != null ? `${Math.round(f2FridgeT)}°C`  : '--';
-    const fzStr = f2FreezerT != null ? `${Math.round(f2FreezerT)}°C` : '--';
-    svg += `<text x="${cx(o)}" y="${o.y+o.ly9}" ${tpProps} font-size="${o.fs9 || 22}" fill="#38bdf8" data-maxw="${o.w-8}">🧊 ${frStr} / ❄ ${fzStr}</text>`;
-  }
-  if (o.ly10) {
-    const f2EnvT   = getV('Fridge2 Env Temp');
-    const f2Target = getV('Fridge2 Target Temp');
-    const envStr = f2EnvT   != null ? `${Math.round(f2EnvT)}°C`  : '--';
-    const tgtStr = f2Target != null ? `L${Math.round(f2Target)}` : '--';
-    svg += `<text x="${cx(o)}" y="${o.y+o.ly10}" ${tpProps} font-size="${o.fs10 || 16}" fill="#a1a1aa" data-maxw="${o.w-8}">🌡 Env ${envStr} · Target ${tgtStr}</text>`;
-  }
-  if (o.ly11) {
-    const f2Eco  = getV('Fridge2 Eco Mode');
-    const ecoOn  = (f2Eco == 1);
-    const ecoStr = ecoOn ? '💚 Eco Mode ON' : '⚙ Eco Mode OFF';
-    const ecoClr = ecoOn ? '#4ade80' : '#a1a1aa';
-    svg += `<text x="${cx(o)}" y="${o.y+o.ly11}" ${tpProps} font-size="${o.fs11 || 15}" fill="${ecoClr}" data-maxw="${o.w-8}">${ecoStr}</text>`;
+    if (oF2.ly6) {
+      const f2FridgeT  = getV('Fridge2 Fridge Temp');
+      const f2FreezerT = getV('Fridge2 Freezer Temp');
+      const frStr = f2FridgeT  != null ? `${Math.round(f2FridgeT)}°C`  : '--';
+      const fzStr = f2FreezerT != null ? `${Math.round(f2FreezerT)}°C` : '--';
+      svg += `<text x="${cx(oF2)}" y="${oF2.y+oF2.ly6}" ${tpProps} font-size="${oF2.fs6 || 19}" fill="${oF2.c6 || '#38bdf8'}" data-maxw="${oF2.w-8}">🧊 ${frStr} / ❄ ${fzStr}</text>`;
+    }
+    if (oF2.ly7) {
+      const f2EnvT   = getV('Fridge2 Env Temp');
+      const f2Target = getV('Fridge2 Target Temp');
+      const envStr = f2EnvT   != null ? `${Math.round(f2EnvT)}°C`  : '--';
+      const tgtStr = f2Target != null ? `L${Math.round(f2Target)}` : '--';
+      svg += `<text x="${cx(oF2)}" y="${oF2.y+oF2.ly7}" ${tpProps} font-size="${oF2.fs7 || 15}" fill="${oF2.c7 || '#a1a1aa'}" data-maxw="${oF2.w-8}">🌡 Env ${envStr} · Target ${tgtStr}</text>`;
+    }
+    if (oF2.ly8) {
+      const f2Eco  = getV('Fridge2 Eco Mode');
+      const ecoOn  = (f2Eco == 1);
+      const ecoStr = ecoOn ? '💚 Eco Mode ON' : '⚙ Eco Mode OFF';
+      const ecoClr = ecoOn ? '#4ade80' : '#a1a1aa';
+      svg += `<text x="${cx(oF2)}" y="${oF2.y+oF2.ly8}" ${tpProps} font-size="${oF2.fs8 || 15}" fill="${oF2.c8 || ecoClr}" data-maxw="${oF2.w-8}">${ecoStr}</text>`;
+    }
+    if (oF2.ly5) {
+      svg += `<text x="${cx(oF2)}" y="${oF2.y+oF2.ly5}" ${tpProps} font-size="${oF2.fs5 || 14}" fill="${oF2.c5 || '#a1a1aa'}">${f2TimeStr}</text>`;
+    }
+    const f2_t = (mU.f2_t != null) ? mU.f2_t : f2T;
+    const f2_m = (mU.f2 != null && mU.f2 > 0) ? mU.f2 : ((mU.f2_y || 0) + f2_t);
+    svg += `<text x="${cx(oF2)}" y="${oF2.y+oF2.ly3}" ${tpProps} font-size="${oF2.fs3}" fill="${oF2.c3}">T: ${f2_t.toFixed(2)} kWh M: ${f2_m.toFixed(1)} kWh</text>`;
   }
 
   // 5. TEMP

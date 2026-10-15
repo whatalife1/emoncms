@@ -2,7 +2,7 @@
 // ─── Stats rendering for graph feeds ────────────────────────────────────────
 
 function _renderFeedStats(stat, ctx) {
-  const { bars1, bars2, pts1, pts2, nav, lastIdx, multiData, isGridAll, isCombined, fA, color1, color2, unit, isTemp, graphFeedKey: gfk, monthAcBreakdown } = ctx;
+  const { bars1, bars2, pts1, pts2, nav, lastIdx, multiData, isGridAll, isCombined, fA, color1, color2, unit, isTemp, graphFeedKey: gfk, monthAcBreakdown, smartHaier, smartFridge2 } = ctx;
   const isAvgF = isTemp || gfk === 'water' || gfk === 'acvolts';
 
   // ── Exact Breakdown Calculator for Day View (Normalized 120s Resolution) ──
@@ -437,6 +437,56 @@ function _renderFeedStats(stat, ctx) {
       stat.innerHTML = _formatStatLine('', (fA?.statLabel || fA?.label || gfk), t1, color1, pk, av, dAv, dTt, nAv, nTt, unit, true, graphTab);
     } else {
       stat.innerHTML = _formatStatLine('', (fA?.statLabel || fA?.label || gfk), t1, color1, pk, av, dAv, dTt, nAv, nTt, unit, !isAvgF, graphTab);
+    }
+
+    if (gfk === 'haier' && smartHaier) {
+      const lastI = Math.min(lastIdx - 1, (smartHaier.target ? smartHaier.target.length - 1 : 0));
+      const tgtVal = (smartHaier.target && lastI >= 0) ? smartHaier.target[lastI] : null;
+      const curVal = (smartHaier.current && lastI >= 0) ? smartHaier.current[lastI] : null;
+      const pwrVal = (smartHaier.power && lastI >= 0) ? smartHaier.power[lastI] : null;
+      const modVal = (smartHaier.mode && lastI >= 0) ? smartHaier.mode[lastI] : null;
+      const fanVal = (smartHaier.fan && lastI >= 0) ? smartHaier.fan[lastI] : null;
+
+      const setStr = tgtVal != null ? `${Math.round(tgtVal)}°C` : '--';
+      const nowStr = curVal != null ? `${Math.round(curVal)}°C` : '--';
+      const isPwrOn = (pwrVal == 1);
+      const pwrStr = isPwrOn ? 'ON' : 'OFF';
+      const pwrClr = isPwrOn ? '#4ade80' : '#a1a1aa';
+      const modeStr = modVal != null ? `${Math.round(modVal)}` : '--';
+      const fanStr = fanVal != null ? `${Math.round(fanVal)}` : '--';
+
+      stat.innerHTML += `
+        <div style="margin-top:4px; font-size:11.5px; font-weight:700; color:var(--text-muted); display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+          <span style="color:#a5f3fc; font-weight:800;">❄ Set ${setStr} → ${nowStr}</span>
+          <span style="color:var(--border);">·</span>
+          <span><b style="color:${pwrClr}; font-weight:800;">${pwrStr}</b> · Mode ${modeStr} · Fan ${fanStr}</span>
+        </div>
+      `;
+    } else if (gfk === 'fridge2' && smartFridge2) {
+      const lastI = Math.min(lastIdx - 1, (smartFridge2.fridge ? smartFridge2.fridge.length - 1 : 0));
+      const frVal = (smartFridge2.fridge && lastI >= 0) ? smartFridge2.fridge[lastI] : null;
+      const fzVal = (smartFridge2.freezer && lastI >= 0) ? smartFridge2.freezer[lastI] : null;
+      const envVal = (smartFridge2.env && lastI >= 0) ? smartFridge2.env[lastI] : null;
+      const tgtVal = (smartFridge2.target && lastI >= 0) ? smartFridge2.target[lastI] : null;
+      const ecoVal = (smartFridge2.eco && lastI >= 0) ? smartFridge2.eco[lastI] : null;
+
+      const frStr = frVal != null ? `${Math.round(frVal)}°C` : '--';
+      const fzStr = fzVal != null ? `${Math.round(fzVal)}°C` : '--';
+      const envStr = envVal != null ? `${Math.round(envVal)}°C` : '--';
+      const tgtStr = tgtVal != null ? `L${Math.round(tgtVal)}` : '--';
+      const isEcoOn = (ecoVal == 1);
+      const ecoStr = isEcoOn ? '💚 Eco Mode ON' : '⚙ Eco Mode OFF';
+      const ecoClr = isEcoOn ? '#4ade80' : '#a1a1aa';
+
+      stat.innerHTML += `
+        <div style="margin-top:4px; font-size:11.5px; font-weight:700; color:var(--text-muted); display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+          <span style="color:#38bdf8; font-weight:800;">🧊 ${frStr} / ❄ ${fzStr}</span>
+          <span style="color:var(--border);">·</span>
+          <span>🌡 Env ${envStr} · Target ${tgtStr}</span>
+          <span style="color:var(--border);">·</span>
+          <span style="color:${ecoClr}; font-weight:800;">${ecoStr}</span>
+        </div>
+      `;
     }
   }
 }

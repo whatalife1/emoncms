@@ -4,12 +4,12 @@
 
 // js/02-flow.js
 // ── CANVAS HEIGHT CONFIG ─────────────────────────────────────────────
-const FLOW_CANVAS_HEIGHT = 1140;
+const FLOW_CANVAS_HEIGHT = 1006;
 
 try {
   window.FLOW_CANVAS_HEIGHT = FLOW_CANVAS_HEIGHT;
   const savedH = parseInt(localStorage.getItem('editor_preset_height'), 10);
-  if (savedH > 1100) localStorage.removeItem('editor_preset_height');
+  if (savedH > 1006) localStorage.removeItem('editor_preset_height');
 } catch (e) {}
 
 function _resolveFlowHeight(autoH) {
@@ -24,7 +24,7 @@ function _resolveFlowHeight(autoH) {
 }
 const LAYOUT = {
  weather: { x:5, y:2, w:708, h:42, color:'#0ea5e9', label:'Weather', ly1:20, fs:22, c1:'#ffffff',  },
- solar: { x:12, y:52, w:307, h:414, color:'#f59e0b', label:'Solar', ly1:39, fs:46, c1:'#ffff00', ly2:106, fs2:45, c2:'#2c8758', ly3:212, fs3:27, c3:'#b4b635', ly4:267, fs4:20, c4:'#21c442', ly5:368, fs5:22, c5:'#3de31c', ly6:397, fs6:20, c6:'#38bdf8', ly7:168, fs7:22, c7:'#a1a1aa', ly8:305, fs8:21, c8:'#21c442', ly12:NaN,  },
+ solar: { x:12, y:52, w:307, h:414, color:'#f59e0b', label:'Solar', ly1:39, fs:46, c1:'#ffff00', ly2:106, fs2:45, c2:'#2c8758', ly3:212, fs3:27, c3:'#b4b635', ly4:267, fs4:20, c4:'#21c442', ly5:368, fs5:22, c5:'#3de31c', ly6:397, fs6:20, c6:'#38bdf8', ly7:168, fs7:22, c7:'#a1a1aa', ly8:305, fs8:21, c8:'#21c442',  },
  grid: { x:311, y:53, w:162, h:415, color:'#ef4444', label:'Grid', ly1:25, fs:28, c1:'#ef4444', ly2:67, fs2:44, c2:'#ef4444', ly3:114, fs3:18, c3:'#a1a1aa', ly4:161, fs4:27, c4:'#35c0b7', ly5:195, fs5:22, c5:'#35c0b7', ly6:249, fs6:18, c6:'#a1a1aa', ly7:293, fs7:21, c7:'#3de3e4', ly8:318, fs8:19, c8:'#3de3e4', ly9:370, fs9:20, c9:'#38bdf8', ly10:393, fs10:19, c10:'#38bdf8', ly11:340, fs11:20, c11:'#3de3e4',  },
  battery: { x:471, y:50, w:257, h:417, color:'#10b981', label:'Battery', ly1:17, fs:34, c1:'#10b981', ly2:64, fs2:53, c2:'#25f447', ly3:175, fs3:24, c3:'#facc15', ly4:105, fs4:29, c4:'#35c0b7', ly5:278, fs5:20, c5:'#38bdf8', ly6:204, fs6:24, c6:'#4ade80', ly7:139, fs7:18, c7:'#a1a1aa', ly8:319, fs8:23, c8:'#10b981', ly9:348, fs9:21, c9:'#10b981', ly10:373, fs10:22, c10:'#10b981', ly11:398, fs11:22, c11:'#10b981', ly12:282, fs12:20, c12:'#facc15', ly13:246, fs13:18, c13:'#facc15',  },
  haier: { x:5, y:469, w:186, h:214, color:'#38bdf8', label:'Haier 1T', ly1:17, fs:28, c1:'#38bdf8', ly2:55, fs2:55, c2:'#25f447', ly3:198, fs3:21, c3:'#00c8f0', ly4:172, fs4:19, c4:'#518e35', ly5:93, fs5:17, c5:'#a1a1aa', ly6:118, fs6:19, c6:'#a5f3fc', ly7:144, fs7:16, c7:'#4ade80',  },

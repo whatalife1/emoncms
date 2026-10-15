@@ -18,6 +18,8 @@
     k1:      { title: 'Kenwood 1T',      color: '#7dd3fc', graphs: ['k1'] },
     pc:      { title: 'PC',              color: '#4ade80', graphs: ['pc'] },
     fridge:  { title: 'Fridges',         color: '#c084fc', graphs: ['fridge1', 'fridge2'] },
+    fridge1: { title: 'Fridge 1',        color: '#38bdf8', graphs: ['fridge1'] },
+    fridge2: { title: 'Fridge 2',        color: '#c084fc', graphs: ['fridge2'] },
     water:   { title: 'Water Tank',      color: '#0ea5e9', graphs: ['water'] },
     motor:   { title: 'Water Motor',     color: '#fbbf24', graphs: ['motor'] },
     wm:      { title: 'Washing Machine', color: '#e879f9', graphs: ['wm'] },

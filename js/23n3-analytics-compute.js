@@ -362,13 +362,44 @@
       statLine2 = '<span style="color:var(--text-muted);">Period: ' + periodLabel + '</span>';
     }
 
+    let smartStripHtml = '';
+    const smartFridge2 = cache.smartFridge2;
+    if (boxKey === 'fridge2') {
+      const sF2 = smartFridge2 || {};
+      const lastI = (sF2.fridge && sF2.fridge.length) ? sF2.fridge.length - 1 : -1;
+      const frVal  = (lastI >= 0 && sF2.fridge  && sF2.fridge[lastI]  != null) ? sF2.fridge[lastI]  : FX.getFeedVal('Fridge2 Fridge Temp');
+      const fzVal  = (lastI >= 0 && sF2.freezer && sF2.freezer[lastI] != null) ? sF2.freezer[lastI] : FX.getFeedVal('Fridge2 Freezer Temp');
+      const envVal = (lastI >= 0 && sF2.env     && sF2.env[lastI]     != null) ? sF2.env[lastI]     : FX.getFeedVal('Fridge2 Env Temp');
+      const tgtVal = (lastI >= 0 && sF2.target  && sF2.target[lastI]  != null) ? sF2.target[lastI]  : FX.getFeedVal('Fridge2 Target Temp');
+      const ecoVal = (lastI >= 0 && sF2.eco     && sF2.eco[lastI]     != null) ? sF2.eco[lastI]     : FX.getFeedVal('Fridge2 Eco Mode');
+
+      const frStr  = frVal  != null ? `${Math.round(frVal)}°C`  : '--';
+      const fzStr  = fzVal  != null ? `${Math.round(fzVal)}°C`  : '--';
+      const envStr = envVal != null ? `${Math.round(envVal)}°C` : '--';
+      const tgtStr = tgtVal != null ? `L${Math.round(tgtVal)}` : '--';
+      const isEcoOn = (ecoVal == 1);
+      const ecoStr = isEcoOn ? '💚 Eco Mode ON' : '⚙ Eco Mode OFF';
+      const ecoClr = isEcoOn ? '#4ade80' : '#a1a1aa';
+
+      smartStripHtml = `
+        <div style="margin-top:4px; font-size:11.5px; font-weight:700; color:var(--text-muted); display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+          <span style="color:#38bdf8; font-weight:800;">🧊 ${frStr} / ❄ ${fzStr}</span>
+          <span style="color:var(--border);">·</span>
+          <span>🌡 Env ${envStr} · Target ${tgtStr}</span>
+          <span style="color:var(--border);">·</span>
+          <span style="color:${ecoClr}; font-weight:800;">${ecoStr}</span>
+        </div>
+      `;
+    }
+
     dom.statsStrip.innerHTML =
       '<div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:4px; margin-bottom:3px;">' +
         statLine1 +
       '</div>' +
       '<div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px;">' +
         statLine2 +
-      '</div>';
+      '</div>' +
+      smartStripHtml;
 
     FXA.buildReportContent(ctx, {
       periodLabel, totalKwh, dayKwh, nightKwh, rate,

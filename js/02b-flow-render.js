@@ -223,15 +223,7 @@ function renderFlowDiagram(byName) {
 
     const effGrid = (useGrid && b > 25 && !gridOff) ? b : 0;
     const netSurplus = (s + effGrid) - l;
-    let estBatW = 0;
-
-    if (netSurplus >= 50) {
-      estBatW = Math.round(netSurplus - 50);
-    } else if (netSurplus > 0) {
-      estBatW = 0;
-    } else {
-      estBatW = Math.round(netSurplus - 50);
-    }
+    let estBatW = Math.round(netSurplus);
 
     const estSign = estBatW > 0 ? `+${estBatW}` : `${estBatW}`;
     const estColor = estBatW > 0 ? '#4ade80' : (estBatW < 0 ? '#f59e0b' : '#a1a1aa');

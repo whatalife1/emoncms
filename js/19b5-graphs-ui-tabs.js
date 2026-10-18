@@ -1,6 +1,12 @@
 
 // ─── Battery 2: 16-Cell Mode & Pill Toggles ─────────────────────────────────
 function _renderBattery2CellToggles() {
+  // Defensive: these globals are declared in 19c1-graphs-state.js,
+  // which loads AFTER this file. Ensure sane defaults so we don't
+  // depend on script load order.
+  if (window.graphBat2CellMode === undefined)        window.graphBat2CellMode = 'band';
+  if (window.graphBat2SoloCell === undefined)        window.graphBat2SoloCell = null;
+  if (window.graphBat2ShowSpreadOverlay === undefined) window.graphBat2ShowSpreadOverlay = false;
   const existing = document.getElementById('bat2cells-toggles');
   if (existing) existing.remove();
   if (graphFeedKey !== 'bat2cells' && graphFeedKey !== 'batcells') return;
@@ -80,6 +86,9 @@ window._renderBattery2CellToggles = _renderBattery2CellToggles;
 
 // ─── Moment Flow Toggle Pills ───────────────────────────────────────────────
 function _renderMomentFlowToggles() {
+  // Defensive: momentFlowDisabled is declared in 19c1-graphs-state.js,
+  // which loads AFTER this file. Ensure it exists.
+  if (!(window.momentFlowDisabled instanceof Set)) window.momentFlowDisabled = new Set();
   const existing = document.getElementById('momentflow-toggles');
   if (existing) existing.remove();
   if (graphFeedKey !== 'momentflow') return;

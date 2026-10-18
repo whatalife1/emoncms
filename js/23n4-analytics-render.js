@@ -360,7 +360,7 @@
         if (boxY < PT + 4) boxY = sy + 10;
 
         gctx.fillStyle = 'rgba(20, 20, 22, 0.94)';
-        gctx.strokeStyle = 'var(--border, #3f3f46)';
+        gctx.strokeStyle = '#3f3f46';
         gctx.lineWidth = 1;
         gctx.beginPath();
         if (typeof gctx.roundRect === 'function') gctx.roundRect(boxX, boxY, boxW, boxH, 6);
@@ -368,7 +368,7 @@
         gctx.fill();
         gctx.stroke();
 
-        gctx.fillStyle = 'var(--text-main, #f4f4f5)';
+        gctx.fillStyle = '#f4f4f5';
         gctx.textAlign = 'left';
         gctx.textBaseline = 'top';
         gctx.fillText(line1, boxX + 8, boxY + 5);
@@ -514,7 +514,7 @@
           if (boxY < PT + 4) boxY = topY + 10;
 
           gctx.fillStyle = 'rgba(20, 20, 22, 0.94)';
-          gctx.strokeStyle = 'var(--border, #3f3f46)';
+          gctx.strokeStyle = '#3f3f46';
           gctx.lineWidth = 1;
           gctx.beginPath();
           if (typeof gctx.roundRect === 'function') gctx.roundRect(boxX, boxY, boxW, boxH, 6);
@@ -522,7 +522,7 @@
           gctx.fill();
           gctx.stroke();
 
-          gctx.fillStyle = 'var(--text-main, #f4f4f5)';
+          gctx.fillStyle = '#f4f4f5';
           gctx.textAlign = 'left';
           gctx.textBaseline = 'top';
           gctx.fillText(line1, boxX + 8, boxY + 5);
@@ -662,7 +662,7 @@
             : val.toFixed(1) + ' ' + cfg.unit;
 
           const linesToDraw = [
-            { text: timeStr, color: 'var(--text-main, #f4f4f5)', font: 'bold 11px system-ui, -apple-system, sans-serif' },
+            { text: timeStr, color: '#f4f4f5', font: 'bold 11px system-ui, -apple-system, sans-serif' },
             { text: '● Value: ' + valStr, color: titleColor, font: 'bold 10px system-ui, -apple-system, sans-serif' }
           ];
 
@@ -703,6 +703,28 @@
             linesToDraw.push({ text: `${ecoStr}`, color: ecoClr, font: 'bold 10px system-ui, -apple-system, sans-serif' });
           }
 
+          // Smart sensor telemetry for Haier 1T
+          if (boxKey === 'haier' && cache.smartHaier) {
+            const sH = cache.smartHaier;
+            const sIdx = Math.min(state.scrubIdx, (sH.target ? sH.target.length - 1 : state.scrubIdx));
+            const hPwr    = (sH.power   && sIdx >= 0 && sH.power[sIdx]   != null) ? sH.power[sIdx]   : FX.getFeedVal('Haier Power');
+            const hTarget = (sH.target  && sIdx >= 0 && sH.target[sIdx]  != null) ? sH.target[sIdx]  : FX.getFeedVal('Haier Target Temp');
+            const hCurr   = (sH.current && sIdx >= 0 && sH.current[sIdx] != null) ? sH.current[sIdx] : FX.getFeedVal('Haier Current Temp');
+            const hMode   = (sH.mode    && sIdx >= 0 && sH.mode[sIdx]    != null) ? sH.mode[sIdx]    : FX.getFeedVal('Haier Mode');
+            const hFan    = (sH.fan     && sIdx >= 0 && sH.fan[sIdx]     != null) ? sH.fan[sIdx]     : FX.getFeedVal('Haier Fan Speed');
+
+            const isPwrOn = (hPwr == 1);
+            const pwrStr  = isPwrOn ? 'ON' : 'OFF';
+            const pwrClr  = isPwrOn ? '#4ade80' : '#a1a1aa';
+            const tgtStr  = hTarget != null ? `${Math.round(hTarget)}°C` : '--';
+            const curStr  = hCurr   != null ? `${Math.round(hCurr)}°C`   : '--';
+            const modeStr = hMode   != null ? `${Math.round(hMode)}`     : '--';
+            const fanStr  = hFan    != null ? `${Math.round(hFan)}`      : '--';
+
+            linesToDraw.push({ text: `❄ Set ${tgtStr} → ${curStr}`, color: '#a5f3fc', font: 'bold 10.5px system-ui, -apple-system, sans-serif' });
+            linesToDraw.push({ text: `${pwrStr} · Mode ${modeStr} · Fan ${fanStr}`, color: pwrClr, font: 'bold 10px system-ui, -apple-system, sans-serif' });
+          }
+
           let maxTextW = 0;
           linesToDraw.forEach(l => {
             gctx.font = l.font || 'bold 10px system-ui, -apple-system, sans-serif';
@@ -721,7 +743,7 @@
           if (boxY + boxH > rect.height - 4) boxY = rect.height - boxH - 4;
 
           gctx.fillStyle = 'rgba(20, 20, 22, 0.94)';
-          gctx.strokeStyle = 'var(--border, #3f3f46)';
+          gctx.strokeStyle = '#3f3f46';
           gctx.lineWidth = 1;
           gctx.beginPath();
           if (typeof gctx.roundRect === 'function') gctx.roundRect(boxX, boxY, boxW, boxH, 6);
@@ -853,7 +875,7 @@
         if (boxY < PT + 4) boxY = sy + 10;
 
         gctx.fillStyle = 'rgba(20, 20, 22, 0.94)';
-        gctx.strokeStyle = 'var(--border, #3f3f46)';
+        gctx.strokeStyle = '#3f3f46';
         gctx.lineWidth = 1;
         gctx.beginPath();
         if (typeof gctx.roundRect === 'function') gctx.roundRect(boxX, boxY, boxW, boxH, 6);
@@ -861,7 +883,7 @@
         gctx.fill();
         gctx.stroke();
 
-        gctx.fillStyle = 'var(--text-main, #f4f4f5)';
+        gctx.fillStyle = '#f4f4f5';
         gctx.textAlign = 'left';
         gctx.textBaseline = 'top';
         gctx.fillText(line1, boxX + 8, boxY + 5);

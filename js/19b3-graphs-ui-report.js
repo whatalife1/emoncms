@@ -178,10 +178,31 @@ window.generateGraphReport = async function(forceRefresh = false, customNav = nu
 	const batSavedDayKwh = batDisDayWh / 1000;
 	const batSavedNightKwh = batDisNightWh / 1000;
 
-	// Net load (grid import requirement)
-	const netLoadTotalKwh = Math.max(0, totalLoadKwh - batSavedTotalKwh);
-	const netLoadDayKwh = Math.max(0, totalDayLoadKwh - batSavedDayKwh);
-	const netLoadNightKwh = Math.max(0, totalNightLoadKwh - batSavedNightKwh);
+	// Battery charge (energy that LEFT the load side to top up the
+	// battery — it must be added back, otherwise we double-count the
+	// solar that was diverted into storage).
+	const batChargedTotalKwh = batChgTotalWh / 1000;
+	const batChargedDayKwh   = batChgDayWh / 1000;
+	const batChargedNightKwh = batChgNightWh / 1000;
+
+	// Solar generated (all hours)
+	const _solarRowNet = rows.find(r => r.isSolar);
+	const solarGenTotalKwh = _solarRowNet ? _solarRowNet.totalKwh : 0;
+	const solarGenDayKwh   = _solarRowNet ? _solarRowNet.dayKwh   : 0;
+	const solarGenNightKwh = _solarRowNet ? _solarRowNet.nightKwh : 0;
+
+	// Net grid import = what the load side actually had to draw from
+	// the grid, balancing energy conservation:
+	//   Load = Solar + Grid + BatDischarged - BatCharged
+	//   => Grid = Load - Solar + BatCharged - BatDischarged
+	// (Previously only subtracted BatDischarged, which over-stated
+	// grid import by roughly the amount of solar-to-battery charging.)
+	const netLoadTotalKwh = Math.max(0,
+		totalLoadKwh - solarGenTotalKwh + batChargedTotalKwh - batSavedTotalKwh);
+	const netLoadDayKwh = Math.max(0,
+		totalDayLoadKwh - solarGenDayKwh + batChargedDayKwh - batSavedDayKwh);
+	const netLoadNightKwh = Math.max(0,
+		totalNightLoadKwh - solarGenNightKwh + batChargedNightKwh - batSavedNightKwh);
 	// Text report
 	let txt = `📄 Energy Usage Report: ${label}\n`;
 	txt += `Generated: ${new Date().toLocaleString()}\n`;
@@ -258,7 +279,7 @@ window.generateGraphReport = async function(forceRefresh = false, customNav = nu
 	txt += 'TOTAL LOAD (Actual)'.padEnd(colWidths.name) + ' ' + totalLoadKwh.toFixed(2).padStart(colWidths.total) + ' ' + totalDayLoadKwh.toFixed(2).padStart(colWidths.day) + ' ' + totalNightLoadKwh.toFixed(2).padStart(colWidths.night) + '\n';
 	txt += '☀️ SAVED BY SOLAR'.padEnd(colWidths.name) + ' ' + `-${solKwhTxt.toFixed(2)}`.padStart(colWidths.total) + ' ' + `-${solKwhTxt.toFixed(2)}`.padStart(colWidths.day) + ' ' + '0.00'.padStart(colWidths.night) + '\n';
 	txt += '🔋 SAVED BY BATTERY'.padEnd(colWidths.name) + ' ' + `-${batSavedTotalKwh.toFixed(2)}`.padStart(colWidths.total) + ' ' + `-${batSavedDayKwh.toFixed(2)}`.padStart(colWidths.day) + ' ' + `-${batSavedNightKwh.toFixed(2)}`.padStart(colWidths.night) + '\n';
-	txt += '⚡ NET GRID LOAD'.padEnd(colWidths.name) + ' ' + netLoadTotalKwh.toFixed(2).padStart(colWidths.total) + ' ' + netLoadDayKwh.toFixed(2).padStart(colWidths.day) + ' ' + netLoadNightKwh.toFixed(2).padStart(colWidths.night) + '\n';
+	txt += '⚡ NET GRID IMPORT'.padEnd(colWidths.name) + ' ' + netLoadTotalKwh.toFixed(2).padStart(colWidths.total) + ' ' + netLoadDayKwh.toFixed(2).padStart(colWidths.day) + ' ' + netLoadNightKwh.toFixed(2).padStart(colWidths.night) + '\n';
 	// HTML report
 	let html = `<div class="report-wrapper" style="background:#fff;color:#18181b;border:1px solid #d4d4d8;border-radius:10px;padding:12px;margin-top:10px;font-family:system-ui,sans-serif;box-sizing:border-box;width:100%;max-width:100%;">`;
 	html += `<h4 style="margin:0 0 8px 0;font-size:14px;border-bottom:1px solid #d4d4d8;padding-bottom:4px;color:#18181b;">Consumption Breakdown</h4>`;
@@ -386,12 +407,12 @@ window.generateGraphReport = async function(forceRefresh = false, customNav = nu
 
 	// 3. Net Grid Load Row
 	html += `<tr style="background:#fef2f2;font-weight:bold;color:#ef4444;">`;
-	html += `<td style="border:1px solid #d4d4d8;padding:6px;">⚡ NET GRID LOAD</td>`;
+	html += `<td style="border:1px solid #d4d4d8;padding:6px;">⚡ NET GRID IMPORT</td>`;
 	html += `<td style="border:1px solid #d4d4d8;padding:6px;text-align:right;color:#ef4444;">${netLoadTotalKwh.toFixed(2)}</td>`;
 	html += `<td style="border:1px solid #d4d4d8;padding:6px;text-align:right;color:#ef4444;">${netLoadDayKwh.toFixed(2)}</td>`;
 	html += `<td style="border:1px solid #c4b5fd;padding:6px;text-align:right;background:#fee2e2;color:#b91c1c;font-weight:900;">${netLoadNightKwh.toFixed(2)}</td>`;
 	html += `<td style="border:1px solid #d4d4d8;padding:6px;text-align:right;color:#b91c1c;">${(netLoadNightKwh/numDays).toFixed(2)}</td>`;
-	html += `<td style="border:1px solid #d4d4d8;padding:6px;text-align:right;" colspan="7">Required from Grid Breaker</td>`;
+	html += `<td style="border:1px solid #d4d4d8;padding:6px;text-align:right;" colspan="7">Imported from Grid (measured by Breaker feed)</td>`;
 	html += `</tr>`;
 
 	html += `</table></div></div>`;

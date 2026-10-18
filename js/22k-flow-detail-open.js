@@ -46,7 +46,6 @@
 
     // Universal Analytics & Report Engine for ALL popups!
     if (typeof window.renderBoxDetailAnalyticsSection === 'function') {
-      chartsEl.innerHTML = '';
       chartsEl.style.display = '';
       window.renderBoxDetailAnalyticsSection(chartsEl, boxKey);
 

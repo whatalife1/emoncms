@@ -313,7 +313,9 @@ function renderResults(results) {
       const netW = wattFeed?.value != null ? Math.round(wattFeed.value) : Math.round(batV * netA);
 
       const socVal = soc?.value != null ? Math.round(soc.value) : '--';
-      const socColor = (socVal > 50) ? '#4ade80' : (socVal > 20 ? '#facc15' : '#ef4444');
+      const socColor = (typeof socVal !== 'number' || isNaN(socVal))
+        ? 'var(--text-muted)'
+        : ((socVal > 50) ? '#4ade80' : (socVal > 20 ? '#facc15' : '#ef4444'));
 
       let stText = 'Standby';
       if (isCharging) stText = `Charging (${chgA.toFixed(1)}A)`;

@@ -118,16 +118,6 @@ async function fetchInverterPriorityDirect(force = false) {
 }
 window.fetchInverterPriorityDirect = fetchInverterPriorityDirect;
 
-window.lastInverterPriority = null;
-function getInverterPriorityMode(val) {
-  if (val == null || val === '') return null;
-  const num = Math.round(parseFloat(val));
-  if (num === 1) return 'SUB';
-  if (num === 2) return 'SBU';
-  return null;
-}
-window.getInverterPriorityMode = getInverterPriorityMode;
-
 // ── Battery Cutoff Settings ──────────────────────────────────────────
 // Change this value anytime; flow diagram and cards will update dynamically:
 const BATTERY_HEAVY_LOAD_CUTOFF_SOC = 20; // Inverter turns off heavy loads (ACs/motor) at this SOC %

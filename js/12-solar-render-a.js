@@ -47,7 +47,8 @@ function _renderHourlyBars(hourly, container, actualWatts) {
   }).join('');
 
   requestAnimationFrame(() => {
-    container.querySelectorAll('.sol-h-bar:not(.zero)').forEach((bar, i) => {
+    container.querySelectorAll('.sol-h-bar').forEach((bar, i) => {
+      if (bar.classList.contains('zero')) return;
       const hw = hourly[i];
       if (!hw) return;
       const finalPct = (hw.watt / maxW * 100).toFixed(1) + '%';

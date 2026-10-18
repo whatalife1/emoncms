@@ -154,18 +154,30 @@
       redraw();
     }, { passive: false });
     let mDown = false, sx = 0, sp = 0;
-    canvas.addEventListener('mousedown', function (e) {
+    // Pointer-events + setPointerCapture keep listeners scoped to
+    // the canvas. Avoids leaking window mousemove/mouseup handlers
+    // every time the popup is opened with a fresh chart canvas.
+    canvas.addEventListener('pointerdown', function (e) {
+      if (e.button !== undefined && e.button !== 0) return;
       mDown = true; sx = e.clientX; sp = seg.panX;
-      canvas.classList.add('grabbing'); e.preventDefault();
+      canvas.classList.add('grabbing');
+      try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
+      e.preventDefault();
     });
-    window.addEventListener('mousemove', function (e) {
+    canvas.addEventListener('pointermove', function (e) {
       if (!mDown) return;
       seg.panX = sp + (e.clientX - sx);
       redraw();
     });
-    window.addEventListener('mouseup', function () {
+    canvas.addEventListener('pointerup', function (e) {
       if (!mDown) return;
-      mDown = false; canvas.classList.remove('grabbing');
+      mDown = false;
+      canvas.classList.remove('grabbing');
+      try { canvas.releasePointerCapture(e.pointerId); } catch (err) {}
+    });
+    canvas.addEventListener('pointercancel', function () {
+      mDown = false;
+      canvas.classList.remove('grabbing');
     });
     let tMode = null, tX0 = 0, tPan0 = 0;
     let tDist0 = 0, tZoom0 = 1, tAnchorFrac = 0, tAnchorIdx = 0;

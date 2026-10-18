@@ -364,6 +364,7 @@
 
     let smartStripHtml = '';
     const smartFridge2 = cache.smartFridge2;
+    const smartHaier = cache.smartHaier;
     if (boxKey === 'fridge2') {
       const sF2 = smartFridge2 || {};
       const lastI = (sF2.fridge && sF2.fridge.length) ? sF2.fridge.length - 1 : -1;
@@ -388,6 +389,32 @@
           <span>🌡 Env ${envStr} · Target ${tgtStr}</span>
           <span style="color:var(--border);">·</span>
           <span style="color:${ecoClr}; font-weight:800;">${ecoStr}</span>
+        </div>
+      `;
+    }
+
+    if (boxKey === 'haier') {
+      const sH = smartHaier || {};
+      const lastI = (sH.target && sH.target.length) ? sH.target.length - 1 : -1;
+      const hPwr    = (lastI >= 0 && sH.power   && sH.power[lastI]   != null) ? sH.power[lastI]   : FX.getFeedVal('Haier Power');
+      const hTarget = (lastI >= 0 && sH.target  && sH.target[lastI]  != null) ? sH.target[lastI]  : FX.getFeedVal('Haier Target Temp');
+      const hCurr   = (lastI >= 0 && sH.current && sH.current[lastI] != null) ? sH.current[lastI] : FX.getFeedVal('Haier Current Temp');
+      const hMode   = (lastI >= 0 && sH.mode    && sH.mode[lastI]    != null) ? sH.mode[lastI]    : FX.getFeedVal('Haier Mode');
+      const hFan    = (lastI >= 0 && sH.fan     && sH.fan[lastI]     != null) ? sH.fan[lastI]     : FX.getFeedVal('Haier Fan Speed');
+
+      const isPwrOn = (hPwr == 1);
+      const pwrStr  = isPwrOn ? 'ON' : 'OFF';
+      const pwrClr  = isPwrOn ? '#4ade80' : '#a1a1aa';
+      const tgtStr  = hTarget != null ? `${Math.round(hTarget)}°C` : '--';
+      const curStr  = hCurr   != null ? `${Math.round(hCurr)}°C`   : '--';
+      const modeStr = hMode   != null ? `${Math.round(hMode)}`     : '--';
+      const fanStr  = hFan    != null ? `${Math.round(hFan)}`      : '--';
+
+      smartStripHtml = `
+        <div style="margin-top:4px; font-size:11.5px; font-weight:700; color:var(--text-muted); display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+          <span style="color:#a5f3fc; font-weight:800;">❄ Set ${tgtStr} → ${curStr}</span>
+          <span style="color:var(--border);">·</span>
+          <span><b style="color:${pwrClr}; font-weight:800;">${pwrStr}</b> · Mode ${modeStr} · Fan ${fanStr}</span>
         </div>
       `;
     }

@@ -310,7 +310,10 @@
             ? getKarachiDate(ts) : { hour: 0 };
           const ampm = pkt.hour >= 12 ? 'pm' : 'am';
           const hh = pkt.hour % 12 || 12;
-          gctx.fillText(hh + ampm, lx, PT + cH + 15);
+          const isPkt = (new Date().getTimezoneOffset() === -300);
+            const mm = isPkt ? new Date(ts).getMinutes() : new Date(ts + 18000000).getUTCMinutes();
+            const timeLabel = mm > 0 ? `${hh}:${String(mm).padStart(2, '0')}${ampm}` : `${hh}${ampm}`;
+            gctx.fillText(timeLabel, lx, PT + cH + 15);
         }
       }
 
@@ -473,7 +476,10 @@
               ? getKarachiDate(ts) : { hour: 0 };
             const ampm = pkt.hour >= 12 ? 'pm' : 'am';
             const hh = pkt.hour % 12 || 12;
-            gctx.fillText(hh + ampm, lx, PT + cH + 16);
+            const isPkt = (new Date().getTimezoneOffset() === -300);
+            const mm = isPkt ? new Date(ts).getMinutes() : new Date(ts + 18000000).getUTCMinutes();
+            const timeLabel = mm > 0 ? `${hh}:${String(mm).padStart(2, '0')}${ampm}` : `${hh}${ampm}`;
+            gctx.fillText(timeLabel, lx, PT + cH + 16);
           }
         }
 
@@ -623,7 +629,10 @@
               ? getKarachiDate(ts) : { hour: 0 };
             const ampm = pkt.hour >= 12 ? 'pm' : 'am';
             const hh = pkt.hour % 12 || 12;
-            gctx.fillText(hh + ampm, lx, PT + cH + 16);
+            const isPkt = (new Date().getTimezoneOffset() === -300);
+            const mm = isPkt ? new Date(ts).getMinutes() : new Date(ts + 18000000).getUTCMinutes();
+            const timeLabel = mm > 0 ? `${hh}:${String(mm).padStart(2, '0')}${ampm}` : `${hh}${ampm}`;
+            gctx.fillText(timeLabel, lx, PT + cH + 16);
           }
         }
 

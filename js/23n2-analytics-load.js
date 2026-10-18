@@ -177,6 +177,7 @@
       // ── Standard non-battery feeds ──
       let ptsData = [], ptsAux = [], ptsF1 = [], ptsF2 = [], outageSummary = null;
       let smartFridge2 = null;
+      let smartHaier = null;
 
       if (isDayMode) {
         const tasks = [ _gFetch(cfg.feedId, startMs, endMs, 120) ];
@@ -192,6 +193,14 @@
             _gFetch('547306', startMs, endMs, 120), // Env Temp
             _gFetch('547307', startMs, endMs, 120), // Target Temp
             _gFetch('547308', startMs, endMs, 120)  // Eco Mode
+          );
+        } else if (boxKey === 'haier') {
+          tasks.push(
+            _gFetch('547315', startMs, endMs, 120), // Haier Power
+            _gFetch('547316', startMs, endMs, 120), // Haier Target Temp
+            _gFetch('547317', startMs, endMs, 120), // Haier Current Temp
+            _gFetch('547318', startMs, endMs, 120), // Haier Mode
+            _gFetch('547319', startMs, endMs, 120)  // Haier Fan Speed
           );
         }
 
@@ -215,6 +224,14 @@
             env:     mapFn(res[3] || [], navObj, 'Fridge2 Env Temp'),
             target:  mapFn(res[4] || [], navObj, 'Fridge2 Target Temp'),
             eco:     mapFn(res[5] || [], navObj, 'Fridge2 Eco Mode')
+          };
+        } else if (boxKey === 'haier' && typeof mapFn === 'function') {
+          smartHaier = {
+            power:   mapFn(res[1] || [], navObj, 'Haier Power'),
+            target:  mapFn(res[2] || [], navObj, 'Haier Target Temp'),
+            current: mapFn(res[3] || [], navObj, 'Haier Current Temp'),
+            mode:    mapFn(res[4] || [], navObj, 'Haier Mode'),
+            fan:     mapFn(res[5] || [], navObj, 'Haier Fan Speed')
           };
         }
 
@@ -265,7 +282,7 @@
       state.cachedData = {
         startMs, endMs, periodLabel, periodSub, isDayMode,
         ptsData, ptsAux, ptsF1, ptsF2, outageSummary, rate,
-        smartFridge2,
+        smartFridge2, smartHaier,
         dailyMap: {}
       };
 

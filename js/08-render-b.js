@@ -361,7 +361,9 @@ function renderResults(results) {
       if (isCharging) currentText = `Charging: ${chgA.toFixed(1)}A`;
       else if (isDischarging) currentText = `Discharging: ${disA.toFixed(1)}A`;
 
-      const batRate = window.lastBatRate || (typeof getBatteryContinuousRate === 'function' ? getBatteryContinuousRate(isCharging, isDischarging, (isCharging ? liveChgWatts : (isDischarging ? liveDisWatts : 0)), packWh) : null);
+      const _liveChgWatts = (netW > 15) ? netW : (Math.abs(batV * chgA) || 0);
+      const _liveDisWatts = (netW < -15) ? Math.abs(netW) : (Math.abs(batV * disA) || 0);
+      const batRate = window.lastBatRate || (typeof getBatteryContinuousRate === 'function' ? getBatteryContinuousRate(isCharging, isDischarging, (isCharging ? _liveChgWatts : (isDischarging ? _liveDisWatts : 0)), packWh) : null);
       let rateRowHtml = '';
       if (batRate) {
         rateRowHtml = `

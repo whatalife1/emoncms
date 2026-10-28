@@ -203,6 +203,48 @@ window.generateGraphReport = async function(forceRefresh = false, customNav = nu
 		totalDayLoadKwh - solarGenDayKwh + batChargedDayKwh - batSavedDayKwh);
 	const netLoadNightKwh = Math.max(0,
 		totalNightLoadKwh - solarGenNightKwh + batChargedNightKwh - batSavedNightKwh);
+
+	// COMPACT UNITS SUMMARY
+	function _buildCompactUnitsSummary(isHtml) {
+		const GRID_ACTUAL = parseFloat(localStorage.getItem('reportGridActualUnits') || '') || null;
+		const KNOWN_UNTRACKED_UNITS = parseFloat(localStorage.getItem('reportKnownUntrackedUnits') || '0') || 0;
+		const KNOWN_UNTRACKED_DESC  = localStorage.getItem('reportKnownUntrackedDesc') || 'other loads';
+
+		const roundU = (kwh) => Math.round(kwh || 0);
+		const solarRow   = rows.find(r => r.isSolar);
+		const breakerRow = rows.find(r => r.isBreaker);
+		const othersRow  = rows.find(r => r.name === 'Others (Fans/Lights)');
+		const applianceRows = rows.filter(r => !r.isSolar && !r.isBreaker && !r.isBatteryMetric && r.name !== 'Others (Fans/Lights)');
+		const LABEL_MAP = { 'Kenwood 1Ton':'Kenwood 1Ton','Kenwood 1.5T':'Kenwood 1.5Ton','Haier 1Ton':'Haier 1Ton','Fridge 1':'Fridge 1','Fridge 2':'Fridge 2','PC':'PC','Motor':'Water Motor','Washing Machine':'Washing Machine' };
+
+		const totalUnits = roundU(totalLoadKwh);
+		const totalDayUnits = roundU(totalDayLoadKwh);
+		const totalNightUnits = roundU(totalNightLoadKwh);
+		const unaccountedRaw = othersRow ? othersRow.totalKwh : Math.max(0, totalLoadKwh - applianceRows.reduce((s,r)=>s+r.totalKwh,0));
+		const unaccountedDisplay = KNOWN_UNTRACKED_UNITS > 0 ? Math.max(0, roundU(unaccountedRaw) - KNOWN_UNTRACKED_UNITS) : roundU(unaccountedRaw);
+		const unaccountedNote = KNOWN_UNTRACKED_UNITS > 0 ? ' (known: ' + KNOWN_UNTRACKED_DESC + ' ~' + KNOWN_UNTRACKED_UNITS + ' units)' : '';
+
+		if (isHtml) {
+			let h = '<div style="background:#f4f4f5;border:1px solid #d4d4d8;border-left:4px solid #f59e0b;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-family:monospace;font-size:12px;line-height:1.55;color:#18181b;box-sizing:border-box;width:100%;">';
+			h += '<div style="font-weight:800;font-size:13px;color:#18181b;margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid #d4d4d8;font-family:system-ui,sans-serif;">[COMPACT UNITS SUMMARY]</div>';
+			const rH = (label, value, note) => '<div style="display:flex;justify-content:space-between;gap:8px;padding:1px 0;"><span style="color:#18181b;font-weight:700;">'+label+'</span><span style="color:#18181b;font-weight:800;text-align:right;">'+value+(note?' '+note:'')+'</span></div>';
+			if (solarRow) h += rH('Solar', roundU(solarRow.totalKwh)+' units');
+			if (breakerRow) { const g = roundU(breakerRow.totalKwh); const note = (GRID_ACTUAL != null && GRID_ACTUAL !== g) ? '('+GRID_ACTUAL+' actual)' : ''; h += rH('Grid', g+' units', note); }
+			applianceRows.forEach(r => { h += rH(LABEL_MAP[r.name]||r.name, roundU(r.totalKwh)+' units', '(Night '+String(roundU(r.nightKwh)).padStart(3)+' units)'); });
+			h += rH('Battery saved', roundU(batSavedTotalKwh)+' units');
+			h += '<div style="margin-top:6px;padding-top:6px;border-top:2px solid #f59e0b;font-weight:800;">Total: '+totalUnits+' Units (Day '+totalDayUnits+' units) (Night '+totalNightUnits+' units) -- <span style="color:#b45309;">'+unaccountedDisplay+' units unaccounted'+unaccountedNote+'</span></div></div>';
+			return h;
+		}
+		const pad = (n,w) => { const s = String(n); return s.length >= w ? s : s.padEnd(w, ' '); };
+		let t = '\n' + '='.repeat(72) + '\n[COMPACT UNITS SUMMARY]\n' + '='.repeat(72) + '\n';
+		if (solarRow) t += pad('Solar',16) + '= ' + String(roundU(solarRow.totalKwh)).padStart(4) + ' units\n';
+		if (breakerRow) { const g = roundU(breakerRow.totalKwh); const note = (GRID_ACTUAL != null && GRID_ACTUAL !== g) ? ' ('+GRID_ACTUAL+' actual)' : ''; t += pad('Grid',16) + '= ' + String(g).padStart(4) + ' units' + note + '\n'; }
+		applianceRows.forEach(r => { t += pad(LABEL_MAP[r.name]||r.name,16) + '= ' + String(roundU(r.totalKwh)).padStart(4) + ' units (Night ' + String(roundU(r.nightKwh)).padStart(3) + ' units)\n'; });
+		t += pad('Battery saved',16) + '= ' + String(roundU(batSavedTotalKwh)).padStart(4) + ' units\n';
+		t += pad('Total',16) + '= ' + String(totalUnits).padStart(4) + ' Units (Day ' + totalDayUnits + ' units) (Night ' + totalNightUnits + ' units) ' + unaccountedDisplay + ' units unaccounted' + unaccountedNote + '\n';
+		t += '='.repeat(72) + '\n';
+		return t;
+	}
 	// Text report
 	let txt = `📄 Energy Usage Report: ${label}\n`;
 	txt += `Generated: ${new Date().toLocaleString()}\n`;
@@ -280,6 +322,7 @@ window.generateGraphReport = async function(forceRefresh = false, customNav = nu
 	txt += '☀️ SAVED BY SOLAR'.padEnd(colWidths.name) + ' ' + `-${solKwhTxt.toFixed(2)}`.padStart(colWidths.total) + ' ' + `-${solKwhTxt.toFixed(2)}`.padStart(colWidths.day) + ' ' + '0.00'.padStart(colWidths.night) + '\n';
 	txt += '🔋 SAVED BY BATTERY'.padEnd(colWidths.name) + ' ' + `-${batSavedTotalKwh.toFixed(2)}`.padStart(colWidths.total) + ' ' + `-${batSavedDayKwh.toFixed(2)}`.padStart(colWidths.day) + ' ' + `-${batSavedNightKwh.toFixed(2)}`.padStart(colWidths.night) + '\n';
 	txt += '⚡ NET GRID IMPORT'.padEnd(colWidths.name) + ' ' + netLoadTotalKwh.toFixed(2).padStart(colWidths.total) + ' ' + netLoadDayKwh.toFixed(2).padStart(colWidths.day) + ' ' + netLoadNightKwh.toFixed(2).padStart(colWidths.night) + '\n';
+	txt += _buildCompactUnitsSummary(false);
 	// HTML report
 	let html = `<div class="report-wrapper" style="background:#fff;color:#18181b;border:1px solid #d4d4d8;border-radius:10px;padding:12px;margin-top:10px;font-family:system-ui,sans-serif;box-sizing:border-box;width:100%;max-width:100%;">`;
 	html += `<h4 style="margin:0 0 8px 0;font-size:14px;border-bottom:1px solid #d4d4d8;padding-bottom:4px;color:#18181b;">Consumption Breakdown</h4>`;
@@ -316,6 +359,7 @@ window.generateGraphReport = async function(forceRefresh = false, customNav = nu
 	html += `<span style="color:#f59e0b; font-weight:700;">Day</span> = 7:00 AM → 4:00 PM (9 hrs) &nbsp;|&nbsp; `;
 	html += `<span style="color:#c084fc; font-weight:700;">Night</span> = ${isCycle ? '4:00 PM → 7:00 AM (15 hrs)' : '12:00 AM → 7:00 AM & 4:00 PM → 12:00 AM'}`;
 	html += `</div>`;
+	html += _buildCompactUnitsSummary(true);
 	html += `<div class="table-scroll" style="overflow-x:auto;max-width:100%;width:100%;box-sizing:border-box;"><table style="width:100%;border-collapse:collapse;font-size:11px;font-family:monospace;min-width:900px;">`;
 	html += `<tr style="background:#f4f4f5;border-bottom:2px solid #d4d4d8;">`;
 	html += `<th style="border:1px solid #d4d4d8;padding:6px;text-align:left;">Appliance</th>`;

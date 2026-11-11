@@ -211,12 +211,17 @@ async function fetchAcBreakdown(startMs, endMs) {
             });
           }
 
+          // Only count outages that lasted >= 5 minutes
+          const MIN_OUTAGE_MIN = 5;
+          const filteredEvents = events.filter(ev => ev.durMin >= MIN_OUTAGE_MIN);
+          let filteredOffMin = 0;
+          for (const ev of filteredEvents) filteredOffMin += ev.durMin;
           const resObj = {
             dayKey,
             dayLabel,
-            offMinutes: Math.round(offSec / 60),
-            count,
-            events
+            offMinutes: filteredOffMin,
+            count: filteredEvents.length,
+            events: filteredEvents
           };
 
           if (isPastDay) {

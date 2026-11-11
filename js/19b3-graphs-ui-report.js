@@ -211,6 +211,8 @@ window.generateGraphReport = async function(forceRefresh = false, customNav = nu
 		const KNOWN_UNTRACKED_DESC  = localStorage.getItem('reportKnownUntrackedDesc') || 'other loads';
 
 		const roundU = (kwh) => Math.round(kwh || 0);
+		const _packKwhCmp = (typeof solarCfg !== 'undefined' && solarCfg && solarCfg.batteryKwh > 0) ? solarCfg.batteryKwh : 5.12;
+		const _cycSavedCmp = batSavedTotalKwh / _packKwhCmp;
 		const solarRow   = rows.find(r => r.isSolar);
 		const breakerRow = rows.find(r => r.isBreaker);
 		const othersRow  = rows.find(r => r.name === 'Others (Fans/Lights)');
@@ -232,6 +234,7 @@ window.generateGraphReport = async function(forceRefresh = false, customNav = nu
 			if (breakerRow) { const g = roundU(breakerRow.totalKwh); const note = (GRID_ACTUAL != null && GRID_ACTUAL !== g) ? '('+GRID_ACTUAL+' actual)' : ''; h += rH('Grid', g+' units', note); }
 			applianceRows.forEach(r => { h += rH(LABEL_MAP[r.name]||r.name, roundU(r.totalKwh)+' units', '(Night '+String(roundU(r.nightKwh)).padStart(3)+' units)'); });
 			h += rH('Battery saved', roundU(batSavedTotalKwh)+' units');
+			h += rH('Battery cycles', '~' + _cycSavedCmp.toFixed(2) + ' cycles');
 			h += '<div style="margin-top:6px;padding-top:6px;border-top:2px solid #f59e0b;font-weight:800;">Total: '+totalUnits+' Units (Day '+totalDayUnits+' units) (Night '+totalNightUnits+' units) -- <span style="color:#b45309;">'+unaccountedDisplay+' units unaccounted'+unaccountedNote+'</span></div></div>';
 			return h;
 		}
@@ -241,6 +244,7 @@ window.generateGraphReport = async function(forceRefresh = false, customNav = nu
 		if (breakerRow) { const g = roundU(breakerRow.totalKwh); const note = (GRID_ACTUAL != null && GRID_ACTUAL !== g) ? ' ('+GRID_ACTUAL+' actual)' : ''; t += pad('Grid',16) + '= ' + String(g).padStart(4) + ' units' + note + '\n'; }
 		applianceRows.forEach(r => { t += pad(LABEL_MAP[r.name]||r.name,16) + '= ' + String(roundU(r.totalKwh)).padStart(4) + ' units (Night ' + String(roundU(r.nightKwh)).padStart(3) + ' units)\n'; });
 		t += pad('Battery saved',16) + '= ' + String(roundU(batSavedTotalKwh)).padStart(4) + ' units\n';
+		t += pad('Battery cycles',16) + '= ~' + _cycSavedCmp.toFixed(2) + ' cycles\n';
 		t += pad('Total',16) + '= ' + String(totalUnits).padStart(4) + ' Units (Day ' + totalDayUnits + ' units) (Night ' + totalNightUnits + ' units) ' + unaccountedDisplay + ' units unaccounted' + unaccountedNote + '\n';
 		t += '='.repeat(72) + '\n';
 		return t;
@@ -251,6 +255,9 @@ window.generateGraphReport = async function(forceRefresh = false, customNav = nu
 	txt += `⚡ Total Electricity Outages: ${acBreakdown.formattedDuration} (${acBreakdown.totalHours} hrs across ${acBreakdown.outageCount} times)\n`;
 	const batEffTxt = batChgTotalWh > 0 ? ((batDisTotalWh / batChgTotalWh) * 100).toFixed(0) + '%' : '100%';
 	txt += `🔋 Battery Cycled: Charged ${(batChgTotalWh/1000).toFixed(2)} kWh | Discharged ${(batDisTotalWh/1000).toFixed(2)} kWh (Efficiency: ${batEffTxt})\n`;
+	const _batPackKwh = (typeof solarCfg !== 'undefined' && solarCfg && solarCfg.batteryKwh > 0) ? solarCfg.batteryKwh : 5.12;
+	const _batCyclesVal = (batDisTotalWh / 1000) / _batPackKwh;
+	txt += `🔄 Battery Cycles: ~${_batCyclesVal.toFixed(2)} cycles (${(batDisTotalWh/1000).toFixed(2)} kWh / ${_batPackKwh} kWh pack)\n`;
 	// -- Outage event times (Day view only) --
 	if (isDay && acBreakdown.dailyBreakdown && acBreakdown.dailyBreakdown.length > 0) {
 		acBreakdown.dailyBreakdown.forEach(d => {
@@ -344,6 +351,9 @@ window.generateGraphReport = async function(forceRefresh = false, customNav = nu
 	html += `<div style="white-space:normal; font-size:11px; color:#ef4444; margin-bottom:8px; padding:3px 10px 4px; line-height:1.25; background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.3); border-radius:6px; box-sizing:border-box; width:100%;"><div style="display:flex; justify-content:space-between; align-items:center; font-weight:700;"><span>⚡ Electricity Breakdown / Outages:</span><span style="font-size:12px; font-weight:800; white-space:nowrap; margin-left:10px;">${acBreakdown.formattedDuration} (${acBreakdown.totalHours} hrs &bull; ${acBreakdown.outageCount} ${acBreakdown.outageCount === 1 ? 'time' : 'times'})</span></div>${outageTimesHtml}</div>`;
 	const batEffPct = batChgTotalWh > 0 ? ((batDisTotalWh / batChgTotalWh) * 100).toFixed(0) : 100;
 	html += `<div style="display:flex; justify-content:space-between; align-items:center; font-size:11px; margin-bottom:8px; padding:6px 10px; background:rgba(16,185,129,0.08); border:1px solid rgba(16,185,129,0.35); border-radius:6px;"><span style="color:#10b981; font-weight:800;">🔋 Battery Cycled:</span><span style="color:var(--text-main); font-weight:700;">⚡ Charged: <b style="color:#10b981;">${(batChgTotalWh/1000).toFixed(2)} kWh</b> &bull; ⚡ Discharged: <b style="color:#f97316;">${(batDisTotalWh/1000).toFixed(2)} kWh</b> &bull; Eff: <b style="color:#38bdf8;">${batEffPct}%</b></span></div>`;
+	const _batPackKwhHtml = (typeof solarCfg !== 'undefined' && solarCfg && solarCfg.batteryKwh > 0) ? solarCfg.batteryKwh : 5.12;
+	const _batCyclesValHtml = (batDisTotalWh / 1000) / _batPackKwhHtml;
+	html += `<div style="display:flex; justify-content:space-between; align-items:center; font-size:11px; margin-bottom:8px; padding:6px 10px; background:rgba(56,189,248,0.08); border:1px solid rgba(56,189,248,0.35); border-radius:6px;"><span style="color:#38bdf8; font-weight:800;">🔄 Battery Cycles:</span><span style="color:var(--text-main); font-weight:700;"><b style="color:#38bdf8;">~${_batCyclesValHtml.toFixed(2)} cycles</b> &bull; ${(batDisTotalWh/1000).toFixed(2)} kWh / ${_batPackKwhHtml} kWh pack</span></div>`;
 		// Night Energy Balance badge
 	if (totalNightLoadKwh > 0.05) {
 		const nightBatPct = Math.min(100, Math.round((batSavedNightKwh / totalNightLoadKwh) * 100));
@@ -431,7 +441,7 @@ window.generateGraphReport = async function(forceRefresh = false, customNav = nu
 	const solarSavedTotalKwh = solarRow ? solarRow.totalKwh : 0;
 	const solarSavedDayKwh = solarSavedTotalKwh;
 	html += `<tr style="background:rgba(245,158,11,0.06);font-weight:bold;color:#f59e0b;">`;
-	html += `<td style="border:1px solid #d4d4d8;padding:6px;">☀️ SAVED BY SOLAR</td>`;
+	html += `<td style="border:1px solid #d4d4d8;padding:6px;">☀️ SOLAR</td>`;
 	html += `<td style="border:1px solid #d4d4d8;padding:6px;text-align:right;color:#f59e0b;">-${solarSavedTotalKwh.toFixed(2)}</td>`;
 	html += `<td style="border:1px solid #d4d4d8;padding:6px;text-align:right;color:#f59e0b;">-${solarSavedDayKwh.toFixed(2)}</td>`;
 	html += `<td style="border:1px solid #c4b5fd;padding:6px;text-align:right;background:#fef3c7;color:#b45309;font-weight:900;">0.00</td>`;
@@ -441,7 +451,7 @@ window.generateGraphReport = async function(forceRefresh = false, customNav = nu
 
 	// 3. Battery Savings Row
 	html += `<tr style="background:rgba(16,185,129,0.06);font-weight:bold;color:#10b981;">`;
-	html += `<td style="border:1px solid #d4d4d8;padding:6px;">🔋 SAVED BY BATTERY</td>`;
+	html += `<td style="border:1px solid #d4d4d8;padding:6px;">🔋 BATTERY (~${Math.round(batSavedTotalKwh / _batPackKwhHtml)}c)</td>`;
 	html += `<td style="border:1px solid #d4d4d8;padding:6px;text-align:right;color:#10b981;">-${batSavedTotalKwh.toFixed(2)}</td>`;
 	html += `<td style="border:1px solid #d4d4d8;padding:6px;text-align:right;color:#10b981;">-${batSavedDayKwh.toFixed(2)}</td>`;
 	html += `<td style="border:1px solid #c4b5fd;padding:6px;text-align:right;background:#d1fae5;color:#047857;font-weight:900;">-${batSavedNightKwh.toFixed(2)}</td>`;

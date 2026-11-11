@@ -53,16 +53,20 @@ function _renderFeedStats(stat, ctx) {
       });
     }
 
-    const totalMinutes = Math.round(totalOffSeconds / 60);
-    const hrs = Math.floor(totalMinutes / 60);
-    const mins = totalMinutes % 60;
-    const formattedDuration = hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`;
+    // Only count outages that lasted >= 5 minutes
+    const MIN_OUTAGE_MIN = 5;
+    const filteredEvents = events.filter(ev => ev.durMin >= MIN_OUTAGE_MIN);
+    let filteredMinutes = 0;
+    for (const ev of filteredEvents) filteredMinutes += ev.durMin;
+    const filteredHrs = Math.floor(filteredMinutes / 60);
+    const filteredMins = filteredMinutes % 60;
+    const filteredFormatted = filteredHrs > 0 ? `${filteredHrs}h ${filteredMins}m` : `${filteredMins}m`;
 
     return {
-      totalMinutes,
-      formattedDuration,
-      outageCount,
-      events
+      totalMinutes: filteredMinutes,
+      formattedDuration: filteredFormatted,
+      outageCount: filteredEvents.length,
+      events: filteredEvents
     };
   };
 
